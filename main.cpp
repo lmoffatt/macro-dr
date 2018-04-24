@@ -1,13 +1,24 @@
 #include <iostream>
-#include "myCommandManagement.h"
-#include "CommandManager.h"
+//#include "myCommandManagement.h"
 
 #include "qmodel.h"
+#include "mygrammar.h"
+#include "mycompilation.h"
+#include "mynewcommandmanager.h"
+#include "myscriptmanager.h"
 int main(int argc, char **argv)
 {
     std::cerr<<argv[0]<<"\n";
     std::cerr<<argv[1]<<"\n";
 
+
+    grammar::CommandManager<Cs<int,double>,Cs<int, double>> k{};
+    std::map<double, std::string> p{{0.5,"gsdgfs"},{9,"gsdhse"}};
+    std::cout<<p;
+    std::cin>>p;
+    std::cout<<p;
+
+    std::cout<<std::tuple(1.4566,"qr");
 
     auto A=Allosteric_Model
             (
@@ -42,13 +53,13 @@ int main(int argc, char **argv)
 
     auto Q=A.Qs(P);
 
-    typedef myCommandManager<Cls,Cs<bool>,Cs<>> CM;
+    typedef grammar::CommandManager<Cs<bool>,Cs<>> CM;
 
     CM cm;
 
-    /* cmd_["read"]=new readCommand(this);
+    /* cmd_["readIt"]=new readCommand(this);
       cmd_["align"]=new AlignCommand(this);
-      cmd_["write"]=new writeCommand(this);
+      cmd_["writeIt"]=new writeCommand(this);
       cmd_["merge"]=new MergeCommand(this);
       cmd_["distances"]=new DistancesCommand(this);
       cmd_["histogram"]=new HistogramCommand(this);
@@ -60,16 +71,16 @@ int main(int argc, char **argv)
       cmd_["tempering"]=new TemperingCommand(this);
     */
     /*
-    cm.push_command("read",
+    cm.push_command("readIt",
                     make_Command
-                    (C<CM>(),C<void>(),Co<Cls>(),read<CM>(),
+                    (C<CM>(),C<void>(),Co<Cls>(),readIt<CM>(),
                      std::pair<CM*,std::string>{&cm,"CommandManager"},
                      std::pair<std::string,std::string>{"","filename"},
                      std::pair<std::ostream*,std::string>{&std::cerr,"log_stream"}));
 
-    cm.push_command("write",
+    cm.push_command("writeIt",
                     make_Command
-                    (C<CM>(),C<bool>(),Co<Cls>(),write<CM>(),
+                    (C<CM>(),C<bool>(),Co<Cls>(),writeIt<CM>(),
                      std::pair<CM*,std::string>{&cm,"CommandManager"},
                      std::pair<std::string,std::string>{"","id"},
                      std::pair<std::ostream*,std::string>{&std::cerr,"log_stream"},
@@ -122,10 +133,11 @@ int main(int argc, char **argv)
 
     }
         break;
+
+
+
+
+        return 0;
 }
 
-
-
-return 0;}
-
-
+}

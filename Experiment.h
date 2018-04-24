@@ -109,7 +109,7 @@ public:
     }
 
 
-    Experiment(std::vector<point>&& points,const std::vector<std::size_t>& start_points, const std::vector<std::pair<std::size_t, std::size_t>>& step_start_trace)
+    Experiment(std::vector<point<double,double>>&& points,const std::vector<std::size_t>& start_points, const std::vector<std::pair<std::size_t, std::size_t>>& step_start_trace)
         : points_{std::move(points)}, steps_{},traces_{}
 
     {
@@ -119,7 +119,7 @@ public:
             traces_.emplace_back(trace(*this,e.first,e.second));
     }
 
-    Experiment(std::vector<point>&& points,const std::vector<std::size_t>& start_points)
+    Experiment(std::vector<point<double,double>>&& points,const std::vector<std::size_t>& start_points)
         : points_{std::move(points)}, steps_{},traces_{}
 
     {
@@ -129,7 +129,7 @@ public:
     }
 
 
-    Experiment(std::vector<point>&& points)
+    Experiment(std::vector<point<double,double>>&& points)
         : points_{std::move(points)}, steps_{},traces_{}
 
     {
@@ -185,8 +185,8 @@ private:
 
     }
     friend class step;
-    friend class point;
-    std::vector<point> points_;
+    friend class point<double,double>;
+    std::vector<point<double,double>> points_;
     std::vector<step> steps_;
     std::vector<trace> traces_;
 }; // namespace experiment

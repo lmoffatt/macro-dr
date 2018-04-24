@@ -156,7 +156,7 @@ private:
     {
         std::vector<std::string> out(cc.size(),"");
         for (std::size_t i=0; i<cc.size(); ++i)
-            if ( index>>i & 1==1)   out[i]=cc[i];
+            if ( ((index>>i) & 1)==1)   out[i]=cc[i];
         return out;
     }
 

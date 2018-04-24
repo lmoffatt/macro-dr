@@ -3,7 +3,7 @@
 #include <string>
 #include <map>
 #include "myCommandManagement.h"
-#include"myInputSerializer.h"
+#include"mySerializer.h"
 
 #include <experimental/type_traits>
 /*! @file CommandManager.h   Management of the commands
@@ -14,18 +14,6 @@
 
 
 
-
-
-
-
-
-inline std::string& removeComments(std::string& line)
-{
-  auto pos=line.find("//");
-  if (pos!=line.npos)
-    line.erase(pos);
-  return line;
-}
 
 
 inline std::string& replaceLabel(std::string& line,
@@ -133,18 +121,18 @@ auto read_from_stream(std::istream& is,std::ostream& /*logstream*/,T*& x)
 
 template<typename T>
 auto read_from_stream(std::istream& is,std::ostream& logstream,T*& x)
-->decltype (x->read(std::string(),is,logstream))
+->decltype (x->readIt(std::string(),is,logstream))
 {
   std::string s;
-  return x->read(s,is,logstream);
+  return x->readIt(s,is,logstream);
 }
 
 template<typename T>
 auto read_from_stream(std::istream& is,std::ostream& logstream,T& x)
-->decltype (x.read(std::string(),is,logstream))
+->decltype (x.readIt(std::string(),is,logstream))
 {
   std::string s;
-  return x.read(s,is,logstream);
+  return x.readIt(s,is,logstream);
 }
 
 
@@ -177,18 +165,18 @@ auto write_to_stream(std::ostream& os,std::ostream& /*logstream*/,T*& x)
 
 template<typename T>
 auto write_to_stream(std::ostream& os,std::ostream& logstream,T*& x)
-->decltype (x->write(std::string(),os,logstream))
+->decltype (x->writeIt(std::string(),os,logstream))
 {
   std::string s;
-  return x->write(s,os,logstream);
+  return x->writeIt(s,os,logstream);
 }
 
 template<typename T>
 auto write_to_stream(std::ostream& os,std::ostream& logstream,T& x)
-->decltype (x.write(std::string(),os,logstream))
+->decltype (x.writeIt(std::string(),os,logstream))
 {
   std::string s;
-  return x.write(s,os,logstream);
+  return x.writeIt(s,os,logstream);
 }
 
 
@@ -206,13 +194,13 @@ public:
     return ClassName_imp<T>(typename has_ClassName_traits<T>::tag());
   }
   static
-  bool read(std::istream& is,T& x,std::ostream& logstream)
+  bool readIt(std::istream& is,T& x,std::ostream& logstream)
   {
     return read_from_stream(is,logstream,x);
   }
 
   static
-  bool write (std::ostream& os, const T& x, std::ostream& logstream)
+  bool writeIt (std::ostream& os, const T& x, std::ostream& logstream)
   {
     return write_to_stream(os,logstream,x);
 
@@ -232,12 +220,12 @@ public:
     return ClassName_imp<T>(typename has_ClassName_traits<T>::tag());
   }
   static
-  bool read(std::istream& is,T*& x,std::ostream& logstream)
+  bool readIt(std::istream& is,T*& x,std::ostream& logstream)
   {
     return read_from_stream(is,logstream,x);
   }
   static
-  bool write (std::ostream& os, const T* x, std::ostream& logstream)
+  bool writeIt (std::ostream& os, const T* x, std::ostream& logstream)
   {
     return write_to_stream(os,logstream,x);
 
@@ -316,7 +304,7 @@ public:
              std::ostream* logs)
   {
     *f<<idname<<"\n"<<Cls<T>::name()<<"\n";
-    Cls<T>::write(*f,x,*logs);
+    Cls<T>::writeIt(*f,x,*logs);
     *f<<"\n";
   }
 
@@ -337,7 +325,7 @@ struct doesWriteDataFrame<T, void_t<decltype(std::declval<T>().writeDataFrame(st
 template <bool, typename T>
 struct writeDataFrame
 {
-  static void write(const T&,std::ostream*, std::ostream* log)
+  static void writeIt(const T&,std::ostream*, std::ostream* log)
   {
     *log<<Cls<T>::name()<<" writeDataFrame is not implemented\n";
 
@@ -348,7 +336,7 @@ struct writeDataFrame
 template <typename T>
 struct writeDataFrame<true,T>
 {
-  static void write(const T& x,std::ostream* f, std::ostream*/* log*/)
+  static void writeIt(const T& x,std::ostream* f, std::ostream*/* log*/)
   {
     x.writeDataFrame(*f);
     *f<<"\n";
@@ -359,7 +347,7 @@ struct writeDataFrame<true,T>
 template <typename T>
 struct writeDataFrame<true,T*>
 {
-  static void write(const T* x,std::ostream* f, std::ostream* /*log*/)
+  static void writeIt(const T* x,std::ostream* f, std::ostream* /*log*/)
   {
     x->writeDataFrame(*f);
     *f<<"\n";
@@ -378,7 +366,7 @@ class DataFrameIt
 public:
   static void apply(const T& x,std::ostream* f,std::ostream* log)
   {
-    writeDataFrame<doesWriteDataFrame<std::remove_pointer_t<T>>::value,T>::write(x,f,log);
+    writeDataFrame<doesWriteDataFrame<std::remove_pointer_t<T>>::value,T>::writeIt(x,f,log);
   }
 
 };
@@ -391,7 +379,7 @@ public:
 
 
 template<class Cm>
-struct read
+struct readIt
 {
   void operator()(Cm* cm,const std::string& filename, std::ostream* logs  )const
   {
@@ -401,7 +389,7 @@ struct read
 };
 
 template<class Cm>
-struct write{
+struct writeIt{
   bool operator()(Cm* cm,const std::string& idname, std::ostream* logs,  std::string fname, bool append) const
 
 

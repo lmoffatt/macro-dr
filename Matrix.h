@@ -23,8 +23,8 @@
 #include <algorithm>
 #include <memory>
 
-#include "myInputSerializer.h"
-#include "myOutputSerializer.h"
+#include "mySerializer.h"
+#include "mySerializer.h"
 
 
 inline double logit(double x){return std::log(x/(1.0-x));}
@@ -1198,6 +1198,7 @@ private:
   std::vector<T>        _data;
   T zero_=T{};
 };
+
 template<typename T>
 M_Matrix<T> operator-(const M_Matrix<T>& x)
 {

@@ -13,7 +13,7 @@
 
 #include <type_traits>
 #include "myTuples.h"
-#include "myInputSerializer.h"
+#include "mySerializer.h"
 
 
 
@@ -100,7 +100,7 @@ bool load_from_file(C<T>,const std::string& file_name, T& x, std::ostream& logst
     }
     else
         logstream<<"file "<<filename<<" opened successfully\n";
-    if (Cls<T>::read(fi,x,logstream))
+    if (Cls<T>::readIt(fi,x,logstream))
     {
         logstream<<Cls<T>::name()<<" "<<file_name<<" loaded successfully \n";
         fi.close();
@@ -164,7 +164,7 @@ std::pair<R,bool> run_R_impl_1(Cm* cm,
     else
     {
         std::stringstream ss(it->second);
-        if (Cls<T>::read(ss,a.first,log))
+        if (Cls<T>::readIt(ss,a.first,log))
         {
             log<<it->first<<"="+it->second<<", ";
         }
@@ -351,7 +351,7 @@ bool run_void_impl_1(Cm* cm,
     else
     {
         std::stringstream ss(it->second);
-        if (Cls<T>::read(ss,a.first,log))
+        if (Cls<T>::readIt(ss,a.first,log))
         {
             log<<it->first<<"="+it->second<<", ";
         }
@@ -583,7 +583,7 @@ bool apply_impl(const Co<F>& f,Cm* cm,const std::string& id, Cs<T,Ts...>, Args..
 /*!
  * \tparam Cls
  * Cls<T>::name()
- * Cls<T>::read(std::istream&,T& x,std::ostream& logstream)
+ * Cls<T>::readIt(std::istream&,T& x,std::ostream& logstream)
  */
 template<template<typename> class Cls,typename...Ts, class... Tptrs>
 class myCommandManager<Cls,Cs<Ts...>,Cs<Tptrs...>>
@@ -664,60 +664,6 @@ public:
     bool get(C<T*>,const std::string& id, T*& x)
     {
         return get_map(id,x,dataPtr_);
-    }
-
-    template< typename T, typename Alloc,
-              typename std::enable_if<!std::is_pointer<T>::value,int>::type = 0>
-    bool get(C<std::vector<T, Alloc>>,const std::string& id, std::vector<T,Alloc>& v)
-    {
-        if (get_map(id,v,data_))
-            return true;
-        else
-        {
-            std::vector<std::string> ids;
-            std::stringstream ss(id);
-            if (ss>>ids)
-            {
-                for (std::string name:ids)
-                {
-                    T x;
-                    if (!get_map(name,x,data_))
-                        return false;
-                    else
-                        v.push_back(x);
-                }
-                return true;
-            }
-            else return false;
-        }
-    }
-
-    template< typename T, typename Alloc>
-    bool get(C<std::vector<T*, Alloc>>, const std::string& id, std::vector<T*,Alloc>& v)
-    {
-        if (get_map(id,v,data_))
-            return true;
-        else
-        {
-            std::vector<std::string> ids;
-            std::stringstream ss(id);
-            if (ss>>ids)
-            {
-                for (std::string name:ids)
-                {
-                    T *x=new T;
-                    if (!get_map(name,x,dataPtr_))
-                    {
-                        delete x;
-                        return false;
-                    }
-                    else
-                        v.push_back(x);
-                }
-                return true;
-            }
-            else return false;
-        }
     }
 
 
