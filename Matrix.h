@@ -87,7 +87,7 @@ namespace Container_Unary_Functions
       }
     return std::sqrt(sum2/x.size()-sqr(sum/x.size()));
   }
-};
+}
 
 
 namespace Container_Binary_Transformations
@@ -138,7 +138,7 @@ namespace Container_Binary_Transformations
     return additive::operator_additive_assigment(itself,other);
   }
 
-};
+}
 
 
 
@@ -1256,7 +1256,7 @@ namespace Vector_Binary_Transformations
     return out;
   }
 
-};
+}
 namespace Vector_Binary_Transformations
 {
 
@@ -1332,7 +1332,7 @@ namespace Vector_Binary_Transformations
   }
 
 
-};
+}
 
 namespace lapack
 {
@@ -1524,7 +1524,7 @@ namespace Matrix_Stream_Operators
     return is;
 
   }
-};
+}
 
 
 namespace Matrix_Unary_Predicates
@@ -1570,7 +1570,7 @@ namespace Matrix_Unary_Size_Functions
   template<typename T>
   std::size_t size(const M_Matrix<T>& x){return x.size();}
 
-};
+}
 using namespace Matrix_Unary_Size_Functions;
 namespace Matrix_Unary_Transformations
 {
@@ -1753,7 +1753,7 @@ namespace Matrix_Unary_Functions
 
 
 
-};
+}
 
 
 
@@ -2585,7 +2585,7 @@ namespace Matrix_Unary_Transformations
 
         }
     }
-  };
+  }
 
   namespace cholesky
   {
@@ -2769,7 +2769,7 @@ namespace Matrix_Unary_Transformations
 
 
 
-  };
+  }
 
   template <class T>
   std::pair<M_Matrix<T>, std::string>
@@ -2858,7 +2858,7 @@ namespace Matrix_Unary_Transformations
     return rowvec;
   }
 
-};
+}
 
 /**
   Blas
@@ -3027,7 +3027,7 @@ Matrix Equality Operator
 
   }
 
-};
+}
 
 
 namespace Matrix_Binary_Transformations
@@ -4209,7 +4209,7 @@ namespace Matrix_Binary_Transformations
 
 
 
-  };
+  }
 
   template<typename T, typename S>
   auto
@@ -4753,7 +4753,7 @@ namespace Matrix_Binary_Transformations
     M_Matrix<T> z(x);
     z-=t;
     return z;
-  };
+  }
 
   /**
      Scalar Subtraction reverse order.
@@ -4801,7 +4801,7 @@ namespace Matrix_Binary_Transformations
     M_Matrix<double> z(x);
     z/=double(t);
     return z;
-  };
+  }
 
   /**
      Division by inhomogeneus types
@@ -4814,7 +4814,7 @@ namespace Matrix_Binary_Transformations
     M_Matrix<double> z(x);
     z/=double(t);
     return z;
-  };
+  }
 
 
 
@@ -4975,7 +4975,7 @@ namespace Matrix_Binary_Transformations
 
   }
 
-};
+}
 
 
 using namespace Vector_Binary_Transformations;

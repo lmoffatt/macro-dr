@@ -44,16 +44,13 @@ class Statement
 public:
     virtual ~Statement(){}
     virtual std::string value()const=0;
+
     virtual std::size_t nArgin()const=0;
     virtual Statement const * arg(std::size_t i)const=0;
     virtual std::ostream& put(std::ostream& os)const=0;
     virtual bool get(std::stringstream& ss)=0;
 
 };
-
-
-
-
 
 
 class Expression : public Statement
@@ -67,8 +64,6 @@ class Term : public Expression
 public:
     virtual ~Term(){}
 };
-
-
 
 
 inline bool get(std::stringstream& ss, Term*& e);

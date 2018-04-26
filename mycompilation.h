@@ -113,6 +113,7 @@ public:
     void execute(Cm *cm) const
     {
         std::string id=x_->id()->value();
+     //   invoke_optional(&Cm::define,cm,C<T>{},std::move(id),compile(C<T>{},cm,x_->arg(0)));
         cm->define(C<T>{},std::move(id),compile(C<T>{},cm,x_->arg(0)));
     }
 

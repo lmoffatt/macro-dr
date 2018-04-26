@@ -26,20 +26,6 @@ class Co
 
 
 
-template <class T> struct is_container: public std::false_type{};
-
-template<template<typename T,typename> class Co,typename T, typename Alloc>
-struct is_container<Co<T,Alloc>>: public std::true_type{};
-
-template <class T> struct is_map: public std::false_type{};
-
-template <template<class K, class T, class Comp, class Alloc>class Map,class K, class T, class Comp, class Alloc>
-struct is_map<Map<K, T, Comp, Alloc>> : public std::true_type {};
-
-template <class T> struct is_set: public std::false_type{};
-
-template <template<class T, class Comp, class Alloc>class Set,class T, class Comp, class Alloc>
-struct is_set<Set< T, Comp, Alloc>> : public std::true_type {};
 
 
 
@@ -82,8 +68,7 @@ struct hash<Co<T,Alloc>>
       return s;
    }
 };
-
-};
+}
 
 
 

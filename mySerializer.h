@@ -8,18 +8,240 @@
 #include <sstream>
 
 #include "myTuples.h"
+#include "myfields.h"
+#include "mytypetraits.h"
 
 #include <cctype>
 #include <variant>
-template<typename T>
-std::ostream& write(std::ostream& os, const T& e);
+#include <functional>
+#include <type_traits>
+#include <sstream>
+#include <string>
+//template<typename T>
+//  std::ostream& write(std::ostream& os, const T& e);
+
+
+///----------------- Declarations-----------------------------------------///
+
+/*-     POD  */
+
+
+template<typename T> std::ostream& write(std::ostream& s, const T& v);
+template<typename T> std::istream& read(std::istream& s, T& v);
+
+
+inline std::istream& read(std::istream& is, double& e);
+
+inline std::ostream& write(std::ostream& os, const std::string& s);
+inline std::istream& read(std::istream& is,  std::string& s);
+
+
+template<typename T> std::istream& read(std::istream& is, T*& e);
+
+template<typename T> std::istream& read_optional(std::istream& is, std::optional<T>& e);
+
+
+inline std::istream &safeGetline(std::istream &is, std::string &t);
+
+
+std::istream& read(std::istream& is, double& e);
+
+template<typename ...Args> std::ostream& operator<<(std::ostream& os, const std::tuple<Args...>& tu);
+template<typename ...Args> std::ostream& write_tuple(std::ostream& os, const std::tuple<Args...>& tu);
+template<typename ...Args> std::istream& operator>>(std::istream& is,  std::tuple<Args...>& tu);
+template<typename ...Args> std::istream& read_tuple(std::istream& is,  std::tuple<Args...>& tu);
+
+
+template<typename T1, typename T2> std::ostream& operator<<(std::ostream& os,const std::pair<T1,T2>& other);
+template<typename T1, typename T2> std::istream& operator>>(std::istream& is,const std::pair<T1,T2>& other);
+template<typename T1, typename T2> std::ostream& write_pair(std::ostream& os,const std::pair<T1,T2>& other);
+template<typename T1, typename T2> std::istream& read_pair(std::istream& is, std::pair<T1,T2>& other);
+
+
+template<typename T> std::ostream& operator<<(std::ostream& s, const std::vector<T>& v);
+
+
+template<typename T> std::istream& operator>>(std::istream& s, std::vector<T>& v);
+template<typename T> std::istream& read_vector(std::istream& s, std::vector<T>& v);
+
+template<typename K,typename T> std::ostream& operator<<(std::ostream& s, const std::map<K,T>& v);
+
+template<typename K,typename T> std::istream& operator>>(std::istream& s, std::map<K,T>& v);
+template<typename K,typename T> std::ostream& write_map(std::ostream& s, const std::map<K,T>& v);
+
+template<typename K,typename T> std::istream& read_map(std::istream& s, std::map<K,T>& v);
+
+
+template<typename K,typename T> std::istream& operator>>(std::istream& s, std::multimap<K,T>& v);
+template<typename K,typename T> std::ostream& operator<<(std::ostream& s, const std::multimap<K,T>& v);
+
+template<typename K,typename T> std::istream& read_multimap(std::istream& s, std::multimap<K,T>& v);
+
+template<typename K,typename T> std::ostream& write_multimap(std::ostream& s, const std::multimap<K,T>& v);
+template<typename K> std::ostream& operator<<(std::ostream& s, const std::set<K>& v);
+template<typename K> std::istream& operator>>(std::istream& s, const std::set<K>& v);
+
+template<typename K> std::ostream& write_set(std::ostream& s, const std::set<K>& v);
+template<typename K> std::istream& read_set(std::istream& s,  std::set<K>& v);
+
+
+
+
+template<typename Token,typename T> std::istream& read_variant(std::istream& is, std::variant<Token,T>& e);
+
+
+namespace io
+{
+
+template<char... cs> struct token {
+    static constexpr char value[]={cs...};
+    typedef int this_is_token;
+};
+template <typename >
+struct is_token : std::false_type { };
+
+template <char...c>
+struct is_token<token<c...>>
+    : std::true_type { };
+
+template<template<char...>class token,char... c>
+std::ostream& operator<<(std::ostream& os, token<c...> );
+
+
+
+template<template<char...>class token,char c, char... chs>
+std::istream& operator>>(std::istream& is, token<c,chs...> );
+
+
+
+
+template<template<char...>class token>
+std::istream& operator>>(std::istream& is, token<> );
+
+template<template<char...>class token,char c, char... chs>
+std::istream& operator>>(std::istream& is, token<c,chs...> );
+
+template<template<char...>class token,char c, char... chs>
+bool get(std::stringstream& ss, token<c,chs...> t);
+
+
+typedef token<'{'> start_of_Container;
+
+typedef token<'}'> end_of_Container;
+
+typedef token<'\n'> end_of_line;
+
+
+typedef start_of_Container start_of_tuple;
+
+typedef end_of_Container end_of_tuple;
+
+typedef start_of_Container start_of_pair;
+
+typedef end_of_Container end_of_pair;
+
+
+typedef token<'\t'> separator;
+
+typedef token<'='> equal;
+
+typedef separator write_separator;
+
+
+struct size_of_container
+{
+    std::size_t size;
+};
+
+std::ostream& operator<<(std::ostream& os, const size_of_container& n);
+
+std::istream& operator>>(std::istream& is, size_of_container& n);
+
+template<typename T> std::ostream& output_operator_on_element(std::ostream& os, const T& e);
+
+template<typename T> std::ostream& write_on_element(std::ostream& os, const T& e);
+
+template<typename T> std::ostream& output_operator_on_element(std::ostream& os, const T * const e);
+template<typename T> std::ostream& write_on_element(std::ostream& os, const T*& e);
+template<typename T> std::istream& input_operator_on_element(std::istream& is, T& e);
+template<typename T> std::istream& input_operator_on_element(std::istream& is, T*& e);
+
 
 template<typename T>
-std::istream& read(std::istream& os, T& e);
-
-
+std::istream& read_on_element(std::istream& is, T& e);
 template<typename T>
-std::istream& read(std::istream& is, T*& e)
+std::istream& read_on_element(std::istream& is, T*& e);
+template<typename Token,typename T>
+std::istream& read_on_element(std::istream& is, std::variant<Token,T>& e);
+
+
+inline
+std::istream& extract_infinite(std::istream& ss, double& val, bool is_negative);
+inline
+std::istream& extract_nan(std::istream& ss, double& val, bool is_negative);
+inline
+std::istream& extract_finite(std::istream& ss, double& val, bool is_negative);
+
+inline
+std::istream& extract_double(std::istream& ss, double& val);
+
+std::istream& input_operator_on_element(std::istream& is, double& e);
+std::istream& input_operator_on_element(std::istream& is, double*& e);
+
+
+template <class Object,class Method> std::ostream& write_on_Field(std::ostream& os,const grammar::field<Object,Method>& myField, const Object& myObject);
+
+template<class FieldObject> auto write_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (myObject.get_constructor_fields(),os)&;
+
+
+template <class Object,class Method>
+bool read_on_if_field(std::istream& is,const std::string id,  grammar::field<Object,Method>& myField);
+
+
+template <class Object,class... Method>
+std::istream& read_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields);
+
+
+
+template<class FieldObject>
+auto read_on_Object(std::istream& is, FieldObject& myObject)->decltype (myObject.get_constructor_fields(),is)&;
+
+
+template<typename T1, typename T2> std::ostream& operator<<(std::ostream& os,const std::pair<T1,T2>& other);
+template<typename T1, typename T2> std::istream& operator>>(std::istream& is,std::pair<T1,T2>& other);
+
+
+template<class Container> std::ostream& output_operator_on_container(std::ostream& os,const Container& myContainer);
+
+
+
+template<class Container> std::ostream& write_on_container(std::ostream& os,const Container& myContainer);
+
+template<template <class,class> class Container,typename T, class Allocator> std::istream& input_operator_on_container(std::istream& is, Container<T,Allocator> & myContainer);
+template<template <class,class> class Container,typename T, class Allocator> std::istream& read_on_container(std::istream& is, Container<T,Allocator> & myContainer);
+
+
+
+template<template <class,class, class...> class Map,typename K,typename T, class... Os> std::istream& input_operator_on_Map(std::istream& is, Map<K,T,Os...> & myMap);
+template<template <class,class, class...> class Map,typename K,typename T, class... Os> std::istream& read_on_Map(std::istream& is, Map<K,T,Os...> & myMap);
+
+
+template<template <class, class...> class Set,typename K,class... Os> std::istream& input_operator_on_set(std::istream& is, Set<K,Os...> & mySet);
+
+template<template <class, class...> class Set,typename K,class... Os> std::istream& read_on_set(std::istream& is, Set<K,Os...> & mySet);
+
+}
+
+///-----------------Implementations------------------------------------------///
+
+
+inline std::ostream& write(std::ostream& os, const std::string& s) {return os<<s;}
+
+inline std::istream& read(std::istream& is,  std::string& s){return is>>s;}
+
+
+
+template<typename T> std::istream& read(std::istream& is, T*& e)
 {
     auto o=new T{};
     read(is,*o);
@@ -27,9 +249,7 @@ std::istream& read(std::istream& is, T*& e)
     return is;
 }
 
-
-template<typename T>
-std::istream& read(std::istream& is, std::optional<T>& e)
+template<typename T> std::istream& read_optional(std::istream& is, std::optional<T>& e)
 {
     T x;
     if (read(is,x))
@@ -46,9 +266,7 @@ std::istream& read(std::istream& is, std::optional<T>& e)
 
 
 
-
-template<typename Token,typename T>
-std::istream& read(std::istream& is, std::variant<Token,T>& e)
+template<typename Token,typename T> std::istream& read_variant(std::istream& is, std::variant<Token,T>& e)
 {
     Token t;
     if (read(is,t))
@@ -65,13 +283,7 @@ std::istream& read(std::istream& is, std::variant<Token,T>& e)
     return is;
 }
 
-
-
-
-
-
-inline
-std::istream &safeGetline(std::istream &is, std::string &t)
+inline std::istream &safeGetline(std::istream &is, std::string &t)
 {
     is.clear();
     std::getline(is,t);
@@ -81,18 +293,9 @@ std::istream &safeGetline(std::istream &is, std::string &t)
     return is;
 }
 
-
-
-
 namespace io
 {
 
-
-
-
-template<char... cs> struct token {
-    static constexpr char value[]={cs...};
-};
 
 template<char... c>
 std::ostream& operator<<(std::ostream& os, token<c...> )
@@ -100,6 +303,7 @@ std::ostream& operator<<(std::ostream& os, token<c...> )
     (os<<...<<c);
     return os;
 }
+
 
 template<char c, char... chs>
 std::istream& operator>>(std::istream& is, token<c,chs...> );
@@ -162,6 +366,8 @@ typedef token<'}'> end_of_Container;
 
 typedef token<'\n'> end_of_line;
 
+typedef token<'\\','\\','-','-','-','\n'> end_of_Object;
+
 
 typedef start_of_Container start_of_tuple;
 
@@ -179,10 +385,6 @@ typedef token<'='> equal;
 typedef separator write_separator;
 
 
-struct size_of_container
-{
-    std::size_t size;
-};
 
 std::ostream& operator<<(std::ostream& os, const size_of_container& n)
 {
@@ -207,8 +409,9 @@ std::ostream& output_operator_on_element(std::ostream& os, const T& e)
 template<typename T>
 std::ostream& write_on_element(std::ostream& os, const T& e)
 {
-    return os<<io::separator{};
+    os<<io::separator{};
     write(os,e);
+    return os;
 }
 
 template<typename T>
@@ -220,8 +423,9 @@ std::ostream& output_operator_on_element(std::ostream& os, const T * const e)
 template<typename T>
 std::ostream& write_on_element(std::ostream& os, const T*& e)
 {
-    return os<<io::separator{};
+    os<<io::separator{};
     write(os,*e);
+    return os;
 }
 
 template<typename T>
@@ -242,34 +446,42 @@ std::istream& input_operator_on_element(std::istream& is, T*& e)
 template<typename T>
 std::istream& read_on_element(std::istream& is, T& e)
 {
-    return is>>io::separator{};
+     is>>io::separator{};
     read(is,e);
+    return is;
 }
 
 template<typename T>
 std::istream& read_on_element(std::istream& is, T*& e)
 {
-    return is>>io::separator{};
+    is>>io::separator{};
     e=new T;
     read(is,*e);
+    return is;
 }
 
 template<typename Token,typename T>
 std::istream& read_on_element(std::istream& is, std::variant<Token,T>& e)
 {
-    return is>>io::separator{};
+    is>>io::separator{};
     Token t;
-    if (is<<t)
-    {
-        e=t;
-        return is;
-    }
-    else
+    T x;
+    if (!read(is,t))
     {
         is.clear();
-        read(is,e);
+        if (!read(is,x)) return is;
+        else
+        {
+            e=x;
+            return is;
+        }
+   }
+    else{
+        e=t;
+        return is;
 
     }
+   return is;
 }
 
 
@@ -395,16 +607,12 @@ std::istream& input_operator_on_element(std::istream& is, double*& e)
 
 }
 
-
 std::istream& read(std::istream& is, double& e)
 {
     return io::extract_double(is,e);
 }
 
-
-
-template<typename ...Args>
-std::ostream& operator<<(std::ostream& os, const std::tuple<Args...>& tu)
+template<typename ...Args> std::ostream& operator<<(std::ostream& os, const std::tuple<Args...>& tu)
 {
     os<<io::start_of_Container{};
     std::apply([&os](const auto&... v){return ((os<<v<<io::separator{}),...,0);},tu);
@@ -412,23 +620,14 @@ std::ostream& operator<<(std::ostream& os, const std::tuple<Args...>& tu)
     return os;
 }
 
-
-template<typename ...Args>
-std::ostream& write(std::ostream& os, const std::tuple<Args...>& tu)
+template<typename ...Args> std::ostream& write_tuple(std::ostream& os, const std::tuple<Args...>& tu)
 {
     std::apply([&os](const auto&... v){return ((os<<v<<io::separator{}),...,0);},tu);
     os<<io::end_of_line{};
     return os;
 }
 
-
-
-
-
-
-
-template<typename ...Args>
-std::istream& operator>>(std::istream& is,  std::tuple<Args...>& tu)
+template<typename ...Args> std::istream& operator>>(std::istream& is,  std::tuple<Args...>& tu)
 {
     is>>io::start_of_Container{};
     std::apply([&is](auto&... v){return ((is>>io::separator{}>>v),...,0);},tu);
@@ -436,8 +635,7 @@ std::istream& operator>>(std::istream& is,  std::tuple<Args...>& tu)
     return is;
 }
 
-template<typename ...Args>
-std::istream& read(std::istream& is,  std::tuple<Args...>& tu)
+template<typename ...Args> std::istream& read_tuple(std::istream& is,  std::tuple<Args...>& tu)
 {
     std::apply([&is](auto&... v){return ((is>>io::separator{}>>v),...,0);},tu);
     is>>io::end_of_line{};
@@ -445,8 +643,99 @@ std::istream& read(std::istream& is,  std::tuple<Args...>& tu)
 }
 
 
-template<typename T1, typename T2>
-std::ostream& operator<<(std::ostream& os,const std::pair<T1,T2>& other)
+namespace io {
+
+
+template <class Object,class Method>
+std::ostream& write_on_Field(std::ostream& os,const grammar::field<Object,Method>& myField, const Object& myObject){
+    io::write_on_element (os,myField.idField);
+    os<<io::end_of_line{};
+    write(os,std::invoke(myField.access_method,myObject));
+    os<<io::end_of_line{};
+    return os;
+}
+
+template<class FieldObject>
+auto write_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (myObject.get_constructor_fields(),os)&
+{
+    auto fields=myObject.get_constructor_fields();
+    std::apply([&os, &myObject](const auto&... v){return ((write_on_Field(os,v,myObject)),...,0);},fields);
+    os<<io::end_of_Object{};
+    return os;
+}
+
+
+
+template <class Object,class Method>
+bool read_on_if_field(std::istream& is,const std::string id,  grammar::field<Object,Method>& myField)
+{
+    if (id!=myField.idField) return false;
+    else
+    {
+        typename grammar::field<Object,Method>::result_type x;
+        if (!read(is,x))
+            return false;
+        else
+        {
+            myField.default_value=x;
+            return true;
+    }
+    }
+
+}
+
+
+
+template <class Object,class... Method>
+std::istream& read_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields){
+
+    return std::apply([&](auto&...x)->auto& {if((read_on_if_field(is,id,x)||...)) return is;else {is.setstate(std::ios::failbit);return is;}},myFields);
+
+}
+
+
+
+
+template<class FieldObject>
+auto read_on_Object(std::istream& is, FieldObject& myObject)->decltype (myObject.get_constructor_fields(),is)&
+{
+    auto fields=myObject.get_constructor_fields();
+    is>>io::start_of_Container{};
+    is>>io::end_of_line{};
+    std::string id;
+    while (true)
+    {
+        std::variant<io::end_of_Object, std::string> id;
+        static_assert(is_variant<decltype (id)>::value);
+        if (!read_variant(is,id))
+            return is;
+        if (id.index()==1)
+        {
+            is>>io::end_of_line{};
+            if (!read_on_this_field(is,std::get<1>(id),fields))
+                return is;
+            is>>io::end_of_line{};
+        }
+        else break;
+    }
+
+    if (grammar::has_all(fields))
+    {
+        myObject=std::apply([](auto& ...x){return FieldObject(x.default_value.value()...);},fields);
+        return is;
+    }
+    else
+    {
+        is.setstate(std::ios::failbit); return is;
+    }
+}
+
+
+
+
+} // namespace io
+
+template<typename T1, typename T2> std::ostream& operator<<(std::ostream& os,const std::pair<T1,T2>& other)
 {
     os<<io::start_of_tuple{};
     io::output_operator_on_element(os,other.first);
@@ -455,8 +744,7 @@ std::ostream& operator<<(std::ostream& os,const std::pair<T1,T2>& other)
     return os;
 }
 
-template<typename T1, typename T2>
-std::istream& operator>>(std::istream& is,const std::pair<T1,T2>& other)
+template<typename T1, typename T2> std::istream& operator>>(std::istream& is,const std::pair<T1,T2>& other)
 {
     is>>io::start_of_tuple{};
     io::input_operator_on_element(is,other.first);
@@ -465,9 +753,7 @@ std::istream& operator>>(std::istream& is,const std::pair<T1,T2>& other)
     return is;
 }
 
-
-template<typename T1, typename T2>
-std::ostream& write(std::ostream& os,const std::pair<T1,T2>& other)
+template<typename T1, typename T2> std::ostream& write_pair(std::ostream& os,const std::pair<T1,T2>& other)
 {
     io::write_on_element(os,other.first);
     io::write_on_element(os,other.second);
@@ -475,8 +761,7 @@ std::ostream& write(std::ostream& os,const std::pair<T1,T2>& other)
     return os;
 }
 
-template<typename T1, typename T2>
-std::istream& read(std::istream& is, std::pair<T1,T2>& other)
+template<typename T1, typename T2> std::istream& read_pair(std::istream& is, std::pair<T1,T2>& other)
 {
     io::read_on_element(is,other.first);
     io::read_on_element(is,other.second);
@@ -560,7 +845,7 @@ template<template <class,class> class Container,typename T, class Allocator>
 std::istream& read_on_container(std::istream& is, Container<T,Allocator> & myContainer)
 {
     std::optional<io::size_of_container> s;
-    read(is,s);
+    read_optional(is,s);
     if (s.has_value())
     {
         myContainer.reserve(s->size);
@@ -610,7 +895,7 @@ template<template <class,class, class...> class Map,typename K,typename T, class
 std::istream& read_on_Map(std::istream& is, Map<K,T,Os...> & myMap)
 {
     std::optional<io::size_of_container> s;
-    read(is,s);
+    read_optional(is,s);
     if (s.has_value())
     {
         for (std::size_t i=0; i<s->size; ++i)
@@ -625,6 +910,7 @@ std::istream& read_on_Map(std::istream& is, Map<K,T,Os...> & myMap)
     else
     {
         std::variant<io::end_of_line,std::pair<K,T>> x;
+        static_assert (is_variant<decltype(x)>::value,"" );
         while(read(is,x)&&x.index()==1)
             myMap.insert(std::move(std::get<1>(x)));
         return is;
@@ -654,7 +940,7 @@ template<template <class, class...> class Set,typename K,class... Os>
 std::istream& read_on_set(std::istream& is, Set<K,Os...> & mySet)
 {
     std::optional<io::size_of_container> s;
-    read(is,s);
+    read_optional(is,s);
     if (s.has_value())
     {
         for (std::size_t i=0; i<s->size; ++i)
@@ -677,109 +963,93 @@ std::istream& read_on_set(std::istream& is, Set<K,Os...> & mySet)
 
 }
 
-};
 
-template<typename T>
-std::ostream& operator<<(std::ostream& s, const std::vector<T>& v)
+
+
+
+
+
+}
+
+template<typename T> std::ostream& operator<<(std::ostream& s, const std::vector<T>& v)
 {
     return io::output_operator_on_container(s,v);
 }
 
-template<typename T>
-std::ostream& write(std::ostream& s, const std::vector<T>& v)
-{
-    return io::write_on_container(s,v);
-}
 
-template<typename T>
-std::istream& operator>>(std::istream& s, std::vector<T>& v)
+template<typename T> std::istream& operator>>(std::istream& s, std::vector<T>& v)
 {
     return io::input_operator_on_container(s,v);
 }
 
-template<typename T>
-std::istream& read(std::istream& s, std::vector<T>& v)
+template<typename T> std::istream& read_on_vector(std::istream& s, std::vector<T>& v)
 {
     return io::read_on_container(s,v);
 }
 
 
-template<typename K,typename T>
-std::ostream& operator<<(std::ostream& s, const std::map<K,T>& v)
+template<typename K,typename T> std::ostream& operator<<(std::ostream& s, const std::map<K,T>& v)
 {
     return io::output_operator_on_container(s,v);
 }
 
 
-template<typename K,typename T>
-std::istream& operator>>(std::istream& s, std::map<K,T>& v)
+template<typename K,typename T> std::istream& operator>>(std::istream& s, std::map<K,T>& v)
 {
     return io::input_operator_on_Map(s,v);
 }
 
-template<typename K,typename T>
-std::ostream& write(std::ostream& s, const std::map<K,T>& v)
+template<typename K,typename T> std::ostream& write_map(std::ostream& s, const std::map<K,T>& v)
 {
     return io::write_on_container(s,v);
 }
 
 
-template<typename K,typename T>
-std::istream& read(std::istream& s, std::map<K,T>& v)
+template<typename K,typename T> std::istream& read_Map(std::istream& s, std::map<K,T>& v)
 {
     return io::read_on_Map(s,v);
 }
 
 
 
-template<typename K,typename T>
-std::istream& operator>>(std::istream& s, std::multimap<K,T>& v)
+template<typename K,typename T> std::istream& operator>>(std::istream& s, std::multimap<K,T>& v)
 {
     return io::input_operator_on_Map(s,v);
 }
 
-template<typename K,typename T>
-std::ostream& operator<<(std::ostream& s, const std::multimap<K,T>& v)
+template<typename K,typename T> std::ostream& operator<<(std::ostream& s, const std::multimap<K,T>& v)
 {
     return io::output_operator_on_container(s,v);
 }
 
 
-template<typename K,typename T>
-std::istream& read(std::istream& s, std::multimap<K,T>& v)
+template<typename K,typename T> std::istream& read_multimap(std::istream& s, std::multimap<K,T>& v)
 {
     return io::read_on_Map(s,v);
 }
 
-template<typename K,typename T>
-std::ostream& write(std::ostream& s, const std::multimap<K,T>& v)
+template<typename K,typename T> std::ostream& write_multimap(std::ostream& s, const std::multimap<K,T>& v)
 {
     return io::write_on_container(s,v);
 }
 
-
-
-template<typename K>
-std::ostream& operator<<(std::ostream& s, const std::set<K>& v)
+template<typename K> std::ostream& operator<<(std::ostream& s, const std::set<K>& v)
 {
     return io::output_operator_on_container(s,v);
 }
 
-template<typename K>
-std::istream& operator>>(std::istream& s, const std::set<K>& v)
+template<typename K> std::istream& operator>>(std::istream& s, const std::set<K>& v)
 {
     return io::input_operator_on_set(s,v);
 }
 
 
-template<typename K>
-std::ostream& write(std::ostream& s, const std::set<K>& v)
+template<typename K> std::ostream& write_set(std::ostream& s, const std::set<K>& v)
 {
     return io::write_on_container(s,v);
 }
 
-template<typename K>
-std::istream& read(std::istream& s, const std::set<K>& v)
+template<typename K> std::istream& read_set(std::istream& s,  std::set<K>& v)
 {
     return io::read_on_set(s,v);
 }
@@ -787,6 +1057,48 @@ std::istream& read(std::istream& s, const std::set<K>& v)
 
 
 
+
+template<typename T> std::ostream& write(std::ostream& s, const T& v)
+{
+    if constexpr(std::is_arithmetic_v<T>)
+            s<<v;
+    else if constexpr (is_std_container<T>::value)
+    return io::write_on_container(s,v);
+    else if constexpr(is_field_Object<T>::value)
+     return io::write_on_Object(s,v);
+    else if constexpr(is_tuple<T>::value)
+      return write_tuple(s,v);
+    else if constexpr(is_pair<T>::value)
+            return write_pair(s,v);
+   // else static_assert (false,"not managed" );
+}
+
+template<typename T> std::istream& read(std::istream& s, T& v)
+{
+    if constexpr(std::is_arithmetic_v<T>)
+            s>>v;
+    else if constexpr(is_set<T>::value) {
+        return io::read_on_set(s,v);
+    }
+    else if constexpr(is_map<T>::value) {
+        return io::read_on_Map(s,v);
+    }
+    else if constexpr (is_std_container<T>::value)
+    return io::read_on_container(s,v);
+    else if constexpr(is_field_Object<T>::value)
+     return io::read_on_Object(s,v);
+    else if constexpr(is_pair<T>::value)
+      return read_pair(s,v);
+    else if constexpr(is_tuple<T>::value)
+      return read_tuple(s,v);
+
+    else if constexpr(io::is_token<T>::value)
+      return s>>v;
+    else if constexpr(is_variant<T>::value)
+       return read_variant(s,v);
+    else return s>>v;
+   // else static_assert (false,"not managed" );
+}
 
 
 

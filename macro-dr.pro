@@ -3,7 +3,7 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 CONFIG += c++1z
-QMAKE_CXXFLAGS += -std=c++17
+QMAKE_CXXFLAGS += -std=c++17 -pedantic-errors
 
 
 SOURCES += \
@@ -27,4 +27,6 @@ HEADERS += \
     mycompilation.h \
     mynewcommandmanager.h \
     myscriptmanager.h \
-    myoptional.h
+    myoptional.h \
+    myfields.h \
+    mytypetraits.h

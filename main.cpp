@@ -15,7 +15,7 @@ int main(int argc, char **argv)
     grammar::CommandManager<Cs<int,double>,Cs<int, double>> k{};
     std::map<double, std::string> p{{0.5,"gsdgfs"},{9,"gsdhse"}};
     std::cout<<p;
-    std::cin>>p;
+   // std::cin>>p;
     std::cout<<p;
 
     std::cout<<std::tuple(1.4566,"qr");
@@ -26,7 +26,7 @@ int main(int argc, char **argv)
     {{{"R",true},"beta"},{{"R",false},"alpha"},{{"L",false},"koff"},{{"L",true},"kon"}},//const std::map<std::pair<std::string,bool>,std::string> conformational_changes_names,
     {1,3,5},//const std::set<std::size_t>& agonist_changes,
     {0,2,4},//const std::set<std::size_t>& conductance_changes,
-    {{1u,"g_1"},{2u,"g_2"},{3u,"g_3"}},//const std::map<std::size_t, std::string>& conductance_names,
+    {{0u,"g_0"},{1u,"g_1"},{2u,"g_2"},{3u,"g_3"}},//const std::map<std::size_t, std::string>& conductance_names,
 
     {
                     {0,{{1},{"RL","RL_R"}}},
@@ -41,10 +41,22 @@ int main(int argc, char **argv)
                     {1,{{2},{"LR","LR_L"}}},
                     {1,{{0,2},{"RLR","RLR_L"}}},
 
-                },//const std::multimap<std::size_t, std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>>& conformational_interactions,
-                false);
+                }//const std::multimap<std::size_t, std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>>& conformational_interactions,
+                );
 
 
+    write(std::cout,A);
+    std::ofstream f;
+    f.open("output.txt");
+    write(f,A);
+    f.close();
+    std::ifstream fi;
+    fi.open("output.txt");
+    Allosteric_Model B{};
+    read(fi,B);
+    write(std::cout, B);
+
+   std::cout<<std::endl;
     std::map<std::string, double> P
     {
         {"LR",3}	,{"LR_L",0.5},	{"LR_R",0.5},	{"RL",3},	{"RLR",10},	{"RLR_D",0.5},	{"RLR_I",0.5},	{"RLR_L",0.5},	{"RL_L",0.5},	{"RL_R",0.5},	{"RR",3},	{"RRR",3},	{"RRR_M",0.5},	{"RR_D",0.5},	{"RR_I",0.5},	{"alpha",1e6},	{"beta",1},	{"g_1",0.01},	{"g_2",0.3}	,{"g_3",1},	{"koff",1e5},	{"kon",100}
