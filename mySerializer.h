@@ -1,5 +1,5 @@
-#ifndef MYOUTPUTSERIALIZER_H
-#define MYOUTPUTSERIALIZER_H
+#ifndef MYSERIALIZER_H
+#define MYSERIALIZER_H
 
 #include <set>
 #include <vector>
@@ -24,6 +24,24 @@
 ///----------------- Declarations-----------------------------------------///
 
 /*-     POD  */
+
+
+
+std::string my_to_string(double x)
+{
+    std::stringstream strstr;
+    if ((std::abs(x)<1e-3)||(std::abs(x)>1e3))
+    {
+    strstr << std::scientific << x;
+    }
+    else
+        strstr  << x;
+
+
+   return strstr.str();
+}
+
+
 
 
 template<typename T> std::ostream& write(std::ostream& s, const T& v);
@@ -102,7 +120,7 @@ struct is_token : std::false_type { };
 
 template <char...c>
 struct is_token<token<c...>>
-    : std::true_type { };
+        : std::true_type { };
 
 template<template<char...>class token,char... c>
 std::ostream& operator<<(std::ostream& os, token<c...> );
@@ -446,7 +464,7 @@ std::istream& input_operator_on_element(std::istream& is, T*& e)
 template<typename T>
 std::istream& read_on_element(std::istream& is, T& e)
 {
-     is>>io::separator{};
+    is>>io::separator{};
     read(is,e);
     return is;
 }
@@ -459,6 +477,37 @@ std::istream& read_on_element(std::istream& is, T*& e)
     read(is,*e);
     return is;
 }
+
+
+template<typename T>
+std::istream& read_one_element_on_vector(std::istream& is, std::vector<T>& v)
+{
+    is>>io::separator{};
+    T e;
+    if (!read(is,e))
+    return is;
+    else
+    {
+        v.emplace_back(std::move(e));
+    }
+    return is;
+}
+
+template<typename T>
+std::istream& read_one_element_on_vector(std::istream& is, std::vector<T*>& v)
+{
+    is>>io::separator{};
+    T* e=new T;
+    if (!read(is,*e))
+    return is;
+    else
+    {
+        v.emplace_back(std::move(e));
+    }
+}
+
+
+
 
 template<typename Token,typename T>
 std::istream& read_on_element(std::istream& is, std::variant<Token,T>& e)
@@ -475,13 +524,13 @@ std::istream& read_on_element(std::istream& is, std::variant<Token,T>& e)
             e=x;
             return is;
         }
-   }
+    }
     else{
         e=t;
         return is;
 
     }
-   return is;
+    return is;
 }
 
 
@@ -511,7 +560,7 @@ std::istream& extract_nan(std::istream& ss, double& val, bool is_negative)
 {
     std::string s;
     ss>>s;
-    if ((s=="nan")||(s=="NAN"))
+    if ((s=="nan")||(s=="NAN")||(s=="NaN"))
     {
         if (is_negative)
             val=-std::numeric_limits<double>::quiet_NaN();
@@ -679,7 +728,7 @@ bool read_on_if_field(std::istream& is,const std::string id,  grammar::field<Obj
         {
             myField.default_value=x;
             return true;
-    }
+        }
     }
 
 }
@@ -1061,22 +1110,23 @@ template<typename K> std::istream& read_set(std::istream& s,  std::set<K>& v)
 template<typename T> std::ostream& write(std::ostream& s, const T& v)
 {
     if constexpr(std::is_arithmetic_v<T>)
-            s<<v;
+            return s<<v;
     else if constexpr (is_std_container<T>::value)
-    return io::write_on_container(s,v);
+            return io::write_on_container(s,v);
     else if constexpr(is_field_Object<T>::value)
-     return io::write_on_Object(s,v);
+            return io::write_on_Object(s,v);
     else if constexpr(is_tuple<T>::value)
-      return write_tuple(s,v);
+            return write_tuple(s,v);
     else if constexpr(is_pair<T>::value)
             return write_pair(s,v);
-   // else static_assert (false,"not managed" );
+    else return s>>v;
+    // else statica_assert (false,"not managed" );
 }
 
 template<typename T> std::istream& read(std::istream& s, T& v)
 {
     if constexpr(std::is_arithmetic_v<T>)
-            s>>v;
+        return    s>>v;
     else if constexpr(is_set<T>::value) {
         return io::read_on_set(s,v);
     }
@@ -1084,22 +1134,22 @@ template<typename T> std::istream& read(std::istream& s, T& v)
         return io::read_on_Map(s,v);
     }
     else if constexpr (is_std_container<T>::value)
-    return io::read_on_container(s,v);
+            return io::read_on_container(s,v);
     else if constexpr(is_field_Object<T>::value)
-     return io::read_on_Object(s,v);
+            return io::read_on_Object(s,v);
     else if constexpr(is_pair<T>::value)
-      return read_pair(s,v);
+            return read_pair(s,v);
     else if constexpr(is_tuple<T>::value)
-      return read_tuple(s,v);
+            return read_tuple(s,v);
 
     else if constexpr(io::is_token<T>::value)
-      return s>>v;
+            return s>>v;
     else if constexpr(is_variant<T>::value)
-       return read_variant(s,v);
+            return read_variant(s,v);
     else return s>>v;
-   // else static_assert (false,"not managed" );
+    // else static_assert (false,"not managed" );
 }
 
 
 
-#endif // MYOUTPUTSERIALIZER_H
+#endif // MYSERIALIZER_H

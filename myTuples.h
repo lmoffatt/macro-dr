@@ -6,25 +6,6 @@
 #include <optional>
 
 
-template<typename T>
-class C
-{
-
-};
-
-template<typename... T>
-class Cs
-{
-
-};
-
-template<template<typename...> class C>
-class Co
-{
-
-};
-
-
 
 
 

@@ -6,6 +6,9 @@
 #include "mycompilation.h"
 #include "mynewcommandmanager.h"
 #include "myscriptmanager.h"
+#include "Experiment.h"
+#include "Markov.h"
+#include "simulation.h"
 int main(int argc, char **argv)
 {
     std::cerr<<argv[0]<<"\n";
@@ -44,6 +47,11 @@ int main(int argc, char **argv)
                 }//const std::multimap<std::size_t, std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>>& conformational_interactions,
                 );
 
+    std::map<std::string, double> P
+        {
+            {"LR",300}	,{"LR_L",0.5},	{"LR_R",0.5},	{"RL",300},	{"RLR",1000},	{"RLR_D",0.5},	{"RLR_I",0.5},	{"RLR_L",0.5},	{"RL_L",0.5},	{"RL_R",0.5},	{"RR",3},	{"RRR",3},	{"RRR_M",0.5},	{"RR_D",0.5},	{"RR_I",0.5},	{"alpha",1e6}, 	{"beta",10},	{"g_0",0.0},{"g_1",-0.01},	{"g_2",-0.3}	,{"g_3",-1},	{"koff",1e7},	{"kon",10000}
+        };
+    SingleLigandModel SM(A.Qs(P),A.g(P));
 
     write(std::cout,A);
     std::ofstream f;
@@ -55,11 +63,31 @@ int main(int argc, char **argv)
     Allosteric_Model B{};
     read(fi,B);
     write(std::cout, B);
+    std::ifstream fe;
+    fe.open("/home/lmoffatt/Code/macro-dr/Data/Moffatt_Hume_2007_ATP.txt");
+    io::myDataFrame<double> da;
+    da.read(fe);
+    da.write(std::cout);
+
+
+
+    auto e=experiment::DataFrame_to_Experiment(da,"t","ns","xATP","yCurrent", 50E3);
+    Markov_Model_calculations<SingleLigandModel,experiment::Experiment<experiment::point<double,double>>,double> MC(SM,1000,e);
+
+
+    auto s=markov::simulate<true>(0,e,MC,10);
+    auto ds=experiment::Experiment_to_DataFrame(s);
+    ds.write(std::cout);
+
+
+
+
+
 
    std::cout<<std::endl;
-    std::map<std::string, double> P
+    std::map<std::string, double> beta
     {
-        {"LR",3}	,{"LR_L",0.5},	{"LR_R",0.5},	{"RL",3},	{"RLR",10},	{"RLR_D",0.5},	{"RLR_I",0.5},	{"RLR_L",0.5},	{"RL_L",0.5},	{"RL_R",0.5},	{"RR",3},	{"RRR",3},	{"RRR_M",0.5},	{"RR_D",0.5},	{"RR_I",0.5},	{"alpha",1e6},	{"beta",1},	{"g_1",0.01},	{"g_2",0.3}	,{"g_3",1},	{"koff",1e5},	{"kon",100}
+        {"LR",3}	,{"LR_L",0.5},	{"LR_R",0.5},	{"RL",3},	{"RLR",3},	{"RLR_D",0.5},	{"RLR_I",0.5},	{"RLR_L",0.5},	{"RL_L",0.5},	{"RL_R",0.5},	{"RR",3},	{"RRR",3},	{"RRR_M",0.5},	{"RR_D",0.5},	{"RR_I",0.5},	{"alpha",1e3},	{"beta",1},	{"g_1",0.01},	{"g_2",0.3}	,{"g_3",1},	{"koff",1e5},	{"kon",100}
     };
 
 

@@ -21,7 +21,7 @@ std::vector<T> emptyCopy(const std::vector<S>& x)
 template <typename T, typename S>
 M_Matrix<T> emptyCopy(const M_Matrix<S>& x)
 {
-    return M_Matrix<T>(x.nrows(),x.ncols());
+    return M_Matrix<T>(x.nrows(),x.ncols(),static_cast<typename M_Matrix<T>::TYPE>(x.type()));
 }
 
 template <typename T, typename S>
@@ -41,7 +41,7 @@ M_Matrix<T> emptyCopy(const M_Matrix<S>& x, const T& e)
 
 
 
-template<template <typename> class  My_vec,typename _IntType>
+template<template <typename...> class  My_vec,typename _IntType>
 class multinomial_distribution
 
 {
@@ -82,8 +82,8 @@ public:
         _M_initialize()
         {
             std::size_t n=P_.size();
-            rP_=My_vec<double>(n);
-            auto s=My_vec<double>(n);
+            rP_=P_-P_;
+            auto s=rP_;
             s[n-1]=P_[n-1];
             for (std::size_t i=1; i<P_.size(); ++i)
             {
@@ -169,16 +169,18 @@ public:
     operator()(_UniformRandomNumberGenerator& __urng,
                const param_type& __p)
     {
-        result_type out(emptyCopy<_IntType>(out));
+        result_type out(emptyCopy<_IntType>(__p.P_));
         _IntType Nr=__p.N_;
         std::binomial_distribution<_IntType> Bi_;
+        typedef typename std::binomial_distribution<_IntType>::param_type biPar;
         for (std::size_t i=0; i< out.size()-1; ++i)
         {
-            _IntType ni=__p.Bi_(__urng,{Nr,__p.rP_[i]});
+            _IntType ni=Bi_(__urng,biPar(Nr,__p.rP_[i]));
             Nr-=ni;
             out[i]=ni;
         }
         out[out.size()-1]=Nr;
+        return out;
     }
 
     static
@@ -224,7 +226,7 @@ class markov_process
 {
 
 public:
-    /** The type of the range of the distribution. */
+    /*  * The type of the range of the distribution. */
     typedef M_Matrix<T> result_type;
     /** Parameter type. */
 
@@ -319,12 +321,12 @@ public:
 
 
     void set_P(M_Matrix<double>&& _P)
-    { _M_param.set_P(_P);
+    { _M_param.set_P(std::move(_P));
     }
 
     void set_N(M_Matrix<T>&& _N)
     {
-        _M_param.set_N(_N);
+        _M_param.set_N(std::move(_N));
     }
 
 

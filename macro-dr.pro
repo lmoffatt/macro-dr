@@ -3,7 +3,8 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 CONFIG += c++1z
-QMAKE_CXXFLAGS += -std=c++17 -pedantic-errors
+QMAKE_CXXFLAGS += -std=c++17
+LIBS +=  -lblas  -llapack
 
 
 SOURCES += \
@@ -29,4 +30,8 @@ HEADERS += \
     myscriptmanager.h \
     myoptional.h \
     myfields.h \
-    mytypetraits.h
+    mytypetraits.h \
+    mydataframe.h \
+    newcommandmanager.h \
+    measure_markov_process.h \
+    mymath.h
