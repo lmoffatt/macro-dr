@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 
     std::map<std::string, double> P
         {
-            {"LR",300}	,{"LR_L",0.5},	{"LR_R",0.5},	{"RL",300},	{"RLR",1000},	{"RLR_D",0.5},	{"RLR_I",0.5},	{"RLR_L",0.5},	{"RL_L",0.5},	{"RL_R",0.5},	{"RR",3},	{"RRR",3},	{"RRR_M",0.5},	{"RR_D",0.5},	{"RR_I",0.5},	{"alpha",1e6}, 	{"beta",10},	{"g_0",0.0},{"g_1",-0.01},	{"g_2",-0.3}	,{"g_3",-1},	{"koff",1e7},	{"kon",10000}
+            {"LR",300}	,{"LR_L",0},	{"LR_R",1},	{"RL",30},	{"RLR",300},	{"RLR_D",1},	{"RLR_I",1},	{"RLR_L",0},	{"RL_L",0},	{"RL_R",1},	{"RR",3},	{"RRR",1},	{"RRR_M",0.5},	{"RR_D",0.5},	{"RR_I",0.5},	{"alpha",1e7}, 	{"beta",10},	{"g_0",0.0},{"g_1",-0.001},	{"g_2",-0.1}	,{"g_3",-1},	{"koff",1e7},	{"kon",500}
         };
     SingleLigandModel SM(A.Qs(P),A.g(P));
 

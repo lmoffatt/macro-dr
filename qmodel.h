@@ -229,7 +229,7 @@ public:
             for (auto it=transitions_[i].begin(); it!=transitions_[i].end(); ++it)
             {
                 std::size_t j=it->first;
-                if (it->second.agonist)
+                if ((it->second.agonist)&&(it->second.on))
                 {   Qa(i,j)=rate(it->second,p);
                     Qa(i,i)-=Qa(i,j);
                 }else{
