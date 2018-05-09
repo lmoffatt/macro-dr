@@ -58,7 +58,10 @@ public:
     typedef typename extract_pointer_types<Cs<types...>,Cs<commands...>>::type myPtrTypes;
 
 
-    static typename myTypes::fdgse d;
+    //static typename myTypes::fdgse d;
+
+    //static typename myPtrTypes::pointersfdgse g;
+
 
     DataManager<self_type,myTypes,myPtrTypes> d_;
 

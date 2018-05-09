@@ -114,10 +114,8 @@ struct my_trait < singleLigandExperiment >
 struct Objects
 {
 
-    typedef Cs<singleLigandExperiment> types;
-   // typedef Cs<Allosteric_Model> types;
-    typedef Cs</*simulate<singleLigandExperiment,Allosteric_Model>,*/ to_experiment> commands;
-//    typedef Cs</*simulate<singleLigandExperiment,Allosteric_Model>, to_experiment*/> commands;
+    typedef Cs<Allosteric_Model,singleLigandExperiment> types;
+    typedef Cs<simulate<singleLigandExperiment,Allosteric_Model>, to_experiment> commands;
 };
 
 

@@ -49,18 +49,19 @@ struct point{
     std::size_t nsamples()const {return nsamples_;}
     X x()const {return x_;}
     Y y() const {return y_;}
-    std::ostream& operator<<(std::ostream& os)
+    std::ostream& operator<<(std::ostream& os)const
     {
-        return   os<<t<<io::separator{}<<t()<<io::separator{}<<nsamples()<<io::separator{}<<x()<<io::separator{}<<y()<<io::separator{};
+        return   os<<t()<<io::separator{}<<nsamples()<<io::separator{}<<x()<<io::separator{}<<y()<<io::separator{};
     }
 
     std::istream& operator>>(std::istream& is)
     {
-        return   is>>t>>io::separator{}>>t()>>io::separator{}>>nsamples()>>io::separator{}>>x()>>io::separator{}>>y()>>io::separator{};
+
+        return   is>>t_>>io::separator{}>>nsamples_>>io::separator{}>>x_>>io::separator{}>>y_>>io::separator{};
     }
 
 
-
+   point()=default;
     point(double _t, std::size_t _nsamples,X _x,Y _y):t_{_t},nsamples_{_nsamples}, x_{_x},y_{_y}{}
 
     template<typename Z>
@@ -68,6 +69,20 @@ struct point{
         x_{p.x()},y_{new_y}{}
 
 };
+
+template <class X, class Y>
+std::ostream& operator<<(std::ostream& os, const point<X,Y>& p)
+{
+    return p.operator <<(os);
+}
+
+template <class X, class Y>
+std::istream& operator>>(std::istream& is,  point<X,Y>& p)
+{
+    return p.operator >>(is);
+}
+
+
 
 template<class...>class basic_Experiment;
 using namespace std::string_view_literals;
@@ -198,7 +213,9 @@ public:
     static auto get_constructor_fields()
     {
         return std::make_tuple(
-                    grammar::field(C<self_type>{},"points",&self_type::get_Points));
+                    grammar::field(C<self_type>{},"points",&self_type::get_Points),
+                    grammar::field(C<self_type>{},"frequency_of_sampling",&self_type::frequency_of_sampling)
+                    );
 
     }
 
@@ -222,6 +239,7 @@ public:
         extract_traces_from_Nan();
     }
 
+    basic_Experiment()=default;
 
     basic_Experiment(std::vector<point<X,Y>>&& points, double fs)
         : frequency_of_sampling_{fs},points_{std::move(points)}, steps_{},traces_{}

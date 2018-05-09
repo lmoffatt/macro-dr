@@ -112,6 +112,7 @@ struct arg_types<T,command_tag>
 template <template <class...>class Cs,class ...Ts>
 struct extract_all_types<Cs<Ts...>>
 {
+
     typedef class_set_union_t<Cs<>,Cs<arg_types_t<Ts>...>> type;
 };
 template <class T>
@@ -129,7 +130,7 @@ struct extract_regular_types{};
 template<template<class...> class Cs,class... types, class... commands>
 struct extract_pointer_types<Cs<types...>,Cs<commands...>>
 {
-    typedef filter_t<std::is_pointer,Cs<>,
+    typedef filter_pointer_t<
     class_set_union_t<
     extract_all_types_t<Cs<types...>>,extract_all_types_t<Cs<commands...>>>> type;
 };
@@ -138,21 +139,13 @@ struct extract_pointer_types<Cs<types...>,Cs<commands...>>
 template<template<class...> class Cs,class... types, class... commands>
 struct extract_regular_types<Cs<types...>,Cs<commands...>>
 {
-    static typename Cs<types...>::gh s;
 
-    static typename class_set_union_t<
-    extract_all_types_t<Cs<types...>>,extract_all_types_t<Cs<commands...>>>::gh us;
 
-    static typename filter_not_t<std::is_pointer,Cs<>,
-    class_set_union_t<
-    extract_all_types_t<Cs<types...>>,extract_all_types_t<Cs<commands...>>>>::gh ufs;
-
-    typedef filter_not_t<std::is_pointer,Cs<>,
+    typedef filter_regular_t<
     class_set_union_t<
     extract_all_types_t<Cs<types...>>,extract_all_types_t<Cs<commands...>>>> type;
 
-
-    };
+};
 
 
 

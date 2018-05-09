@@ -416,62 +416,76 @@ struct class_set_union<Cs<Ts...>,Cs<T0,T...>>
     typedef class_set_union_t<class_set_union_t<Cs<Ts...>,T0>,Cs<T...>> type;
 };
 
-template<template<class>class, class...> struct filter{};
-
-template<template<class>class is, class...C>
-using filter_t=typename filter<is,C...>::type;
 
 
-template <template<class>class is_something,template<class...> class Cs,class...T0>
-struct filter<is_something,Cs<T0...>,Cs<>>
+template<class...> struct remove_void{};
+
+template<class...C>
+using remove_void_t=typename remove_void<C...>::type;
+
+
+template<template <class...>class Cs,typename ...Ts>
+struct remove_void<Cs<Ts...>,Cs<>>
 {
-    typedef  Cs<T0...> type;
-
+  typedef Cs<Ts...> type;
 };
 
 
-template <template<class>class is_something,template<class...> class Cs,class...T0,class T, class... Ts>
-struct filter<is_something,Cs<T0...>,Cs<T,Ts...>>
-{
 
-    typedef  std::conditional_t<is_something<T>::value,
-    filter_t<is_something,Cs<T0...,T>,Cs<Ts...>>,
-    filter_t<is_something,Cs<T0...>,Cs<Ts...>>> type;
+template<template<class...>class Cs,typename ...Ts, typename...T>
+struct remove_void<Cs<Ts...>,Cs<void,T...>>
+{
+  typedef remove_void_t<Cs<Ts...>,Cs<T...>> type;
 };
 
 
-template<template<class>class, class...> struct filter_not{};
-
-template<template<class>class is, class...C>
-using filter_not_t=typename filter_not<is,C...>::type;
-
-
-
-template <template<class>class is_something,template<class...> class Cs,class...T0>
-struct filter_not<is_something,Cs<T0...>,Cs<>>
+template<template<class...>class Cs,typename ...Ts, typename T0,typename...T>
+struct remove_void<Cs<Ts...>,Cs<T0,T...>>
 {
-    static typename Cs<T0...>::uufhfdd a;
-
-    typedef  Cs<T0...> type;
-
+  typedef remove_void_t<Cs<Ts...,T0>,Cs<T...>> type;
 };
 
 
 
 
-
-template <template<class>class is_something,template<class...> class Cs,class...T0,class T, class... Ts>
-struct filter_not<is_something,Cs<T0...>,Cs<T,Ts...>>
+template<template<class...>class Cs, typename...T>
+struct remove_void<Cs<T...>>
 {
-    static typename T::fhfdd a;
-
-    typedef    std::conditional_t<!is_something<T>::value,
-    typename filter_not<is_something,Cs<T0...,T>,Cs<Ts...>>::type,
-    typename filter_not<is_something,Cs<T0...>,Cs<Ts...>>::type
-    > type;
+  typedef remove_void_t<Cs<>,Cs<T...>> type;
 };
 
 
+
+
+
+template<class...> struct filter_pointer{};
+
+template<class...C>
+using filter_pointer_t=typename filter_pointer<C...>::type;
+
+
+template <template<class...> class Cs,class...T0>
+struct filter_pointer<Cs<T0...>>
+{
+    typedef remove_void_t<Cs<std::conditional_t<std::is_pointer_v<T0>,T0,void>...>>  type;
+};
+
+
+
+
+
+
+template<class...> struct filter_regular{};
+
+template<class...C>
+using filter_regular_t=typename filter_regular<C...>::type;
+
+
+template <template<class...> class Cs,class...T0>
+struct filter_regular<Cs<T0...>>
+{
+    typedef remove_void_t<Cs<std::conditional_t<!std::is_pointer_v<T0>,T0,void>...>>  type;
+};
 
 
 

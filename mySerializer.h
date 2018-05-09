@@ -890,7 +890,7 @@ auto input_operator_on_Object(std::istream& is, FieldObject& myObject)->decltype
 
     if (grammar::has_all(fields))
     {
-        myObject=std::apply([](auto& ...x){return FieldObject(x.default_value.value()...);},fields);
+        myObject=std::apply([](auto& ...x){return FieldObject(std::move(x.default_value.value())...);},fields);
         return is;
     }
     else
