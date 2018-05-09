@@ -6,6 +6,9 @@
 #include "mydataframe.h"
 namespace experiment {
 
+
+struct experiment_tag;
+
 template<typename X, typename Y>
 struct myPulsesPoints
 {
@@ -35,6 +38,8 @@ struct myPulsesPoints
 
 template<typename X=double, typename Y=double>
 struct point{
+
+    constexpr static auto const name=my_static_string("point_of_")+my_trait<X>::name+ my_static_string("_")+my_trait<Y>::name;
     double t_;
     std::size_t nsamples_;
     X x_;
@@ -44,6 +49,16 @@ struct point{
     std::size_t nsamples()const {return nsamples_;}
     X x()const {return x_;}
     Y y() const {return y_;}
+    std::ostream& operator<<(std::ostream& os)
+    {
+        return   os<<t<<io::separator{}<<t()<<io::separator{}<<nsamples()<<io::separator{}<<x()<<io::separator{}<<y()<<io::separator{};
+    }
+
+    std::istream& operator>>(std::istream& is)
+    {
+        return   is>>t>>io::separator{}>>t()>>io::separator{}>>nsamples()>>io::separator{}>>x()>>io::separator{}>>y()>>io::separator{};
+    }
+
 
 
     point(double _t, std::size_t _nsamples,X _x,Y _y):t_{_t},nsamples_{_nsamples}, x_{_x},y_{_y}{}
@@ -54,14 +69,17 @@ struct point{
 
 };
 
-template<class...>class Experiment;
+template<class...>class basic_Experiment;
+using namespace std::string_view_literals;
 
 
 template<template<typename, typename>class point, typename X, typename Y>
-class Experiment<point<X,Y>>
+class basic_Experiment<point<X,Y>>
 {
 public:
-    typedef Experiment<point<X,Y>>  self_type;
+
+
+    typedef basic_Experiment<point<X,Y>>  self_type;
     typedef point<X,Y> point_type;
     auto cbegin_begin_begin()const {return points_.cbegin();}
     auto cbegin_begin()const {return steps_.cbegin();}
@@ -85,7 +103,7 @@ public:
     auto cend_end_end()const {return points_.cend();}
     class trace;
     class step{
-        Experiment& e_;
+        basic_Experiment& e_;
         std::size_t myIndex_;
         std::size_t index_of_start_point_;
         std::size_t nsamples_;
@@ -93,6 +111,8 @@ public:
 
 
     public:
+        static constexpr auto name=my_static_string("Experiment_on_")+point<X,Y>::name;
+
         void calc()
         {
             if (++begin()==end())
@@ -124,7 +144,7 @@ public:
             else
                 return e_.cend_end_end();
         }
-        step(Experiment& e,std::size_t myIndex, std::size_t index_of_start_point)
+        step(basic_Experiment& e,std::size_t myIndex, std::size_t index_of_start_point)
             :e_{e}, myIndex_{myIndex},index_of_start_point_{index_of_start_point},nsamples_{},y_{}
         {
         }
@@ -133,14 +153,14 @@ public:
     class trace
     {
 
-        Experiment& e_;
+        basic_Experiment& e_;
         std::size_t index_of_start_step_;
         std::size_t index_of_end_step_;
     public:
         auto begin(){return e_.begin_begin()+index_of_start_step_;}
         auto begin()const {return e_.begin_begin()+index_of_start_step_;}
         auto end()const{return e_.begin_begin()+index_of_end_step_;}
-        trace(Experiment& e, std::size_t index_of_start_step, std::size_t index_of_end_step )
+        trace(basic_Experiment& e, std::size_t index_of_start_step, std::size_t index_of_end_step )
             :
               e_{e},index_of_start_step_{index_of_start_step}, index_of_end_step_{index_of_end_step}
         {
@@ -170,7 +190,7 @@ public:
     //----  observers of Experiment initial
 
 
-    auto get_Points()const
+    auto const & get_Points()const
     {
         return  points_;
     }
@@ -182,7 +202,7 @@ public:
 
     }
 
-    Experiment(std::vector<point<X,Y>>&& points,const std::vector<std::size_t>& start_points, const std::vector<std::pair<std::size_t, std::size_t>>& step_start_trace)
+    basic_Experiment(std::vector<point<X,Y>>&& points,const std::vector<std::size_t>& start_points, const std::vector<std::pair<std::size_t, std::size_t>>& step_start_trace)
         : points_{std::move(points)}, steps_{},traces_{}
 
     {
@@ -193,7 +213,7 @@ public:
             traces_.emplace_back(trace(*this,e.first,e.second));
     }
 
-    Experiment(std::vector<point<X,Y>>&& points,const std::vector<std::size_t>& start_points)
+    basic_Experiment(std::vector<point<X,Y>>&& points,const std::vector<std::size_t>& start_points)
         : points_{std::move(points)}, steps_{},traces_{}
 
     {
@@ -203,7 +223,7 @@ public:
     }
 
 
-    Experiment(std::vector<point<X,Y>>&& points, double fs)
+    basic_Experiment(std::vector<point<X,Y>>&& points, double fs)
         : frequency_of_sampling_{fs},points_{std::move(points)}, steps_{},traces_{}
 
     {
@@ -217,16 +237,16 @@ public:
 
 
 
-    Experiment limit_dt(double min_dt)const
+    basic_Experiment limit_dt(double min_dt)const
     {
         auto points=points_;
-        return Experiment(std::move(points),getIntervalsForMinDt(points_,min_dt));
+        return basic_Experiment(std::move(points),getIntervalsForMinDt(points_,min_dt));
     }
 
     template<class Z>
-    static Experiment set_Points(std::vector<point<X,Y>>& newPoints,const Experiment<point<X,Z>>& old)
+    static basic_Experiment set_Points(std::vector<point<X,Y>>& newPoints,const basic_Experiment<point<X,Z>>& old)
     {
-        return Experiment(newPoints, old.get_step_start_points(),old.get_step_start_trace());
+        return basic_Experiment(newPoints, old.get_step_start_points(),old.get_step_start_trace());
     }
 
 
@@ -277,8 +297,8 @@ private:
 
 
 template <typename...Ts>
-Experiment<point<double,double>>
-DataFrame_to_Experiment(const io::myDataFrame<Ts...> d
+basic_Experiment<point<double,double>>
+DataFrame_to_Experiment(const io::myDataFrame<Ts...>& d
                         ,const std::string& colname_time,
                         const std::string& colname_nsample,
                         const std::string& colname_x,
@@ -294,14 +314,14 @@ DataFrame_to_Experiment(const io::myDataFrame<Ts...> d
                                            *d.template get<double>(colname_x,i),
                                            *d.template get<double>(colname_y,i)));
     }
-    return Experiment<point<double,double>>(std::move(out),frequency_of_sampling);
+    return basic_Experiment<point<double,double>>(std::move(out),frequency_of_sampling);
 }
 
 
 
 
 
-auto Experiment_to_DataFrame(Experiment<point<double,double>> e,
+auto Experiment_to_DataFrame(basic_Experiment<point<double,double>> e,
                         const std::string& colname_time="time",
                         const std::string& colname_nsample="nsample",
                         const std::string& colname_x="x",

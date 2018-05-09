@@ -2,6 +2,7 @@
 #define MYGRAMMAR_H
 
 #include "mySerializer.h"
+#include "mysmartpointerstools.h"
 #include <string>
 #include <map>
 #include <vector>
@@ -42,13 +43,15 @@ typedef  io::token<'"'> label_end;
 class Statement
 {
 public:
-    virtual ~Statement(){}
-    virtual std::string value()const=0;
+    virtual ~Statement()=default;
+   virtual std::string value()const=0;
 
     virtual std::size_t nArgin()const=0;
     virtual Statement const * arg(std::size_t i)const=0;
     virtual std::ostream& put(std::ostream& os)const=0;
     virtual bool get(std::stringstream& ss)=0;
+
+    virtual Statement* clone() const=0;
 
 };
 
@@ -57,13 +60,15 @@ class Expression : public Statement
 {
 public:
     virtual ~Expression(){}
+     virtual Expression* clone() const override=0;
 };
 
 class Term : public Expression
 {
 public:
     virtual ~Term(){}
-};
+    virtual Term* clone() const override=0;
+ };
 
 
 inline bool get(std::stringstream& ss, Term*& e);
@@ -104,9 +109,21 @@ public:
         return nullptr;
     }
 
-    Identifier(){}
+    virtual Identifier* clone() const override
+    {
+        return new Identifier(*this);
+    }
+
+    Identifier()=default;
+    Identifier(const Identifier&)=default;
+    Identifier(Identifier&&)=default;
+    Identifier& operator=(const Identifier&)=default;
+    Identifier& operator=(Identifier&&)=default;
+
     Identifier(std::string&& s): id_(s){}
-    virtual ~Identifier(){}
+    Identifier(const std::string& s): id_(s){}
+
+    virtual ~Identifier()override{}
     // Expression interface
 public:
     virtual std::ostream &put(std::ostream &os) const override
@@ -139,30 +156,6 @@ public:
     }
 };
 
-template<typename,class=void>
-struct has_get_global: std::false_type{};
-
-template<typename T>
-struct has_get_global<T,
-        std::void_t<decltype(get(std::declval<std::stringstream&>(),
-                                 std::declval<T&>()))>> : std::true_type{};
-
-
-
-template<typename,class=void>
-struct has_get_method: std::false_type{};
-
-template<typename T>
-struct has_get_method<T,
-        std::void_t<decltype(std::declval<T&>().get(std::declval<std::stringstream&>()))>> : std::true_type{};
-
-
-template<typename,class=void>
-struct has_global_extractor: std::false_type{};
-
-template<typename T>
-struct has_global_extractor<T,
-        std::void_t<decltype(operator<<(std::declval<std::stringstream&>(),std::declval<T&>()))>> : std::true_type{};
 
 
 
@@ -258,11 +251,24 @@ public:
     virtual std::ostream &put(std::ostream &os) const=0;
     virtual bool get(std::stringstream& ss)=0;
     virtual std::size_t order()const=0;
+    virtual Operator* clone()const=0;
     virtual ~Operator(){}
 };
 
-class AssignmentGenericOperator: public Operator{};
-class DefinitionGenericOperator: public AssignmentGenericOperator{};
+class AssignmentGenericOperator: public Operator{
+public:
+    virtual AssignmentGenericOperator* clone()const=0;
+    virtual ~AssignmentGenericOperator(){}
+
+
+};
+class DefinitionGenericOperator: public AssignmentGenericOperator{
+public:
+    virtual DefinitionGenericOperator* clone()const=0;
+    virtual ~DefinitionGenericOperator(){}
+
+
+};
 
 class Generic_Assignment: public Statement
 {
@@ -271,6 +277,7 @@ public:
     virtual Identifier const* id()const =0;
     virtual AssignmentGenericOperator const * op()const =0;
     virtual Expression const * expr()const=0;
+    virtual Generic_Assignment* clone()const override=0;
 };
 
 
@@ -299,12 +306,28 @@ public:
 
     }
     Function(){}
-    Function(const Function&)=delete;
-    Function& operator=(const Function&)=delete;
+    Function(const Function& other):
+        idfn_{other.idfn_}, m_{clone_map(other.m_)}
+
+    {
+
+    }
+    Function& operator=(const Function& other)
+    {
+        if (this!=&other)
+        {
+            Function temp(other);
+            *this=std::move(temp);
+        }
+        return  *this;
+    }
     Function(Function&&)=default;
     Function& operator=(Function&&)=default;
-
-    virtual ~Function(){}
+    virtual Function* clone()const override
+    {
+        return new Function(*this);
+    }
+    virtual ~Function()override{}
 
     std::string value()const override
     {
@@ -353,13 +376,29 @@ public:
     }
 };
 
-class UnaryOperator: public Operator{};
-class BinaryOperator: public Operator{};
+class UnaryOperator: public Operator{
+
+public:
+    virtual UnaryOperator* clone()const=0;
+    virtual ~UnaryOperator(){}
+
+
+};
+class BinaryOperator: public Operator{
+
+public:
+    virtual BinaryOperator* clone()const=0;
+    virtual ~BinaryOperator(){}
+
+
+};
 
 template <class T>
 class UnaryOperatorTyped: public UnaryOperator{
 public:
     virtual T operator()(T A)const =0;
+    virtual UnaryOperatorTyped* clone()const=0;
+    virtual ~UnaryOperatorTyped(){}
 
 };
 
@@ -367,6 +406,8 @@ template <class T>
 struct BinaryOperatorTyped: public BinaryOperator{
 
     virtual T operator()(T A, T B)const =0;
+    virtual BinaryOperatorTyped* clone()const=0;
+    virtual ~BinaryOperatorTyped(){}
 
 };
 
@@ -374,6 +415,9 @@ template <class Cm,class T>
 struct AssignmentOperatorTyped: public Operator{
 
   virtual  T operator()(Cm* cm, std::string id, T x)const =0;
+    virtual AssignmentOperatorTyped* clone()const=0;
+    virtual ~AssignmentOperatorTyped(){}
+
 };
 
 
@@ -392,16 +436,25 @@ inline bool get(std::stringstream& ss, Identifier*&);
 class AssignmentOperator: public Operator_symbol<AssignmentGenericOperator,assigment_symbol>
 {
 public:
-    static constexpr const char* className(){return  "Assignment_operator";}
-    virtual std::string name() const override {return className();}
+    static constexpr auto className(){return  my_static_string("Assignment_operator");}
+    virtual std::string name() const override {return className().c_str();}
     virtual std::size_t order()const override {return 14;}
+    virtual AssignmentOperator* clone()const override{return new AssignmentOperator;}
+    virtual ~AssignmentOperator(){}
+    AssignmentOperator()=default;
+
+
+
 };
 class DefinitionOperator: public Operator_symbol<DefinitionGenericOperator,definition_symbol>
 {
 public:
-    static constexpr const char* className(){return  "Definition_operator";}
-    virtual std::string name() const override {return className();}
+    static constexpr auto className(){return  my_static_string("Definition_operator");}
+    virtual std::string name() const override {return className().c_str();}
     virtual std::size_t order()const override {return 14;}
+    virtual DefinitionOperator* clone()const override{return new DefinitionOperator;}
+    virtual ~DefinitionOperator(){}
+    DefinitionOperator()=default;
 };
 
 
@@ -432,6 +485,24 @@ public:
 public:
     virtual std::ostream &put(std::ostream &os) const override;
     virtual bool get(std::stringstream &ss)  override;
+    virtual UnaryOperation* clone()const override
+    {return new UnaryOperation(*this);}
+    virtual ~UnaryOperation(){}
+    UnaryOperation(const UnaryOperation& other)
+        :op_{other.op_->clone()},a_{other.a_->clone()}{}
+    UnaryOperation& operator=(const UnaryOperation& other)
+    {
+        if(this!=&other)
+        {
+            UnaryOperation tmp(other);
+            *this=std::move(tmp);
+
+        }
+        return *this;
+    }
+    UnaryOperation(UnaryOperation&& other)=default;
+    UnaryOperation& operator=(UnaryOperation&& other)=default;
+
 };
 
 class BinaryOperation: public Expression
@@ -469,6 +540,25 @@ public:
     }
     virtual std::ostream &put(std::ostream &os) const override;
     virtual bool get(std::stringstream& ss) override;
+    virtual BinaryOperation* clone()const override
+    {return new BinaryOperation(*this);}
+    virtual ~BinaryOperation(){}
+    BinaryOperation(const BinaryOperation& other)
+        :op_{other.op_->clone()},la_{other.la_->clone()},ra_{other.ra_->clone()}{}
+    BinaryOperation& operator=(const BinaryOperation& other)
+    {
+        if(this!=&other)
+        {
+            BinaryOperation tmp(other);
+            *this=std::move(tmp);
+
+        }
+        return *this;
+    }
+    BinaryOperation(BinaryOperation&& other)=default;
+    BinaryOperation& operator=(BinaryOperation&& other)=default;
+
+
 };
 
 
@@ -533,6 +623,26 @@ public:
         return false;
     }
 
+    virtual ArrayOperation* clone()const override
+    {return new ArrayOperation(*this);}
+    virtual ~ArrayOperation(){}
+    ArrayOperation(const ArrayOperation& other)
+        :v_{clone_vector(other.v_)}{}
+    ArrayOperation& operator=(const ArrayOperation& other)
+    {
+        if(this!=&other)
+        {
+            ArrayOperation tmp(other);
+            *this=std::move(tmp);
+
+        }
+        return *this;
+    }
+    ArrayOperation(ArrayOperation&& other)=default;
+    ArrayOperation& operator=(ArrayOperation&& other)=default;
+
+
+
 };
 
 
@@ -586,6 +696,24 @@ public:
         return false;
     }
 
+    virtual GroupOperation* clone()const override
+    {return new GroupOperation(*this);}
+    virtual ~GroupOperation(){}
+    GroupOperation(const GroupOperation& other)
+        :e_{other.e_->clone()}{}
+    GroupOperation& operator=(const GroupOperation& other)
+    {
+        if(this!=&other)
+        {
+            GroupOperation tmp(other);
+            *this=std::move(tmp);
+
+        }
+        return *this;
+    }
+    GroupOperation(GroupOperation&& other)=default;
+    GroupOperation& operator=(GroupOperation&& other)=default;
+
 };
 
 
@@ -622,6 +750,27 @@ public:
     {
         return expr();
     }
+    virtual basic_Assignment* clone()const override
+    {return new basic_Assignment(*this);}
+    virtual ~basic_Assignment(){}
+    basic_Assignment(const basic_Assignment& other)
+        :id_{other.id_->clone()},op_{other.op_->clone()},exp_{other.exp_->clone()}{}
+    basic_Assignment& operator=(const basic_Assignment& other)
+    {
+        if(this!=&other)
+        {
+            basic_Assignment tmp(other);
+            *this=std::move(tmp);
+
+        }
+        return *this;
+    }
+    basic_Assignment(basic_Assignment&& other)=default;
+    basic_Assignment& operator=(basic_Assignment&& other)=default;
+
+
+
+
 };
 
 typedef basic_Assignment<false,AssignmentGenericOperator> Assignment;
@@ -629,54 +778,28 @@ typedef basic_Assignment<false,AssignmentGenericOperator> Assignment;
 typedef basic_Assignment<true,DefinitionGenericOperator> Definition;
 
 
-class Definition_: public Statement
+
+class LiteralGeneric: public Term
 {
-private:
-    std::unique_ptr<Identifier> id_;
-    std::unique_ptr<DefinitionGenericOperator> op_;
-    std::unique_ptr<Expression> exp_;
 public:
-    Definition_(Identifier* id, DefinitionGenericOperator* op, Expression* exp): id_{id},op_{op},exp_{exp}{}
-    Definition_(){}
-    Identifier const* id()const {return id_.get();}
-    DefinitionGenericOperator const * op()const {return op_.get();}
-    Expression const * expr()const {return exp_.get();}
+    virtual ~LiteralGeneric();
+    virtual LiteralGeneric* clone()const override=0;
 
-
-    virtual std::ostream &put(std::ostream &os) const override;
-
-    virtual bool get(std::stringstream& ss)override;
-    // Expression interface
-public:
-    virtual std::string value() const override;
-    virtual std::size_t nArgin() const override
-    {
-        return 2;
-    }
-    virtual const Expression *arg(std::size_t i) const override
-    {
-        if (i==0)
-            return id();
-        else
-            return expr();
-    }
 };
-
-
-
-class LiteralGeneric: public Term{};
+LiteralGeneric::~LiteralGeneric()=default;
 
 template<typename T>
 class Literal: public LiteralGeneric
 {
     T value_;
 public:
-    Literal(T&& value):value_{value}{}
+    Literal(T&& value):value_{std::move(value)}{}
+    Literal(const T& value):value_{value}{}
     Literal(){}
     T getValue()const {return value_;}
     virtual std::string value() const override
     {
-        return std::to_string(value_);
+        return my_to_string(value_);
     }
     virtual std::size_t nArgin() const override
     {
@@ -708,6 +831,14 @@ public:
             return false;
         }
     }
+
+    virtual Literal* clone()const override { return new Literal(*this);}
+
+    Literal(const Literal&)=default;
+    Literal(Literal&&)=default;
+    Literal& operator=(const Literal&)=default;
+    Literal& operator=(Literal&&)=default;
+
 };
 
 
@@ -766,6 +897,12 @@ public:
         ss.seekg(pos);
         return false;
     }
+    virtual Literal* clone()const override { return new Literal(*this);}
+
+    Literal(const Literal&)=default;
+    Literal(Literal&&)=default;
+    Literal& operator=(const Literal&)=default;
+    Literal& operator=(Literal&&)=default;
 
 };
 

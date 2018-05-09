@@ -1,6 +1,7 @@
 #ifndef MYOPTIONAL_H
 #define MYOPTIONAL_H
 
+#include "mytypetraits.h"
 #include <type_traits>
 #include <optional>
 #include <functional>
@@ -84,13 +85,25 @@ invoke_optional_functor(F&& f, Args&&... args)
 
 
 template< class F, class... Args>
-std::optional<std::invoke_result_t<F, Args...>> apply_optional(F&& f, std::optional<Args>&&... args)
+auto apply_optional(const F& f, std::tuple<std::optional<Args>...>&& args)
 {
-    auto res=(args.has_value&&...);
-    if (res)
-        return std::invoke(std::forward<F>(f), std::forward<Args...>(args.value()...));
+    auto res=std::apply([](auto&... x){ return ((x.has_value()&&...));},args);
+
+    if constexpr (contains_constructor<F>::value)
+    {
+
+        if (res)
+            return std::make_optional(std::apply([](auto&... x){ return typename F::myClass(x.value()...);}, args));
+        else return std::optional<typename F::myClass>{};
+    }
     else
-        return {};
+    {
+    if (res)
+        return std::make_optional(std::apply([&f](auto&... x){ return f(x.value()...);}, args));
+    else
+        return std::optional<std::invoke_result_t<F, Args...>>{};
+
+    }
 }
 
 #endif // MYOPTIONAL_H

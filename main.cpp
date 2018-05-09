@@ -9,13 +9,12 @@
 #include "Experiment.h"
 #include "Markov.h"
 #include "simulation.h"
+#include "commands.h"
 int main(int argc, char **argv)
 {
     std::cerr<<argv[0]<<"\n";
     std::cerr<<argv[1]<<"\n";
 
-
-    grammar::CommandManager<Cs<int,double>,Cs<int, double>> k{};
     std::map<double, std::string> p{{0.5,"gsdgfs"},{9,"gsdhse"}};
     std::cout<<p;
    // std::cin>>p;
@@ -72,15 +71,12 @@ int main(int argc, char **argv)
 
 
     auto e=experiment::DataFrame_to_Experiment(da,"t","ns","xATP","yCurrent", 50E3);
-    Markov_Model_calculations<SingleLigandModel,experiment::Experiment<experiment::point<double,double>>,double> MC(SM,1000,e);
+    Markov_Model_calculations<SingleLigandModel,experiment::basic_Experiment<experiment::point<double,double>>,double> MC(SM,1000,e);
 
 
-    auto s=markov::simulate<true>(0,e,MC,10);
+    auto s=simulate<decltype (e),Allosteric_Model>()(0,e,A,P,1000,10);
     auto ds=experiment::Experiment_to_DataFrame(s);
     ds.write(std::cout);
-
-
-
 
 
 
@@ -93,9 +89,17 @@ int main(int argc, char **argv)
 
     auto Q=A.Qs(P);
 
-    typedef grammar::CommandManager<Cs<bool>,Cs<>> CM;
+
+    typedef experiment::basic_Experiment<experiment::point<double,double>> singleLigandExperiment;
+
+
+
+    typedef grammar::CommandManager<typename Objects::types,typename Objects::commands> CM;
+//    typedef grammar::CommandManager<> CM;
 
     CM cm;
+
+ //   cm.insert_function(C<Allosteric_Model>{},Allosteric_Model::name.c_str(),Constructor<Allosteric_Model>{},Allosteric_Model::get_constructor_fields());
 
     /* cmd_["readIt"]=new readCommand(this);
       cmd_["align"]=new AlignCommand(this);

@@ -34,4 +34,6 @@ HEADERS += \
     mydataframe.h \
     newcommandmanager.h \
     measure_markov_process.h \
-    mymath.h
+    mymath.h \
+    mysmartpointerstools.h \
+    commands.h

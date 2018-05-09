@@ -118,6 +118,13 @@ public:
    }
 
 
+   std::ostream& operator<<(std::ostream& os)const
+   {
+      return write(os);
+   }
+
+
+
    struct lambda
    {
       std::stringstream& ss;
@@ -147,6 +154,15 @@ public:
       return is;
 
    }
+
+   std::istream& operator>>(std::istream& is)
+   {
+       return read(is);
+
+   }
+
+
+
    static std::map<std::string, std::size_t> getMap(const std::vector<col>& d)
    {
        std::map<std::string, std::size_t> m;
@@ -174,11 +190,22 @@ std::ostream& write(std::ostream& os, const myDataFrame<Ts...>& d)
 }
 
 template <typename ...Ts>
-std::istream& read(std::ostream& is, myDataFrame<Ts...>& d)
+std::istream& read(std::istream& is, myDataFrame<Ts...>& d)
 {
     return d.read(is);
 }
 
+template <typename ...Ts>
+std::ostream& operator<<(std::ostream& os, const myDataFrame<Ts...>& d)
+{
+    return d.write(os);
+}
+
+template <typename ...Ts>
+std::istream& operator>>(std::istream& is, myDataFrame<Ts...>& d)
+{
+    return d.read(is);
+}
 
 
 

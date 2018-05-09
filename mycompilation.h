@@ -32,7 +32,7 @@ public:
     typedef T result_type;
     typedef std::optional<T> oT;
     virtual oT run(Cm*) const=0;
-    void execute(Cm *) const{};
+    void execute(Cm *) const{}
     ~Compiled_Expression(){}
 };
 
@@ -75,7 +75,7 @@ template <class Cm,class T>
 std::optional<Compiled_Expression<Cm,T>*> compile(C<T>,Cm* cm,const Expression* id);
 
 template <class Cm>
-Compiled_Statement<Cm>* compile(Cm* cm,const Statement* id);
+std::optional<Compiled_Statement<Cm>*> compile(Cm* cm,const Statement* id);
 
 
 template <class Cm,class T>
@@ -113,7 +113,7 @@ public:
     void execute(Cm *cm) const
     {
         std::string id=x_->id()->value();
-     //   invoke_optional(&Cm::define,cm,C<T>{},std::move(id),compile(C<T>{},cm,x_->arg(0)));
+        //   invoke_optional(&Cm::define,cm,C<T>{},std::move(id),compile(C<T>{},cm,x_->arg(0)));
         cm->define(C<T>{},std::move(id),compile(C<T>{},cm,x_->arg(0)));
     }
 
@@ -127,7 +127,7 @@ class Compiled_Function_Typed: public Compiled_Expression<Cm,T>
 {
 
 public:
-    virtual void set_arguments(Function const *f)=0;
+    virtual void set_arguments(const Function  *f)=0;
 
     ~Compiled_Function_Typed(){}
 };
@@ -141,25 +141,30 @@ private:
     typedef std::tuple<std::pair<std::optional<std::unique_ptr<Compiled_Expression<Cm,Args>>>,std::string>...> args_types;
     F f_;
     args_types a_;
-    std::unique_ptr<Function> fn;
+    std::unique_ptr<Function const> fn;
+
     template<class Arg>
     static
     std::optional<Arg>
-    run_argument(Compiled_Function_Arg* self,Cm* cm,const std::pair<std::optional<std::unique_ptr<Compiled_Expression<Cm,Arg>>>, std::string>& dargs,
+    run_argument(Compiled_Function_Arg const* self,Cm* cm,const std::pair<std::optional<std::unique_ptr<Compiled_Expression<Cm,Arg>>>, std::string>& dargs,
                  const Function::arg_map& m)
     {
         auto it=m.find(dargs.second);
         if(it!=m.end())
         {
 
-            auto e=std::make_unique(compile<Cm,Arg>(cm,it->second.get()));
-            if (auto x=dynamic_cast<Compiled_Definition<Cm,Arg>*>(e.get()); x!=nullptr)
+            auto e=compile<Cm,Arg>(cm,it->second->clone());
+            if (e.has_value())
             {
-                x->execute(self);
-                return x->run(cm);
+                auto u=std::unique_ptr<Compiled_General_Assignment<Cm,Arg>>(e.value());
+                if (auto x=dynamic_cast<Compiled_Definition<Cm,Arg>*>(u.get()); x!=nullptr)
+                {
+                    x->execute(cm);
+                    return x->run(cm);
+                }
+                else
+                    return u->run(cm);
             }
-            else
-                return e->run(cm);
         }
         else if (dargs.first.has_value())
             return (**dargs.first).run(cm);
@@ -189,16 +194,94 @@ public:
     virtual oT run(Cm* cm) const override
     {
         auto& argsMap=fn->getArgs();
-        auto a=std::apply([this,cm,&argsMap](auto ...x){std::make_tuple(run_argument(this,cm,x,argsMap)...);} , a_);
-        return apply_optional(f_,a);
+        auto a=std::apply([this,cm,&argsMap](auto& ...x){return std::make_tuple(run_argument(this,cm,x,argsMap)...);} , a_);
+        return apply_optional(f_,std::move(a));
     }
 
 
 
-    void set_arguments(Function *f){fn= std::unique_ptr<Function>(f);}
+    void set_arguments(const Function   *f)override{fn.reset(f->clone());}
 
-    Compiled_Function_Arg(F f, args_types a):f_{f},fn{f}{}
+    Compiled_Function_Arg(C<T>,F f, args_types&& a):f_{f},fn{},a_{std::move(a)}{}
 };
+
+
+template <class Cm,class Arg>
+std::pair<std::optional<std::unique_ptr<Compiled_Expression<Cm,Arg>>>,std::string>
+make_compiled_argument(Cm* cm,grammar::argument<Arg> a)
+{
+    if (a.default_value.has_value())
+        return std::pair(std::make_optional(std::make_unique(compile(cm,new Literal<Arg>(a.default_value.value())))),a.idField);
+    else
+        return {{},a.idField};
+
+}
+
+template <class Cm,class ...Args>
+auto compile_all_arguments(std::tuple<grammar::argument<Args>...>&& args)
+{
+    return std::apply([](auto& ...x){return std::make_tuple(make_compiled_argument(x)...);},args);
+
+}
+
+
+
+template <class Cm,class T, class F,class ...Args>
+auto make_compiled_function(C<T>,F&& f, std::tuple<grammar::argument<Args>...>&& args)
+{
+    auto a=compile_all_arguments(args);
+    return new Compiled_Function_Arg<Cm,T,F,Args...>(C<T>{},f,a);
+}
+
+
+
+
+
+template <class Cm,class C,class Arg>
+auto
+make_compiled_field(Cm* cm,const grammar::field<C,Arg>& a)
+{
+    typedef  typename grammar::field<C,Arg>::result_type T;
+    typedef typename std::optional<std::unique_ptr<Compiled_Expression<Cm,T>>> ot;
+    if (a.default_value.has_value())
+    {
+        auto c= new Compiled_Literal<Cm,T>(new Literal<T>(a.default_value.value()));
+        if (c)
+        {
+            return std::pair(std::make_optional(std::unique_ptr<Compiled_Expression<Cm,T>>(c)),a.idField);
+        }
+        else
+        {
+            ot o;
+            return std::pair<ot,std::string>(std::move(o),a.idField);
+        }
+
+    }
+    else
+    {
+        ot o;
+        return std::pair<ot,std::string>(std::move(o),a.idField);
+    }
+}
+
+template <class Cm,class C, class ...Args>
+auto compile_all_fields(Cm* cm,const std::tuple<grammar::field<C,Args>...>& args)
+{
+    return std::apply([&cm](auto& ...x){return std::make_tuple(make_compiled_field(cm,x)...);},args);
+
+}
+
+
+
+template <class Cm,class T, class ...Args>
+auto make_compiled_constructor(Cm *cm,C<T>,Constructor<T>,const std::tuple<grammar::field<T,Args>...>& args)
+{
+
+    auto a=compile_all_fields(cm,args);
+    return new Compiled_Function_Arg<Cm,T,Constructor<T>,typename grammar::field<T,Args>::result_type...>(C<T>{},Constructor<T>{},std::move(a));
+}
+
+
 
 
 
@@ -427,7 +510,10 @@ private:
     {
         auto out=cm->get_Function_Typed(C<T>{},f->value());
         if (out)
-            return out;
+        {
+            Compiled_Statement<Cm>* c= out.value();
+            return c;
+        }
         else return get_Function_impl(cm,Cs<Ks...>{},f);
     }
 
@@ -632,6 +718,21 @@ std::optional<Compiled_Statement<Cm>*> compile(Cm* cm,std::optional<const Statem
     else return {};
 }
 
+
+template <class Cm,class T>
+std::optional<Compiled_General_Assignment<Cm,T>*> compile(Cm* ,const Generic_Assignment* id)
+{
+
+    if(auto x=dynamic_cast<Assignment const *>(id); x!=nullptr)
+    {
+        return new Compiled_Assignment<Cm,T>(x);
+    }
+    else if(auto x=dynamic_cast<Definition const *>(id); x!=nullptr)
+    {
+        return new Compiled_Definition<Cm,T>(x);
+    }
+    else return {};
+}
 
 
 

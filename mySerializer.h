@@ -26,6 +26,8 @@
 /*-     POD  */
 
 
+namespace io {
+
 
 std::string my_to_string(double x)
 {
@@ -40,8 +42,6 @@ std::string my_to_string(double x)
 
    return strstr.str();
 }
-
-
 
 
 template<typename T> std::ostream& write(std::ostream& s, const T& v);
@@ -76,10 +76,10 @@ template<typename T1, typename T2> std::ostream& write_pair(std::ostream& os,con
 template<typename T1, typename T2> std::istream& read_pair(std::istream& is, std::pair<T1,T2>& other);
 
 
-template<typename T> std::ostream& operator<<(std::ostream& s, const std::vector<T>& v);
+template<typename T> auto operator<<(std::ostream& s, const T& v)->std::enable_if_t<is_std_container<T>::value&&!std::is_same_v<T,std::string >,std::ostream&>;
 
 
-template<typename T> std::istream& operator>>(std::istream& s, std::vector<T>& v);
+template<typename T> auto operator>>(std::istream& s, T& v)->std::enable_if_t<is_std_container<T>::value&&!std::is_same_v<T,std::string >, std::istream&>;
 template<typename T> std::istream& read_vector(std::istream& s, std::vector<T>& v);
 
 template<typename K,typename T> std::ostream& operator<<(std::ostream& s, const std::map<K,T>& v);
@@ -106,10 +106,9 @@ template<typename K> std::istream& read_set(std::istream& s,  std::set<K>& v);
 
 
 template<typename Token,typename T> std::istream& read_variant(std::istream& is, std::variant<Token,T>& e);
+template<typename Token,typename T> std::istream& input_operator_variant(std::istream& is, std::variant<Token,T>& e);
 
 
-namespace io
-{
 
 template<char... cs> struct token {
     static constexpr char value[]={cs...};
@@ -179,7 +178,7 @@ template<typename T> std::ostream& output_operator_on_element(std::ostream& os, 
 
 template<typename T> std::ostream& write_on_element(std::ostream& os, const T& e);
 
-template<typename T> std::ostream& output_operator_on_element(std::ostream& os, const T * const e);
+template<typename T> std::ostream& output_operator_on_element(std::ostream& os, const T *&  e);
 template<typename T> std::ostream& write_on_element(std::ostream& os, const T*& e);
 template<typename T> std::istream& input_operator_on_element(std::istream& is, T& e);
 template<typename T> std::istream& input_operator_on_element(std::istream& is, T*& e);
@@ -208,21 +207,32 @@ std::istream& input_operator_on_element(std::istream& is, double*& e);
 
 
 template <class Object,class Method> std::ostream& write_on_Field(std::ostream& os,const grammar::field<Object,Method>& myField, const Object& myObject);
+template <class Object,class Method> std::ostream& output_operator_on_Field(std::ostream& os,const grammar::field<Object,Method>& myField, const Object& myObject);
+
 
 template<class FieldObject> auto write_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (myObject.get_constructor_fields(),os)&;
+template<class FieldObject> auto output_operator_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (myObject.get_constructor_fields(),os)&;
 
 
 template <class Object,class Method>
 bool read_on_if_field(std::istream& is,const std::string id,  grammar::field<Object,Method>& myField);
 
+template <class Object,class Method>
+bool input_operator_on_if_field(std::istream& is,const std::string id,  grammar::field<Object,Method>& myField);
+
 
 template <class Object,class... Method>
 std::istream& read_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields);
+template <class Object,class... Method>
+std::istream& input_operator_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields);
 
 
 
 template<class FieldObject>
 auto read_on_Object(std::istream& is, FieldObject& myObject)->decltype (myObject.get_constructor_fields(),is)&;
+
+template<class FieldObject>
+auto input_operator_on_Object(std::istream& is, FieldObject& myObject)->decltype (myObject.get_constructor_fields(),is)&;
 
 
 template<typename T1, typename T2> std::ostream& operator<<(std::ostream& os,const std::pair<T1,T2>& other);
@@ -248,7 +258,6 @@ template<template <class, class...> class Set,typename K,class... Os> std::istre
 
 template<template <class, class...> class Set,typename K,class... Os> std::istream& read_on_set(std::istream& is, Set<K,Os...> & mySet);
 
-}
 
 ///-----------------Implementations------------------------------------------///
 
@@ -301,6 +310,26 @@ template<typename Token,typename T> std::istream& read_variant(std::istream& is,
     return is;
 }
 
+
+template<typename Token,typename T> std::istream& input_operator_variant(std::istream& is, std::variant<Token,T>& e)
+{
+    Token t;
+    if (is>>t)
+    {
+        e=t;
+    }
+    else
+    {
+        is.clear();
+        T x;
+        if (is>>x)
+            e=x;
+    }
+    return is;
+}
+
+
+
 inline std::istream &safeGetline(std::istream &is, std::string &t)
 {
     is.clear();
@@ -311,8 +340,6 @@ inline std::istream &safeGetline(std::istream &is, std::string &t)
     return is;
 }
 
-namespace io
-{
 
 
 template<char... c>
@@ -332,6 +359,13 @@ std::istream& operator>>(std::istream& is, token<> )
     return is;
 }
 
+
+std::istream& set_fail_bit(std::istream& is)
+{
+    is.setstate(std::ios::failbit);
+    return is;
+}
+
 template<char c, char... chs>
 std::istream& operator>>(std::istream& is, token<c,chs...> )
 {
@@ -342,8 +376,7 @@ std::istream& operator>>(std::istream& is, token<c,chs...> )
         if (ch!=c)
         {
             is.putback(ch);
-            is.setstate(std::ios::failbit);
-            return is;
+            return set_fail_bit(is);
         }
     }
     else if constexpr (c!=' '&& c!='\t')
@@ -391,6 +424,17 @@ typedef start_of_Container start_of_tuple;
 
 typedef end_of_Container end_of_tuple;
 
+typedef token<'['> start_of_title;
+
+typedef token<']'> end_of_title;
+
+typedef start_of_Container start_of_row;
+
+typedef end_of_Container end_of_row;
+
+typedef token<'#'> end_of_data_frame;
+
+
 typedef start_of_Container start_of_pair;
 
 typedef end_of_Container end_of_pair;
@@ -433,7 +477,7 @@ std::ostream& write_on_element(std::ostream& os, const T& e)
 }
 
 template<typename T>
-std::ostream& output_operator_on_element(std::ostream& os, const T * const e)
+std::ostream& output_operator_on_element(std::ostream& os, const T * & e)
 {
     return os<<separator{}<<*e;
 }
@@ -653,9 +697,6 @@ std::istream& input_operator_on_element(std::istream& is, double*& e)
 
 
 
-
-}
-
 std::istream& read(std::istream& is, double& e)
 {
     return io::extract_double(is,e);
@@ -692,7 +733,6 @@ template<typename ...Args> std::istream& read_tuple(std::istream& is,  std::tupl
 }
 
 
-namespace io {
 
 
 template <class Object,class Method>
@@ -704,6 +744,16 @@ std::ostream& write_on_Field(std::ostream& os,const grammar::field<Object,Method
     return os;
 }
 
+
+template <class Object,class Method>
+std::ostream& output_operator_on_Field(std::ostream& os,const grammar::field<Object,Method>& myField, const Object& myObject){
+    io::output_operator_on_element (os,myField.idField);
+    os<<io::end_of_line{};
+    os<<std::invoke(myField.access_method,myObject)<<io::end_of_line{};
+    return os;
+}
+
+
 template<class FieldObject>
 auto write_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (myObject.get_constructor_fields(),os)&
 {
@@ -713,6 +763,15 @@ auto write_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (my
     return os;
 }
 
+
+template<class FieldObject>
+auto output_operator_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (myObject.get_constructor_fields(),os)&
+{
+    auto fields=myObject.get_constructor_fields();
+    std::apply([&os, &myObject](const auto&... v){return ((output_operator_on_Field(os,v,myObject)),...,0);},fields);
+    os<<io::end_of_Object{};
+    return os;
+}
 
 
 template <class Object,class Method>
@@ -734,6 +793,27 @@ bool read_on_if_field(std::istream& is,const std::string id,  grammar::field<Obj
 }
 
 
+template <class Object,class Method>
+bool input_operator_on_if_field(std::istream& is,const std::string id,  grammar::field<Object,Method>& myField)
+{
+    if (id!=myField.idField) return false;
+    else
+    {
+        typename grammar::field<Object,Method>::result_type x;
+        if (!(is>>x))
+        {
+            return false;
+        }
+        else
+        {
+            myField.default_value=x;
+            return true;
+        }
+    }
+
+}
+
+
 
 template <class Object,class... Method>
 std::istream& read_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields){
@@ -742,6 +822,12 @@ std::istream& read_on_this_field(std::istream& is,const std::string id,  std::tu
 
 }
 
+template <class Object,class... Method>
+std::istream& input_operator_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields){
+
+    return std::apply([&](auto&...x)->auto& {if((input_operator_on_if_field(is,id,x)||...)) return is;else {is.setstate(std::ios::failbit);return is;}},myFields);
+
+}
 
 
 
@@ -779,10 +865,42 @@ auto read_on_Object(std::istream& is, FieldObject& myObject)->decltype (myObject
     }
 }
 
+template<class FieldObject>
+auto input_operator_on_Object(std::istream& is, FieldObject& myObject)->decltype (myObject.get_constructor_fields(),is)&
+{
+    auto fields=myObject.get_constructor_fields();
+    is>>io::start_of_Container{};
+    is>>io::end_of_line{};
+    std::string id;
+    while (true)
+    {
+        std::variant<io::end_of_Object, std::string> id;
+        static_assert(is_variant<decltype (id)>::value);
+        if (!input_operator_variant(is,id))
+            return is;
+        if (id.index()==1)
+        {
+            is>>io::end_of_line{};
+            if (!input_operator_on_this_field(is,std::get<1>(id),fields))
+                return is;
+            is>>io::end_of_line{};
+        }
+        else break;
+    }
+
+    if (grammar::has_all(fields))
+    {
+        myObject=std::apply([](auto& ...x){return FieldObject(x.default_value.value()...);},fields);
+        return is;
+    }
+    else
+    {
+        is.setstate(std::ios::failbit); return is;
+    }
+}
 
 
 
-} // namespace io
 
 template<typename T1, typename T2> std::ostream& operator<<(std::ostream& os,const std::pair<T1,T2>& other)
 {
@@ -819,17 +937,6 @@ template<typename T1, typename T2> std::istream& read_pair(std::istream& is, std
 }
 
 
-namespace io
-{
-template<typename T1, typename T2>
-std::ostream& operator<<(std::ostream& os,const std::pair<T1,T2>& other)
-{
-    os<<io::start_of_tuple{};
-    output_operator_on_element(os,other.first);
-    output_operator_on_element(os,other.second);
-    os<<io::end_of_tuple{};
-    return os;
-}
 
 template<typename T1, typename T2>
 std::istream& operator>>(std::istream& is,std::pair<T1,T2>& other)
@@ -883,7 +990,7 @@ std::istream& input_operator_on_container(std::istream& is, Container<T,Allocato
     for (std::size_t i=0; i<s.size; ++i)
     {
         T e{};
-        input_operator_on_element(e);
+        input_operator_on_element(is,e);
         myContainer.push_back(std::move(e));
     }
     is>>io::end_of_Container{};
@@ -1016,17 +1123,13 @@ std::istream& read_on_set(std::istream& is, Set<K,Os...> & mySet)
 
 
 
-
-
-}
-
-template<typename T> std::ostream& operator<<(std::ostream& s, const std::vector<T>& v)
+template<typename T> auto operator<<(std::ostream& s, const T& v)->std::enable_if_t<is_std_container<T>::value&&!std::is_same_v<T,std::string >,std::ostream&>
 {
     return io::output_operator_on_container(s,v);
 }
 
 
-template<typename T> std::istream& operator>>(std::istream& s, std::vector<T>& v)
+template<typename T> auto operator>>(std::istream& s, T& v)->std::enable_if_t<is_std_container<T>::value&&!std::is_same_v<T,std::string >, std::istream&>
 {
     return io::input_operator_on_container(s,v);
 }
@@ -1087,7 +1190,7 @@ template<typename K> std::ostream& operator<<(std::ostream& s, const std::set<K>
     return io::output_operator_on_container(s,v);
 }
 
-template<typename K> std::istream& operator>>(std::istream& s, const std::set<K>& v)
+template<typename K> std::istream& operator>>(std::istream& s,  std::set<K>& v)
 {
     return io::input_operator_on_set(s,v);
 }
@@ -1102,6 +1205,7 @@ template<typename K> std::istream& read_set(std::istream& s,  std::set<K>& v)
 {
     return io::read_on_set(s,v);
 }
+
 
 
 
@@ -1150,6 +1254,29 @@ template<typename T> std::istream& read(std::istream& s, T& v)
     // else static_assert (false,"not managed" );
 }
 
+template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_field_Object<T>::value,std::ostream&>
+{
+            return io::output_operator_on_Object(s,v);
+    }
 
+
+template<typename T> auto operator>>(std::istream& s, T& v)->std::enable_if_t<is_field_Object<T>::value,std::istream&>
+{
+            return io::input_operator_on_Object(s,v);
+    }
+
+
+template <typename T> std::string my_to_string(const T& x)
+{
+    std::ostringstream os;
+    os<<x;
+    return os.str();
+}
+
+
+
+} // namespace io
+
+using namespace io;
 
 #endif // MYSERIALIZER_H

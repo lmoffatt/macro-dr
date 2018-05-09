@@ -4,6 +4,7 @@
 #include "Matrix.h"
 #include "myfields.h"
 #include "mymath.h"
+#include "mytypetraits.h"
 #include <vector>
 #include <map>
 #include <set>
@@ -11,9 +12,11 @@
 
 
 
-
-
-
+/**
+ * @brief The Allosteric_Model class build a kinetic rate model starting with a set of conformational changes and their interactions.
+ *
+ *
+ */
 class Allosteric_Model
 {
 public:
@@ -37,12 +40,23 @@ public:
 
 
 
+    constexpr static auto name=my_static_string("Allosteric_Model");
+
+
+
 private:
     std::vector<std::vector<std::string>> conformer_;
     std::vector<std::map<std::size_t,transitions>> transitions_;
     std::set<std::string> paramNames_;
     std::vector<std::string> conductances_;
     model_definition d_;
+
+    /**
+     * @brief getParameterNamesFrom
+     * @param conformational_changes_names
+     * @param conductance_names
+     * @param conformational_inter
+     */
     static auto getParameterNamesFrom(const std::map<std::pair<std::string,bool>,std::string> conformational_changes_names,
                                       const std::map<std::size_t, std::string>& conductance_names,
                                       const std::multimap<std::size_t, std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>>& conformational_inter)
@@ -217,7 +231,7 @@ public:
 
 
     template<class Parameters>
-    auto Qs(const Parameters& p)
+    auto Qs(const Parameters& p) const
     {
 
         M_Matrix<double> Q0(conformer_.size(),conformer_.size());
@@ -245,7 +259,7 @@ public:
 
 
     template<class Parameters>
-    auto g(const Parameters& p)
+    auto g(const Parameters& p) const
     {
         M_Matrix<double> out(conformer_.size(),1);
         for (std::size_t i=0; i<conformer_.size(); ++i)
@@ -1057,7 +1071,7 @@ public:
     double fs()const {return fs_;}
 
     Markov_Model_calculations(const M& m, std::size_t N, const Experiment& e)
-        :    m_{m},N_{N},fs_{e.frequency_of_sampling()},e_{e}, map_{},rate_map_{},step_map_{}{}
+        :    m_{m},N_{N},fs_{e.frequency_of_sampling()},e_{e},rate_map_{}, map_{},step_map_{}{}
 
 private:
     const M& m_;
