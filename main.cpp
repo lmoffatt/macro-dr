@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     Markov_Model_calculations<SingleLigandModel,experiment::basic_Experiment<experiment::point<double,double>>,double> MC(SM,1000,e);
 
 
-    auto s=simulate<decltype (e),Allosteric_Model>()(0,e,A,P,1000,10);
+    auto s=simulate<decltype (e),Allosteric_Model>::run(0,e,A,P,1000,10);
     auto ds=experiment::Experiment_to_DataFrame(s);
     ds.write(std::cout);
 
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     auto Q=A.Qs(P);
 
 
-    typedef experiment::basic_Experiment<experiment::point<double,double>> singleLigandExperiment;
+    //typedef experiment::basic_Experiment<experiment::point<double,double>> singleLigandExperiment;
 
 
 

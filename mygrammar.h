@@ -255,6 +255,8 @@ public:
     virtual ~Operator(){}
 };
 
+
+
 class AssignmentGenericOperator: public Operator{
 public:
     virtual AssignmentGenericOperator* clone()const=0;
@@ -793,7 +795,7 @@ class Literal: public LiteralGeneric
 {
     T value_;
 public:
-    Literal(T&& value):value_{std::move(value)}{}
+    //Literal(T&& value):value_{std::move(value)}{}
     Literal(const T& value):value_{value}{}
     Literal(){}
     T getValue()const {return value_;}
@@ -821,7 +823,7 @@ public:
         T value;
         if (ss>>value)
         {
-            *this=Literal(std::move(value));
+            value_=std::move(value);
             return true;
         }
         else

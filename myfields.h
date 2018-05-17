@@ -19,7 +19,7 @@ struct argument
     default_type default_value;
     argument(C<T>,const char* id):idField{id}, default_value{}{}
     argument(C<T>,const char* id, T val):idField{id}, default_value{std::move(val)}{}
- };
+};
 
 
 
@@ -48,12 +48,12 @@ struct field
     typedef Method member_type;
     typedef Object object_type;
     typedef  std::decay_t<return_type> result_type;
-     typedef std::optional<std::decay_t<return_type>> default_type;
+    typedef std::optional<std::decay_t<return_type>> default_type;
 
-     std::string idField;
-     member_type access_method;
-     default_type default_value;
-     field(C<Object>,const char* id, member_type get):idField{id},access_method{get}, default_value{}{}
+    std::string idField;
+    member_type access_method;
+    default_type default_value;
+    field(C<Object>,const char* id, member_type get):idField{id},access_method{get}, default_value{}{}
 };
 
 
@@ -73,27 +73,36 @@ bool has_all(const std::tuple<field<Object,Method>...>& fs)
 template <class Object,class... Method>
 struct arg_types<std::tuple<grammar::field<Object,Method>...>>
 {
-    typedef Cs< std::decay_t<std::invoke_result_t<Method,Object> >...>  type;
+    typedef Cs<std::invoke_result_t<Method,Object> ...>  type;
 };
 
 
 template <class... T>
 struct arg_types<std::tuple<grammar::argument<T>...>>
 {
-    typedef Cs<std::decay_t<T>...> type;
+    typedef Cs<T...> type;
 };
 
 
 
-template<typename...> struct extract_all_types{};
+template<typename...> struct extract_all_types_and_decay{};
 
 
 template<class command>
 struct result_of_command
 {
-    typedef    typename class_concatenate_t<std::invoke_result<decltype(&command::operator()),command>,
-    arg_types_t<std::invoke_result_t<decltype(command::get_arguments)>>>::type type;
+
+    typedef  typename class_concatenate_t<
+    std::invoke_result<decltype(&command::run)>,
+    arg_types_t<std::invoke_result_t<decltype(command::get_arguments)>>
+    >::type type;
+    //static typename type::chota d;
+
 };
+
+template<class command>
+using result_of_command_t=typename result_of_command<command>::type;
+
 
 
 template<typename T>
@@ -110,42 +119,44 @@ struct arg_types<T,command_tag>
 };
 
 template <template <class...>class Cs,class ...Ts>
-struct extract_all_types<Cs<Ts...>>
+struct extract_all_types_and_decay<Cs<Ts...>>
 {
-
-    typedef class_set_union_t<Cs<>,Cs<arg_types_t<Ts>...>> type;
+    typedef class_set_union_t<Cs<>,typename apply_Op_t_to_all<std::decay_t,Cs<arg_types_t<Ts>...>>::type> type;
 };
 template <class T>
-using extract_all_types_t=typename  extract_all_types<T>::type;
+using extract_all_types_and_decay_t=typename  extract_all_types_and_decay<T>::type;
 
 
 
 template< class...>
-struct extract_pointer_types{};
+struct extract_function_return_types{};
 
 template< class...>
-struct extract_regular_types{};
+struct extract_types{};
 
 
-template<template<class...> class Cs,class... types, class... commands>
-struct extract_pointer_types<Cs<types...>,Cs<commands...>>
+template<template<class...> class Cs, class... types,class... commands>
+struct extract_function_return_types<Cs<types...>,Cs<commands...>>
 {
-    typedef filter_pointer_t<
-    class_set_union_t<
-    extract_all_types_t<Cs<types...>>,extract_all_types_t<Cs<commands...>>>> type;
+    typedef     class_set_union_t<class_set_union_t<Cs<>,Cs<types...>>,Cs<result_of_command_t<commands>...>> type;
+
 };
 
 
-template<template<class...> class Cs,class... types, class... commands>
-struct extract_regular_types<Cs<types...>,Cs<commands...>>
-{
 
+
+template<template<class...> class Cs,class... types, class... commands>
+struct extract_types<Cs<types...>,Cs<commands...>>
+{
 
     typedef filter_regular_t<
     class_set_union_t<
-    extract_all_types_t<Cs<types...>>,extract_all_types_t<Cs<commands...>>>> type;
+    extract_all_types_and_decay_t<Cs<types...>>,extract_all_types_and_decay_t<Cs<commands...>>>> type;
 
 };
+
+
+
 
 
 

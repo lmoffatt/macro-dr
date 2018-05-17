@@ -597,7 +597,7 @@ private:
 
     void init(const Markov_Transition_rate& Qx)
     {
-        const double eps=std::numeric_limits<double>::epsilon();
+        //const double eps=std::numeric_limits<double>::epsilon();
         double dt=Markov_Transition_step::dt();
 
         std::size_t N=P().ncols();
@@ -1019,7 +1019,7 @@ public:
         return m_.Qx(x);
     }
 
-    Markov_Transition_step calc_P(const Markov_Transition_rate& Qx,X x,std::size_t nsamples)const
+    Markov_Transition_step calc_P(const Markov_Transition_rate& Qx,X /*x*/,std::size_t nsamples)const
     {
         return m_.P(Qx,nsamples,fs());
     }

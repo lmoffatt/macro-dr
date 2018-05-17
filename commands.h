@@ -35,7 +35,7 @@ struct to_experiment
 {
     static constexpr auto name=my_static_string("to_experiment");
 
-    auto operator()(const io::myDataFrame<double>& da
+   static auto run(const io::myDataFrame<double>& da
                                             ,const std::string& colname_time,
                                             const std::string& colname_nsample,
                                             const std::string& colname_x,
@@ -48,7 +48,7 @@ struct to_experiment
 
     static auto get_arguments()
     {
-        return std::make_tuple(grammar::argument(C<const io::myDataFrame<double, std::size_t>&>{},"data_frame"),
+        return std::make_tuple(grammar::argument(C<const io::myDataFrame<double>&>{},"data_frame"),
                                grammar::argument(C<std::string>{},"colname_time"),
                                grammar::argument(C<std::string>{},"colname_nsample"),
                                grammar::argument(C<std::string>{},"colname_x"),
@@ -72,7 +72,7 @@ struct simulate{
 
 
     static constexpr auto name=my_static_string("simulate");
-    auto operator()(std::mt19937_64::result_type initseed,const Experiment& e, const  Model& m , const std::map<std::string,double>& p,std::size_t N,std::size_t n)
+    static auto run(std::mt19937_64::result_type initseed,const Experiment& e, const  Model& m , const std::map<std::string,double>& p,std::size_t N,std::size_t n)
     {
         SingleLigandModel SM(m.Qs(p),m.g(p));
 
@@ -91,9 +91,9 @@ struct simulate{
     {
         return std::make_tuple(
                     grammar::argument(C<typename std::mt19937_64::result_type>{},"initseed",typename std::mt19937_64::result_type(0)),
-                    grammar::argument(C<Experiment>{},my_trait<Experiment>::name.c_str()),
-                    grammar::argument(C<Model>{},my_trait<Model>::name.c_str()),
-                    grammar::argument(C<std::map<std::string,double>>{},"model_parameters"),
+                    grammar::argument(C<const Experiment&>{},my_trait<Experiment>::name.c_str()),
+                    grammar::argument(C<const Model&>{},my_trait<Model>::name.c_str()),
+                    grammar::argument(C<const std::map<std::string,double>&>{},"model_parameters"),
                     grammar::argument(C<std::size_t>{},"number_channels"),
                     grammar::argument(C<std::size_t>{},"number_of_sub_intervals",10ul));
     }

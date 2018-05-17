@@ -142,7 +142,7 @@ auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& 
 
 
 template<class F,class Model, class measure_algorithm_state, class Step, class Point>
-void measure_step(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp, const Step& step,  const Model& m,std::size_t n_substeps, double fs)
+void measure_step(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp, const Step& step,  const Model& m,std::size_t n_substeps, double /*fs*/)
 {
     auto nsamples=step.nsamples();
     auto desired_subsamples=std::max(nsamples/n_substeps,1ul);
@@ -154,7 +154,7 @@ void measure_step(std::vector<Point>& out,measure_algorithm_state& current,const
     }
 }
 template<class F,class Model, class measure_algorithm_state, class Step, class Point>
-void skip_step(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp, const Step& step,  const Model& m, double fs)
+void skip_step(std::vector<Point>& out,measure_algorithm_state& current,const F& /*f*/,std::mt19937_64& mt,markov_process<std::size_t>& mp, const Step& step,  const Model& m, double/* fs*/)
 {
 
     current.sum_samples=0;

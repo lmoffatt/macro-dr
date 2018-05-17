@@ -91,6 +91,8 @@ struct has_this_type<Cs<Ts...>,T>
 
 };
 
+template<class ...Ts>
+constexpr inline bool has_this_type_v=has_this_type<Ts...>::value;
 
 
 
@@ -158,7 +160,21 @@ struct has_mapped_type<T,
 template <typename T> inline constexpr bool has_mapped_type_v=has_mapped_type<T>::value;
 
 
+template <class> struct is_optional: public std::false_type{};
 
+template <typename T>
+struct is_optional<std::optional<T>>: public std::true_type{};
+template <typename T>
+struct is_optional<std::optional<T>&>: public std::true_type{};
+
+template <class> struct is_optional_ref: public std::false_type{};
+
+template <typename T>
+struct is_optional_ref<std::optional<std::reference_wrapper<T>>>: public std::true_type{};
+
+
+template <typename T>
+using is_optional_v=typename is_optional<std::decay_t<T>>::value;
 
 template <class T> struct is_container: public std::false_type{};
 
@@ -241,6 +257,21 @@ struct is_tuple<std::tuple<T...>>
 
 
 
+
+template <class> struct is_pointer_to_const: public std::false_type{};
+
+template <typename T>
+struct is_pointer_to_const<T const *>: public std::true_type{};
+
+template<typename,class=void>
+struct is_variable_ref: public std::false_type{};
+
+template <typename T>
+struct is_variable_ref<T,
+        std::enable_if_t<!std::is_const_v<T>&&(std::is_lvalue_reference_v<T>||std::is_pointer_v<T>), int>>: public std::true_type{};
+
+template< typename T>
+inline constexpr bool is_variable_ref_v=is_variable_ref<T>::value;
 
 
 template<typename,class=void>
@@ -375,11 +406,23 @@ struct class_set_union{};
  template <class A, class B>
 using class_set_union_t=typename class_set_union<A,B>::type;
 
+template <class A, class B>
+struct class_arg_set_union{};
+
+ template <class A, class B>
+using class_arg_set_union_t=typename class_arg_set_union<A,B>::type;
+
 
 template <class A, class B>
 struct class_set_union_impl{};
 template <class A, class B>
 using class_set_union_impl_t=typename class_set_union_impl<A,B>::type;
+
+
+template <class A, class B>
+struct class_arg_set_union_impl{};
+template <class A, class B>
+using class_arg_set_union_impl_t=typename class_arg_set_union_impl<A,B>::type;
 
 
 
@@ -397,24 +440,77 @@ struct class_set_union_impl<Cs<Ts...>,Cs<T0,T...>>
     typedef class_set_union_impl_t<class_set_union_impl_t<Cs<Ts...>,T0>,Cs<T...>> type;
 };
 
-template <template<class...> class Cs, class T, class... Ts>
-struct class_set_union_impl<Cs<Ts...>,T>
-{
-    typedef std::conditional_t<(std::is_same_v<Ts,T > ||...||false),Cs<Ts...>,Cs<Ts...,T>> type;
 
+
+template<bool,class...>
+struct class_set_do_union{};
+
+template <template<class...> class Cs, class T, class... Ts>
+struct class_set_do_union<false,Cs<Ts...>,T>
+{
+    typedef  Cs<Ts...,T> type;
 };
+template <template<class...> class Cs, class T, class... Ts>
+struct class_set_do_union<true,Cs<Ts...>,T>
+{
+    typedef  Cs<Ts...> type;
+};
+
+
+
+
+template <template<class...> class Cs, class... Ts>
+struct class_set_union<Cs<Ts...>,Cs<>>
+{
+    typedef Cs<Ts...> type;
+};
+
 
 template <template<class...> class Cs, class T, class... Ts>
 struct class_set_union<Cs<Ts...>,T>
 {
-    typedef class_set_union_impl_t<Cs<Ts...>,arg_types_t<T>> type;
+    typedef typename class_set_do_union<(std::is_same_v<Ts,T > ||...||false),Cs<Ts...>,T>::type type;
+
 };
+
+
+
 
 template <template<class...> class Cs, class T0,class... T, class... Ts>
 struct class_set_union<Cs<Ts...>,Cs<T0,T...>>
 {
     typedef class_set_union_t<class_set_union_t<Cs<Ts...>,T0>,Cs<T...>> type;
 };
+
+
+template <template<class...> class Cs, class... T>
+struct class_arg_set_union<Cs<T...>,Cs<>>
+{
+    typedef Cs<T...> type;
+};
+
+
+
+template <template<class...> class Cs, class T, class... Ts>
+struct class_arg_set_union<Cs<Ts...>,T>
+{
+    typedef class_set_union_t<Cs<Ts...>,arg_types_t<T>> type;
+};
+
+
+
+
+
+template <template<class...> class Cs, class T0,class... T, class... Ts>
+struct class_arg_set_union<Cs<Ts...>,Cs<T0,T...>>
+{
+    typedef class_arg_set_union_t<class_arg_set_union_t<Cs<Ts...>,T0>,Cs<T...>> type;
+};
+
+
+
+
+
 
 
 
@@ -486,6 +582,29 @@ struct filter_regular<Cs<T0...>>
 {
     typedef remove_void_t<Cs<std::conditional_t<!std::is_pointer_v<T0>,T0,void>...>>  type;
 };
+
+
+template<template<class>class,class ...> struct apply_Op_t_to_all{};
+
+
+
+
+template<template<class>class Op_t, typename T>
+struct apply_Op_t_to_all<Op_t,T>
+{
+
+    typedef Op_t<T> type;
+};
+
+template<template<class>class Op_t,template<class...>class Cs, typename...Ts>
+struct apply_Op_t_to_all<Op_t,Cs<Ts...>>
+{
+    //static typename Cs<Ts...>::hurra k;
+
+    typedef Cs<typename apply_Op_t_to_all<Op_t,Ts>::type...> type;
+};
+
+
 
 
 
