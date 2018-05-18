@@ -11,6 +11,136 @@
 #include <cmath>
 
 
+class Label
+{
+    std::string name_;
+
+public :
+    std::string name()const {return name_;} // unique at all levels
+
+    Label(std::string&& label): name_{label}{}
+    Label(const std::string& label): name_{label}{}
+
+    Label()=default;
+
+    operator std::string()const {return name_;}
+
+    bool operator < (const Label& other)const
+    {
+        return name()<other.name();
+    }
+};
+
+
+
+
+
+class Parameter_label
+        : public Label {using Label::Label;};
+
+class Model_Parameter_label
+        : public Parameter_label {using Parameter_label::Parameter_label;};
+
+class rate_Parameter_label
+        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+
+class Equilibrium_Parameter_label
+        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+
+class Time_Constant_Parameter_label
+        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+
+class Coupling_factor_Parameter_label
+        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+
+class Coupling_coefficient_Parameter_label
+        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+
+class Conductance_Parameter_label
+        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+
+
+inline static rate_Parameter_label p={"gsds"};
+
+class Conformational_change_label
+        : public Label {using Label::Label;};
+
+class Conformational_change
+{
+    int change_in_agonist_;
+    int change_in_conductance_;
+    Conformational_change_label label_;
+    rate_Parameter_label par_on_;
+    rate_Parameter_label par_off_;
+    Equilibrium_Parameter_label par_Eq_;
+    Time_Constant_Parameter_label par_tc_;
+public:
+    typedef  Conformational_change self_type;
+    Conformational_change_label label()const {return label_;}
+    const rate_Parameter_label& par_on()const {return par_on_;}
+    const rate_Parameter_label& par_off()const {return par_off_;}
+    const Equilibrium_Parameter_label&  par_Eq()const {return par_Eq_;};
+    const Time_Constant_Parameter_label& par_tc()const {return par_tc_;}
+
+
+    int change_in_agonist()const {return change_in_agonist_;}
+    int change_in_conductance()const { return change_in_conductance_;}
+    Conformational_change(int _change_in_agonist,
+                          int _change_in_conductance,
+                          Conformational_change_label&& _label,
+                          rate_Parameter_label&& _par_on,
+                          rate_Parameter_label&& _par_off,
+                          Equilibrium_Parameter_label&& _par_Eq,
+                          Time_Constant_Parameter_label&& _par_tc):
+        change_in_agonist_{_change_in_agonist},change_in_conductance_{_change_in_conductance},
+        label_{std::move(_label)},par_on_{std::move(_par_on)},par_off_{std::move(_par_off)},par_Eq_{std::move(_par_Eq)},par_tc_{std::move(_par_tc)}{}
+
+
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(grammar::field(C<self_type>{},"change_in_agonist", &self_type::change_in_agonist),
+                               grammar::field(C<self_type>{},"change_in_conductance", &self_type::change_in_conductance),
+                               grammar::field(C<self_type>{},"label",&self_type::label),
+                               grammar::field(C<self_type>{},"par_on", &self_type::par_on),
+                               grammar::field(C<self_type>{},"par_on", &self_type::par_on),
+                               grammar::field(C<self_type>{},"par_off", &self_type::par_off),
+                               grammar::field(C<self_type>{},"par_Eq", &self_type::par_Eq),
+                               grammar::field(C<self_type>{},"par_tc", &self_type::par_tc));
+    }
+};
+class Conformational_interaction_label
+        : public Label {using Label::Label;};
+
+
+
+class Conformational_interaction
+{
+    std::vector<Conformational_change_label> conf_changes_;
+    Coupling_factor_Parameter_label factor_;
+    std::vector<Coupling_coefficient_Parameter_label> par_inter_f_;
+
+public:
+    std::vector<Conformational_change_label> const & interacting_conformational_changes()const {return conf_changes_;}
+    Coupling_factor_Parameter_label const& factor_label()const {return factor_;};
+    std::vector<Coupling_coefficient_Parameter_label> const &coefficient_labels()const {return par_inter_f_;}
+
+    typedef  Conformational_interaction self_type;
+
+    Conformational_interaction(std::vector<Conformational_change_label>&& _conf_changes,
+    Coupling_factor_Parameter_label&& _factor,
+    std::vector<Coupling_coefficient_Parameter_label>&& _par_inter_f):
+        conf_changes_{std::move(_conf_changes)},factor_{std::move(_factor)},par_inter_f_{std::move(_par_inter_f)}
+    {}
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+                    grammar::field(C<self_type>{},"interacting_conformational_changes",&self_type::interacting_conformational_changes),
+                    grammar::field(C<self_type>{},"factor_label", &self_type::factor_label),
+                    grammar::field(C<self_type>{},"coefficient_labels", &self_type::coefficient_labels));
+    }
+
+};
+
 
 /**
  * @brief The Allosteric_Model class build a kinetic rate model starting with a set of conformational changes and their interactions.
@@ -37,6 +167,71 @@ public:
         std::map<std::size_t, std::string> conductance_names;
         std::multimap<std::size_t, std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>> conformational_inter_unit_cell;
     };
+
+    struct new_model_definition
+    {
+        std::size_t number_of_units;
+        std::map<Conformational_change_label,Conformational_change> conformational_changes;
+        std::vector<Conformational_change_label> unit_of_conformational_changes;
+        std::set<Conformational_interaction> conformational_interactions;
+        std::map<std::size_t, Conductance_Parameter_label> conductance_names;
+
+    };
+
+    model_definition new_to_old(const new_model_definition& m)
+    {
+        model_definition out;
+        for (auto& e:m.conductance_names)
+           out.conductance_names[e.first]=e.second;
+        auto k=m.unit_of_conformational_changes.size();
+        std::size_t n=m.number_of_units*k;
+        out.conformational_changes.resize(n);
+        for (std::size_t i=0; i<m.number_of_units; ++i)
+            for (std::size_t j=0; j<m.unit_of_conformational_changes.size(); ++j)
+            {
+                auto ii=i*k+j;
+                auto& cf=m.conformational_changes.at(m.unit_of_conformational_changes[j].name());
+                out.conformational_changes[ii]=cf.label();
+                if (cf.change_in_agonist()!=0)
+                    out.agonist_changes.insert(ii);
+                if (cf.change_in_conductance()!=0)
+                    out.conductance_changes.insert(ii);
+            }
+        for (auto& e:m.conformational_changes)
+        {
+            out.conformational_changes_names[std::pair(e.second.label(), true)]=e.second.par_on();
+            out.conformational_changes_names[std::pair(e.second.label(), false)]=e.second.par_off();
+        }
+        for (auto &e: m.conformational_interactions)
+        {
+            std::vector<std::size_t> cc;
+            std::size_t current_i=0;
+            for (std::size_t j=0; j<e.interacting_conformational_changes().size(); ++j)
+            {
+                auto j_n=m.conformational_changes.at(e.interacting_conformational_changes()[j]);
+                std::size_t i=current_i;
+                while (j_n.label().name()!=out.conformational_changes[i]) ++i;
+                cc.push_back(i);
+                ++current_i;
+            }
+
+            for (std::size_t i=0; i<cc.size(); ++i)
+            {
+                auto x=cc[i];
+                auto ix=x%k;
+                auto nx=x/k;
+                auto shift=(n-nx)*k;
+                std::set<std::size_t> s;
+                for (std::size_t j=0; j<cc.size(); ++j)
+                    if (j!=i) s.insert(cc[j]);
+                s=rotate(s,n*k,shift);
+                out.conformational_inter_unit_cell.emplace(ix,std::pair(s,std::pair(e.factor_label(),e.coefficient_labels()[i])));
+            }
+
+        }
+        return out;
+
+    }
 
 
 
@@ -294,6 +489,9 @@ private:
         return out;
     }
 
+
+
+
     static std::size_t periodicity(const std::vector<std::string> & x)
     {
         std::size_t p=1;
@@ -361,6 +559,9 @@ private:
     }
 
 };
+
+
+
 
 class Markov_Transition_rate
 {
