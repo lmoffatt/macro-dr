@@ -235,6 +235,25 @@ struct is_field_Object<T,
            >>
     : std::true_type { };
 
+template <typename T, typename = void>
+struct is_write_Object : std::false_type { };
+
+template <typename T>
+struct is_write_Object<T,
+    std::void_t<decltype(std::declval<T&>().write(std::declval<std::ostream&>()))
+           >>
+    : std::true_type { };
+
+template <typename T, typename = void>
+struct is_read_Object : std::false_type { };
+
+template <typename T>
+struct is_read_Object<T,
+    std::void_t<decltype(std::declval<T&>().read(std::declval<std::istream&>()))
+           >>
+    : std::true_type { };
+
+
 
 template <typename T, typename = void>
 struct is_arg_Command : std::false_type { };

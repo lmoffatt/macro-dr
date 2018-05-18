@@ -1219,11 +1219,13 @@ template<typename T> std::ostream& write(std::ostream& s, const T& v)
             return io::write_on_container(s,v);
     else if constexpr(is_field_Object<T>::value)
             return io::write_on_Object(s,v);
+    else if constexpr(is_write_Object<T>::value)
+            return v.write(s);
     else if constexpr(is_tuple<T>::value)
             return write_tuple(s,v);
     else if constexpr(is_pair<T>::value)
             return write_pair(s,v);
-    else return s>>v;
+    else return s<<v;
     // else statica_assert (false,"not managed" );
 }
 
@@ -1258,6 +1260,16 @@ template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_i
 {
             return io::output_operator_on_Object(s,v);
     }
+
+template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_write_Object<T>::value,std::ostream&>
+{
+            return v.write(s);
+}
+
+template<typename T> auto operator>>(std::istream& s, T & v)->std::enable_if_t<is_read_Object<T>::value,std::istream&>
+{
+            return v.read(s);
+}
 
 
 template<typename T> auto operator>>(std::istream& s, T& v)->std::enable_if_t<is_field_Object<T>::value,std::istream&>

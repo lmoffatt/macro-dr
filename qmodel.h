@@ -29,6 +29,10 @@ public :
     {
         return name()<other.name();
     }
+
+    std::ostream& write(std::ostream& os)const { return os<<name_;}
+    std::istream& read(std::istream& is) { return is>>name_;}
+
 };
 
 
@@ -72,28 +76,29 @@ class Conformational_change
     Conformational_change_label label_;
     rate_Parameter_label par_on_;
     rate_Parameter_label par_off_;
-    Equilibrium_Parameter_label par_Eq_;
-    Time_Constant_Parameter_label par_tc_;
+    /*   Equilibrium_Parameter_label par_Eq_;
+    Time_Constant_Parameter_label par_tc_; */
 public:
     typedef  Conformational_change self_type;
     Conformational_change_label label()const {return label_;}
     const rate_Parameter_label& par_on()const {return par_on_;}
     const rate_Parameter_label& par_off()const {return par_off_;}
-    const Equilibrium_Parameter_label&  par_Eq()const {return par_Eq_;};
-    const Time_Constant_Parameter_label& par_tc()const {return par_tc_;}
+    /*  const Equilibrium_Parameter_label&  par_Eq()const {return par_Eq_;};
+    const Time_Constant_Parameter_label& par_tc()const {return par_tc_;}*/
 
 
     int change_in_agonist()const {return change_in_agonist_;}
     int change_in_conductance()const { return change_in_conductance_;}
+    Conformational_change()=default;
     Conformational_change(int _change_in_agonist,
                           int _change_in_conductance,
-                          Conformational_change_label&& _label,
-                          rate_Parameter_label&& _par_on,
-                          rate_Parameter_label&& _par_off,
-                          Equilibrium_Parameter_label&& _par_Eq,
-                          Time_Constant_Parameter_label&& _par_tc):
+                          Conformational_change_label _label,
+                          rate_Parameter_label _par_on,
+                          rate_Parameter_label _par_off /*,
+                                                Equilibrium_Parameter_label&& _par_Eq,
+                                                Time_Constant_Parameter_label&& _par_tc*/):
         change_in_agonist_{_change_in_agonist},change_in_conductance_{_change_in_conductance},
-        label_{std::move(_label)},par_on_{std::move(_par_on)},par_off_{std::move(_par_off)},par_Eq_{std::move(_par_Eq)},par_tc_{std::move(_par_tc)}{}
+        label_{std::move(_label)},par_on_{std::move(_par_on)},par_off_{std::move(_par_off)}/*,par_Eq_{std::move(_par_Eq)},par_tc_{std::move(_par_tc)}*/{}
 
 
     static auto get_constructor_fields()
@@ -102,10 +107,10 @@ public:
                                grammar::field(C<self_type>{},"change_in_conductance", &self_type::change_in_conductance),
                                grammar::field(C<self_type>{},"label",&self_type::label),
                                grammar::field(C<self_type>{},"par_on", &self_type::par_on),
-                               grammar::field(C<self_type>{},"par_on", &self_type::par_on),
-                               grammar::field(C<self_type>{},"par_off", &self_type::par_off),
-                               grammar::field(C<self_type>{},"par_Eq", &self_type::par_Eq),
-                               grammar::field(C<self_type>{},"par_tc", &self_type::par_tc));
+                               grammar::field(C<self_type>{},"par_off", &self_type::par_off)
+                               /*,
+                                                      grammar::field(C<self_type>{},"par_Eq", &self_type::par_Eq),
+                                                      grammar::field(C<self_type>{},"par_tc", &self_type::par_tc)*/);
     }
 };
 class Conformational_interaction_label
@@ -126,9 +131,10 @@ public:
 
     typedef  Conformational_interaction self_type;
 
-    Conformational_interaction(std::vector<Conformational_change_label>&& _conf_changes,
-    Coupling_factor_Parameter_label&& _factor,
-    std::vector<Coupling_coefficient_Parameter_label>&& _par_inter_f):
+    Conformational_interaction()=default;
+    Conformational_interaction(std::vector<Conformational_change_label> _conf_changes,
+                               Coupling_factor_Parameter_label _factor,
+                               std::vector<Coupling_coefficient_Parameter_label> _par_inter_f):
         conf_changes_{std::move(_conf_changes)},factor_{std::move(_factor)},par_inter_f_{std::move(_par_inter_f)}
     {}
     static auto get_constructor_fields()
@@ -137,6 +143,11 @@ public:
                     grammar::field(C<self_type>{},"interacting_conformational_changes",&self_type::interacting_conformational_changes),
                     grammar::field(C<self_type>{},"factor_label", &self_type::factor_label),
                     grammar::field(C<self_type>{},"coefficient_labels", &self_type::coefficient_labels));
+    }
+
+    bool operator<(const Conformational_interaction& other) const
+    {
+        return factor_label()<other.factor_label();
     }
 
 };
@@ -182,7 +193,7 @@ public:
     {
         model_definition out;
         for (auto& e:m.conductance_names)
-           out.conductance_names[e.first]=e.second;
+            out.conductance_names[e.first]=e.second;
         auto k=m.unit_of_conformational_changes.size();
         std::size_t n=m.number_of_units*k;
         out.conformational_changes.resize(n);
@@ -240,6 +251,7 @@ public:
 
 
 private:
+    new_model_definition new_d_;
     std::vector<std::vector<std::string>> conformer_;
     std::vector<std::map<std::size_t,transitions>> transitions_;
     std::set<std::string> paramNames_;
@@ -379,7 +391,7 @@ private:
 public:
 
 
-    static auto get_constructor_fields()
+    static auto get_constructor_fields_old()
     {
         return std::make_tuple(
                     grammar::field(C<self_type>{},"conformational_changes",&self_type::get_conformational_changes),
@@ -399,7 +411,40 @@ public:
     const std::multimap<std::size_t, std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>>& get_conformational_inter_unit_cell()const{return  d_.conformational_inter_unit_cell;}
 
 
+    std::size_t number_of_units()const {return new_d_.number_of_units;}
+    std::map<Conformational_change_label,Conformational_change> const &conformational_changes()const {return new_d_.conformational_changes;}
+    std::vector<Conformational_change_label> const &unit_of_conformational_changes()const { return new_d_.unit_of_conformational_changes;}
+    std::set<Conformational_interaction> const & conformational_interactions() const { return new_d_.conformational_interactions; }
+    std::map<std::size_t, Conductance_Parameter_label> const &conductance_names()const { return  new_d_.conductance_names;}
+
+
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+                    grammar::field(C<self_type>{},"number_of_units",&self_type::number_of_units),
+                    grammar::field(C<self_type>{},"conformational_changes", &self_type::conformational_changes),
+                    grammar::field(C<self_type>{},"unit_of_conformational_changes", &self_type::unit_of_conformational_changes),
+                    grammar::field(C<self_type>{},"conductance_names", &self_type::conformational_interactions),
+                    grammar::field(C<self_type>{},"conductance_names", &self_type::conductance_names));
+    }
+
+
+
     Allosteric_Model()=default;
+
+
+
+    Allosteric_Model(std::size_t number_of_units,
+                     std::map<Conformational_change_label,Conformational_change> conformational_changes,
+                     std::vector<Conformational_change_label> unit_of_conformational_changes,
+                     std::set<Conformational_interaction> conformational_interactions,
+                     std::map<std::size_t, Conductance_Parameter_label> conductance_names):
+        new_d_{number_of_units,conformational_changes,unit_of_conformational_changes,conformational_interactions,conductance_names},d_{new_to_old(new_d_)}
+    {
+        init();
+    }
+
+
 
     Allosteric_Model(const std::vector<std::string>& conformational_changes,
                      const std::map<std::pair<std::string,bool>,std::string> conformational_changes_names,
@@ -409,20 +454,10 @@ public:
                      const std::multimap<std::size_t, std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>>& conformational_inter_unit_cell)
         :d_{conformational_changes,conformational_changes_names,agonist_changes,conductance_changes,conductance_names,conformational_inter_unit_cell}
     {
-        paramNames_=getParameterNamesFrom(conformational_changes_names,conductance_names,conformational_inter_unit_cell);
-        std::cout<<paramNames_;
-        auto p=periodicity(conformational_changes);
-
-        auto conformational_interactions=fill_conformational_interactions(conformational_inter_unit_cell,conformational_changes.size(),p);
-
-        std::map<std::vector<std::string>,std::size_t> state_to_conformer;
-
-        std::tie(conformer_, state_to_conformer)=getConformers(conformational_changes,p);
-
-        transitions_=getTransitions(conformational_changes,conformer_,state_to_conformer,agonist_changes,conformational_changes_names,conformational_interactions);
-        conductances_=get_g_names(conformer_,conductance_changes,conductance_names);
-
+        init();
     }
+
+
 
 
     template<class Parameters>
@@ -472,6 +507,24 @@ public:
 
 
 private:
+    void init()
+    {
+        paramNames_=getParameterNamesFrom(d_.conformational_changes_names,d_.conductance_names,d_.conformational_inter_unit_cell);
+        std::cout<<paramNames_;
+        auto p=periodicity(d_.conformational_changes);
+
+        auto conformational_interactions=fill_conformational_interactions(d_.conformational_inter_unit_cell,d_.conformational_changes.size(),p);
+
+        std::map<std::vector<std::string>,std::size_t> state_to_conformer;
+
+        std::tie(conformer_, state_to_conformer)=getConformers(d_.conformational_changes,p);
+
+        transitions_=getTransitions(d_.conformational_changes,conformer_,state_to_conformer,d_.agonist_changes,d_.conformational_changes_names,conformational_interactions);
+        conductances_=get_g_names(conformer_,d_.conductance_changes,d_.conductance_names);
+
+    }
+
+
     static
     std::vector<std::string> index_to_conformational_change(const std::vector<std::string>& cc, std::size_t index)
     {
