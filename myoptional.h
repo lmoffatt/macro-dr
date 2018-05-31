@@ -9,6 +9,102 @@
 
 
 
+template<typename T>
+class myOptional
+{
+  T x_;
+  bool has_;
+  std::string error_;
+
+public :
+  T& value(){return x_;}
+  T const & value()const {return x_;}
+
+  bool has_value()const { return has_;}
+  std::string error()const {return error_;}
+
+  //template<typename U=typename T::element_type,std::enable_if_t<std::is_same_v<T, std::unique_ptr<U>>, bool> =true>
+  //myOptional(U* x):x_{x},has_{true},error_{}{}
+
+
+  myOptional(const std::decay_t<T>& x): x_{x},has_{true},error_{}{}
+  myOptional(std::decay_t<T>&& x): x_{std::move(x)},has_{true},error_{}{}
+
+  myOptional(bool,const std::string& msg):x_{},has_{false},error_{msg}{}
+  myOptional(bool,std::string&& msg):x_{},has_{false},error_{std::move(msg)}{}
+
+  myOptional():x_{},has_{false},error_{}{}
+
+  operator bool() { return has_;}
+  template<class... Args>
+  T& emplace(Args... a)
+  {
+      x_=T(a...);
+      return x_;
+  }
+
+ std::remove_reference_t<T>* operator->() {
+     return &x_;}
+
+  T& operator*(){return x_;}
+
+  void reset(){
+      has_=false;
+      error_.clear();
+  }
+
+};
+
+
+
+template<typename T>
+class myOptional<std::unique_ptr<T>>
+{
+  std::unique_ptr<T> x_;
+  bool has_;
+  std::string error_;
+
+public :
+  std::unique_ptr<T>& value(){return x_;}
+  std::unique_ptr<T> const & value()const {return x_;}
+
+  bool has_value()const { return has_;}
+  std::string error()const {return error_;}
+
+  //template<typename U=typename T::element_type,std::enable_if_t<std::is_same_v<T, std::unique_ptr<U>>, bool> =true>
+  //myOptional(U* x):x_{x},has_{true},error_{}{}
+
+
+  template<typename U>
+  myOptional(std::unique_ptr<U>&& x):x_{x.release()},has_{true},error_{}{}
+
+  template<typename U>
+  myOptional(myOptional<U>&& x):x_{x.has_value()?x.value().release():nullptr},has_{x.has_value()},error_{x.error()}{}
+
+
+  myOptional(T*&& x): x_{std::move(x)},has_{true},error_{}{}
+  myOptional(std::unique_ptr<T>&& x): x_{std::move(x)},has_{true},error_{}{}
+
+  myOptional(bool,const std::string& msg):x_{},has_{false},error_{msg}{}
+  myOptional(bool,std::string&& msg):x_{},has_{false},error_{std::move(msg)}{}
+
+  myOptional():x_{},has_{false},error_{}{}
+
+  operator bool() { return has_;}
+  template<class... Args>
+  std::unique_ptr<T>& emplace(Args... a)
+  {
+      x_(new T(a...));
+      return x_;
+  }
+
+ // std::enable_if_t<!std::is_reference_v<T>,T*> operator->() {return &x_;}
+
+  std::unique_ptr<T>& operator*(){return x_;}
+};
+
+
+
 template<bool,typename T> struct optional_ref{};
 template<typename T>
 struct optional_ref<false,T>
@@ -27,13 +123,19 @@ struct optional_ref<true, T>
 };
 
 template<typename T>
-using optional_ref_t=typename optional_ref<std::is_lvalue_reference_v<T>,T>::type;
+using optional_ref_t_old=typename optional_ref<std::is_lvalue_reference_v<T>,T>::type;
 
+template<typename T>
+using optional_ref_t=myOptional<T>;
 
 
 
 
 template <class T> struct optional_decay {
+    typedef T    type;
+};
+
+template <class T> struct optional_decay<myOptional<T>> {
     typedef T    type;
 };
 
@@ -131,9 +233,10 @@ auto apply_optional(F&& f, std::tuple<optional_ref_t<Args>...>&& args)
     if constexpr (contains_constructor<F>::value)
     {
 
+        typedef   typename F::myClass T;
         if (res)
-            return std::make_optional(std::apply([](auto&... x){ return typename F::myClass(std::forward<Args>(x.value())...);}, args));
-        else return std::optional<typename F::myClass>{};
+            return optional_ref_t<T>(std::apply([](auto&... x){ return T(std::forward<Args>(x.value())...);}, args));
+        else return optional_ref_t<T>{};
     }
     else if constexpr (contains_loader<F>::value)
     {
@@ -142,7 +245,7 @@ auto apply_optional(F&& f, std::tuple<optional_ref_t<Args>...>&& args)
         if (res)
         {
 
-            auto f=std::get<std::optional<std::string>>(args);
+            auto f=std::get<optional_ref_t<std::string>>(args);
             if (f.has_value())
             {
                 std::ifstream fe;
@@ -167,33 +270,36 @@ auto apply_optional(F&& f, std::tuple<optional_ref_t<Args>...>&& args)
     }
     else
     {
+        typedef std::invoke_result_t<F, Args...> T;
         if (res)
-            return std::make_optional(std::apply([&f](auto&... x){ return std::invoke<F,Args...>(std::forward<F>(f),std::forward<Args>(optional_value(x))...);}, args));
+            return optional_ref_t<T>(std::apply([&f](auto&... x){ return std::invoke<F,Args...>(std::forward<F>(f),std::forward<Args>(optional_value(x))...);}, args));
         else
-            return std::optional<std::invoke_result_t<F, Args...>>();
+            return optional_ref_t<T>();
 
     }
 }
 
 template< class F, class... Args>
-auto apply_optional(const F& f, std::optional<Args>&& ...args)
+auto apply_optional(const F& f, optional_ref_t<Args>&& ...args)
 {
     auto res=(args.has_value()&&...&&true);
 
     if constexpr (contains_constructor<F>::value)
     {
 
+        typedef typename F::myClass T;
         if (res)
-            return std::make_optional(typename F::myClass(args.value()...));
+            return optional_ref_t<T>(typename F::myClass(args.value()...));
         else
-            return std::optional<typename F::myClass>{};
+            return optional_ref_t<T>{};
     }
     else
     {
+        typedef  invoke_optional_result_t<F, Args...> T;
         if (res)
-            return std::make_optional(f(args.value()...));
+            return optional_ref_t<T>(f(args.value()...));
         else
-            return std::optional<invoke_optional_result_t<F, Args...>>{};
+            return optional_ref_t<T>{};
 
     }
 }

@@ -486,7 +486,7 @@ public:
         auto f=f_->run(cm);
         auto s=s_->run(cm);
         if (f.has_value()&&s.has_value())
-            return oT({f.value(),s.value()});
+            return oT(std::pair(f.value(),s.value()));
         else return {};
     }
     Compiled_Array(const Compiled_Array& other):f_{other.f_->clone()}, s_{other.s_->clone()}{}
@@ -704,7 +704,7 @@ public:
     void execute(Cm *cm) const
     {
         oT o=run(cm);
-        if constexpr (std::is_lvalue_reference_v<T>)
+        if constexpr (false && std::is_lvalue_reference_v<T>)
         {
             if (o)
                 cm->set(C<std::decay_t<T>>{},id_,o.value().get());
@@ -798,7 +798,7 @@ private:
     UnaryOperatorTyped<T> const * op_;
     std::unique_ptr<Compiled_Expression<Cm,T>> c_;
 public:
-    typedef std::optional<T> oT;
+    typedef optional_ref_t<T> oT;
     virtual oT run(Cm* cm) const override
     {
         return invoke_optional_functor(op_,c_->run(cm));
@@ -855,7 +855,7 @@ public:
         return Compiled_BinaryOperation(*this);
     }
 
-    typedef std::optional<T> oT;
+    typedef optional_ref_t<T> oT;
     virtual oT run(Cm* cm) const override
     {
         return invoke_optional_functor(op_,c0_->run(cm),c1_->run(cm));
@@ -1089,9 +1089,10 @@ make_compiled_argument(const Cm* ,grammar::argument<Arg> a)
     if (a.default_value.has_value())
     {
         if constexpr (!std::is_lvalue_reference_v<Arg>)
-                return std::pair(a.idField,optional_unique_t<Compiled_Expression<Cm,Arg>>(new Compiled_Literal<Cm,Arg>(a.default_value.value())));
+                return std::pair(a.idField,optional_unique_t<Compiled_Expression<Cm,Arg>>
+                                 (std::unique_ptr<Compiled_Expression<Cm,Arg>>(new Compiled_Literal<Cm,Arg>(a.default_value.value()))));
     }
-    return {a.idField,std::optional<std::unique_ptr<Compiled_Expression<Cm,Arg>>>()};
+    return {a.idField,optional_ref_t<std::unique_ptr<Compiled_Expression<Cm,Arg>>>()};
 
 }
 
@@ -1122,7 +1123,7 @@ make_compiled_field(const Cm* /*cm*/,const grammar::field<C,Arg>& a)
     typedef  optional_unique_t<Compiled_Expression<Cm,T>> ot;
     if (a.default_value.has_value())
     {
-        return std::pair(a.idField,ot(new Compiled_Literal<Cm,T>(a.default_value.value())));
+        return std::pair(a.idField,ot(std::unique_ptr<Compiled_Expression<Cm,T>>(new Compiled_Literal<Cm,T>(a.default_value.value()))));
 
     }
     else
@@ -1484,7 +1485,7 @@ optional_unique_t<Compiled_Expression<Cm,T>> compile(const Cm* cm,C<T>,Expressio
 }
 
 template <class Cm>
-std::optional<Compiled_Statement<Cm>*> compile(const Cm* cm,Function const* fn)
+optional_unique_t<Compiled_Statement<Cm>*> compile(const Cm* cm,Function const* fn)
 {
 
     auto f=cm->template get_Function(fn);

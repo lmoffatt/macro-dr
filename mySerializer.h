@@ -56,7 +56,7 @@ inline std::istream& read(std::istream& is,  std::string& s);
 
 template<typename T> std::istream& read(std::istream& is, T*& e);
 
-template<typename T> std::istream& read_optional(std::istream& is, std::optional<T>& e);
+template<typename T> std::istream& read_optional(std::istream& is, myOptional<T>& e);
 
 
 inline std::istream &safeGetline(std::istream &is, std::string &t);
@@ -276,7 +276,7 @@ template<typename T> std::istream& read(std::istream& is, T*& e)
     return is;
 }
 
-template<typename T> std::istream& read_optional(std::istream& is, std::optional<T>& e)
+template<typename T> std::istream& read_optional(std::istream& is, myOptional<T>& e)
 {
     T x;
     if (read(is,x))
@@ -1000,7 +1000,7 @@ std::istream& input_operator_on_container(std::istream& is, Container<T,Allocato
 template<template <class,class> class Container,typename T, class Allocator>
 std::istream& read_on_container(std::istream& is, Container<T,Allocator> & myContainer)
 {
-    std::optional<io::size_of_container> s;
+    myOptional<io::size_of_container> s;
     read_optional(is,s);
     if (s.has_value())
     {
@@ -1050,7 +1050,7 @@ std::istream& input_operator_on_Map(std::istream& is, Map<K,T,Os...> & myMap)
 template<template <class,class, class...> class Map,typename K,typename T, class... Os>
 std::istream& read_on_Map(std::istream& is, Map<K,T,Os...> & myMap)
 {
-    std::optional<io::size_of_container> s;
+    myOptional<io::size_of_container> s;
     read_optional(is,s);
     if (s.has_value())
     {
@@ -1095,7 +1095,7 @@ std::istream& input_operator_on_set(std::istream& is, Set<K,Os...> & mySet)
 template<template <class, class...> class Set,typename K,class... Os>
 std::istream& read_on_set(std::istream& is, Set<K,Os...> & mySet)
 {
-    std::optional<io::size_of_container> s;
+    myOptional<io::size_of_container> s;
     read_optional(is,s);
     if (s.has_value())
     {

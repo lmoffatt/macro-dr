@@ -3,6 +3,7 @@
 
 #include "mytypetraits.h"
 #include "mySerializer.h"
+#include "myoptional.h"
 #include "Matrix.h"
 #include <vector>
 #include <string>
@@ -93,7 +94,7 @@ public:
 
 
    template<typename T>
-   std::optional<T> get(const std::string& id, std::size_t j)const
+   myOptional<T> get(const std::string& id, std::size_t j)const
    {
        auto it=map_.find(id);
        if (it==map_.end()) return{};

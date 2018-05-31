@@ -173,7 +173,7 @@ public:
     }
     
     template<typename T>
-    std::optional<T const *> get(Cs<T const *>,const std::string& id)const
+    myOptional<T const *> get(Cs<T const *>,const std::string& id)const
     {
         auto &m=std::get<Dm::template data_map<T>>(d_.data_);
         auto it=m.find(id);
@@ -184,7 +184,7 @@ public:
     }
     
     template<typename T>
-    std::optional<T *> get(Cs<T*>,const std::string& id)
+    myOptional<T *> get(Cs<T*>,const std::string& id)
     {
         auto &m=std::get<Dm::template data_map<T>>(d_.data_);
         auto it=m.find(id);

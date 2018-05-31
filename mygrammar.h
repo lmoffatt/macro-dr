@@ -77,7 +77,7 @@ inline bool get(std::stringstream& ss, Statement*& e);
 
 
 inline
-std::optional<Statement*> string_to_Statement(const std::string& s)
+myOptional<Statement*> string_to_Statement(const std::string& s)
 {
     std::stringstream ss(s);
     Statement* sta;

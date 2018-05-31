@@ -6,6 +6,7 @@
 #include <string>
 #include <optional>
 #include <type_traits>
+#include "myoptional.h"
 namespace grammar {
 
 
@@ -14,7 +15,7 @@ template <typename T>
 struct argument
 {
     typedef T  argument_type;
-    typedef std::optional<std::decay_t<argument_type>> default_type;
+    typedef myOptional<std::decay_t<argument_type>> default_type;
     std::string idField;
     default_type default_value;
     argument(C<T>,const char* id):idField{id}, default_value{}{}
@@ -43,7 +44,7 @@ struct field
     typedef Method member_type;
     typedef Object object_type;
     typedef  std::decay_t<return_type> result_type;
-    typedef std::optional<std::decay_t<return_type>> default_type;
+    typedef myOptional<std::decay_t<return_type>> default_type;
 
     std::string idField;
     member_type access_method;

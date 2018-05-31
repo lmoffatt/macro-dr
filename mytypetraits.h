@@ -7,6 +7,7 @@
 #include <vector>
 #include <utility>
 #include <string_view>
+#include <memory>
 
 
 template<std::size_t N>
@@ -228,8 +229,15 @@ struct has_mapped_type<T,
 
 template <typename T> inline constexpr bool has_mapped_type_v=has_mapped_type<T>::value;
 
+template <typename T> class myOptional;
+
+
 
 template <class> struct is_optional: public std::false_type{};
+
+template <typename T>
+struct is_optional<myOptional<T>>: public std::true_type{};
+
 
 template <typename T>
 struct is_optional<std::optional<T>>: public std::true_type{};
@@ -349,6 +357,14 @@ struct is_tuple : std::false_type { };
 template <typename... T>
 struct is_tuple<std::tuple<T...>>
         : std::true_type { };
+
+template <typename>
+struct is_unique_ptr : std::false_type { };
+
+template <typename T>
+struct is_unique_ptr<std::unique_ptr<T>>
+        : std::true_type { };
+
 
 
 
