@@ -2,7 +2,6 @@
 #define EXPERIMENT_H
 
 #include <vector>
-#include "Markov.h"
 #include "mydataframe.h"
 namespace experiment {
 
@@ -39,7 +38,7 @@ struct myPulsesPoints
 template<typename X=double, typename Y=double>
 struct point{
 
-    constexpr static auto const name=my_static_string("point_of_")+my_trait<X>::name+ my_static_string("_")+my_trait<Y>::name;
+    constexpr static auto const className=my_static_string("point_of_")+my_trait<X>::className+ my_static_string("_")+my_trait<Y>::className;
     double t_;
     std::size_t nsamples_;
     X x_;
@@ -92,8 +91,6 @@ template<template<typename, typename>class point, typename X, typename Y>
 class basic_Experiment<point<X,Y>>
 {
 public:
-
-
     typedef basic_Experiment<point<X,Y>>  self_type;
     typedef point<X,Y> point_type;
     auto cbegin_begin_begin()const {return points_.cbegin();}
@@ -118,7 +115,7 @@ public:
     auto cend_end_end()const {return points_.cend();}
     class trace;
     class step{
-        basic_Experiment& e_;
+        basic_Experiment* e_;
         std::size_t myIndex_;
         std::size_t index_of_start_point_;
         std::size_t nsamples_;
@@ -126,7 +123,14 @@ public:
 
 
     public:
-        static constexpr auto name=my_static_string("Experiment_on_")+point<X,Y>::name;
+        static constexpr auto className=my_static_string("Experiment_on_")+point<X,Y>::className;
+
+
+        void setExperiment(basic_Experiment* e){e_=e;}
+        step(basic_Experiment* e,const step& other):
+            e_{e},myIndex_{other.myIndex_},index_of_start_point_{other.index_of_start_point_},nsamples_{other.nsamples_}{}
+        step(basic_Experiment* e,step&& other):
+            e_{e},myIndex_{std::move(other.myIndex_)},index_of_start_point_{std::move(other.index_of_start_point_)},nsamples_{std::move(other.nsamples_)}{other.e_=nullptr;}
 
         void calc()
         {
@@ -149,17 +153,17 @@ public:
         }
         auto nsamples()const {return nsamples_;}
         Y y()const {return y_;}
-        auto begin(){return e_.begin_begin_begin()+index_of_start_point_;}
-        auto begin()const {return e_.begin_begin_begin()+index_of_start_point_;}
-        auto cbegin()const {return e_.cbegin_begin_begin()+index_of_start_point_;}
+        auto begin(){return e_->begin_begin_begin()+index_of_start_point_;}
+        auto begin()const {return e_->begin_begin_begin()+index_of_start_point_;}
+        auto cbegin()const {return e_->cbegin_begin_begin()+index_of_start_point_;}
         auto end()const
         {
-            if (myIndex_+1<e_.steps_.size())
-                return e_.steps_[myIndex_+1].cbegin();
+            if (myIndex_+1<e_->steps_.size())
+                return e_->steps_[myIndex_+1].cbegin();
             else
-                return e_.cend_end_end();
+                return e_->cend_end_end();
         }
-        step(basic_Experiment& e,std::size_t myIndex, std::size_t index_of_start_point)
+        step(basic_Experiment* e,std::size_t myIndex, std::size_t index_of_start_point)
             :e_{e}, myIndex_{myIndex},index_of_start_point_{index_of_start_point},nsamples_{},y_{}
         {
         }
@@ -168,21 +172,56 @@ public:
     class trace
     {
 
-        basic_Experiment& e_;
+        basic_Experiment* e_;
         std::size_t index_of_start_step_;
         std::size_t index_of_end_step_;
     public:
-        auto begin(){return e_.begin_begin()+index_of_start_step_;}
-        auto begin()const {return e_.begin_begin()+index_of_start_step_;}
-        auto end()const{return e_.begin_begin()+index_of_end_step_;}
-        trace(basic_Experiment& e, std::size_t index_of_start_step, std::size_t index_of_end_step )
+        void setExperiment(basic_Experiment* e){e_=e;}
+        auto begin(){return e_->begin_begin()+index_of_start_step_;}
+        auto begin()const {return e_->begin_begin()+index_of_start_step_;}
+        auto end()const{return e_->begin_begin()+index_of_end_step_;}
+        trace(basic_Experiment* e, std::size_t index_of_start_step, std::size_t index_of_end_step )
             :
               e_{e},index_of_start_step_{index_of_start_step}, index_of_end_step_{index_of_end_step}
         {
         }
+        trace(basic_Experiment* e,const trace& other):
+            e_{e},index_of_start_step_{other.index_of_start_step_}, index_of_end_step_{other.index_of_end_step_}{}
+
+        trace(basic_Experiment* e, trace&& other):
+            e_{e},index_of_start_step_{std::move(other.index_of_start_step_)}, index_of_end_step_{std::move(other.index_of_end_step_)}{}
 
     };
 
+    static std::vector<step> copy(basic_Experiment* e, const std::vector<step>& s)
+    {
+        std::vector<step> out;
+        for (auto& x: s)
+            out.emplace_back(e,x);
+        return out;
+    }
+
+    static std::vector<step> move(basic_Experiment* e,  std::vector<step>&& s)
+    {
+        for (auto& x:s)
+            x.setExperiment(e);
+        return s;
+    }
+
+    static std::vector<trace> copy(basic_Experiment* e, const std::vector<trace>& s)
+    {
+        std::vector<trace> out;
+        for (auto& x: s)
+            out.emplace_back(e,x);
+        return out;
+    }
+
+    static std::vector<trace> move(basic_Experiment* e,  std::vector<trace>&& s)
+    {
+        for (auto& x:s)
+            x.setExperiment(e);
+        return std::move(s);
+    }
 
     std::vector<std::size_t> get_step_start_points()const
     {
@@ -246,11 +285,55 @@ public:
 
     {
         for (std::size_t i=0; i<points_.size(); ++i)
-            steps_.emplace_back(*this,i,i);
+            steps_.emplace_back(this,i,i);
         for (auto &e:steps_) e.calc();
 
         extract_traces_from_Nan();
     }
+
+
+    basic_Experiment(const std::vector<point<X,Y>>& points, double fs)
+        : frequency_of_sampling_{fs},points_{std::move(points)}, steps_{},traces_{}
+
+    {
+        for (std::size_t i=0; i<points_.size(); ++i)
+            steps_.emplace_back(this,i,i);
+        for (auto &e:steps_) e.calc();
+
+        extract_traces_from_Nan();
+    }
+
+    basic_Experiment(basic_Experiment&& other):
+        frequency_of_sampling_{std::move(other.frequency_of_sampling_)},points_{std::move(other.points_)},
+        steps_{move(this,std::move(other.steps_))},traces_{move(this,std::move(other.traces_))}{
+
+
+    }
+
+    basic_Experiment(const basic_Experiment& other):
+        frequency_of_sampling_{other.frequency_of_sampling_},points_{other.points_},
+        steps_{copy(this,other.steps_)},traces_{copy(this,other.traces_)}
+    {}
+
+
+    basic_Experiment& operator=(basic_Experiment&& other){
+        frequency_of_sampling_=std::move(other.frequency_of_sampling_);
+        points_=std::move(other.points_);
+        steps_=std::move(other.steps_);
+        traces_=std::move(other.traces_);
+        return *this;
+
+    }
+
+    basic_Experiment& operator=(const basic_Experiment& other){
+        frequency_of_sampling_=other.frequency_of_sampling_;
+        points_=other.points_;
+        steps_=other.steps_;
+        traces_=other.traces_;
+        return *this;
+
+    }
+
 
 
 
@@ -296,7 +379,7 @@ private:
             {
                 if (i>iStart)
                 {
-                    traces_.emplace_back(trace(*this,iStart,i));
+                    traces_.emplace_back(this,iStart,i);
                 }
                 iStart=i+1;
             }

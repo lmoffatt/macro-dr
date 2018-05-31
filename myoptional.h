@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <optional>
 #include <functional>
+#include <fstream>
 
 
 
@@ -12,7 +13,7 @@ template<bool,typename T> struct optional_ref{};
 template<typename T>
 struct optional_ref<false,T>
 {
-   // typedef typename T::garca ga;
+    // typedef typename T::garca ga;
     typedef T value_type;
     typedef typename std::optional<T> type;
 };
@@ -20,7 +21,7 @@ struct optional_ref<false,T>
 template<typename T>
 struct optional_ref<true, T>
 {
-  //  typedef typename T::chino ga;
+    //  typedef typename T::chino ga;
     typedef T value_type;
     typedef typename std::optional<std::reference_wrapper<std::remove_reference_t<T>>> type;
 };
@@ -70,7 +71,7 @@ optional_decay_t<std::decay_t<T>>  optional_value(T&& x)
     {        if constexpr(is_optional_ref<std::decay_t<T>>::value)
                 return x.value().get();
              else
-                 return x.value();
+             return x.value();
     }
     else
     return x;
@@ -120,7 +121,12 @@ invoke_optional_functor(F&& f, Args&&... args)
 template< class F, class... Args>
 auto apply_optional(F&& f, std::tuple<optional_ref_t<Args>...>&& args)
 {
-    auto res=std::apply([](auto&... x){ return ((x.has_value()&&...));},args);
+    auto res=std::apply([](auto&... x){
+        return ((
+                    x.has_value()
+                    &&...&&true));
+    },
+    args);
 
     if constexpr (contains_constructor<F>::value)
     {
@@ -128,6 +134,36 @@ auto apply_optional(F&& f, std::tuple<optional_ref_t<Args>...>&& args)
         if (res)
             return std::make_optional(std::apply([](auto&... x){ return typename F::myClass(std::forward<Args>(x.value())...);}, args));
         else return std::optional<typename F::myClass>{};
+    }
+    else if constexpr (contains_loader<F>::value)
+    {
+        typedef typename F::myClass T;
+
+        if (res)
+        {
+
+            auto f=std::get<std::optional<std::string>>(args);
+            if (f.has_value())
+            {
+                std::ifstream fe;
+                fe.open(f.value().c_str());
+                std::decay_t<T> x;
+                x.read(fe);
+                if (fe.good()||fe.eof())
+                    return optional_ref_t<T>(std::move(x));
+            }
+        }
+        return optional_ref_t<T>{};
+    }
+    else if constexpr (contains_valuer<F>::value)
+    {
+        typedef typename F::myClass T;
+        if (res)
+        {
+
+            return std::get<optional_ref_t<T>>(args);
+        }
+        else return optional_ref_t<typename F::myClass>{};
     }
     else
     {

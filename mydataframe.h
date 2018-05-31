@@ -61,13 +61,15 @@ public:
      }
 
    template<typename...K0>
-   void push_back_i(std::tuple<K0...> ,Cs<K0...>,Cs<>,std::index_sequence<>){}
+   bool push_back_i(std::tuple<K0...> ,Cs<K0...>,Cs<>,std::index_sequence<>){
+       return true;
+   }
 
    template<std::size_t I,std::size_t... Is,typename...K0, typename K, typename ...K1>
-   void push_back_i(std::tuple<K0...,K,K1...> t,Cs<K0...>,Cs<K,K1...>,std::index_sequence<I,Is...>)
+   bool push_back_i(std::tuple<K0...,K,K1...> t,Cs<K0...>,Cs<K,K1...>,std::index_sequence<I,Is...>)
    {
        std::get<std::vector<K>>(data_[I].data).push_back(std::move(std::get<I>(t)));
-       push_back_i(t,Cs<K0...,K>{},Cs<K1...>{},std::index_sequence<Is...>{});
+       return push_back_i(t,Cs<K0...,K>{},Cs<K1...>{},std::index_sequence<Is...>{});
    }
 
 
@@ -77,7 +79,7 @@ public:
        if (!same_types(row_of_data...))
            return false;
        else
-           push_back_i(std::forward_as_tuple<Ks...>(std::forward<Ks>(row_of_data)...),Cs<>{},Cs<Ks...>{},std::index_sequence_for<Ks...>{});
+           return push_back_i(std::forward_as_tuple<Ks...>(std::forward<Ks>(row_of_data)...),Cs<>{},Cs<Ks...>{},std::index_sequence_for<Ks...>{});
    }
 
 
@@ -163,6 +165,8 @@ public:
 
 
 
+
+
    static std::map<std::string, std::size_t> getMap(const std::vector<col>& d)
    {
        std::map<std::string, std::size_t> m;
@@ -177,6 +181,10 @@ public:
 
    myDataFrame(std::vector<col>&& data):data_{std::move(data)}, map_{getMap(data_)}{}
   myDataFrame()=default;
+
+      constexpr static auto className=my_static_string("DataFrame")+my_trait<Cs<Ts...>>::className;
+
+
 private:
    std::vector<col> data_;
    std::map<std::string, std::size_t> map_;

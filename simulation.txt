@@ -1,0 +1,20 @@
+// defines an allosteric model   loads an experiment and simulate the model on the experiment
+binding= Conformational_change (change_in_agonist=1   change_in_conductance=0   label="L"   par_on= "kon"   par_off= "koff")
+rocking= Conformational_change (change_in_agonist=0   change_in_conductance=1   label="R"   par_on= "beta"   par_off= "alpha")
+
+RL= Conformational_interaction (interacting_conformational_changes={"R"  "L"}   factor_label= "RL"   coefficient_labels={"RL_R"  "RL_L"})
+LR= Conformational_interaction (interacting_conformational_changes={"L"  "R"}   factor_label= "LR"   coefficient_labels={"LR_L"  "LR_R"})
+RR= Conformational_interaction (interacting_conformational_changes={"R"  "R"}   factor_label= "RR"   coefficient_labels={"RR_1"  "RR_2"})
+RLR= Conformational_interaction (interacting_conformational_changes={"R"  "L"  "R"}   factor_label= "RLR"   coefficient_labels={"RLR_1"  "RLR_3"  "RLR_L"})
+RRR= Conformational_interaction (interacting_conformational_changes={"R"  "L"  "R"}   factor_label= "RRR"   coefficient_labels={"RRR_R"  "RR_R"   "RR_R})
+
+Model_1=Allosteric_Model(number_of_units= 3   conformational_changes={{"L"   binding}  {"R"   rocking}}   unit_of_conformational_changes={"R"  "L"}   conformational_interactions={Rl  LR  RR  RLR  RRR}   conductance_names={{0  "g_0"}  {1  "g_1"}  {2  "g_2"}  {3   "g_3"}})
+
+data=DataFrame("/home/lmoffatt/Code/macro-dr/Data/Moffatt_Hume_2007_ATP.txt")
+
+experiment=to_Experiment(data_frame=data  colname_time="t"  colname_nsample="ns"  colname_x="xATP"  colname_y="yCurrent"  frequency_of_sampling=50E3);
+
+paramInit=Allosteric_Model_Parameters({"LR"  300}	  {"LR_L"  0}  	{"LR_R"  1}  	{"RL"  30}  	{"RLR"  300}  	{"RLR_1"  1}  	{"RLR_3"  1}  	{"RLR_L"  0}  	{"RL_L"  0}  	{"RL_R"  1}  	{"RR"  3}  	{"RRR"  1}  	{"RRR_R"  0.5}  	{"RR_1"  0.5}  	{"RR_2"  0.5}  	{"alpha"  1e7}   	{"beta"  10}  	{"g_0"  0.0}  {"g_1"  -0.001}  	{"g_2"  -0.1}	  {"g_3"  -1}  	{"koff"  1e7}  	{"kon"  500})
+
+mySimulation=simulate(initseed=0  singleLigandExperiment=experiment  Allosteric_Model=Model_1   model_parameters= paramInit    number_channels=1000   number_of_sub_intervals=10)
+

@@ -52,6 +52,11 @@ optional_unique_t<T> clone_optional(const std::optional<std::unique_ptr<T>> one)
     else return{};
 }
 
+template < class... Ts>
+std::tuple<std::unique_ptr<Ts>...> clone_tuple(const std::tuple<std::unique_ptr<Ts>...>& v){
+
+    return std::apply([](auto&...x){return std::make_tuple(std::unique_ptr<Ts>(x->clone())...);},v);
+}
 
 
 

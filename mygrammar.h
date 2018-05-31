@@ -81,7 +81,8 @@ std::optional<Statement*> string_to_Statement(const std::string& s)
 {
     std::stringstream ss(s);
     Statement* sta;
-    if (get(ss,sta)) return sta;
+    if (get(ss,sta))
+        return sta;
     else return {};
 }
 
@@ -93,7 +94,7 @@ public:
     static bool isValidIdentfier(const std::string& s)
     {
         if (!std::isalpha(s[0])) return false;
-        if (s.find_first_not_of("abcdefghijklmnopqrstuvwxyz_0123456789")!=s.npos) return false;
+        if (s.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789")!=s.npos) return false;
         return true;
     }
     virtual std::string value() const override
@@ -138,6 +139,7 @@ public:
     {
         auto pos=ss.tellg();
         std::string idCandidate;
+        auto line=ss.str();
         ss>>idCandidate;
         if (ss.good()&&isValidIdentfier(idCandidate))
         {
@@ -183,18 +185,29 @@ bool get(std::stringstream& ss, std::variant<T0s...,T,Ts...>& v, Cs<T0s...>,Cs<T
     if constexpr (has_get_global<T>::value)
     {
         T e;
-        if (get(ss,e))return true;
+        if (get(ss,e))
+        {
+            v=std::move(e);
+            return true;
+        }
     }
     else if constexpr(std::is_pointer_v<T>)
     {
-        T e=new  std::remove_pointer_t<T>{};
-        if (e->get(ss)) return true;
+        std::unique_ptr<std::remove_pointer_t<T>> e(new  std::remove_pointer_t<T>{});
+        if (e->get(ss))
+        {
+            v=e.release();
+            return true;
+        }
     }
     else
     {
         T e;
         if (e.get(ss))
+        {
+            v=std::move(e);
             return true;
+        }
     }
     return get(ss,v,Cs<T0s...,T>{},Cs<Ts...>{});
 }
@@ -229,15 +242,14 @@ bool get_Derived(std::stringstream& ss,Base*& x, Cs<D,Ds...>)
     }
     else
     {
-        auto e=new D{};
+        std::unique_ptr<D> e(new D{});
         if (e->get(ss))
         {
-            x=e;
+            x=e.release();
             return true;
         }
         else
         {
-            delete e;
             return get_Derived(ss,x,Cs<Ds...>{});
         }
     }
@@ -299,6 +311,14 @@ public:
     typedef arg_start start_symbol;
     typedef arg_end end_symbol;
     typedef arg_separator separator;
+
+    std::pair<std::string, std::set<std::string>> getIdArg()const
+    {
+        std::pair <std::string,std::set<std::string>> out(idfn_.value(),{});
+        for (auto& e: m_)
+            out.second.insert(e.first);
+        return out;
+    }
 
     arg_map const & getArgs()const {return m_;}
 
@@ -604,6 +624,7 @@ public:
     virtual bool get(std::stringstream &ss) override
     {
         auto pos=ss.tellg();
+        auto line=ss.str();
         if (ss>>array_start{})
         {
             std::vector<std::unique_ptr<Expression>> out;
@@ -871,6 +892,7 @@ public:
     }
     virtual bool get(std::stringstream &ss) override
     {
+        auto line=ss.str();
         auto pos=ss.tellg();
         if (ss>>label_start{})
         {
@@ -1130,6 +1152,7 @@ inline
 bool get(std::stringstream& ss, Term*& e)
 {
     auto pos=ss.tellg();
+    auto line=ss.str();
     valid_start first;
     if (!get_variant(ss,first))
     { ss.clear(); ss.seekg(pos); return false; }

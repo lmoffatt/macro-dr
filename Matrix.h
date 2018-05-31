@@ -4846,15 +4846,12 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
     {
         assert(itself.nrows()==other.nrows());
         assert(itself.ncols()==other.ncols());
-        switch(itself.type())
-        {
         M_Matrix<T> out(other);
         for (std::size_t i=0; i<std::min(out.nrows(), out.ncols()); ++i)
             op(out(i,i),itself(i,i));
         itself=std::move(other);
         return itself;
 
-        }
     }
     else if(itself.type()==M_Matrix<T>::FULL)
     {

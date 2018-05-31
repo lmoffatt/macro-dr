@@ -4,15 +4,14 @@
 
 #include "qmodel.h"
 
-#include "Markov.h"
 #include "Experiment.h"
 #include "myDistributions.h"
 
 #include "measure_markov_process.h"
 #include <type_traits>
 #include "myfields.h"
-#include "Markov.h"
 #include "qmodel.h"
+#include "myparameters.h"
 
 using namespace experiment;
 struct get_current
@@ -33,7 +32,7 @@ struct model_tag;
 
 struct to_experiment
 {
-    static constexpr auto name=my_static_string("to_experiment");
+    static constexpr auto className=my_static_string("to_experiment");
 
    static auto run(const io::myDataFrame<double>& da
                                             ,const std::string& colname_time,
@@ -71,8 +70,8 @@ struct simulate{
     typedef Cs<experiment_tag,model_tag> template_tags;
 
 
-    static constexpr auto name=my_static_string("simulate");
-    static auto run(std::mt19937_64::result_type initseed,const Experiment& e, const  Model& m , const std::map<std::string,double>& p,std::size_t N,std::size_t n)
+    static constexpr auto className=my_static_string("simulate");
+    static auto run(std::mt19937_64::result_type initseed,const Experiment& e, const  Model& m , const Parameters_values<Model>& p,std::size_t N,std::size_t n)
     {
         SingleLigandModel SM(m.Qs(p),m.g(p));
 
@@ -91,9 +90,9 @@ struct simulate{
     {
         return std::make_tuple(
                     grammar::argument(C<typename std::mt19937_64::result_type>{},"initseed",typename std::mt19937_64::result_type(0)),
-                    grammar::argument(C<const Experiment&>{},my_trait<Experiment>::name.c_str()),
-                    grammar::argument(C<const Model&>{},my_trait<Model>::name.c_str()),
-                    grammar::argument(C<const std::map<std::string,double>&>{},"model_parameters"),
+                    grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
+                    grammar::argument(C<const Model&>{},my_trait<Model>::className.c_str()),
+                    grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
                     grammar::argument(C<std::size_t>{},"number_channels"),
                     grammar::argument(C<std::size_t>{},"number_of_sub_intervals",10ul));
     }
@@ -107,7 +106,7 @@ typedef typename experiment::basic_Experiment<point<double,double>> singleLigand
 template<>
 struct my_trait < singleLigandExperiment >
 {
-    static constexpr  auto name=my_static_string("singleLigandExperiment");
+    static constexpr  auto className=my_static_string("singleLigandExperiment");
 
 };
 

@@ -5,69 +5,62 @@
 #include "myfields.h"
 #include "mymath.h"
 #include "mytypetraits.h"
+#include "myparameters.h"
 #include <vector>
 #include <map>
 #include <set>
 #include <cmath>
 
 
-class Label
-{
-    std::string name_;
-
-public :
-    std::string name()const {return name_;} // unique at all levels
-
-    Label(std::string&& label): name_{label}{}
-    Label(const std::string& label): name_{label}{}
-
-    Label()=default;
-
-    operator std::string()const {return name_;}
-
-    bool operator < (const Label& other)const
-    {
-        return name()<other.name();
-    }
-
-    std::ostream& write(std::ostream& os)const { return os<<name_;}
-    std::istream& read(std::istream& is) { return is>>name_;}
+class Model_Parameter_label
+        : public Parameter_label {
+public: using Parameter_label::Parameter_label;
+    constexpr static auto className=my_static_string("Model_Parameter_label");
 
 };
 
-
-
-
-
-class Parameter_label
-        : public Label {using Label::Label;};
-
-class Model_Parameter_label
-        : public Parameter_label {using Parameter_label::Parameter_label;};
-
 class rate_Parameter_label
-        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+        : public Model_Parameter_label {
+public: using Model_Parameter_label::Model_Parameter_label;
+    constexpr static auto className=my_static_string("rate_Parameter_label");
+};
 
 class Equilibrium_Parameter_label
-        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+        : public Model_Parameter_label {public: using Model_Parameter_label::Model_Parameter_label;
+                                        constexpr static auto className=my_static_string("Equilibrium_Parameter_label");
+                                       };
 
 class Time_Constant_Parameter_label
-        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+        : public Model_Parameter_label {public: using Model_Parameter_label::Model_Parameter_label;
+                                        constexpr static auto className=my_static_string("Time_Constant_Parameter_label");
+                                       };
 
 class Coupling_factor_Parameter_label
-        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+        : public Model_Parameter_label {public: using Model_Parameter_label::Model_Parameter_label;
+                                        constexpr static auto className=my_static_string("Coupling_factor_Parameter_label");
+                                       };
 
 class Coupling_coefficient_Parameter_label
-        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+        : public Model_Parameter_label {public: using Model_Parameter_label::Model_Parameter_label;
+                                        constexpr static auto className=my_static_string("Coupling_coefficient_Parameter_label");
+                                       };
 
 class Conductance_Parameter_label
-        : public Model_Parameter_label {using Model_Parameter_label::Model_Parameter_label;};
+        : public Model_Parameter_label {public: using Model_Parameter_label::Model_Parameter_label;
+                                        constexpr static auto className=my_static_string("Conductance_Parameter_label");
+                                       };
 
+typedef rate_Parameter_label::referred_type hiho;
 
 inline static rate_Parameter_label p={"gsds"};
 
+class Conformational_change;
 class Conformational_change_label
-        : public Label {using Label::Label;};
+        : public Label<Conformational_change> {
+public: using Label::Label;
+    constexpr static auto className=my_static_string("Conformational_change_label");
+
+};
 
 class Conformational_change
 {
@@ -95,11 +88,13 @@ public:
                           Conformational_change_label _label,
                           rate_Parameter_label _par_on,
                           rate_Parameter_label _par_off /*,
-                                                Equilibrium_Parameter_label&& _par_Eq,
-                                                Time_Constant_Parameter_label&& _par_tc*/):
+                                                                                            Equilibrium_Parameter_label&& _par_Eq,
+                                                                                            Time_Constant_Parameter_label&& _par_tc*/):
         change_in_agonist_{_change_in_agonist},change_in_conductance_{_change_in_conductance},
         label_{std::move(_label)},par_on_{std::move(_par_on)},par_off_{std::move(_par_off)}/*,par_Eq_{std::move(_par_Eq)},par_tc_{std::move(_par_tc)}*/{}
 
+
+    constexpr static auto className=my_static_string("Conformational_change");
 
     static auto get_constructor_fields()
     {
@@ -109,12 +104,13 @@ public:
                                grammar::field(C<self_type>{},"par_on", &self_type::par_on),
                                grammar::field(C<self_type>{},"par_off", &self_type::par_off)
                                /*,
-                                                      grammar::field(C<self_type>{},"par_Eq", &self_type::par_Eq),
-                                                      grammar::field(C<self_type>{},"par_tc", &self_type::par_tc)*/);
+                                                                                                    grammar::field(C<self_type>{},"par_Eq", &self_type::par_Eq),
+                                                                                                    grammar::field(C<self_type>{},"par_tc", &self_type::par_tc)*/);
     }
 };
+class Conformational_interaction;
 class Conformational_interaction_label
-        : public Label {using Label::Label;};
+        : public Label<Conformational_interaction> {public: using Label::Label;};
 
 
 
@@ -144,6 +140,7 @@ public:
                     grammar::field(C<self_type>{},"factor_label", &self_type::factor_label),
                     grammar::field(C<self_type>{},"coefficient_labels", &self_type::coefficient_labels));
     }
+    constexpr static auto className=my_static_string("Conformational_interaction");
 
     bool operator<(const Conformational_interaction& other) const
     {
@@ -162,6 +159,7 @@ class Allosteric_Model
 {
 public:
     typedef  Allosteric_Model self_type;
+    typedef Model_Parameter_label myParameter_label;
     struct transitions{
         bool on;
         bool agonist;
@@ -246,7 +244,7 @@ public:
 
 
 
-    constexpr static auto name=my_static_string("Allosteric_Model");
+    constexpr static auto  className=my_static_string("Allosteric_Model");
 
 
 
@@ -424,7 +422,7 @@ public:
                     grammar::field(C<self_type>{},"number_of_units",&self_type::number_of_units),
                     grammar::field(C<self_type>{},"conformational_changes", &self_type::conformational_changes),
                     grammar::field(C<self_type>{},"unit_of_conformational_changes", &self_type::unit_of_conformational_changes),
-                    grammar::field(C<self_type>{},"conductance_names", &self_type::conformational_interactions),
+                    grammar::field(C<self_type>{},"conformational_interactions", &self_type::conformational_interactions),
                     grammar::field(C<self_type>{},"conductance_names", &self_type::conductance_names));
     }
 
@@ -1313,6 +1311,7 @@ public:
                     current_x_=x;
                     current_nsamples_=nsamples;
                     current_P_= calc_P(Qx,x,nsamples);
+                    return current_P_;
 
                 }
 
