@@ -23,6 +23,7 @@ public :
   bool has_value()const { return has_;}
   std::string error()const {return error_;}
 
+  void setError(std::string&& e){has_=false; error_=std::move(e);}
   //template<typename U=typename T::element_type,std::enable_if_t<std::is_same_v<T, std::unique_ptr<U>>, bool> =true>
   //myOptional(U* x):x_{x},has_{true},error_{}{}
 
@@ -33,7 +34,7 @@ public :
   myOptional(bool,const std::string& msg):x_{},has_{false},error_{msg}{}
   myOptional(bool,std::string&& msg):x_{},has_{false},error_{std::move(msg)}{}
 
-  myOptional():x_{},has_{false},error_{}{}
+  myOptional():x_{std::move(T{})},has_{false},error_{}{}
 
   operator bool() { return has_;}
   template<class... Args>
@@ -67,6 +68,7 @@ class myOptional<std::unique_ptr<T>>
 public :
   std::unique_ptr<T>& value(){return x_;}
   std::unique_ptr<T> const & value()const {return x_;}
+  void setError(std::string&& e){x_.reset(); has_=false; error_=std::move(e);}
 
   bool has_value()const { return has_;}
   std::string error()const {return error_;}

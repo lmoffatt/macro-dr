@@ -17,6 +17,7 @@ struct argument
     typedef T  argument_type;
     typedef myOptional<std::decay_t<argument_type>> default_type;
     std::string idField;
+    inline static const std::string idType=my_trait<T>::className.str();
     default_type default_value;
     argument(C<T>,const char* id):idField{id}, default_value{}{}
     argument(C<T>,const char* id, T val):idField{id}, default_value{std::move(val)}{}
@@ -45,6 +46,7 @@ struct field
     typedef Object object_type;
     typedef  std::decay_t<return_type> result_type;
     typedef myOptional<std::decay_t<return_type>> default_type;
+    inline static const std::string idType=my_trait<result_type>::className.str();
 
     std::string idField;
     member_type access_method;
@@ -63,7 +65,7 @@ bool has_all(const std::tuple<field<Object,Method>...>& fs)
 template <class... Field>
 auto getIdFields(const std::tuple<Field...>& fs)
 {
-    return std::apply([](auto&...x){return std::set<std::string>{x.idField...};},fs);
+    return std::apply([](auto&...x){return std::map<std::string, std::string>{{x.idField, x.idType}...};},fs);
 }
 
 
@@ -136,7 +138,7 @@ template<typename T>
 struct included_types<T,object_tag>
 {
     typedef Cs<T,included_types_t<std::invoke_result_t<decltype(std::decay_t<T>::get_constructor_fields)> >> type;
-    static std::pair<std::string,std::set<std::string>> getIdArgs()
+    static std::pair<std::string,std::map<std::string, std::string>> getIdArgs()
     {
         return {my_trait<T>::className.c_str(),getIdFields(std::decay_t<T>::get_constructor_fields())};
     }

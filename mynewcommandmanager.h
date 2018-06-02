@@ -34,7 +34,7 @@ private:
     using def_map=std::map<std::string,std::unique_ptr<Compiled_Expression<self_type,T>>>;
     
     template< class T>
-    using fun_map=std::map<std::pair<std::string,std::set<std::string>>,std::unique_ptr<Function_Compiler_Typed<self_type,T>>>;
+    using fun_map=std::map<std::pair<std::string,std::map<std::string,std::string>>,std::unique_ptr<Function_Compiler_Typed<self_type,T>>>;
     
     template<class T>
     using unary_map=std::map<std::string,std::unique_ptr<UnaryOperatorTyped<T>>>;
@@ -46,6 +46,9 @@ private:
     std::tuple<data_map<Ts>...> data_;
     std::map<std::string,std::unique_ptr<Identifier_Compiler<self_type>>> dataId_;
     
+    std::map<std::string,std::unique_ptr<Literal_Compiler<self_type>>> literalId_;
+
+
     //std::tuple<std::map<std::string,Ts>...> data_;
     //std::tuple<std::map<std::string,std::unique_ptr<Tptr>>...> dataPtr_;
     
@@ -56,7 +59,7 @@ private:
     //std::tuple<std::map<std::string,std::unique_ptr<Compiled_Expression<self_type,allTptr*>>>...> feptr_;
     
     std::tuple<fun_map<allT>...> f_;
-    std::map<std::pair<std::string,std::set<std::string>>,Function_Compiler<self_type>*> fgen_;  //naked pointer shared with f_:
+    std::map<std::pair<std::string,std::map<std::string, std::string>>,Function_Compiler<self_type>*> fgen_;  //naked pointer shared with f_:
     
     //std::tuple<std::map<std::string,std::unique_ptr<Compiled_Function_Typed<self_type,fn_results>>>...> f_;
     //std::tuple<std::map<std::string,std::unique_ptr<Compiled_Function_Typed<self_type,fn_resultsPtr*>>>...> fptr_;
@@ -113,43 +116,75 @@ public:
     Dm d_;
     
     
-    
+    template< typename type>
+    void insert_Literal()
+    {
+        d_.literalId_.emplace(my_trait<type>::className.str(),new Literal_Compiler_Typed<self_type,type>());
+    }
+
+
     
 public:
     
+    template<typename... Ts>
+    void insert_Literal(Cs<Ts...>)
+    {
+        (insert_Literal<Ts>(),...);
+    }
+
+
     CommandManager():d_{}
     {
         insert_constructor(myTypes());
         insert_valuer(myTypes());
         insert_loader(myTypes());
-
+        insert_Literal(myTypes());
         (insert_command<commands>(),...);
     }
     
     
-    void execute(const std::string& line, std::ostream& /*logstream*/)
+    void execute(const std::string& line, std::ostream& logstream)
     {
-        auto sta=grammar::string_to_Statement(line);
-        if (sta)
+        if (!line.empty())
         {
-            auto c=compile(this,sta.value());
-            if (c)
-                (*c)->execute(this);
+            auto sta=grammar::string_to_Statement(line);
+            if (sta)
+            {
+                auto c=compile(this,sta.value());
+                if (c)
+                {
+                    auto res=(*c)->execute(this);
+                    logstream<<res<<std::endl;
+                }
+                else
+                    logstream<<"compiling error "<<c.error()<<std::endl;
+            }
+            else
+                logstream<<"parsing error "<<sta.error()<<std::endl;;
         }
-        
     }
     
     //std::map<std::string,std::unique_ptr<Identifier_Compiler<self_type>>> dataId_;
     
     
-    Identifier_Compiler<self_type> const * get_Identifier(const std::string& id)
+    Identifier_Compiler<self_type> const * get_Identifier(const std::string& id)const
     {
         auto it=d_.dataId_.find(id);
         if (it!=d_.dataId_.end())
-            return it->second;
+            return it->second.get();
         else return nullptr;
     }
     
+    Literal_Compiler<self_type> const * get_Literal(const std::string& id)const
+    {
+        auto it=d_.literalId_.find(id);
+        if (it!=d_.literalId_.end())
+            return it->second.get();
+        else return nullptr;
+    }
+
+
+
     
     template<typename T>
     optional_ref_t<T> get(C<T>,std::enable_if_t<std::is_const_v<T>||!std::is_lvalue_reference_v<T>,const std::string&> id)const
@@ -245,7 +280,7 @@ public:
     
     
     template <class T, class F,class ...Args>
-    void insert_function(C<T>,std::pair<std::string,std::set<std::string>>&& id_args,F&& f, std::tuple<grammar::argument<Args>...>&& args)
+    void insert_function(C<T>,std::pair<std::string,std::map<std::string, std::string>>&& id_args,F&& f, std::tuple<grammar::argument<Args>...>&& args)
     {
         //typename T::yy a;
         auto&  m=  std::get<typename Dm::template fun_map<T>>(d_.f_);
@@ -254,7 +289,7 @@ public:
         d_.fgen_.emplace(std::move(id_args),m.at(id_args).get());
     }
     template <class T, class ...Args>
-    void insert_function(C<T>,std::pair<std::string,std::set<std::string>>&& id_args,Constructor<T>, std::tuple<grammar::field<T,Args>...>&& args)
+    void insert_function(C<T>,std::pair<std::string,std::map<std::string, std::string>>&& id_args,Constructor<T>, std::tuple<grammar::field<T,Args>...>&& args)
     {
         //typename decltype (d_.f_)::ojo_aca d;
         auto&  m=  std::get<typename Dm::template fun_map<T>>(d_.f_);
@@ -275,7 +310,8 @@ public:
     {
         if constexpr (is_read_Object<type>::value)
         {
-            std::pair<std::string,std::set<std::string>> id_args{my_trait<type>::className.c_str(),{"filename"}};
+            std::pair<std::string,std::map<std::string, std::string>> id_args
+            {my_trait<type>::className.c_str(),{{"filename",my_trait<type>::className.str()}}};
             auto&  m=  std::get<typename Dm::template fun_map<type>>(d_.f_);
             m.emplace(id_args,make_compiled_loader(this,C<type>{}));
             d_.fgen_.emplace(id_args,m.at(id_args).get());
@@ -284,7 +320,7 @@ public:
     template<class type>
     void insert_valuer()
     {
-        auto id_args=std::pair(std::string(my_trait<type>::className.c_str()),std::set<std::string>({"value"}));
+        auto id_args=std::pair(std::string(my_trait<type>::className.c_str()),std::map<std::string, std::string>({{"value",my_trait<type>::className.str()}}));
         auto&  m=  std::get<typename Dm::template fun_map<type>>(d_.f_);
         m.emplace(id_args,make_compiled_valuer(this,C<type>{}));
         d_.fgen_.emplace(id_args,m.at(id_args).get());
@@ -346,40 +382,49 @@ public:
         else return nullptr;
     }
     
-    Function_Compiler<self_type> const* get_Function(const std::pair<std::string,std::set<std::string>>& id)const
+    std::set<Function_Compiler<self_type> const*> get_Function(const std::pair<std::string,std::map<std::string, std::string>>& id)const
     {
+        std::set<Function_Compiler<self_type> const*> out;
+
         auto&  m=  d_.fgen_;
         auto it=m.find(id);
-        if (it!=m.end())
-            return it->second.get();
+        if (it!=m.end()) return {it->second};
         else
         {
             it =m.lower_bound(id);
-            if ((it!=m.end())&& (it->first.first==id.first)&&(contains(it->first.second,id.second)))
-                return it->second.get();
-            else
+            std::set<Function_Compiler<self_type> const*> out;
+            it =m.lower_bound(id);
+            while ((it!=m.end())&& (it->first.first==id.first))
+            {
+                if(contains(it->first.second,id.second))
+                    out.insert(it->second);
+                ++it;
+            }
+            return out;
 
-                return nullptr;
         }
     }
     
     
     
     template<typename T>
-    Function_Compiler_Typed<self_type,T> const* get_Function_Typed(C<T>,const std::pair<std::string,std::set<std::string>>& id)const
+    std::set<Function_Compiler_Typed<self_type,T> const*> get_Function_Typed(C<T>,const std::pair<std::string,std::map<std::string, std::string>>& id)const
     {
         auto&  m=  std::get<typename Dm:: template fun_map<T>>(d_.f_);
         auto it=m.find(id);
         if (it!=m.end())
-            return it->second.get();
+            return {it->second.get()};
         else
         {
+            std::set<Function_Compiler_Typed<self_type,T> const*> out;
             it =m.lower_bound(id);
-            if ((it!=m.end())&& (it->first.first==id.first)&&(contains(it->first.second,id.second)))
-                return it->second.get();
-            else
-
-                return nullptr;
+            while ((it!=m.end())&& (it->first.first==id.first))
+            {
+                if(contains(it->first.second,id.second))
+                    out.insert(it->second.get());
+                ++it;
+            }
+            return out;
         }
     }
     

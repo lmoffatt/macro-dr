@@ -17,10 +17,13 @@ template<class Cm>
 class Compiled_Statement
 {
 public:
-    virtual void execute(Cm * cm) const=0;
+    virtual std::string execute(Cm * cm) const=0;
     virtual bool valid_execute(Cm * cm) const=0;
 
     virtual Compiled_Statement* clone()const =0;
+
+
+    virtual Compiled_Statement* compile_Assignment(std::string&& id)=0;
     ~Compiled_Statement(){}
 };
 
@@ -36,10 +39,13 @@ public:
     virtual oT run(Cm* cm) const=0;
     virtual bool valid_run(Cm* cm) const=0;
     virtual bool valid_run(const Cm* cm) const=0;
-    virtual void execute(Cm * ) const override {}
+    virtual std::string execute(Cm * ) const override { return {};}
     virtual bool valid_execute(Cm * ) const {return true;};
 
     virtual Compiled_Expression* clone()const =0;
+
+    virtual Compiled_Expression* compile_Assignment(std::string&& id) override;
+
 
 
     ~Compiled_Expression(){}
@@ -79,6 +85,8 @@ public:
         }
         else
         return cm->get(C<T>{},id);
+
+
     }
     virtual oT run(const Cm * cm[[maybe_unused]]) const override
     {
@@ -415,23 +423,23 @@ public:
 
     virtual bool valid_run(Cm * cm) const override
     {
-          for (auto& e: c_)
-            {
-                if (!e->valid_run(cm))
-                    return false;
-            }
-            return true;
+        for (auto& e: c_)
+        {
+            if (!e->valid_run(cm))
+                return false;
+        }
+        return true;
     }
     virtual bool valid_run(const Cm * cm) const override
     {
-          for (auto& e: c_)
-            {
-                if (!e->valid_run(cm))
-                    return false;
-            }
-            return true;
+        for (auto& e: c_)
+        {
+            if (!e->valid_run(cm))
+                return false;
+        }
+        return true;
     }
-   virtual Compiled_Array* clone()const override
+    virtual Compiled_Array* clone()const override
     {
         return new Compiled_Array(*this);
     }
@@ -687,6 +695,9 @@ public:
     }
 
 
+    Compiled_Assignment(std::string&& id,Compiled_Expression<Cm,T>* c):
+        id_{std::move(id)},c_{c}{}
+
     Compiled_Assignment(std::string&& id,std::unique_ptr<Compiled_Expression<Cm,T>>&& c):
         id_{std::move(id)},c_{std::move(c)}{}
 
@@ -701,18 +712,26 @@ public:
 
 
 
-    void execute(Cm *cm) const
+    std::string execute(Cm *cm) const
     {
         oT o=run(cm);
         if constexpr (false && std::is_lvalue_reference_v<T>)
         {
             if (o)
+            {
                 cm->set(C<std::decay_t<T>>{},id_,o.value().get());
+                return {};
+            }
+            else return o.error();
         }
         else
         {
             if (o)
+            {
                 cm->set(C<std::decay_t<T>>{},id_,o.value());
+                return {};
+            }
+            else return o.error();
         }
     }
 
@@ -737,6 +756,13 @@ public:
 };
 
 
+template<class Cm, class T>
+Compiled_Expression<Cm,T> *Compiled_Expression<Cm,T>::compile_Assignment(std::string&& id)
+{
+    return new Compiled_Assignment<Cm,T>(std::move(id), this);
+}
+
+
 template <class Cm,class T>
 class Compiled_Definition: public Compiled_General_Assignment<Cm,T>
 {
@@ -754,11 +780,17 @@ public:
     }
 
     Compiled_Definition(std::string && id, std::unique_ptr<Compiled_Expression<Cm,T>>&& c):id_{std::move(id)}, c_{std::move(c)}{}
-    void execute(Cm *cm) const
+    std::string execute(Cm *cm) const
     {
-         if constexpr(has_this_type_v<typename Cm::allTypes,T>)
-            cm->define(C<T>{},id_,c_->clone());
-         else cm=cm;
+        if constexpr(has_this_type_v<typename Cm::allTypes,T>)
+        {
+            cm->define(C<T>{},id_,c_->clone()); return {};
+        }
+        else
+        {
+            cm=cm;
+            return std::string("try to define an unknown type: ")+ my_trait<T>::className.c_str();
+        }
 
     }
     static Compiled_Definition* create(const Cm* cm,Definition const* o )
@@ -918,6 +950,30 @@ public:
     virtual ~Identifier_Compiler_Typed(){}
 };
 
+
+template <class Cm>
+class Literal_Compiler
+{
+
+public:
+
+    virtual Compiled_Statement<Cm>* compile_this(const Cm * cm,const LiteralGeneric *f) const=0;
+    virtual ~Literal_Compiler(){}
+};
+
+template <class Cm,class T>
+class Literal_Compiler_Typed: public Literal_Compiler<Cm>
+{
+public:
+    virtual Compiled_Literal<Cm,T>* compile_this(const Cm * ,const LiteralGeneric *f) const override
+    {
+        auto x=dynamic_cast<const Literal<T>*>(f);
+        if (x!=nullptr)
+            return new Compiled_Literal<Cm,T>(x->getValue());
+        else return nullptr;
+    }
+    virtual ~Literal_Compiler_Typed(){}
+};
 
 
 
@@ -1318,23 +1374,25 @@ private:
     static optional_unique_t<Compiled_Statement<Cm>> get_Function_impl(const Cm* cm, Cs<T,Ks...>,Function const * f)
     {
         auto fun=cm->get_Function_Typed(C<T>{},f->getIdArg());
-        if (fun)
+        if(!fun.empty())
         {
-            auto c= fun->compile_this(cm,f);
-            if (c!=nullptr)
+            for  (auto &e:fun)
             {
-                return optional_unique_t<Compiled_Statement<Cm>>(c);
+                auto c= e->compile_this(cm,f);
+                if (c!=nullptr)
+                {
+                    return optional_unique_t<Compiled_Statement<Cm>>(c);
 
+                }
             }
-            else return {};
         }
-        else return get_Function_impl(cm,Cs<Ks...>{},f);
+        return get_Function_impl(cm,Cs<Ks...>{},f);
     }
 
 public:
     static optional_unique_t<Compiled_Statement<Cm>> get_Function(const Cm* cm,Function const* f)
     {
-        return get_Function_impl(cm,Cs<fn_results...>{},f);
+        return get_Function_impl(cm,Cs<allT...>{},f);
     }
 
 
@@ -1441,11 +1499,14 @@ optional_unique_t<Compiled_Expression<Cm,T>> compile(const Cm* cm,C<T>,Expressio
         if constexpr (has_this_type_v<typename Cm::allTypes,T>)
         {
             auto f=cm->template get_Function_Typed(C<T>{},x->getIdArg());
-            if (f!=nullptr)
+            for (auto &e:f)
             {
-                return optional_unique_t<Compiled_Expression<Cm,T>>(f->compile_this(cm,x));
+                auto c=e->compile_this(cm,x);
+                if (c!=nullptr)
+                    return optional_unique_t<Compiled_Expression<Cm,T>>(c);
             }
-            else return {};
+
+            return {};
         }
         else return {};
     }
@@ -1475,8 +1536,8 @@ optional_unique_t<Compiled_Expression<Cm,T>> compile(const Cm* cm,C<T>,Expressio
     }
     else if(auto x=dynamic_cast<ArrayOperation const *>(id); x!=nullptr)
     {
-      //  typedef typename res_type::res_type aqui;
-       // typedef typename T::T aqui2;
+        //  typedef typename res_type::res_type aqui;
+        // typedef typename T::T aqui2;
 
         return res_type(Compiled_Array_t<Cm,T>::create(cm,x));
     }
@@ -1485,17 +1546,32 @@ optional_unique_t<Compiled_Expression<Cm,T>> compile(const Cm* cm,C<T>,Expressio
 }
 
 template <class Cm>
-optional_unique_t<Compiled_Statement<Cm>*> compile(const Cm* cm,Function const* fn)
+optional_unique_t<Compiled_Statement<Cm>> compile(const Cm* cm,Function const* fn)
 {
 
-    auto f=cm->template get_Function(fn);
-    if (f.has_value())
+    auto f=cm->template get_Function(fn->getIdArg());
+    if (!f.empty()) for  (auto &e:f)
     {
-        f->set_arguments(fn);
-        return f;
+        auto c= e->compile_this(cm,fn);
+        if (c!=nullptr)       return optional_unique_t<Compiled_Statement<Cm>>(std::move(c));
     }
-    else return {};
+    return {};
 }
+
+template <class Cm>
+optional_unique_t<Compiled_Statement<Cm>> compile(const Cm* cm,const Assignment* a)
+{
+
+    if (a!=nullptr)
+    {
+        auto c=compile(cm,a->arg(0));
+        if (c.has_value())
+            return c.value().release()->compile_Assignment(a->id()->value());
+        else return {};
+    }
+    else return  {};
+}
+
 
 template <class Cm>
 optional_unique_t<Compiled_Statement<Cm>> compile(const Cm* cm,const Statement* id)
@@ -1503,15 +1579,15 @@ optional_unique_t<Compiled_Statement<Cm>> compile(const Cm* cm,const Statement* 
 {
     if(auto x=dynamic_cast<const Identifier*>(id); x!=nullptr)
     {
-        return comp::compiler<Cm>::get_Identifier(cm,x);
+        return cm->get_Identifier(x->value())->compile_this(cm,x);
     }
     else if(auto x=dynamic_cast<LiteralGeneric const *>(id); x!=nullptr)
     {
-        return comp::compiler<Cm>::get_Literal(cm,x);
+        return cm->get_Literal(x->myType())->compile_this(cm,x);
     }
     else if(auto x=dynamic_cast<Function const *>(id); x!=nullptr)
     {
-        return comp::compiler<Cm>::get_Function(cm,x);
+        return compile(cm,x);
     }
     else if(auto x=dynamic_cast<UnaryOperation const *>(id); x!=nullptr)
     {
@@ -1523,7 +1599,7 @@ optional_unique_t<Compiled_Statement<Cm>> compile(const Cm* cm,const Statement* 
     }
     else if(auto x=dynamic_cast<Assignment const *>(id); x!=nullptr)
     {
-        return comp::compiler<Cm>::get_Assignment(cm,x);
+        return compile(cm,x);
     }
     else if(auto x=dynamic_cast<Definition const *>(id); x!=nullptr)
     {
@@ -1532,6 +1608,8 @@ optional_unique_t<Compiled_Statement<Cm>> compile(const Cm* cm,const Statement* 
     }
     else return {};
 }
+
+
 
 
 template <class Cm,class T>

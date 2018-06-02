@@ -29,7 +29,7 @@ public:
         std::string line;
         safeGetline(f,line);
         removeComments(line);
-        std::cerr<<line;
+        std::cerr<<line<<std::endl;
         cm_->execute(line,logs);
       }
     return 0;

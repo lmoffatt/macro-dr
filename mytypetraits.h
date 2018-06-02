@@ -46,6 +46,7 @@ public:
     }
 
 
+    std::string str()const { return c_str();}
 
 
 };
@@ -151,6 +152,13 @@ struct my_trait<int>
 };
 
 template <>
+struct my_trait<bool>
+{
+    constexpr static auto className=my_static_string("boolean");
+};
+
+
+template <>
 struct my_trait<char>
 {
     constexpr static auto className=my_static_string("char");
@@ -186,6 +194,13 @@ struct my_trait<std::vector<T>>
 {
     constexpr static auto className=my_static_string("vector_")+my_trait<T>::className;
 };
+
+template <class C>
+struct my_trait<const C&>
+{
+    constexpr static auto className=my_static_string("const_")+my_trait<std::decay_t<C>>::className+my_static_string("_ref");
+};
+
 
 template <class C>
 struct my_trait<C>

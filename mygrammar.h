@@ -75,15 +75,21 @@ inline bool get(std::stringstream& ss, Term*& e);
 inline bool get(std::stringstream& ss, Expression*& e);
 inline bool get(std::stringstream& ss, Statement*& e);
 
+inline bool get(std::stringstream& ss, myOptional<Term*>& e);
+inline bool get(std::stringstream& ss, myOptional<Expression*>& e);
+inline bool get(std::stringstream& ss, myOptional<Statement*>& e);
+
+
 
 inline
 myOptional<Statement*> string_to_Statement(const std::string& s)
 {
     std::stringstream ss(s);
-    Statement* sta;
+    myOptional<Statement*> sta;
     if (get(ss,sta))
         return sta;
-    else return {};
+    else
+        return sta;
 }
 
 class Identifier: public Term
@@ -312,11 +318,11 @@ public:
     typedef arg_end end_symbol;
     typedef arg_separator separator;
 
-    std::pair<std::string, std::set<std::string>> getIdArg()const
+    std::pair<std::string, std::map<std::string, std::string>> getIdArg()const
     {
-        std::pair <std::string,std::set<std::string>> out(idfn_.value(),{});
+        std::pair <std::string,std::map<std::string, std::string>> out(idfn_.value(),{});
         for (auto& e: m_)
-            out.second.insert(e.first);
+            out.second.emplace(e.first,"");
         return out;
     }
 
@@ -802,11 +808,15 @@ typedef basic_Assignment<true,DefinitionGenericOperator> Definition;
 
 
 
+
+
 class LiteralGeneric: public Term
 {
 public:
     virtual ~LiteralGeneric();
     virtual LiteralGeneric* clone()const override=0;
+
+    virtual std::string myType()const =0;
 
 };
 LiteralGeneric::~LiteralGeneric()=default;
@@ -817,6 +827,11 @@ class Literal: public LiteralGeneric
     T value_;
 public:
     //Literal(T&& value):value_{std::move(value)}{}
+
+    virtual std::string myType()const override
+    {
+        return my_trait<T>::className.str();
+    }
     Literal(const T& value):value_{value}{}
     Literal(){}
     T getValue()const {return value_;}
@@ -862,6 +877,7 @@ public:
     Literal& operator=(const Literal&)=default;
     Literal& operator=(Literal&&)=default;
 
+
 };
 
 
@@ -870,6 +886,11 @@ class Literal<std::string>: public LiteralGeneric
 {
     std::string value_;
 public:
+    virtual std::string myType()const override
+    {
+        return my_trait<std::string>::className.str();
+    }
+
     explicit Literal(std::string&& out): value_{std::move(out)}{}
     Literal(){}
     std::string getValue()const {return value_;}
@@ -1118,8 +1139,61 @@ bool get_term_from_identifier(std::stringstream& ss, Term*& t, Identifier* id)
 
 }
 
+
+inline
+bool get_term_from_identifier(std::stringstream& ss, myOptional< Term*>& t, Identifier* id)
+{
+    if (get(ss,Function::start_symbol{}))
+    {
+        Function::arg_map out;
+        if (!Function::getArguments(ss,out))
+            return false;
+        else {
+            t=new Function(std::move(*id), std::move(out));
+            return true;
+        }
+    }
+    else
+    {
+        t=id;
+        return true;
+    }
+
+}
+
+
+
 inline
 bool get_term_from_the_rest(std::stringstream& ss, Term*& e, valid_start& first)
+{
+    if (std::holds_alternative<UnaryOperator*>(first))
+    {
+        auto unary=std::get<UnaryOperator*>(first);
+        Term *e2;
+        if (!get(ss,e2))  {return false;}
+        else
+        {
+            e=new UnaryOperation(unary,e2); return true;
+        }
+    }
+    else if (std::holds_alternative<LiteralGeneric*>(first))
+    {e=std::get<LiteralGeneric*>(first); return true;}
+    else if (std::holds_alternative<GroupOperation*>(first))
+    { e=std::get<GroupOperation*>(first); return true;}
+    else if (std::holds_alternative<ArrayOperation*>(first))
+    { e=std::get<ArrayOperation*>(first); return true;}
+    else
+        // something very wrong
+    {
+        return false;
+    }
+
+
+}
+
+
+inline
+bool get_term_from_the_rest(std::stringstream& ss, myOptional<Term*>& e, valid_start& first)
 {
     if (std::holds_alternative<UnaryOperator*>(first))
     {
@@ -1173,7 +1247,60 @@ bool get(std::stringstream& ss, Term*& e)
 
 
 inline
+bool get(std::stringstream& ss, myOptional<Term*>& e)
+{
+    auto pos=ss.tellg();
+    auto line=ss.str();
+    valid_start first;
+    if (!get_variant(ss,first))
+    { ss.clear(); ss.seekg(pos); return false; }
+    else
+    {
+        if (std::holds_alternative<Identifier*>(first))
+        {
+            auto id=std::get<Identifier*>(first);
+            if (get_term_from_identifier(ss,e,id))
+                return true;
+            else {ss.clear(); ss.seekg(pos); return false;}
+        }
+        else if (get_term_from_the_rest(ss, e,first))
+            return true;
+        else {ss.clear(); ss.seekg(pos); return false;}
+    }
+}
+
+
+
+inline
 bool get_expression_from_term(std::stringstream& ss, Expression*& e, Term* t)
+{
+    BinaryOperator* op;
+    if(!get(ss,op))
+    {
+        e=t;
+        return true;
+    }
+    else
+    {
+        Term *t2;
+        if (!get(ss,t2))
+            return false;
+        else
+        {
+            BinaryOperation* b;
+            if (resolve_operator_order(ss,b,t,op,t2))
+            {
+                e=b;
+                return true;
+            }
+            else
+                return false;
+        }
+    }
+}
+
+inline
+bool get_expression_from_term(std::stringstream& ss, myOptional<Expression*>& e, Term* t)
 {
     BinaryOperator* op;
     if(!get(ss,op))
@@ -1212,6 +1339,19 @@ bool get(std::stringstream& ss, Expression*& e)
     else
     { ss.clear(); ss.seekg(pos); return false; }
 }
+
+inline
+bool get(std::stringstream& ss, myOptional<Expression*>& e)
+{
+    auto pos=ss.tellg();
+    Term* t;
+    if (get(ss,t)&&get_expression_from_term(ss,e,t))
+        return true;
+    else
+    { ss.clear(); ss.seekg(pos); return false; }
+}
+
+
 
 inline
 bool get(std::stringstream& ss, Statement*& sta)
@@ -1262,6 +1402,80 @@ bool get(std::stringstream& ss, Statement*& sta)
             return true;
         }
         else {ss.clear(); ss.seekg(pos); return false;}
+
+    }
+
+}
+
+
+inline
+bool get(std::stringstream& ss, myOptional<Statement*>& sta)
+{
+
+    auto pos=ss.tellg();
+    myOptional<Term *>t;
+    myOptional <Expression *>e;
+    valid_start first;
+    if (!get_variant(ss,first))
+    {
+        sta.setError("invalid start");
+        ss.clear();
+        ss.seekg(pos);
+        return false; }
+    else
+    {
+        if (std::holds_alternative<Identifier*>(first))
+        {
+            auto id=std::get<Identifier*>(first);
+            AssignmentGenericOperator* opa;
+            DefinitionGenericOperator* opd;
+            if (get(ss,opa))
+            {
+                myOptional<Expression *>e2;
+                if (!get(ss,e2))
+                {
+                    sta.setError("invalid assigment: "+e.error());
+                    ss.clear(); ss.seekg(pos); return false;}
+                else {
+                    sta=new Assignment(id, opa,e2.value());
+                    return true;
+                }
+            }
+            else if (get(ss,opd))
+            {
+                myOptional<Expression *>e2;
+                if (!get(ss,e2))
+                {
+                    sta.setError("invalid definition: "+e.error());
+                    ss.clear(); ss.seekg(pos); return false;}
+                else {
+                    sta=new Definition(id, opd,e2.value());
+                    return true;
+                }
+            }
+            else if (get_term_from_identifier(ss,t,id)&&get_expression_from_term(ss,e,t.value()))
+            {
+                sta=e.value();
+                return true;
+            }
+            else {
+                if (!t.has_value())
+                    sta.setError(t.error());
+                else sta.setError(t.error());
+                ss.clear(); ss.seekg(pos); return false;}
+        }
+        else if (get_term_from_the_rest(ss, t,first)&&get_expression_from_term(ss,e,t.value()))
+        {
+            sta=e.value();
+            return true;
+        }
+        else {
+            if (!t.has_value())
+                sta.setError(t.error());
+            else sta.setError(t.error());
+
+
+            ss.clear(); ss.seekg(pos); return false;}
 
     }
 
