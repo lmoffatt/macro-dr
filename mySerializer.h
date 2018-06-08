@@ -56,7 +56,7 @@ inline std::istream& read(std::istream& is,  std::string& s);
 
 template<typename T> std::istream& read(std::istream& is, T*& e);
 
-template<typename T> std::istream& read_optional(std::istream& is, myOptional<T>& e);
+template<typename T> std::istream& read_optional(std::istream& is, myOptional_t<T>& e);
 
 
 inline std::istream &safeGetline(std::istream &is, std::string &t);
@@ -276,7 +276,7 @@ template<typename T> std::istream& read(std::istream& is, T*& e)
     return is;
 }
 
-template<typename T> std::istream& read_optional(std::istream& is, myOptional<T>& e)
+template<typename T> std::istream& read_optional(std::istream& is, myOptional_t<T>& e)
 {
     T x;
     if (read(is,x))
@@ -291,6 +291,20 @@ template<typename T> std::istream& read_optional(std::istream& is, myOptional<T>
     return is;
 }
 
+template<typename T> std::istream& read_optional(std::istream& is, std::optional<T>& e)
+{
+    T x;
+    if (read(is,x))
+    {
+        e=x;
+    }
+    else
+    {
+        is.clear();
+        e.reset();
+    }
+    return is;
+}
 
 
 template<typename Token,typename T> std::istream& read_variant(std::istream& is, std::variant<Token,T>& e)
@@ -1000,7 +1014,7 @@ std::istream& input_operator_on_container(std::istream& is, Container<T,Allocato
 template<template <class,class> class Container,typename T, class Allocator>
 std::istream& read_on_container(std::istream& is, Container<T,Allocator> & myContainer)
 {
-    myOptional<io::size_of_container> s;
+    std::optional<io::size_of_container> s;
     read_optional(is,s);
     if (s.has_value())
     {
@@ -1050,11 +1064,11 @@ std::istream& input_operator_on_Map(std::istream& is, Map<K,T,Os...> & myMap)
 template<template <class,class, class...> class Map,typename K,typename T, class... Os>
 std::istream& read_on_Map(std::istream& is, Map<K,T,Os...> & myMap)
 {
-    myOptional<io::size_of_container> s;
+    myOptional_t<io::size_of_container> s(false,"");
     read_optional(is,s);
     if (s.has_value())
     {
-        for (std::size_t i=0; i<s->size; ++i)
+        for (std::size_t i=0; i<s.value().size; ++i)
         {
             std::pair<K,T> p{};
             read(is,p);
@@ -1095,11 +1109,11 @@ std::istream& input_operator_on_set(std::istream& is, Set<K,Os...> & mySet)
 template<template <class, class...> class Set,typename K,class... Os>
 std::istream& read_on_set(std::istream& is, Set<K,Os...> & mySet)
 {
-    myOptional<io::size_of_container> s;
+    myOptional_t<io::size_of_container> s(false,"");
     read_optional(is,s);
     if (s.has_value())
     {
-        for (std::size_t i=0; i<s->size; ++i)
+        for (std::size_t i=0; i<s.value().size; ++i)
         {
             K p{};
             read(is,p);

@@ -99,7 +99,7 @@ int main(int argc, char **argv)
     auto s=simulate<decltype (e),Allosteric_Model>::run(0,e,A,P,1000,10);
     auto ds=experiment::Experiment_to_DataFrame(s);
     ds.write(std::cout);
-
+    write(std::cout,s);
 
 
    std::cout<<std::endl;
@@ -116,10 +116,13 @@ int main(int argc, char **argv)
 
 
 
-    typedef grammar::CommandManager<typename Objects::types,typename Objects::commands> CM;
+    typedef grammar::CommandManager<typename Objects::types,typename Objects::commands, typename Objects::templateCommands> CM;
 //    typedef grammar::CommandManager<> CM;
+    static_assert (!has_base_type<grammar::Compiled_Statement<CM>>::value,"" );
 
     CM cm;
+
+    //typedef typename optional_tag_t<grammar::Compiled_Statement<CM>*>::test test;
 
     switch (argc) {
     case 1:

@@ -44,12 +44,12 @@ class Statement
 {
 public:
     virtual ~Statement()=default;
-   virtual std::string value()const=0;
+    virtual std::string value()const=0;
 
     virtual std::size_t nArgin()const=0;
     virtual Statement const * arg(std::size_t i)const=0;
     virtual std::ostream& put(std::ostream& os)const=0;
-    virtual bool get(std::stringstream& ss)=0;
+    virtual myOptional_t<void> get(std::stringstream& ss)=0;
 
     virtual Statement* clone() const=0;
 
@@ -59,37 +59,43 @@ public:
 class Expression : public Statement
 {
 public:
+    typedef Statement base_type;
     virtual ~Expression(){}
-     virtual Expression* clone() const override=0;
+    virtual Expression* clone() const override=0;
 };
 
 class Term : public Expression
 {
 public:
+    typedef Expression base_type;
+
     virtual ~Term(){}
     virtual Term* clone() const override=0;
- };
+};
 
+template<typename T>
+myOptional_t<T> get(C<T>, std::stringstream& ss);
 
-inline bool get(std::stringstream& ss, Term*& e);
-inline bool get(std::stringstream& ss, Expression*& e);
-inline bool get(std::stringstream& ss, Statement*& e);
+inline  myOptional_t<Term*> get(C<Term*>,std::stringstream& ss);
+inline  myOptional_t<Expression*> get(C<Expression*>,std::stringstream& ss);
+inline  myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss);
 
-inline bool get(std::stringstream& ss, myOptional<Term*>& e);
-inline bool get(std::stringstream& ss, myOptional<Expression*>& e);
-inline bool get(std::stringstream& ss, myOptional<Statement*>& e);
+template<char... cs>
+inline  myOptional_t<io::token<cs...>> get(C<io::token<cs...>>,std::stringstream& ss)
+{
+    io::token<cs...> t;
+    if (!ss>>t)
+        return {false," invalid token"};
+    else return t;
+}
 
 
 
 inline
-myOptional<Statement*> string_to_Statement(const std::string& s)
+myOptional_t<Statement*> string_to_Statement(const std::string& s)
 {
     std::stringstream ss(s);
-    myOptional<Statement*> sta;
-    if (get(ss,sta))
-        return sta;
-    else
-        return sta;
+    return get(C<Statement*>{},ss);
 }
 
 class Identifier: public Term
@@ -97,6 +103,7 @@ class Identifier: public Term
     std::string id_;
     // Expression interface
 public:
+    typedef Term base_type;
     static bool isValidIdentfier(const std::string& s)
     {
         if (!std::isalpha(s[0])) return false;
@@ -141,25 +148,25 @@ public:
 
 
 
-    virtual bool get(std::stringstream& ss)  override
+    virtual myOptional_t<void> get(std::stringstream& ss)  override
     {
         auto pos=ss.tellg();
         std::string idCandidate;
         auto line=ss.str();
         ss>>idCandidate;
-        if (ss.good()&&isValidIdentfier(idCandidate))
-        {
-            *this=Identifier(std::move(idCandidate));
-            return true;
-        }
-        else
+        if ((!ss.good())||(!isValidIdentfier(idCandidate)))
         {
             ss.clear();
             ss.seekg(pos);
-            return false;
+            if (!ss.good())
+                return {false,"not a string"};
+            else return {false,"not a valid candidate"};
         }
-
-
+        else
+        {
+            *this=Identifier(std::move(idCandidate));
+            return {true,""};
+        }
 
     }
 };
@@ -168,98 +175,72 @@ public:
 
 
 
-namespace get_variant_impl {
+
+
+namespace get_variant_templ_impl {
 
 
 
 
 
 template<class...Ts>
-bool get(std::stringstream& , std::variant<Ts...>& ,Cs<Ts...>, Cs<>)
-{
-    return false;
-}
-
-
-
-
-
+myOptional_t<std::variant<Ts...>> get(Cs<Ts...>,Cs<>,std::stringstream& ss, std::string error);
 
 template<class... T0s, class T,class...Ts>
-bool get(std::stringstream& ss, std::variant<T0s...,T,Ts...>& v, Cs<T0s...>,Cs<T,Ts...>)
-{
-    if constexpr (has_get_global<T>::value)
-    {
-        T e;
-        if (get(ss,e))
-        {
-            v=std::move(e);
-            return true;
-        }
-    }
-    else if constexpr(std::is_pointer_v<T>)
-    {
-        std::unique_ptr<std::remove_pointer_t<T>> e(new  std::remove_pointer_t<T>{});
-        if (e->get(ss))
-        {
-            v=e.release();
-            return true;
-        }
-    }
-    else
-    {
-        T e;
-        if (e.get(ss))
-        {
-            v=std::move(e);
-            return true;
-        }
-    }
-    return get(ss,v,Cs<T0s...,T>{},Cs<Ts...>{});
-}
+myOptional_t<std::variant<T0s...,T,Ts...>> get(Cs<T0s...>,Cs<T,Ts...>,std::stringstream& ss, std::string error);
+
 } // namespace get_variant_impl
 
+
+
+
 template<class...Ts>
-bool get_variant(std::stringstream& ss, std::variant<Ts...>& v)
+myOptional_t<std::variant<Ts...>> get_variant(C<std::variant<Ts...>>,std::stringstream& ss)
 {
-    return get_variant_impl::get(ss,v,Cs<>{},Cs<Ts...>{});
+    return get_variant_templ_impl::get(Cs<>{},Cs<Ts...>{},ss,"");
+
 }
 
-
 template<class Base>
-bool get_Derived(std::stringstream&,  Base*&, Cs<>)
+myOptional_t<Base*>  get_Derived(Cs<Base>,std::stringstream&, std::string error)
 {
-    return false;
+    return {false,error};
 }
 
 template<class Base,class D,class...Ds>
-bool get_Derived(std::stringstream& ss,Base*& x, Cs<D,Ds...>)
+myOptional_t<Base*> get_Derived(Cs<Base,D,Ds...>,std::stringstream& ss, std::string error="")
 {
     if constexpr (has_get_global<D>::value&& ! std::is_same_v<Base,D >)
             //                                                |    |
             //                                      prevent infinite recursion when Base is concrete and it is its own child
     {
         D* e;
-        if (get(ss,e))
-            return true;
+        auto o=get(C<D*>{},ss);
+        if (o)
+            return o.release();
         else
-            return get_Derived(ss,x,Cs<Ds...>{});
+            return get_Derived(Cs<Base,Ds...>{},ss, error+", not : "+o.error());
 
     }
     else
     {
         std::unique_ptr<D> e(new D{});
-        if (e->get(ss))
+        auto o=e->get(ss);
+        if (o)
         {
-            x=e.release();
-            return true;
+            return e.release();
         }
         else
         {
-            return get_Derived(ss,x,Cs<Ds...>{});
+            return get_Derived(Cs<Base,Ds...>{},ss, error+", not : "+o.error());
         }
     }
 }
+
+
+
+
+
 
 
 class Operator
@@ -267,7 +248,7 @@ class Operator
 public:
     virtual std::string  name()const =0;
     virtual std::ostream &put(std::ostream &os) const=0;
-    virtual bool get(std::stringstream& ss)=0;
+    virtual myOptional_t<void> get(std::stringstream& ss)=0;
     virtual std::size_t order()const=0;
     virtual Operator* clone()const=0;
     virtual ~Operator(){}
@@ -277,6 +258,8 @@ public:
 
 class AssignmentGenericOperator: public Operator{
 public:
+    typedef Operator base_type;
+
     virtual AssignmentGenericOperator* clone()const=0;
     virtual ~AssignmentGenericOperator(){}
 
@@ -284,6 +267,8 @@ public:
 };
 class DefinitionGenericOperator: public AssignmentGenericOperator{
 public:
+    typedef AssignmentGenericOperator base_type;
+
     virtual DefinitionGenericOperator* clone()const=0;
     virtual ~DefinitionGenericOperator(){}
 
@@ -293,6 +278,8 @@ public:
 class Generic_Assignment: public Statement
 {
 public:
+    typedef Statement base_type;
+
     ~Generic_Assignment(){}
     virtual Identifier const* id()const =0;
     virtual AssignmentGenericOperator const * op()const =0;
@@ -301,12 +288,14 @@ public:
 };
 
 
-inline bool get(std::stringstream& ss, Generic_Assignment*& e);
+
+inline myOptional_t<Generic_Assignment*> get(C<Generic_Assignment>,std::stringstream& ss);
 
 
 class Function: public Term
 {
- public :
+public :
+    typedef Term base_type;
 
     typedef std::map<std::string,std::unique_ptr<Generic_Assignment>> arg_map;
 private:
@@ -372,9 +361,9 @@ public:
     }
 
     virtual std::ostream &put(std::ostream &os) const override;
-    static bool getArguments(std::stringstream& ss, arg_map &out);
 
-    virtual bool get(std::stringstream &is) override;
+    static myOptional_t<arg_map> getArguments(C<arg_map>,std::stringstream& ss);
+    virtual myOptional_t<void> get(std::stringstream &is) override;
 
 };
 
@@ -384,22 +373,24 @@ template <class Optype,typename symbol>
 class Operator_symbol: public Optype
 {
 public:
+    typedef Optype base_type;
+
     virtual std::ostream &put(std::ostream &os) const override
     {
         os<<symbol{};
         return os;
     }
 
-    virtual bool get(std::stringstream& ss)override
+    virtual myOptional_t<void> get(std::stringstream& ss)override
     {
         auto pos=ss.tellg();
         if (ss>>symbol{})
-            return true;
+            return {true,""};
         else
         {
             ss.clear();
             ss.seekg(pos);
-            return false;
+            return {false,"operator symbol not found"};
         }
     }
 };
@@ -407,6 +398,8 @@ public:
 class UnaryOperator: public Operator{
 
 public:
+    typedef Operator base_type;
+
     virtual UnaryOperator* clone()const=0;
     virtual ~UnaryOperator(){}
 
@@ -415,6 +408,8 @@ public:
 class BinaryOperator: public Operator{
 
 public:
+    typedef Operator base_type;
+
     virtual BinaryOperator* clone()const=0;
     virtual ~BinaryOperator(){}
 
@@ -424,6 +419,8 @@ public:
 template <class T>
 class UnaryOperatorTyped: public UnaryOperator{
 public:
+    typedef UnaryOperator base_type;
+
     virtual T operator()(T A)const =0;
     virtual UnaryOperatorTyped* clone()const=0;
     virtual ~UnaryOperatorTyped(){}
@@ -432,6 +429,7 @@ public:
 
 template <class T>
 struct BinaryOperatorTyped: public BinaryOperator{
+    typedef BinaryOperator base_type;
 
     virtual T operator()(T A, T B)const =0;
     virtual BinaryOperatorTyped* clone()const=0;
@@ -441,8 +439,9 @@ struct BinaryOperatorTyped: public BinaryOperator{
 
 template <class Cm,class T>
 struct AssignmentOperatorTyped: public Operator{
+    typedef Operator base_type;
 
-  virtual  T operator()(Cm* cm, std::string id, T x)const =0;
+    virtual  T operator()(Cm* cm, std::string id, T x)const =0;
     virtual AssignmentOperatorTyped* clone()const=0;
     virtual ~AssignmentOperatorTyped(){}
 
@@ -452,11 +451,11 @@ struct AssignmentOperatorTyped: public Operator{
 
 
 
-inline bool get(std::stringstream& ss, BinaryOperator*&);
-inline bool get(std::stringstream& ss, UnaryOperator*&);
-inline bool get(std::stringstream& ss, AssignmentGenericOperator*&);
-inline bool get(std::stringstream& ss, DefinitionGenericOperator*&);
-inline bool get(std::stringstream& ss, Identifier*&);
+inline myOptional_t<BinaryOperator*> get(C<BinaryOperator*>,std::stringstream& ss);
+inline myOptional_t<UnaryOperator*> get(C<UnaryOperator*>,std::stringstream& ss);
+inline myOptional_t<AssignmentGenericOperator*> get(C<AssignmentGenericOperator*>,std::stringstream& ss);
+inline myOptional_t<DefinitionGenericOperator*> get(C<DefinitionGenericOperator*>,std::stringstream& ss);
+inline myOptional_t<Identifier*> get(C<Identifier*>,std::stringstream& ss);
 
 
 
@@ -464,6 +463,8 @@ inline bool get(std::stringstream& ss, Identifier*&);
 class AssignmentOperator: public Operator_symbol<AssignmentGenericOperator,assigment_symbol>
 {
 public:
+    typedef Operator_symbol<AssignmentGenericOperator,assigment_symbol> base_type;
+
     static constexpr auto className(){return  my_static_string("Assignment_operator");}
     virtual std::string name() const override {return className().c_str();}
     virtual std::size_t order()const override {return 14;}
@@ -477,6 +478,8 @@ public:
 class DefinitionOperator: public Operator_symbol<DefinitionGenericOperator,definition_symbol>
 {
 public:
+    typedef Operator_symbol<DefinitionGenericOperator,definition_symbol> base_type;
+
     static constexpr auto className(){return  my_static_string("Definition_operator");}
     virtual std::string name() const override {return className().c_str();}
     virtual std::size_t order()const override {return 14;}
@@ -495,6 +498,8 @@ private:
     std::unique_ptr<Term> a_;
 
 public:
+
+    typedef Term base_type;
     explicit UnaryOperation(UnaryOperator* op,Term* e): op_{op},a_{e}{}
     UnaryOperation(){}
     UnaryOperator const * op()const
@@ -512,7 +517,7 @@ public:
     // Expression interface
 public:
     virtual std::ostream &put(std::ostream &os) const override;
-    virtual bool get(std::stringstream &ss)  override;
+    virtual myOptional_t<void> get(std::stringstream &ss)  override;
     virtual UnaryOperation* clone()const override
     {return new UnaryOperation(*this);}
     virtual ~UnaryOperation(){}
@@ -541,6 +546,8 @@ class BinaryOperation: public Expression
 
 
 public:
+
+    typedef Expression base_type;
     explicit BinaryOperation(Expression* e1,BinaryOperator* op, Expression* e2): op_{op},la_{e1},ra_{e2}{}
     BinaryOperation(){}
     BinaryOperator const * op()const{return op_.get();}
@@ -567,7 +574,7 @@ public:
         }
     }
     virtual std::ostream &put(std::ostream &os) const override;
-    virtual bool get(std::stringstream& ss) override;
+    virtual myOptional_t<void> get(std::stringstream& ss) override;
     virtual BinaryOperation* clone()const override
     {return new BinaryOperation(*this);}
     virtual ~BinaryOperation(){}
@@ -595,6 +602,8 @@ class ArrayOperation: public Term
     std::vector<std::unique_ptr<Expression>> v_;
     // Expression interface
 public:
+    typedef Term base_type;
+
     ArrayOperation(){}
     ArrayOperation(std::vector<std::unique_ptr<Expression>>&& v):v_{std::move(v)}{}
     static constexpr const char* className(){ return "ArrayOperation";}
@@ -627,29 +636,40 @@ public:
 
     // Expression interface
 public:
-    virtual bool get(std::stringstream &ss) override
+    virtual myOptional_t<void> get(std::stringstream &ss) override
     {
         auto pos=ss.tellg();
         auto line=ss.str();
-        if (ss>>array_start{})
+        if (!(ss>>array_start{}))
+        {
+            ss.clear();
+            ss.seekg(pos);
+            return {false,"lacks an array start"};
+        }
+        else
         {
             std::vector<std::unique_ptr<Expression>> out;
             std::variant<array_end,Expression*> v;
             std::string s;
-            bool succeed;
-            while (succeed=get_variant(ss,v),succeed&&(v.index()==1))
+            while(true)
             {
-                out.emplace_back(std::get<Expression*>(v));
-            }
-            if (succeed)
-            {
-                *this=ArrayOperation(std::move(out));
-                return  true;
+                auto v=get_variant(C<std::variant<array_end,Expression*>>{},ss);
+                if (! v)
+                {
+                    ss.clear();
+                    ss.seekg(pos);
+                    return {false, "invalid input at the "+std::to_string(out.size())+"th place of the array: "+v.error()};
+                }
+                else if (v.value().index()==1)
+                    out.emplace_back(std::get<Expression*>(v.value()));
+                else
+                {
+                    *this=ArrayOperation(std::move(out));
+                    return  {true,""};
+
+                }
             }
         }
-        ss.clear();
-        ss.seekg(pos);
-        return false;
     }
 
     virtual ArrayOperation* clone()const override
@@ -669,9 +689,6 @@ public:
     }
     ArrayOperation(ArrayOperation&& other)=default;
     ArrayOperation& operator=(ArrayOperation&& other)=default;
-
-
-
 };
 
 
@@ -683,6 +700,8 @@ class GroupOperation: public Term
     std::unique_ptr<Expression> e_;
     // Expression interface
 public:
+    typedef Term base_type;
+
     typedef  group_start start_symbol;
     typedef  group_end end_symbol;
 
@@ -711,20 +730,31 @@ public:
 
     // Expression interface
 public:
-    virtual bool get(std::stringstream &ss) override
+    virtual myOptional_t<void> get(std::stringstream &ss) override
     {
-        Expression* e;
         auto pos=ss.tellg();
-        if ((ss>>group_start{})&&grammar::get(ss,e)&&(ss>>group_end{}))
+        if (!(ss>>group_start{}))
         {
-            *this=GroupOperation(e);
-            return  true;
+            ss.clear(); ss.seekg(pos); return {false,"lacks group start"};
         }
-        ss.clear();
-        ss.seekg(pos);
-        return false;
+        else
+        {
+            auto o=grammar::get(C<Expression*>{},ss);
+            if  (!o)
+            {
+                ss.clear(); ss.seekg(pos); return {false,"error inside group: "+o.error()};
+            }
+            else if (!(ss>>group_end{}))
+            {
+                ss.clear(); ss.seekg(pos); return {false,"group end is lacking"};
+            }
+            else
+            {
+                *this=GroupOperation(o.release());
+                return  {true,""};
+            }
+        }
     }
-
     virtual GroupOperation* clone()const override
     {return new GroupOperation(*this);}
     virtual ~GroupOperation(){}
@@ -745,7 +775,21 @@ public:
 
 };
 
+myOptional_t<GroupOperation*> get(C<GroupOperation*>, std::stringstream& ss)
+{
+    auto g=std::unique_ptr<GroupOperation>(new GroupOperation);
+    auto res=g->get(ss);
+    if (res) return g.release();
+    else return {false,res.error()};
+}
 
+myOptional_t<ArrayOperation*> get(C<ArrayOperation*>, std::stringstream& ss)
+{
+    auto g=std::unique_ptr<ArrayOperation>(new ArrayOperation);
+    auto res=g->get(ss);
+    if (res) return g.release();
+    else return {false,res.error()};
+}
 
 
 template<bool B,class AssignmentGenericOperator>
@@ -756,6 +800,8 @@ private:
     std::unique_ptr<AssignmentGenericOperator> op_;
     std::unique_ptr<Expression> exp_;
 public:
+    typedef Generic_Assignment base_type;
+
     constexpr static bool delayed=B;
     basic_Assignment(){}
     basic_Assignment(Identifier* id, AssignmentGenericOperator* op, Expression* exp):
@@ -766,7 +812,7 @@ public:
 
 
     virtual std::ostream &put(std::ostream &os) const override;
-    virtual bool get(std::stringstream &ss) override;
+    virtual myOptional_t<void> get(std::stringstream &ss) override;
 
     // Expression interface
 public:
@@ -817,6 +863,7 @@ public:
     virtual LiteralGeneric* clone()const override=0;
 
     virtual std::string myType()const =0;
+    typedef Term base_type;
 
 };
 LiteralGeneric::~LiteralGeneric()=default;
@@ -827,6 +874,8 @@ class Literal: public LiteralGeneric
     T value_;
 public:
     //Literal(T&& value):value_{std::move(value)}{}
+
+    typedef LiteralGeneric base_type;
 
     virtual std::string myType()const override
     {
@@ -853,20 +902,20 @@ public:
         os<<value_;
         return  os;
     }
-    virtual bool get(std::stringstream &ss) override
+    virtual myOptional_t<void> get(std::stringstream &ss) override
     {
         auto pos=ss.tellg();
         T value;
         if (ss>>value)
         {
             value_=std::move(value);
-            return true;
+            return {true,""};
         }
         else
         {
             ss.clear();
             ss.seekg(pos);
-            return false;
+            return {false, "not a"+my_trait<T>::className.str()};
         }
     }
 
@@ -890,6 +939,7 @@ public:
     {
         return my_trait<std::string>::className.str();
     }
+    typedef LiteralGeneric base_type;
 
     explicit Literal(std::string&& out): value_{std::move(out)}{}
     Literal(){}
@@ -911,11 +961,18 @@ public:
     {
         return os<<label_start{}<<value_<<label_end{};
     }
-    virtual bool get(std::stringstream &ss) override
+    virtual myOptional_t<void> get(std::stringstream &ss) override
     {
         auto line=ss.str();
         auto pos=ss.tellg();
-        if (ss>>label_start{})
+        if (!(ss>>label_start{}))
+        {
+            ss.clear();
+            ss.seekg(pos);
+            return {false, "lacks label start"};
+
+        }
+        else
         {
             std::string out;
             std::string end=label_end{}.value;
@@ -935,12 +992,16 @@ public:
             {
                 out.erase(p);
                 *this=Literal(std::move(out));
-                return  true;
+                return { true,""};
+            }
+            else
+            {
+                ss.clear();
+                ss.seekg(pos);
+                return {false, "some eror in label that I do not currently understand"};
+
             }
         }
-        ss.clear();
-        ss.seekg(pos);
-        return false;
     }
     virtual Literal* clone()const override { return new Literal(*this);}
 
@@ -972,27 +1033,6 @@ std::ostream &UnaryOperation::put(std::ostream &os) const
     return os;
 }
 
-bool UnaryOperation::get(std::stringstream &ss)
-{
-    auto pos=ss.tellg();
-    UnaryOperator* op;
-    Term* e;
-    if (grammar::get(ss,op)&&grammar::get(ss,e))
-    {
-        *this=UnaryOperation(op,e);
-        return true;
-    }
-    else
-    {
-        ss.clear();
-        ss.seekg(pos);
-        return false;
-    }
-}
-
-
-
-
 std::ostream & Function::put(std::ostream &os) const
 {
     os<<value()<<arg_start{};
@@ -1007,40 +1047,49 @@ std::ostream & Function::put(std::ostream &os) const
 }
 
 
-bool Function::get(std::stringstream &ss)
+myOptional_t<void> Function::get(std::stringstream &ss)
 {
     auto pos=ss.tellg();
     Identifier id;
-    arg_map out;
 
-    if (id.get(ss)&&(ss>>arg_start{})&&getArguments(ss,out))
-    {
-        *this=std::move(Function(std::move(id),std::move(out)));
-        return  true;
-    }
+    auto oid=id.get(ss);
+    if (!oid)
+    {ss.clear(); ss.seekg(pos); return {false,"Lacks identifier: "+oid.error()};}
+    else if (!(ss>>arg_start{}))
+    {ss.clear(); ss.seekg(pos); return {false,"Lacks argument starter: "};}
     else{
-        ss.clear();
-        ss.seekg(pos);
-        return false;
+        auto oarg=getArguments(C<typename Function::arg_map>{},ss);
+        if (!oarg)
+        {ss.clear(); ss.seekg(pos); return {false,"error in function arguments: "+oarg.error()};}
+        else
+        {
+            *this=std::move(Function(std::move(id),std::move(oarg.release())));
+            return  {true,""};
+        }
     }
 }
-bool Function::getArguments(std::stringstream &ss, arg_map& out)
-{
-    std::variant<arg_end,Generic_Assignment*> v;
-    bool succeed;
-    while (succeed=get_variant(ss,v), succeed&&(v.index()==1))
+
+
+myOptional_t<typename Function::arg_map> Function::getArguments(C<typename Function::arg_map>,std::stringstream& ss){
+    typename Function::arg_map out;
+    typedef std::variant<arg_end,Generic_Assignment*> init_type;
+    while (true)
     {
-        auto a=std::get<Generic_Assignment*>(v);
-        out.emplace(a->id()->value(),a);
+        auto v=get_variant(C<init_type>{},ss);
+        if (!v.has_value())
+        {
+            return {false,"unexpected end of function arguments: "+v.error()};
+        }
+        else if (v.value().index()==1)
+        {
+            auto a=std::get<Generic_Assignment*>(v.value());
+            out.emplace(a->id()->value(),a);
+        }
+        else return myOptional_t<typename Function::arg_map>(std::move(out));
+
     }
-    if (succeed)
-    {
-        return  true;
-    }
-    return false;
 
 }
-
 
 template<bool B,class AssignmentGenericOperator>
 std::ostream &basic_Assignment<B,AssignmentGenericOperator>::put(std::ostream &os) const
@@ -1054,23 +1103,23 @@ std::ostream &basic_Assignment<B,AssignmentGenericOperator>::put(std::ostream &o
 
 
 template<bool B,class AssignmentGenericOperator>
-bool basic_Assignment<B,AssignmentGenericOperator>::get(std::stringstream &ss)
+myOptional_t<void> basic_Assignment<B,AssignmentGenericOperator>::get(std::stringstream &ss)
 {
-    Identifier* id;
-    AssignmentGenericOperator* a;
-    Expression* e;
     auto pos=ss.tellg();
-    if (grammar::get(ss,id)&& grammar::get(ss,a)
-            &&grammar::get(ss,e))
-    {
-        *this=basic_Assignment(id,a,e);
-        return true;
-    }
+    auto oid=grammar::get(C<Identifier*>{},ss);
+    if (!oid) {ss.clear(); ss.seekg(pos); return {false,"Assignment without Identifier: "+oid.error()};}
     else
     {
-        ss.clear();
-        ss.seekg(pos);
-        return false;
+        auto oa=grammar::get(C<AssignmentGenericOperator*>{},ss);
+        if (!oa ) {ss.clear(); ss.seekg(pos); return {false,"Assignment without assignment operator: "+oa.error()};}
+        else {
+            auto oe=grammar::get(C<Expression*>{},ss);
+            if (!oe ) {ss.clear(); ss.seekg(pos); return {false,"Assignment with an error in Expression: "+oe.error()};}
+            else {
+                *this=basic_Assignment(oid.release(),oa.release(),oe.release());
+                return {true,""};
+            }
+        }
     }
 
 }
@@ -1079,142 +1128,93 @@ bool basic_Assignment<B,AssignmentGenericOperator>::get(std::stringstream &ss)
 
 template<bool B,class AssignmentGenericOperator>
 std::string basic_Assignment<B,AssignmentGenericOperator>
- ::value() const
+::value() const
 {
     return op()->name();
 }
 
-typedef std::variant<LiteralGeneric*,GroupOperation*,ArrayOperation*,UnaryOperator*,Identifier*> valid_start;
+typedef std::variant<LiteralGeneric*,Identifier*,GroupOperation*,ArrayOperation*,UnaryOperator*> valid_start;
 typedef  std::variant< BinaryOperator*, AssignmentGenericOperator*, DefinitionGenericOperator*> after_idenfier;
 
+
+
+
 inline
-bool resolve_operator_order(std::stringstream& ss, BinaryOperation*& b,Expression* e0, BinaryOperator* op0, Expression* e1)
+myOptional_t<BinaryOperation*> resolve_operator_order(C<BinaryOperation*>,std::stringstream& ss, std::unique_ptr<Expression>&& e0, std::unique_ptr<BinaryOperator>&& op0, std::unique_ptr<Expression>&& e1)
 {
-    BinaryOperator* op1;
-    if(get(ss,op1))
+    auto oop1=get(C<BinaryOperator*>{},ss);
+    if (oop1.has_value())
     {
-        Term *e2;
-        if (!get(ss,e2))
-            return false;
+        auto op1=std::unique_ptr<BinaryOperator>(oop1.release());
+        auto ee2=get(C<Term*>{},ss);
+        if (!ee2.has_value())
+            return {false,"second term missing :"+ee2.error()};
+        auto e2=std::unique_ptr<Expression>(ee2.release());
         if (op0->order()<=op1->order())
         {
-            auto e0_op0_e1=new BinaryOperation(e0,op0,e1);
-            return resolve_operator_order(ss,b,e0_op0_e1,op1,e2);
+            auto e0_op0_e1=std::unique_ptr<Expression>(new BinaryOperation(e0.release(),op0.release(),e1.release()));
+            return resolve_operator_order(C<BinaryOperation*>{},ss,std::move(e0_op0_e1),std::move(op1),std::move(e2));
         }
         else
         {
-            BinaryOperation* e1_op1_e2;
-            if (resolve_operator_order(ss,e1_op1_e2,e1,op1,e2))
+            auto e1_op1_e2=resolve_operator_order(C<BinaryOperation*>{},ss,std::move(e1),std::move(op1),std::move(e2));
+            if (e1_op1_e2.has_value())
             {
-                b=new BinaryOperation(e0,op0,e1_op1_e2);
-                return true;
+                return new BinaryOperation(e0.release(),op0.release(),e1_op1_e2.release());
             }
-            else return false;
+            else
+                return {false,e1_op1_e2.error()};
         }
     }
-    b=new BinaryOperation(e0,op0,e1);
-    return true;
+    return new BinaryOperation(e0.release(),op0.release(),e1.release());
 }
 
 
-
 inline
-bool get_term_from_identifier(std::stringstream& ss, Term*& t, Identifier* id)
+myOptional_t<Term*> get_term_from_identifier(C<Term*>,std::stringstream& ss, std::unique_ptr<Identifier>&& id)
 {
     if (get(ss,Function::start_symbol{}))
     {
-        Function::arg_map out;
-        if (!Function::getArguments(ss,out))
-            return false;
+        auto out=Function::getArguments(C<typename Function::arg_map>{},ss);
+        if (!out){ return {false,"error on function arguments: "+out.error()};}
         else {
-            t=new Function(std::move(*id), std::move(out));
-            return true;
+            return new Function(std::move(*id.release()), std::move(out.release()));
         }
     }
     else
     {
-        t=id;
-        return true;
-    }
-
-}
-
-
-inline
-bool get_term_from_identifier(std::stringstream& ss, myOptional< Term*>& t, Identifier* id)
-{
-    if (get(ss,Function::start_symbol{}))
-    {
-        Function::arg_map out;
-        if (!Function::getArguments(ss,out))
-            return false;
-        else {
-            t=new Function(std::move(*id), std::move(out));
-            return true;
-        }
-    }
-    else
-    {
-        t=id;
-        return true;
+        return id.release();
     }
 
 }
 
 
 
+
+
 inline
-bool get_term_from_the_rest(std::stringstream& ss, Term*& e, valid_start& first)
+myOptional_t<Term*> get_term_from_the_rest(C<Term*>,std::stringstream& ss,  valid_start& first)
 {
     if (std::holds_alternative<UnaryOperator*>(first))
     {
         auto unary=std::get<UnaryOperator*>(first);
-        Term *e2;
-        if (!get(ss,e2))  {return false;}
+        auto ot=grammar::get(C<Term*>{},ss);
+        if (!ot){return {false,"has no term after UnaryOperator: "+ot.error()};}
         else
         {
-            e=new UnaryOperation(unary,e2); return true;
+            return new UnaryOperation(unary,ot.release());
         }
     }
     else if (std::holds_alternative<LiteralGeneric*>(first))
-    {e=std::get<LiteralGeneric*>(first); return true;}
+    {return std::get<LiteralGeneric*>(first); }
     else if (std::holds_alternative<GroupOperation*>(first))
-    { e=std::get<GroupOperation*>(first); return true;}
+    { return std::get<GroupOperation*>(first); }
     else if (std::holds_alternative<ArrayOperation*>(first))
-    { e=std::get<ArrayOperation*>(first); return true;}
+    { return std::get<ArrayOperation*>(first);}
     else
         // something very wrong
     {
-        return false;
-    }
-
-
-}
-
-
-inline
-bool get_term_from_the_rest(std::stringstream& ss, myOptional<Term*>& e, valid_start& first)
-{
-    if (std::holds_alternative<UnaryOperator*>(first))
-    {
-        auto unary=std::get<UnaryOperator*>(first);
-        Term *e2;
-        if (!get(ss,e2))  {return false;}
-        else
-        {
-            e=new UnaryOperation(unary,e2); return true;
-        }
-    }
-    else if (std::holds_alternative<LiteralGeneric*>(first))
-    {e=std::get<LiteralGeneric*>(first); return true;}
-    else if (std::holds_alternative<GroupOperation*>(first))
-    { e=std::get<GroupOperation*>(first); return true;}
-    else if (std::holds_alternative<ArrayOperation*>(first))
-    { e=std::get<ArrayOperation*>(first); return true;}
-    else
-        // something very wrong
-    {
-        return false;
+        return {false, "something fishy in get_term_from_the_rest"};
     }
 
 
@@ -1223,327 +1223,196 @@ bool get_term_from_the_rest(std::stringstream& ss, myOptional<Term*>& e, valid_s
 
 
 inline
-bool get(std::stringstream& ss, Term*& e)
+myOptional_t<Term*> get(C<Term*>,std::stringstream& ss)
 {
     auto pos=ss.tellg();
     auto line=ss.str();
-    valid_start first;
-    if (!get_variant(ss,first))
-    { ss.clear(); ss.seekg(pos); return false; }
+    auto ofirst=get_variant(C<valid_start>{},ss);
+    if (!ofirst) { ss.clear(); ss.seekg(pos); return {false, "invalid start of term:"+ofirst.error()}; }
     else
     {
-        if (std::holds_alternative<Identifier*>(first))
+        if (std::holds_alternative<Identifier*>(ofirst.value()))
         {
-            auto id=std::get<Identifier*>(first);
-            if (get_term_from_identifier(ss,e,id))
-                return true;
-            else {ss.clear(); ss.seekg(pos); return false;}
+            auto id=std::get<Identifier*>(ofirst.value());
+            auto ot=grammar::get_term_from_identifier(C<Term*>{},ss,std::unique_ptr<Identifier>(id));
+            if (!ot) {ss.clear(); ss.seekg(pos); return {false,"error after Id: "+ot.error()};}
+            else return ot;
         }
-        else if (get_term_from_the_rest(ss, e,first))
-            return true;
-        else {ss.clear(); ss.seekg(pos); return false;}
-    }
-}
+        else return get_term_from_the_rest(C<Term*>{},ss, ofirst.value());
 
-
-inline
-bool get(std::stringstream& ss, myOptional<Term*>& e)
-{
-    auto pos=ss.tellg();
-    auto line=ss.str();
-    valid_start first;
-    if (!get_variant(ss,first))
-    { ss.clear(); ss.seekg(pos); return false; }
-    else
-    {
-        if (std::holds_alternative<Identifier*>(first))
-        {
-            auto id=std::get<Identifier*>(first);
-            if (get_term_from_identifier(ss,e,id))
-                return true;
-            else {ss.clear(); ss.seekg(pos); return false;}
-        }
-        else if (get_term_from_the_rest(ss, e,first))
-            return true;
-        else {ss.clear(); ss.seekg(pos); return false;}
     }
 }
 
 
 
+
 inline
-bool get_expression_from_term(std::stringstream& ss, Expression*& e, Term* t)
+myOptional_t<Expression*> get_expression_from_term(C<Expression*>,std::stringstream& ss, Term* t)
 {
-    BinaryOperator* op;
-    if(!get(ss,op))
+    auto oop=grammar::get(C<BinaryOperator*>{},ss);
+    if (!oop)
     {
-        e=t;
-        return true;
+        return t;
     }
     else
     {
-        Term *t2;
-        if (!get(ss,t2))
-            return false;
+        auto ot2=grammar::get(C<Term*>{},ss);
+        if (!ot2) return {false,"term expected after BinaryOperator, found error: "+ot2.error()};
         else
         {
-            BinaryOperation* b;
-            if (resolve_operator_order(ss,b,t,op,t2))
-            {
-                e=b;
-                return true;
-            }
-            else
-                return false;
+            return resolve_operator_order(C<BinaryOperation*>{},ss,std::unique_ptr<Expression>(t),
+                                          std::unique_ptr<BinaryOperator>(oop.release()),std::unique_ptr<Expression>(ot2.release()));
         }
     }
 }
 
+
+
+
 inline
-bool get_expression_from_term(std::stringstream& ss, myOptional<Expression*>& e, Term* t)
+myOptional_t<Expression*> get(C<Expression*>,std::stringstream& ss)
 {
-    BinaryOperator* op;
-    if(!get(ss,op))
-    {
-        e=t;
-        return true;
-    }
+    auto pos=ss.tellg();
+    auto ot=get(C<Term*>{},ss);
+    if (!ot)
+    { ss.clear(); ss.seekg(pos); return {false, "error in Term :"+ot.error()}; }
+    return get_expression_from_term(C<Expression*>{},ss,ot.release());
+}
+
+
+
+
+
+
+
+myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss)
+{
+    auto pos=ss.tellg();
+    auto ofirst=get_variant(C<valid_start>{},ss);
+    if (!ofirst)
+    { ss.clear(); ss.seekg(pos); return {false,"Statement failed start: "+ofirst.error()}; }
     else
     {
-        Term *t2;
-        if (!get(ss,t2))
-            return false;
+        if (std::holds_alternative<Identifier*>(ofirst.value()))
+        {
+            auto id=std::get<Identifier*>(ofirst.value());
+            auto oopa=get(C<AssignmentGenericOperator*>{},ss);
+            if (oopa)
+            {
+                auto oe2=grammar::get(C<Expression*>{},ss);
+                if (!oe2)
+                {ss.clear(); ss.seekg(pos); return {false,"failed expression after asignment :"+ oe2.error()};}
+                else {
+                    return new Assignment(id, oopa.release(),oe2.release());
+                }
+            }
+            else
+            {
+                auto oopd=get(C<DefinitionGenericOperator*>{},ss);
+                if (oopd)
+                {
+                    auto oe2=grammar::get(C<Expression*>{},ss);
+                    if (!oe2)
+                    {ss.clear(); ss.seekg(pos); return {false,"failed expression after definition :"+ oe2.error()};}
+                    else {
+                        return new Definition(id, oopd.release(),oe2.release());
+                    }
+                }
+                else
+                {
+                    auto ot=get_term_from_identifier(C<Term*>{},ss,std::unique_ptr<Identifier>(id));
+                    if (!ot) {ss.clear(); ss.seekg(pos); return {false, "error after identifier : "+ot.error()};}
+                    else return get_expression_from_term(C<Expression*>{},ss,ot.release());
+
+                }
+            }
+        }
         else
         {
-            BinaryOperation* b;
-            if (resolve_operator_order(ss,b,t,op,t2))
-            {
-                e=b;
-                return true;
-            }
-            else
-                return false;
+            auto ot=get_term_from_the_rest(C<Term*>{},ss,ofirst.value());
+            if (!ot)
+            {ss.clear(); ss.seekg(pos); return {false, "error after rest: "+ot.error()};}
+            else return get_expression_from_term(C<Expression*>{},ss,ot.release());
+
         }
+
+    }
+
+}
+
+
+
+inline
+myOptional_t<Generic_Assignment*> get(C<Generic_Assignment*>,std::stringstream& ss)
+{
+    auto pos=ss.tellg();
+    auto oid=get(C<Identifier*>{},ss);
+    if (!oid) {ss.clear(); ss.seekg(pos);return {false,"assignment with invalid identifier: "+oid.error()};}
+    auto oop=get_variant(C<std::variant<AssignmentGenericOperator*,DefinitionGenericOperator*>>{},ss);
+    if (!oop)
+    {ss.clear(); ss.seekg(pos);return {false,"assignment with invalid operator : "+oop.error()};}
+    auto oe=grammar::get(C<Expression*>{},ss);
+    if (!oe)
+    {ss.clear(); ss.seekg(pos);return {false,"assignment with invalid expression : "+oe.error()};}
+    else
+    {
+        if (std::holds_alternative<AssignmentGenericOperator*>(oop.value()))
+        {
+            auto opa=std::get<AssignmentGenericOperator*>(oop.value());
+            return new Assignment(oid.release(),opa,oe.release());
+        }
+        else if (std::holds_alternative<DefinitionGenericOperator*>(oop.value()))
+        {
+            auto opd=std::get<DefinitionGenericOperator*>(oop.value());
+            return new Definition(oid.release(),opd,oe.release());
+        }
+        else return {false,"not an Assignment nor a Definition, error"};
+
     }
 }
 
 
 
+
 inline
-bool get(std::stringstream& ss, Expression*& e)
+myOptional_t<Identifier*> get(C<Identifier*>,std::stringstream& ss)
 {
-    auto pos=ss.tellg();
-    Term* t;
-    if (get(ss,t)&&get_expression_from_term(ss,e,t))
-        return true;
-    else
-    { ss.clear(); ss.seekg(pos); return false; }
+    return get_Derived(Cs<Identifier, Identifier>{},ss,"");
 }
 
 inline
-bool get(std::stringstream& ss, myOptional<Expression*>& e)
+myOptional_t<AssignmentGenericOperator*> get(C<AssignmentGenericOperator*>,std::stringstream& ss)
 {
-    auto pos=ss.tellg();
-    Term* t;
-    if (get(ss,t)&&get_expression_from_term(ss,e,t))
-        return true;
-    else
-    { ss.clear(); ss.seekg(pos); return false; }
+    return get_Derived(Cs<AssignmentGenericOperator,AssignmentOperator>{},ss,"");
 }
+
+
 
 
 
 inline
-bool get(std::stringstream& ss, Statement*& sta)
+myOptional_t<DefinitionGenericOperator*> get(C<DefinitionGenericOperator*>,std::stringstream& ss)
 {
-    auto pos=ss.tellg();
-    Term *t;
-    Expression *e;
-    valid_start first;
-    if (!get_variant(ss,first))
-    { ss.clear(); ss.seekg(pos); return false; }
-    else
-    {
-        if (std::holds_alternative<Identifier*>(first))
-        {
-            auto id=std::get<Identifier*>(first);
-            AssignmentGenericOperator* opa;
-            DefinitionGenericOperator* opd;
-            if (get(ss,opa))
-            {
-                Expression *e2;
-                if (!get(ss,e2))
-                {ss.clear(); ss.seekg(pos); return false;}
-                else {
-                    sta=new Assignment(id, opa,e2);
-                    return true;
-                }
-            }
-            else if (get(ss,opd))
-            {
-                Expression *e2;
-                if (!get(ss,e2))
-                {ss.clear(); ss.seekg(pos); return false;}
-                else {
-                    sta=new Definition(id, opd,e2);
-                    return true;
-                }
-            }
-            else if (get_term_from_identifier(ss,t,id)&&get_expression_from_term(ss,e,t))
-            {
-                sta=e;
-                return true;
-            }
-            else {ss.clear(); ss.seekg(pos); return false;}
-        }
-        else if (get_term_from_the_rest(ss, t,first)&&get_expression_from_term(ss,e,t))
-        {
-            sta=e;
-            return true;
-        }
-        else {ss.clear(); ss.seekg(pos); return false;}
-
-    }
-
+    return get_Derived(Cs<DefinitionGenericOperator>{},ss,"");
 }
-
-
 inline
-bool get(std::stringstream& ss, myOptional<Statement*>& sta)
+myOptional_t<UnaryOperator*> get(C<UnaryOperator*>,std::stringstream& ss)
 {
-
-    auto pos=ss.tellg();
-    myOptional<Term *>t;
-    myOptional <Expression *>e;
-    valid_start first;
-    if (!get_variant(ss,first))
-    {
-        sta.setError("invalid start");
-        ss.clear();
-        ss.seekg(pos);
-        return false; }
-    else
-    {
-        if (std::holds_alternative<Identifier*>(first))
-        {
-            auto id=std::get<Identifier*>(first);
-            AssignmentGenericOperator* opa;
-            DefinitionGenericOperator* opd;
-            if (get(ss,opa))
-            {
-                myOptional<Expression *>e2;
-                if (!get(ss,e2))
-                {
-                    sta.setError("invalid assigment: "+e.error());
-                    ss.clear(); ss.seekg(pos); return false;}
-                else {
-                    sta=new Assignment(id, opa,e2.value());
-                    return true;
-                }
-            }
-            else if (get(ss,opd))
-            {
-                myOptional<Expression *>e2;
-                if (!get(ss,e2))
-                {
-                    sta.setError("invalid definition: "+e.error());
-                    ss.clear(); ss.seekg(pos); return false;}
-                else {
-                    sta=new Definition(id, opd,e2.value());
-                    return true;
-                }
-            }
-            else if (get_term_from_identifier(ss,t,id)&&get_expression_from_term(ss,e,t.value()))
-            {
-                sta=e.value();
-                return true;
-            }
-            else {
-                if (!t.has_value())
-                    sta.setError(t.error());
-                else sta.setError(t.error());
-                ss.clear(); ss.seekg(pos); return false;}
-        }
-        else if (get_term_from_the_rest(ss, t,first)&&get_expression_from_term(ss,e,t.value()))
-        {
-            sta=e.value();
-            return true;
-        }
-        else {
-            if (!t.has_value())
-                sta.setError(t.error());
-            else sta.setError(t.error());
-
-
-            ss.clear(); ss.seekg(pos); return false;}
-
-    }
-
+    return get_Derived(Cs<UnaryOperator>{},ss,"");
 }
-
-
-
 inline
-bool get(std::stringstream& ss, Generic_Assignment*& a)
+myOptional_t<BinaryOperator*> get(C<BinaryOperator*>,std::stringstream& ss)
 {
-    auto pos=ss.tellg();
-    Identifier* id;
-    Expression* e;
-    std::variant<AssignmentGenericOperator*,DefinitionGenericOperator*> op;
-    if (get(ss,id)&&get_variant(ss,op)&&get(ss,e))
-    {
-        if (std::holds_alternative<AssignmentGenericOperator*>(op))
-        {
-            auto opa=std::get<AssignmentGenericOperator*>(op);
-            a= new Assignment(id,opa,e);
-            return true;
-        }
-        else if (std::holds_alternative<DefinitionGenericOperator*>(op))
-        {
-            auto opd=std::get<DefinitionGenericOperator*>(op);
-            a= new Definition(id,opd,e);
-            return true;
-
-        }
-
-    }
-    ss.clear();
-    ss.seekg(pos);
-    return false;
-}
-bool get(std::stringstream& ss, Identifier*& e)
-{
-    return get_Derived(ss,e,Cs<Identifier>{});
-}
-
-inline
-bool get(std::stringstream& ss, AssignmentGenericOperator*& e)
-{
-    return get_Derived(ss,e,Cs<AssignmentOperator>{});
-}
-
-inline
-bool get(std::stringstream& ss, DefinitionGenericOperator*& e)
-{
-    return get_Derived(ss,e,Cs<DefinitionOperator>{});
-}
-
-inline bool get(std::stringstream& ss, UnaryOperator*& e)
-{
-    return get_Derived(ss,e,Cs<>{});
-}
-inline bool get(std::stringstream& ss, BinaryOperator*& e)
-{
-    return get_Derived(ss,e,Cs<>{});
+    return get_Derived(Cs<BinaryOperator>{},ss,"");
 }
 
 
-
-
-inline bool get(std::stringstream& ss, LiteralGeneric*& e)
+myOptional_t<LiteralGeneric*> get(C<LiteralGeneric*>,std::stringstream& ss)
 {
-    return get_Derived(ss,e,Cs<Literal<std::string>, Literal<double>, Literal<std::size_t>, Literal<int>, Literal<bool>>{});
+    return get_Derived(Cs<LiteralGeneric,Literal<std::string>, Literal<double>, Literal<std::size_t>, Literal<int>, Literal<bool>>{},ss,"");
 }
+
+
 
 
 
@@ -1560,39 +1429,121 @@ std::ostream &BinaryOperation::put(std::ostream &os) const
 
 }
 
-bool BinaryOperation::get(std::stringstream &ss)
+myOptional_t<void> BinaryOperation::get(std::stringstream &ss)
 {
     auto pos=ss.tellg();
-    BinaryOperator* op;
-    Term* t1;
-    Term* t2;
-
-    if (grammar::get(ss,t1)&&grammar::get(ss,op)&&grammar::get(ss,t2))
-    {
-        BinaryOperation* b;
-        if (resolve_operator_order(ss,b,t1,op,t2))
-        {
-            *this=std::move(*b);
-            delete b;
-            return true;
-        }
-        else
-        {
-            ss.clear();
-            ss.seekg(pos);
-            return false;
-        }
-    }
+    auto ot1=grammar::get(C<Term*>{},ss);
+    if (!ot1)
+    {ss.clear();ss.seekg(pos); return {false, "binary operation failed on first term: "+ot1.error()};}
     else
     {
-        ss.clear();
-        ss.seekg(pos);
-        return false;
+        auto oop=grammar::get(C<BinaryOperator*>{},ss);
+        if (!oop)
+        {ss.clear();ss.seekg(pos); return {false, "binary operation failed on operator: "+oop.error()};}
+        else
+        {
+            auto ot2=grammar::get(C<Term*>{},ss);
+            if (!ot2)
+            {ss.clear();ss.seekg(pos); return {false, "binary operation failed on second term: "+ot2.error()};}
+            else
+            {
+                auto ob= resolve_operator_order(C<BinaryOperation*>{},ss,std::unique_ptr<Term>(ot1.release()),std::unique_ptr<BinaryOperator>(oop.release())
+                                                ,std::unique_ptr<Term>(ot2.release()));
+                if (ob) {*this=std::move(*ob.release());
+                    return {true,""};}
+                else return {false,ob.error()};
+            }
+        }
     }
 }
 
 
+myOptional_t<void> UnaryOperation::get(std::stringstream &ss)
+{
+    auto pos=ss.tellg();
+    auto oop= grammar::get(C<UnaryOperator*>{},ss);
+    if (!oop)
+    {
+        ss.clear();
+        ss.seekg(pos);
+        return {false,"Unary Operator not recognized:"+oop.error()};
+    }
+    else
+    {
+        auto oe=grammar::get(C<Term*>{},ss);
+        if (!oe)
+        {
+            ss.clear(); ss.seekg(pos);return {false,"Term error after Unary Operator:"+oe.error()};
 
+        }    else
+        {
+            *this=UnaryOperation(oop.release(),oe.release());
+            return {true,""};
+        }
+    }
+}
+
+namespace get_variant_templ_impl {
+
+
+
+
+
+template<class...Ts>
+myOptional_t<std::variant<Ts...>> get(Cs<Ts...>,Cs<>,std::stringstream& , std::string error)
+{
+    return {false,error};
+}
+
+template<class... T0s, class T,class...Ts>
+myOptional_t<std::variant<T0s...,T,Ts...>> get(Cs<T0s...>,Cs<T,Ts...>,std::stringstream& ss, std::string error)
+{
+    if constexpr (has_get_global_optional<T>::value)
+    {
+        auto o= grammar::get(C<T>{},ss);
+        if (o.has_value())
+        {
+            return std::variant<T0s...,T,Ts...>(o.release());
+        }
+        else error+=o.error()+" ,";
+    }
+    else if constexpr (has_get_global<T>::value)
+    {
+        T e;
+
+        if (get(ss,e))
+        {
+            return std::variant<T0s...,T,Ts...>(e);
+        }
+        else error+" not valid input ,";
+    }
+
+    else if constexpr(std::is_pointer_v<T>)
+    {
+        std::unique_ptr<std::remove_pointer_t<T>> e(new  std::remove_pointer_t<T>{});
+        auto o= e->get(ss);
+        if (o.has_value())
+        {
+            return std::variant<T0s...,T,Ts...>(e.release());
+        }
+        else error+=o.error()+" ,";
+
+    }
+    else
+    {
+        T e;
+        auto o=e.get(ss);
+        if (o)
+        {
+            return std::move(e);
+        }
+        else error+=o.error()+" ,";
+    }
+    return get(Cs<T0s...,T>{},Cs<Ts...>{},ss, error);
+}
+
+
+} // namespace get_variant_impl
 
 
 } // namespace grammar

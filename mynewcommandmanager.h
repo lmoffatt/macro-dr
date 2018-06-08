@@ -17,10 +17,9 @@ class DataManager<self_type,Cs<Ts...>, Cs<allT...>, Cs<Bop_terms...>, Cs<Uop_ter
 {
 public:
     
-    //typedef typename Cs<Ts...>::TS_daaMap data_map_types;
-    //typedef typename Cs<allT...>::all_fe def_map_fe;
-    //typedef typename Cs<fn_results...>::FN_test fun_map_f;
-    
+ //   typedef typename Cs<Ts...>::TS_daaMap data_map_types;
+ //  typedef typename Cs<allT...>::all_fe def_map_fe;
+
     typedef Cs<Ts...> myTypes;
     
     
@@ -34,7 +33,7 @@ private:
     using def_map=std::map<std::string,std::unique_ptr<Compiled_Expression<self_type,T>>>;
     
     template< class T>
-    using fun_map=std::map<std::pair<std::string,std::map<std::string,std::string>>,std::unique_ptr<Function_Compiler_Typed<self_type,T>>>;
+    using fun_map=std::map<std::pair<std::string,std::map<std::string,std::string>>,std::unique_ptr<Function_Compiler_Typed<self_type,typename C<T>::type>>>;
     
     template<class T>
     using unary_map=std::map<std::string,std::unique_ptr<UnaryOperatorTyped<T>>>;
@@ -58,7 +57,10 @@ private:
     //std::tuple<std::map<std::string,std::unique_ptr<Compiled_Expression<self_type,allT>>>...> fe_;
     //std::tuple<std::map<std::string,std::unique_ptr<Compiled_Expression<self_type,allTptr*>>>...> feptr_;
     
-    std::tuple<fun_map<allT>...> f_;
+    std::tuple<fun_map<typename C<allT>::type>...> f_;
+    //typedef  typename std::tuple<fun_map<allT>...>::test test2;
+
+
     std::map<std::pair<std::string,std::map<std::string, std::string>>,Function_Compiler<self_type>*> fgen_;  //naked pointer shared with f_:
     
     //std::tuple<std::map<std::string,std::unique_ptr<Compiled_Function_Typed<self_type,fn_results>>>...> f_;
@@ -82,26 +84,29 @@ private:
 
 
 
-template <class...types, class...commands>
-class CommandManager<Cs<types...>, Cs<commands...>>
+template <class...types, class...commands, template <typename...>class... template_commands>
+class CommandManager<Cs<types...>, Cs<commands...>, CCs<template_commands...>>
 {
     
 public:
-    typedef CommandManager<Cs<types...>, Cs<commands...>> self_type;
+    typedef CommandManager<Cs<types...>, Cs<commands...>, CCs<template_commands...>> self_type;
     
-    typedef typename extract_types<Cs<types...>,Cs<commands...>>::type myTypes;
+    typedef typename extract_types<Cs<types...>,Cs<commands...>,CCs<template_commands...> >::type myTypes;
     
+    typedef class_concatenate_t<Cs<commands...>,build_all_commands_t<CCs<template_commands...>,extract_types_t<Cs<types...>,Cs<commands...>> > > myCommands;
 
     typedef typename extract_function_return_types<myTypes,Cs<commands...>>::type myFuncReturns;
-    
+
     typedef class_set_union_t<myTypes,myFuncReturns> allTypes;
-    
-    // typedef typename myTypes::f jaja;
 
-    //  typedef typename myFuncReturns::f jajaja;
 
-    //  typedef typename allTypes::f jaj;
+//    typedef typename myTypes::f jaja;
+//
+//     typedef typename myFuncReturns::f jajaja;
 
+ //    typedef typename allTypes::f jaj;
+
+ //   typedef typename myCommands::f jajtest;
 
     typedef  Cs<> UopTypes;
     
@@ -139,7 +144,7 @@ public:
         insert_valuer(myTypes());
         insert_loader(myTypes());
         insert_Literal(myTypes());
-        (insert_command<commands>(),...);
+        insert_command(myCommands());
     }
     
     
@@ -153,11 +158,11 @@ public:
                 auto c=compile(this,sta.value());
                 if (c)
                 {
-                    auto res=(*c)->execute(this);
+                    auto res=c->value()->execute(this);
                     logstream<<res<<std::endl;
                 }
                 else
-                    logstream<<"compiling error "<<c.error()<<std::endl;
+                    logstream<<"compiling error "<<c->error()<<std::endl;
             }
             else
                 logstream<<"parsing error "<<sta.error()<<std::endl;;
@@ -187,63 +192,65 @@ public:
 
     
     template<typename T>
-    optional_ref_t<T> get(C<T>,std::enable_if_t<std::is_const_v<T>||!std::is_lvalue_reference_v<T>,const std::string&> id)const
+    myOptional_t<T> get(C<T>,std::enable_if_t<!is_variable_ref_v<T>,const std::string&> id)const
+{
+        auto constexpr I=Index<T,myTypes>::value;
+        auto &m=std::get<I>(d_.data_);
+        auto it=m.find(id);
+        if (it!=m.end())
+             return myOptional_t<T>(it->second);
+        else
+            return {false,"identifier"+id+" not found for "+my_trait<T>::className.str()};
+    }
+    template<typename T>
+    myOptional_t<T> get(C<T>,const std::string& id)
     {
-        auto &m=std::get<typename Dm::template data_map<std::decay_t<T>>>(d_.data_);
+        auto &m=std::get<Index<std::decay_t<T>,allTypes>::value>(d_.data_);
         auto it=m.find(id);
         if (it!=m.end())
             return it->second;
         else
-            return {};
-    }
-    template<typename T>
-    optional_ref_t<T> get(C<T>,const std::string& id)
-    {
-        auto &m=std::get<typename Dm::template data_map<std::decay_t<T>>>(d_.data_);
-        auto it=m.find(id);
-        if (it!=m.end())
-            return it->second;
-        else
-            return {};
+            return {false,"identifier"+id+" not found for "+my_trait<T>::className.str()};
     }
     
     template<typename T>
-    myOptional<T const *> get(Cs<T const *>,const std::string& id)const
+    myOptional_t<T const *> get(Cs<T const *>,const std::string& id)const
     {
-        auto &m=std::get<Dm::template data_map<T>>(d_.data_);
+        auto &m=std::get<Index<std::decay_t<T>,allTypes>::value>(d_.data_);
         auto it=m.find(id);
         if (it!=m.end())
             return it->second->get();
         else
-            return {};
+            return {false,"identifier"+id+" not found for "+my_trait<T>::className.str()};
     }
     
     template<typename T>
-    myOptional<T *> get(Cs<T*>,const std::string& id)
+    myOptional_t<T *> get(Cs<T*>,const std::string& id)
     {
-        auto &m=std::get<Dm::template data_map<T>>(d_.data_);
+        auto &m=std::get<Index<std::decay_t<T>,allTypes>::value>(d_.data_);
         auto it=m.find(id);
         if (it!=m.end())
             return it->second->get();
         else
-            return {};
+            return {false,"identifier"+id+" not found for "+my_trait<T*>::className.str()};
     }
     
     
     ///------------------
     ///
-    
+  // <T> get(C<T>,std::enable_if_t<std::is_const_v<T>||!std::is_lvalue_reference_v<T>,const std::string&> id)const
+
     template<typename T>
-    bool has(C<T>,std::enable_if_t<std::is_const_v<T>||!std::is_lvalue_reference_v<T>,const std::string&> id)const
+    bool has(C<T>,std::enable_if_t<!is_variable_ref_v<T>,const std::string&> id)const
     {
-        auto &m=std::get<typename Dm::template data_map<std::decay_t<T>>>(d_.data_);
+        auto &m=std::get<Index<std::decay_t<T>,allTypes>::value>(d_.data_);
         return  m.find(id)!=m.end();
     }
     template<typename T>
     bool has(C<T>,const std::string& id)
     {
         //     typename  decltype (d_.data_)::joya k;
-        auto &m=std::get<typename Dm::template data_map<std::decay_t<T>>>(d_.data_);
+        auto &m=std::get<Index<std::decay_t<T>,allTypes>::value>(d_.data_);
         return  m.find(id)!=m.end();
     }
     
@@ -320,12 +327,22 @@ public:
     template<class type>
     void insert_valuer()
     {
-        auto id_args=std::pair(std::string(my_trait<type>::className.c_str()),std::map<std::string, std::string>({{"value",my_trait<type>::className.str()}}));
-        auto&  m=  std::get<typename Dm::template fun_map<type>>(d_.f_);
-        m.emplace(id_args,make_compiled_valuer(this,C<type>{}));
+     //   typedef typename type::test test;
+        const std::pair<std::string,std::map<std::string,std::string>> id_args(std::string(my_trait<type>::className.c_str()),std::map<std::string, std::string>({{"value",my_trait<type>::className.str()}}));
+        auto&  m=  std::get<Index<type,myTypes>::value>(d_.f_);
+        typedef typename std::decay_t<decltype (m)>::value_type value_type;
+        typedef typename value_type::first_type first_type;
+        typedef typename value_type::second_type second_type;
+        typedef typename second_type::element_type::element_type element_type;
+
+
+
+        first_type f(id_args);
+        second_type second(std::unique_ptr<Function_Compiler_Typed<self_type,element_type>>(make_compiled_valuer(this,C<element_type>{})));
+        value_type p(std::move(f),std::move(second));
+        m.insert(std::move(p));
         d_.fgen_.emplace(id_args,m.at(id_args).get());
     }
-
 
 
     template<class... type>
@@ -356,7 +373,13 @@ public:
         insert_function (C<result_type>{},std::pair(type::className.c_str(),getIdFields(type::get_arguments())), &type::run ,type::get_arguments());
     }
     
-    
+    template<class... type>
+    void insert_command(Cs<type...>)
+    {
+        (insert_command<type>(),...);
+    }
+
+
     
     Compiled_Statement<self_type>const * get_defined(const std::string& id) const
     {
@@ -445,7 +468,7 @@ public:
     template<typename T>
     void set(C<T>,const std::string& id, const T& o)
     {
-        auto &m=std::get<std::map<std::string,T>>(d_.data_);
+        auto &m=std::get<Index<std::decay_t<T>,allTypes>::value>(d_.data_);
         m.emplace(id,o);
         d_.dataId_.emplace(id,new Identifier_Compiler_Typed<self_type,T>);
     }

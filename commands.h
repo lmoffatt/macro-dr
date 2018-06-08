@@ -58,8 +58,113 @@ struct to_experiment
 
 };
 
+struct to_DataFrame
+{
+    static constexpr auto className=my_static_string("to_dataframe");
+
+    static auto run(const basic_Experiment<point<double,double>>& e,
+                            const std::string& colname_time="time",
+                            const std::string& colname_nsample="nsample",
+                            const std::string& colname_x="x",
+                            const std::string& colname_y="y")
+    {
+       return experiment::Experiment_to_DataFrame(e,colname_time,colname_nsample,colname_x,colname_y);
+    }
 
 
+    static auto get_arguments()
+    {
+        return std::make_tuple(grammar::argument(C< const basic_Experiment<point<double,double>>&>{},"experiment"),
+                               grammar::argument(C<std::string>{},"colname_time"),
+                               grammar::argument(C<std::string>{},"colname_nsample"),
+                               grammar::argument(C<std::string>{},"colname_x"),
+                               grammar::argument(C<std::string>{},"colname_y"));
+    }
+
+
+};
+
+
+using namespace  io;
+
+
+template<class T>
+struct save{
+    static constexpr auto className=my_static_string("save");
+
+    template<class type_candidate>
+    struct uses
+    {
+        //typedef decltype (operator<< (std::declval<std::ostream&>(),std::declval<type_candidate const &>())) test;
+       // static_assert(!has_global_extractor<type_candidate>::value,"test");
+        typedef has_global_extractor<type_candidate> type;
+    };
+
+
+    static std::string run(const T& x, const std::string& filename)
+    {
+         std::ofstream of;
+         of.open(filename.c_str());
+         if (!of.good())
+             return filename+" could not be created";
+         else
+         {
+             if (!(of<<x))
+                 return "variable could not be written";
+             else
+                 return "written successfully";
+         }
+    }
+
+    static auto get_arguments()
+    {
+        return std::make_tuple(
+                    grammar::argument(C<const T&>{},"variable"),
+                    grammar::argument(C<std::string>{},"filename"));
+    }
+};
+
+template std::ostream& io::write(std::ostream&, const experiment::basic_Experiment<point<double,double>>&);
+
+template<class T>
+struct write_variable{
+    static constexpr auto className=my_static_string("write");
+
+    template<class type_candidate>
+    struct uses
+    {
+        //typedef decltype (operator<< (std::declval<std::ostream&>(),std::declval<type_candidate const &>())) test;
+       // static_assert(!has_global_extractor<type_candidate>::value,"test");
+        typedef is_write_Object<type_candidate> type;
+
+       //static_assert (type::value,"true" );
+       // static_assert (!type::value,"false" );
+
+    };
+
+
+    static std::string run(const T& x, const std::string& filename)
+    {
+         std::ofstream of;
+         of.open(filename.c_str());
+         if (!of.good())
+             return filename+" could not be created";
+         else
+         {
+             if (!x.write(of))
+                 return "variable could not be written";
+             else
+                 return "written successfully";
+         }
+    }
+
+    static auto get_arguments()
+    {
+        return std::make_tuple(
+                    grammar::argument(C<const T&>{},"variable"),
+                    grammar::argument(C<std::string>{},"filename"));
+    }
+};
 
 
 
@@ -114,7 +219,8 @@ struct Objects
 {
 
     typedef Cs<Allosteric_Model,singleLigandExperiment> types;
-    typedef Cs<simulate<singleLigandExperiment,Allosteric_Model>, to_experiment> commands;
+    typedef Cs<simulate<singleLigandExperiment,Allosteric_Model>, to_experiment, to_DataFrame> commands;
+    typedef CCs<save,write_variable> templateCommands;
 };
 
 

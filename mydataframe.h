@@ -94,10 +94,10 @@ public:
 
 
    template<typename T>
-   myOptional<T> get(const std::string& id, std::size_t j)const
+   myOptional_t<T> get(const std::string& id, std::size_t j)const
    {
        auto it=map_.find(id);
-       if (it==map_.end()) return{};
+       if (it==map_.end()) return{false,"field not found"};
        else
        return std::visit([j](auto const& a)
        {return a[j];}, data_[it->second].data);

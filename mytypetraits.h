@@ -73,19 +73,27 @@ constexpr auto operator+(const my_static_string<N1>& s1,
 
 
 template<typename T>
-class C
+struct C
 {
-
+    typedef T type;
 };
 
 template<typename... Ts>
-struct Cs
-{
-};
+struct Cs{};
+
+template<template<typename...>class... Ts>
+struct CCs{};
+
+template<template<typename...>class Function, template<typename...>class useThisType>
+struct templatePair{};
+
+
+
+
 
 template<class...> struct has_this_type{};
 
-template< template<typename...> class Cs, typename T, typename... Ts>
+template< template<typename...> class Cs, typename... Ts, typename T>
 struct has_this_type<Cs<Ts...>,T>
 {
     static constexpr bool value=(std::is_same_v<T,Ts >||...||false);
@@ -177,8 +185,8 @@ struct my_trait<std::pair<T,K>>
     constexpr static auto className=my_static_string("pair_")+my_trait<T>::className+my_static_string("_")+my_trait<K>::className;
 };
 
-template <typename T, typename K>
-struct my_trait<std::map<T,K>>
+template <typename T, typename K, typename ...R>
+struct my_trait<std::map<T,K,R...>>
 {
     constexpr static auto className=my_static_string("map_")+my_trait<T>::className+my_static_string("_")+my_trait<K>::className;
 };
@@ -242,16 +250,35 @@ struct has_mapped_type<T,
         std::void_t<typename T::key_type, typename T::mapped_type>>
         : std::true_type { };
 
+
 template <typename T> inline constexpr bool has_mapped_type_v=has_mapped_type<T>::value;
 
-template <typename T> class myOptional;
+
+
+template <typename T, typename = void>
+struct has_base_type : std::false_type { };
+
+template <typename T>
+struct has_base_type<T,
+        std::void_t<decltype(std::declval<typename T::base_type>())>>
+        : std::true_type { };
+
+
+
+
+
+
+
+template <typename T> inline constexpr bool has_base_type_v=has_base_type<T>::value;
+
+template<typename...> class myOptional;
 
 
 
 template <class> struct is_optional: public std::false_type{};
 
-template <typename T>
-struct is_optional<myOptional<T>>: public std::true_type{};
+template <typename T, typename tag>
+struct is_optional<myOptional<T,tag>>: public std::true_type{};
 
 
 template <typename T>
@@ -336,15 +363,6 @@ struct is_field_Object<T,
    : std::true_type { };
 
 template <typename T, typename = void>
-struct is_write_Object : std::false_type { };
-
-template <typename T>
-struct is_write_Object<T,
-        std::void_t<decltype(std::declval<T&>().write(std::declval<std::ostream&>()))
->>
-   : std::true_type { };
-
-template <typename T, typename = void>
 struct is_read_Object : std::false_type { };
 
 template <typename T>
@@ -353,6 +371,15 @@ struct is_read_Object<T,
 >>
    : std::true_type { };
 
+
+template <typename T, typename = void>
+struct is_write_Object : std::false_type { };
+
+template <typename T>
+struct is_write_Object<T,
+        std::void_t<decltype(std::declval<T&>().read(std::declval<std::istream&>()))
+>>
+   : std::true_type { };
 
 
 template <typename T, typename = void>
@@ -390,12 +417,23 @@ template <class> struct is_pointer_to_const: public std::false_type{};
 template <typename T>
 struct is_pointer_to_const<T const *>: public std::true_type{};
 
+template <typename T> constexpr inline bool is_pointer_to_const_v=is_pointer_to_const<T>::value;
+
+
+template <class> struct is_const_ref: public std::false_type{};
+
+template <typename T>
+struct is_const_ref<T const &>: public std::true_type{};
+
+template <typename T> constexpr inline bool is_const_ref_v=is_const_ref<T>::value;
+
+
 template<typename,class=void>
 struct is_variable_ref: public std::false_type{};
 
 template <typename T>
 struct is_variable_ref<T,
-        std::enable_if_t<!std::is_const_v<T>&&(std::is_lvalue_reference_v<T>||std::is_pointer_v<T>), int>>: public std::true_type{};
+        std::enable_if_t<(!is_const_ref_v<T>)&&(!is_pointer_to_const_v<T>)&&(std::is_lvalue_reference_v<T>||std::is_pointer_v<T>), int>>: public std::true_type{};
 
 template< typename T>
 inline constexpr bool is_variable_ref_v=is_variable_ref<T>::value;
@@ -408,6 +446,13 @@ template<typename T>
 struct has_get_global<T,
         std::void_t<decltype(get(std::declval<std::stringstream&>(),
                                  std::declval<T&>()))>> : std::true_type{};
+
+template<typename,class=void>
+struct has_get_global_optional: std::false_type{};
+
+template<typename T>
+struct has_get_global_optional<T,
+        std::void_t<decltype(get(std::declval<C<T>>(),std::declval<std::stringstream&>()))>> : std::true_type{};
 
 
 
@@ -424,7 +469,7 @@ struct has_global_extractor: std::false_type{};
 
 template<typename T>
 struct has_global_extractor<T,
-        std::void_t<decltype(operator<<(std::declval<std::stringstream&>(),std::declval<T&>()))>> : std::true_type{};
+        std::void_t<decltype(std::declval<std::ostream&>()<<std::declval<std::decay_t<T> const&>())>> : std::true_type{};
 
 
 
@@ -538,7 +583,29 @@ template <class T> using my_tag_arg_t=typename my_tag_arg<T>::type;
 
 
 
+template<typename T, class C, bool >
+struct Index_imp{};
 
+template<typename T, template<typename ...>class Cs,typename ...Ts>
+struct Index_imp <T, Cs<Ts...>, true>
+{
+    static constexpr std::size_t value=0;
+};
+
+template<typename T, typename U, template<typename ...>class Cs,typename ...Ts>
+struct Index_imp <T, Cs<U, Ts...>, false>
+{
+    static constexpr std::size_t value=1+Index_imp<T,Cs<Ts...>,std::is_same_v<T,U >>::value;
+};
+
+template<typename T, class C>
+struct Index{};
+
+template<typename T, typename U, template<typename ...>class Cs,typename ...Ts>
+struct Index <T, Cs<U, Ts...>>
+{
+    static constexpr std::size_t value=Index_imp<T,Cs<Ts...>,std::is_same_v<T,U >>::value;
+};
 
 
 
@@ -621,6 +688,14 @@ template<template<class...>class Op, class... T0, template<class...> class Cs, c
 struct class_concatenate<Op<T0...>,Cs<T...>>
 {
     typedef Op<T0...,T...> type;
+};
+
+
+
+template<template<class...>class Op, class... T0, template<class...> class Cs, class... T, class ... Rs>
+struct class_concatenate<Op<T0...>,Cs<T...>, Rs...>
+{
+    typedef class_concatenate_t<class_concatenate_t<Op<T0...>,Cs<T...>>,Rs...> type;
 };
 
 

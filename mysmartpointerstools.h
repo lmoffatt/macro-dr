@@ -23,8 +23,6 @@ using unique_if_ptr_t=typename unique_if_ptr<T>::type;
 template< typename T>
 using optional_unique_t_old=std::optional<std::unique_ptr<T>>;
 
-template< typename T>
-using optional_unique_t=myOptional<std::unique_ptr<T>>;
 
 
 
@@ -44,15 +42,6 @@ Map<K,std::unique_ptr<T>> clone_map(const Map<K,std::unique_ptr<T>>& v){
    return out;
 }
 
-template<class T>
-optional_unique_t<T> clone_optional(const optional_unique_t<T> one)
-{
-    if (one.has_value())
-    {
-        return std::unique_ptr<T>(one.value()->clone());
-    }
-    else return{};
-}
 
 template < class... Ts>
 std::tuple<std::unique_ptr<Ts>...> clone_tuple(const std::tuple<std::unique_ptr<Ts>...>& v){

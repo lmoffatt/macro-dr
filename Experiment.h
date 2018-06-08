@@ -410,10 +410,10 @@ DataFrame_to_Experiment(const io::myDataFrame<Ts...>& d
     std::vector<point<double,double>> out;
     for (std::size_t i=0; i<d.nrows(); ++i)
     {
-        out.push_back(point<double,double>(*d.template get<double>(colname_time,i),
-                                           *d.template get<std::size_t>(colname_nsample,i),
-                                           *d.template get<double>(colname_x,i),
-                                           *d.template get<double>(colname_y,i)));
+        out.push_back(point<double,double>(d.template get<double>(colname_time,i).value(),
+                                           d.template get<std::size_t>(colname_nsample,i).value(),
+                                           d.template get<double>(colname_x,i).value(),
+                                           d.template get<double>(colname_y,i).value()));
     }
     return basic_Experiment<point<double,double>>(std::move(out),frequency_of_sampling);
 }

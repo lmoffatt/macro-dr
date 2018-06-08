@@ -34,6 +34,11 @@ public :
     std::istream& read(std::istream& is) { return is>>name_;}
 
 };
+template<class T>
+std::ostream& operator<<(std::ostream& os, const Label<T>& x)
+{
+    return os<<x.name();
+}
 
 
 template <class label>
