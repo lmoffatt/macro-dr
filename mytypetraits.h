@@ -209,6 +209,11 @@ struct my_trait<const C&>
     constexpr static auto className=my_static_string("const_")+my_trait<std::decay_t<C>>::className+my_static_string("_ref");
 };
 
+template <class C>
+struct my_trait< C&>
+{
+    constexpr static auto className=my_trait<std::decay_t<C>>::className+my_static_string("_ref");
+};
 
 template <class C>
 struct my_trait<C>

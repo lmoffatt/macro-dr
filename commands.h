@@ -8,6 +8,7 @@
 #include "myDistributions.h"
 
 #include "measure_markov_process.h"
+#include "likelihood_markov_process.h"
 #include <type_traits>
 #include "myfields.h"
 #include "qmodel.h"
@@ -176,11 +177,11 @@ struct simulate{
 
 
     static constexpr auto className=my_static_string("simulate");
-    static auto run(std::mt19937_64::result_type initseed,const Experiment& e, const  Model& m , const Parameters_values<Model>& p,std::size_t N,std::size_t n)
+    static auto run(std::mt19937_64::result_type initseed,const Experiment& e,   Model& m , const Parameters_values<Model>& p,std::size_t n)
     {
-        SingleLigandModel SM(m.Qs(p),m.g(p));
+        SingleLigandModel SM(m.Qs(p),m.g(p),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()));
 
-        Markov_Model_calculations<SingleLigandModel,Experiment,double> MC(SM,N,e);
+        Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,Experiment,double> MC(SM,e);
 
         if (initseed==0)
         {
@@ -196,13 +197,47 @@ struct simulate{
         return std::make_tuple(
                     grammar::argument(C<typename std::mt19937_64::result_type>{},"initseed",typename std::mt19937_64::result_type(0)),
                     grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
-                    grammar::argument(C<const Model&>{},my_trait<Model>::className.c_str()),
+                    grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
                     grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
-                    grammar::argument(C<std::size_t>{},"number_channels"),
                     grammar::argument(C<std::size_t>{},"number_of_sub_intervals",10ul));
     }
 };
 
+
+
+
+template<class Experiment,class Model>
+struct likelihood{
+
+
+    static constexpr auto className=my_static_string("likelihood");
+
+    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm)
+    {
+        SingleLigandModel SM(m.Qs(p),m.g(p), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
+
+
+        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e);
+
+        if (algorithm==markov::MacroDR<true>::className.str())
+        {
+           auto out= markov::logLikelihood(markov::MacroDR<true>(),MC,e);
+           std::cerr<<"logLikelihodd = "<<out<<std::endl;
+           return out;
+
+        }
+        else return mynan;
+    }
+
+    static auto get_arguments()
+    {
+        return std::make_tuple(
+                    grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
+                    grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
+                    grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
+                    grammar::argument(C<std::string>{},"algorithm"));
+    }
+};
 
 
 
@@ -219,7 +254,7 @@ struct Objects
 {
 
     typedef Cs<Allosteric_Model,singleLigandExperiment> types;
-    typedef Cs<simulate<singleLigandExperiment,Allosteric_Model>, to_experiment, to_DataFrame> commands;
+    typedef Cs<simulate<singleLigandExperiment,Allosteric_Model>, likelihood<singleLigandExperiment,Allosteric_Model>,to_experiment, to_DataFrame> commands;
     typedef CCs<save,write_variable> templateCommands;
 };
 

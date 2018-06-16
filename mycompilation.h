@@ -1059,7 +1059,7 @@ class Function_Compiler_Typed: public Function_Compiler<Cm>
 {
 
 public:
-     typedef T element_type;
+    typedef T element_type;
     virtual myOptional_t<Compiled_Expression<Cm,T>*>* compile_this( Cm * cm,const Function *f) const override=0;
 
     virtual myOptional_t<Compiled_Function_Typed<Cm,T>*>* compile_this(const Cm * cm,const Function *f) const override=0;
@@ -1665,15 +1665,18 @@ myOptional_t<Compiled_Expression<Cm,T>*>* compile(const Cm* cm,C<T>,Expression c
     {
         return Compiled_Identifier<Cm,T>::create(cm,x);
     }
-    else if(auto x=dynamic_cast<Literal<T> const *>(id); x!=nullptr)
+    else if constexpr (!std::is_lvalue_reference_v<T>|| std::is_const_v<T>)
     {
-        return Compiled_Literal<Cm,T>::create(x);
+        if(auto x=dynamic_cast<Literal<T> const *>(id); x!=nullptr)
+        {
+            return Compiled_Literal<Cm,T>::create(x);
+        }
+        else if(auto x=dynamic_cast<LiteralGeneric const *>(id); x!=nullptr)
+        {
+            return Compiled_Literal<Cm,T>::create(x);
+        }
     }
-    else if(auto x=dynamic_cast<LiteralGeneric const *>(id); x!=nullptr)
-    {
-        return Compiled_Literal<Cm,T>::create(x);
-    }
-    else if constexpr (std::is_reference_v<T>)
+    if constexpr (std::is_reference_v<T>&& std::is_const_v<T>)
     {
         if (auto x=dynamic_cast<LiteralGeneric const *>(id); x!=nullptr)
             return Compiled_Literal<Cm,T>::create(x);
@@ -1720,14 +1723,18 @@ myOptional_t<Compiled_Expression<Cm,T>*>* compile(const Cm* cm,C<T>,Expression c
     {
         return Compiled_Definition<Cm,T>::create(cm,x);
     }
-    else if(auto x=dynamic_cast<ArrayOperation const *>(id); x!=nullptr)
+    else if constexpr (!std::is_lvalue_reference_v<T>|| std::is_const_v<T>)
     {
-        //  typedef typename res_type::res_type aqui;
-        // typedef typename T::T aqui2;
+        if (auto x=dynamic_cast<ArrayOperation const *>(id); x!=nullptr)
+        {
+            //  typedef typename res_type::res_type aqui;
+            // typedef typename T::T aqui2;
 
-        return Compiled_Array_t<Cm,T>::create(cm,x);
+            return Compiled_Array_t<Cm,T>::create(cm,x);
+        }
     }
-    else return {};
+    return {};
+
 
 }
 

@@ -156,9 +156,11 @@ public:
             if (sta)
             {
                 auto c=compile(this,sta.value());
-                if (c)
+                if (c==nullptr) logstream<<"compiling error ";
+                else if (*c)
                 {
                     auto res=c->value()->execute(this);
+
                     logstream<<res<<std::endl;
                 }
                 else

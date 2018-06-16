@@ -249,7 +249,8 @@ public:
 
         void set_P(M_Matrix<double>&&
                    _P)
-        { P_=std::move(_P);
+        {
+            P_=std::move(_P);
             _M_initialize();
         }
 
@@ -281,7 +282,9 @@ public:
                 }
                 for (std::size_t j=0; j<ncols(P_); ++j)
                 {
-                    rP_(i,j)=P_(i,j)/s(i,j);
+                    if (s(i,j)>0)
+                        rP_(i,j)=P_(i,j)/s(i,j);
+                    else rP_(i,j)=0;
                     P_(i,j)=P_(i,j)/s(i,0);
                 }
             }
@@ -380,7 +383,7 @@ public:
             {
                 T Nr=_p.N_[i];
 
-                for (std::size_t j=1; j< nc-1; ++j)
+                for (std::size_t j=0; j< nc-1; ++j)
                 {
                     double p=_p.rP_(i,j);
                     auto bi=std::binomial_distribution<T>(Nr,p);
@@ -422,6 +425,40 @@ private:
     param_type _M_param;
 
 };
+
+
+
+M_Matrix<double> normalize_to_prob(M_Matrix<double>&& P)
+{
+  if (P.nrows()==1)
+  {
+      double sum=0;
+      for (std::size_t i=0; i<P.ncols(); ++i)
+          sum+=std::abs(P(0,i));
+      for (std::size_t i=0; i<P.ncols(); ++i)
+          P(0,i)=std::abs(P(0,i))/sum;
+  }
+  else if (P.ncols()==1)
+{      double sum=0;
+      for (std::size_t i=0; i<P.nrows(); ++i)
+          sum+=std::abs(P(i,0));
+      for (std::size_t i=0; i<P.nrows(); ++i)
+          P(i,0)=std::abs(P(i,0))/sum;
+ }
+  else
+  {
+      for (std::size_t j=0; j<P.ncols();++j)
+      {
+          double sum=0;
+          for (std::size_t i=0; i<P.nrows(); ++i)
+              sum+=std::abs(P(i,j));
+          for (std::size_t i=0; i<P.nrows(); ++i)
+              P(i,j)=std::abs(P(i,j))/sum;
+
+      }
+  }
+  return std::move(P);
+}
 
 
 

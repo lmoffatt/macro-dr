@@ -103,6 +103,7 @@ public :
 template<typename T>
 class myOptional<T&, lref_tag>
 {
+  T empty_;
   T& x_;
   bool has_;
   std::string error_;
@@ -120,10 +121,10 @@ public :
   //myOptional(U* x):x_{x},has_{true},error_{}{}
 
 
-  myOptional(T& x): x_{x},has_{true},error_{}{}
+  myOptional(T& x):empty_{}, x_{x},has_{true},error_{}{}
 
-  myOptional(bool,const std::string& msg):x_{std::move(T{})},has_{false},error_{msg}{}
-  myOptional(bool,std::string&& msg):x_{std::move(T{})},has_{false},error_{std::move(msg)}{}
+  myOptional(bool,const std::string& msg):empty_{},x_{empty_},has_{false},error_{msg}{}
+  myOptional(bool,std::string&& msg):empty_{},x_{empty_},has_{false},error_{std::move(msg)}{}
 
 
   operator bool() { return has_;}

@@ -31,7 +31,8 @@ HEADERS += \
     mysmartpointerstools.h \
     commands.h \
     myparameters.h \
-    mycontainer.h
+    mycontainer.h \
+    likelihood_markov_process.h
 
 DISTFILES += \
     simulation.txt

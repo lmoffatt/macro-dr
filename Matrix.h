@@ -3267,7 +3267,7 @@ bool operator<(const M_Matrix<T>& x, const M_Matrix<T>& y)
     else if (y.size()<x.size()) return false;
     else if (x.nrows()<y.nrows()) return true;
     else if (y.nrows()<x.nrows()) return false;
-    else for (std::size_t i=0; i< x.size(); ++x)
+    else for (std::size_t i=0; i< x.size(); ++i)
     {
         if (x[i]<y[i]) return true;
         else if (y[i]<x[i]) return false;
@@ -3275,6 +3275,48 @@ bool operator<(const M_Matrix<T>& x, const M_Matrix<T>& y)
     return false;
 
 }
+
+template<typename T>
+bool operator<(const M_Matrix<T>& x, const T& y)
+{
+    for (std::size_t i=0; i< x.size(); ++i)
+    {
+        if (x[i]>=y) return false;
+    }
+    return true;
+}
+template<typename T>
+bool operator<=(const M_Matrix<T>& x, const T& y)
+{
+    for (std::size_t i=0; i< x.size(); ++i)
+    {
+        if (x[i]>y) return false;
+    }
+    return true;
+}
+
+
+template<typename T>
+bool operator>=(const M_Matrix<T>& x, const T& y)
+{
+    for (std::size_t i=0; i< x.size(); ++i)
+    {
+        if (x[i]<y) return false;
+    }
+    return true;
+}
+template<typename T>
+bool operator>(const M_Matrix<T>& x, const T& y)
+{
+    for (std::size_t i=0; i< x.size(); ++i)
+    {
+        if (x[i]<=y) return false;
+    }
+    return true;
+}
+
+
+
 
 }
 
@@ -4916,6 +4958,7 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
         itself=std::move(out);
         return itself;
     }
+    return itself; // lo pongo para que compile, no se porque piensa que llega aqui...
 }
 
 //@}

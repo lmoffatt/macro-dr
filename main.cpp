@@ -69,10 +69,10 @@ int main(int argc, char **argv)
 
     std::map<std::string, double> par=
             {
-                {"LR",300}	,{"LR_L",0},	{"LR_R",1},	{"RL",30},	{"RLR",300},	{"RLR_1",1},	{"RLR_3",1},	{"RLR_L",0},	{"RL_L",0},	{"RL_R",1},	{"RR",3},	{"RRR",1},	{"RRR_R",0.5},	{"RR_1",0.5},	{"RR_2",0.5},	{"alpha",1e7}, 	{"beta",10},	{"g_0",0.0},{"g_1",-0.001},	{"g_2",-0.1}	,{"g_3",-1},	{"koff",1e7},	{"kon",500}};
+                {"LR",300}	,{"LR_L",0},	{"LR_R",1},	{"RL",30},	{"RLR",300},	{"RLR_1",1},	{"RLR_3",1},	{"RLR_L",0},	{"RL_L",0},	{"RL_R",1},	{"RR",3},	{"RRR",1},	{"RRR_R",0.5},	{"RR_1",0.5},	{"RR_2",0.5},	{"alpha",1e7}, 	{"beta",10},	{"g_0",0.0},{"g_1",-0.001},	{"g_2",-0.1}	,{"g_3",-1},	{"koff",1e7},	{"kon",500}, {"Number_of_Channels" , 100} , {"gaussian_noise" , 1.0 }};
 
     Parameters_values<Allosteric_Model> P(par);
-    SingleLigandModel SM(A.Qs(P),A.g(P));
+    SingleLigandModel SM(A.Qs(P),A.g(P),1000,0);
 
     write(std::cout,A);
     std::ofstream f;
@@ -93,10 +93,10 @@ int main(int argc, char **argv)
 
 
     auto e=experiment::DataFrame_to_Experiment(da,"t","ns","xATP","yCurrent", 50E3);
-    Markov_Model_calculations<SingleLigandModel,experiment::basic_Experiment<experiment::point<double,double>>,double> MC(SM,1000,e);
+    Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,experiment::basic_Experiment<experiment::point<double,double>>,double> MC(SM,e);
 
 
-    auto s=simulate<decltype (e),Allosteric_Model>::run(0,e,A,P,1000,10);
+    auto s=simulate<decltype (e),Allosteric_Model>::run(0,e,A,P,10);
     auto ds=experiment::Experiment_to_DataFrame(s);
     ds.write(std::cout);
     write(std::cout,s);
@@ -105,8 +105,8 @@ int main(int argc, char **argv)
    std::cout<<std::endl;
     std::map<std::string, double> beta
     {
-        {"LR",3}	,{"LR_L",0.5},	{"LR_R",0.5},	{"RL",3},	{"RLR",3},	{"RLR_D",0.5},	{"RLR_I",0.5},	{"RLR_L",0.5},	{"RL_L",0.5},	{"RL_R",0.5},	{"RR",3},	{"RRR",3},	{"RRR_M",0.5},	{"RR_D",0.5},	{"RR_I",0.5},	{"alpha",1e3},	{"beta",1},	{"g_1",0.01},	{"g_2",0.3}	,{"g_3",1},	{"koff",1e5},	{"kon",100}
-    };
+        {"LR",3}	,{"LR_L",0.5},	{"LR_R",0.5},	{"RL",3},	{"RLR",3},	{"RLR_D",0.5},	{"RLR_I",0.5},	{"RLR_L",0.5},	{"RL_L",0.5},	{"RL_R",0.5},	{"RR",3},	{"RRR",3},	{"RRR_M",0.5},	{"RR_D",0.5},	{"RR_I",0.5},	{"alpha",1e3},	{"beta",1},	{"g_1",0.01},	{"g_2",0.3}	,{"g_3",1},	{"koff",1e5},	{"kon",100},
+      {"Number_of_Channels" , 100} , {"gaussian_noise" , 1.0 }};
 
 
     auto Q=A.Qs(P);

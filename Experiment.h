@@ -128,9 +128,9 @@ public:
 
         void setExperiment(basic_Experiment* e){e_=e;}
         step(basic_Experiment* e,const step& other):
-            e_{e},myIndex_{other.myIndex_},index_of_start_point_{other.index_of_start_point_},nsamples_{other.nsamples_}{}
+            e_{e},myIndex_{other.myIndex_},index_of_start_point_{other.index_of_start_point_},nsamples_{other.nsamples_},y_{other.y_}{}
         step(basic_Experiment* e,step&& other):
-            e_{e},myIndex_{std::move(other.myIndex_)},index_of_start_point_{std::move(other.index_of_start_point_)},nsamples_{std::move(other.nsamples_)}{other.e_=nullptr;}
+            e_{e},myIndex_{std::move(other.myIndex_)},index_of_start_point_{std::move(other.index_of_start_point_)},nsamples_{std::move(other.nsamples_)},y_{std::move(other.y_)}{other.e_=nullptr;}
 
         void calc()
         {
@@ -152,6 +152,7 @@ public:
             }
         }
         auto nsamples()const {return nsamples_;}
+
         Y y()const {return y_;}
         auto begin(){return e_->begin_begin_begin()+index_of_start_point_;}
         auto begin()const {return e_->begin_begin_begin()+index_of_start_point_;}

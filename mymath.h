@@ -11,7 +11,9 @@ std::size_t base2_floor(std::size_t x)
     return 1<<n;
 }
 
+inline constexpr double PI = 3.14159265358979323846;
 
+inline constexpr double mynan = std::numeric_limits<double>::quiet_NaN();
 
 
 #endif // MYMATH_H
