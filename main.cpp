@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 
 
     auto e=experiment::DataFrame_to_Experiment(da,"t","ns","xATP","yCurrent", 50E3);
-    Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,experiment::basic_Experiment<experiment::point<double,double>>,double> MC(SM,e);
+    Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,experiment::basic_Experiment<experiment::point<double,double>,measure_just_y<double>>,double> MC(SM,e);
 
 
     auto s=simulate<decltype (e),Allosteric_Model>::run(0,e,A,P,10);

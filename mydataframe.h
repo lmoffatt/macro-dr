@@ -69,9 +69,10 @@ public:
    template<std::size_t I,std::size_t... Is,typename...K0, typename K, typename ...K1>
    bool push_back_i(std::tuple<K0...,K,K1...> t,Cs<K0...>,Cs<K,K1...>,std::index_sequence<I,Is...>)
    {
-       std::get<std::vector<K>>(data_[I].data).push_back(std::move(std::get<I>(t)));
+       std::get<std::vector<std::decay_t<K>>>(data_[I].data).push_back(std::move(std::get<I>(t)));
        return push_back_i(t,Cs<K0...,K>{},Cs<K1...>{},std::index_sequence<Is...>{});
    }
+
 
 
    template<typename... Ks>
@@ -84,12 +85,24 @@ public:
    }
 
 
+
    std::size_t ncols()const { return data_.size();}
 
    std::size_t nrows() const {
        if (ncols()>0)
        return std::visit([](auto const& arg){return arg.size();},data_[0].data);
    else return 0;
+   }
+
+   template<class T>
+   bool insert_column(std::string&& title, C<T>)
+   {
+       if (nrows()>0)
+           return  false;
+       else {
+           data_.push_back(col(std::pair(std::move(title),C<T>{})));
+       return true;
+       }
    }
 
 

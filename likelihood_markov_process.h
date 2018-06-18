@@ -45,6 +45,8 @@ public:
 };
 
 
+
+
 template<bool zero_guard>
 struct MacroDR
 {
@@ -230,8 +232,10 @@ struct partialLogLikelihood_function
 
 
 
-template<class F, class MacroDR,class Model,template<class > class Experiment, class Point>
-auto logLikelihood_experiment_calculation(const F& f,const MacroDR& a,  Model& m,const Experiment<Point>& e)
+
+
+template<class F, class MacroDR,class Model,template<class, class > class Experiment, class Point, class Measure>
+auto logLikelihood_experiment_calculation(const F& f,const MacroDR& a,  Model& m,const Experiment<Point,Measure>& e)
 {
     
     auto first_step=*e.begin_begin();
@@ -259,6 +263,62 @@ std::vector<double> partialLogLikelihood(const MacroDR& a, Model& m, const Exper
 {
     return logLikelihood_experiment_calculation(partialLogLikelihood_function(),a,m,e);
 }
+
+template<class Y>
+struct measure_likelihood:public experiment::measure_just_y<Y>
+{
+    double y_mean;
+    double y_var;
+    double plogL;
+    double eplogL;
+
+    measure_likelihood()=default;
+    measure_likelihood(const mp_state_information& mp): y_mean{mp.y_mean()},y_var{mp.y_var()},plogL{mp.plogL()},eplogL{mp.eplogL()}{}
+
+    measure_likelihood(const std::tuple<double,double,double,double>& data):
+        y_mean{std::get<0>(data)},y_var{std::get<1>(data)},plogL{std::get<2>(data)},eplogL{std::get<3>(data)}{}
+
+    static void insert_col(io::myDataFrame<double,std::size_t>& d)
+    {
+        d.insert_column("ymean",C<double>{});
+        d.insert_column("y_var",C<double>{});
+        d.insert_column("plogL",C<double>{});
+        d.insert_column("eplogL",C<double>{});
+    }
+    std::tuple<double,double,double,double> data()const
+    {
+        return {y_mean,y_var,plogL,eplogL};
+    }
+};
+
+
+template< class measure_likelihood>
+struct partialLogLikelihood_monitor_function
+{
+    template<class Experiment>
+    std::vector<measure_likelihood> operator()(const Experiment& e)const
+    {
+        std::size_t n=e.end_end()-e.begin_begin();
+        return std::vector<measure_likelihood>(n);
+    }
+
+    template<class mp_state_information>
+    void operator()(const mp_state_information& mp,std::vector<measure_likelihood>& v, std::size_t& i)const
+    {
+            v[i]=measure_likelihood(mp);
+            ++i;
+    }
+
+};
+
+
+template<class MacroDR,class Model,class Experiment>
+auto monitorLikelihood(const MacroDR& a, Model& m, const Experiment e )
+{
+    auto v= logLikelihood_experiment_calculation(partialLogLikelihood_monitor_function<measure_likelihood<double>>(),a,m,e);
+    return experiment::basic_Experiment<experiment::point<double,double>,measure_likelihood<double>>(e,std::move(v));
+}
+
 
 
 

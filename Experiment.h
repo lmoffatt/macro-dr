@@ -69,6 +69,13 @@ struct point{
 
 };
 
+
+template<class Y=double>
+struct measure_just_y
+{
+  Y y;
+};
+
 template <class X, class Y>
 std::ostream& operator<<(std::ostream& os, const point<X,Y>& p)
 {
@@ -87,11 +94,11 @@ template<class...>class basic_Experiment;
 using namespace std::string_view_literals;
 
 
-template<template<typename, typename>class point, typename X, typename Y>
-class basic_Experiment<point<X,Y>>
+template<template<typename, typename>class point, template<class> class measure,typename X, typename Y>
+class basic_Experiment<point<X,Y>, measure<Y>>
 {
 public:
-    typedef basic_Experiment<point<X,Y>>  self_type;
+    typedef basic_Experiment<point<X,Y>, measure<Y>>  self_type;
     typedef point<X,Y> point_type;
     auto cbegin_begin_begin()const {return points_.cbegin();}
     auto cbegin_begin()const {return steps_.cbegin();}
@@ -119,14 +126,19 @@ public:
         std::size_t myIndex_;
         std::size_t index_of_start_point_;
         std::size_t nsamples_;
-        Y y_; //invariant: average of point::y
+        measure<Y> y_; //invariant: average of point::y
 
 
     public:
         static constexpr auto className=my_static_string("Experiment_on_")+point<X,Y>::className;
+        std::size_t myIndex()const {return myIndex_;}
+        std::size_t index_of_start_point() const {return index_of_start_point_;}
+        std::size_t nsamples()const {return nsamples_;}
 
 
         void setExperiment(basic_Experiment* e){e_=e;}
+
+        step()=default;
         step(basic_Experiment* e,const step& other):
             e_{e},myIndex_{other.myIndex_},index_of_start_point_{other.index_of_start_point_},nsamples_{other.nsamples_},y_{other.y_}{}
         step(basic_Experiment* e,step&& other):
@@ -137,23 +149,24 @@ public:
             if (++begin()==end())
             {
                 nsamples_=(*begin()).nsamples();
-                y_=(*begin()).y();
+                y_.y=(*begin()).y();
             }
             else
             {
                 nsamples_=0;
-                y_={};
+                y_.y={};
                 for (auto it=begin(); it!=end(); ++it)
                 {
                     nsamples_+=(*it).nsamples();
-                    y_+=(*it).y() * (*it).nsamples();
+                    y_.y+=(*it).y() * (*it).nsamples();
                 }
-                y_/=nsamples_;
+                y_.y/=nsamples_;
             }
         }
-        auto nsamples()const {return nsamples_;}
 
-        Y y()const {return y_;}
+        Y y()const {return y_.y;}
+
+        measure<Y>& data(){return y_;}
         auto begin(){return e_->begin_begin_begin()+index_of_start_point_;}
         auto begin()const {return e_->begin_begin_begin()+index_of_start_point_;}
         auto cbegin()const {return e_->cbegin_begin_begin()+index_of_start_point_;}
@@ -168,6 +181,17 @@ public:
             :e_{e}, myIndex_{myIndex},index_of_start_point_{index_of_start_point},nsamples_{},y_{}
         {
         }
+        step(basic_Experiment* e,std::size_t myIndex, std::size_t index_of_start_point, measure<Y> y)
+            :e_{e}, myIndex_{myIndex},index_of_start_point_{index_of_start_point},nsamples_{},y_{y}
+        {
+        }
+        template< class otherStep>
+        step(basic_Experiment* e,const  otherStep& other, measure<Y>&& m):
+            e_{e},myIndex_{other.myIndex()},index_of_start_point_{other.index_of_start_point()},nsamples_{other.nsamples()},y_{std::move(m)}{}
+
+
+
+
 
     };
     class trace
@@ -177,6 +201,8 @@ public:
         std::size_t index_of_start_step_;
         std::size_t index_of_end_step_;
     public:
+        std::size_t index_of_start_step() const {return index_of_start_step_;}
+        std::size_t index_of_end_step() const { return index_of_end_step_;}
         void setExperiment(basic_Experiment* e){e_=e;}
         auto begin(){return e_->begin_begin()+index_of_start_step_;}
         auto begin()const {return e_->begin_begin()+index_of_start_step_;}
@@ -202,6 +228,15 @@ public:
         return out;
     }
 
+    template< class othersteps>
+    static std::vector<step> copy(basic_Experiment* e, const othersteps& s, std::vector<measure<Y>>&& m)
+    {
+        std::vector<step> out(s.size());
+        for (std::size_t i=0; i<s.size(); ++i)
+            out[i]=step(e,s[i],std::move(m[i]));
+        return out;
+    }
+
     static std::vector<step> move(basic_Experiment* e,  std::vector<step>&& s)
     {
         for (auto& x:s)
@@ -209,11 +244,21 @@ public:
         return s;
     }
 
+
     static std::vector<trace> copy(basic_Experiment* e, const std::vector<trace>& s)
     {
         std::vector<trace> out;
         for (auto& x: s)
             out.emplace_back(e,x);
+        return out;
+    }
+
+    template<class othertrace>
+    static std::vector<trace> copy_trace(basic_Experiment* e, const std::vector<othertrace>& s)
+    {
+        std::vector<trace> out;
+        for (auto& x: s)
+            out.emplace_back(e,x.index_of_start_step(),x.index_of_end_step());
         return out;
     }
 
@@ -294,7 +339,7 @@ public:
 
 
     basic_Experiment(const std::vector<point<X,Y>>& points, double fs)
-        : frequency_of_sampling_{fs},points_{std::move(points)}, steps_{},traces_{}
+        : frequency_of_sampling_{fs},points_{points}, steps_{},traces_{}
 
     {
         for (std::size_t i=0; i<points_.size(); ++i)
@@ -303,6 +348,11 @@ public:
 
         extract_traces_from_Nan();
     }
+    template<template<class>class othermeasure>
+    basic_Experiment(const basic_Experiment<point<X,Y>,othermeasure<Y>>& other, std::vector<measure<Y>>&& meas):
+    frequency_of_sampling_{other.frequency_of_sampling()},points_{other.points()},
+    steps_{copy(this,other.steps(),std::move(meas))},traces_{copy_trace(this,other.traces())}
+{}
 
     basic_Experiment(basic_Experiment&& other):
         frequency_of_sampling_{std::move(other.frequency_of_sampling_)},points_{std::move(other.points_)},
@@ -371,6 +421,11 @@ public:
 
     double frequency_of_sampling()const {return  frequency_of_sampling_;}
 
+    auto& points()const { return points_;}
+    const std::vector<step>& steps()const { return steps_;}
+    auto& traces()const { return traces_;}
+
+
 private:
     void extract_traces_from_Nan()
     {
@@ -399,7 +454,7 @@ private:
 
 
 template <typename...Ts>
-basic_Experiment<point<double,double>>
+basic_Experiment<point<double,double>,measure_just_y<double>>
 DataFrame_to_Experiment(const io::myDataFrame<Ts...>& d
                         ,const std::string& colname_time,
                         const std::string& colname_nsample,
@@ -416,14 +471,14 @@ DataFrame_to_Experiment(const io::myDataFrame<Ts...>& d
                                            d.template get<double>(colname_x,i).value(),
                                            d.template get<double>(colname_y,i).value()));
     }
-    return basic_Experiment<point<double,double>>(std::move(out),frequency_of_sampling);
+    return basic_Experiment<point<double,double>,measure_just_y<double>>(std::move(out),frequency_of_sampling);
 }
 
 
 
 
 
-auto Experiment_to_DataFrame(basic_Experiment<point<double,double>> e,
+auto Experiment_to_DataFrame(basic_Experiment<point<double,double>,measure_just_y<double>> e,
                         const std::string& colname_time="time",
                         const std::string& colname_nsample="nsample",
                         const std::string& colname_x="x",
@@ -441,6 +496,24 @@ auto Experiment_to_DataFrame(basic_Experiment<point<double,double>> e,
     return d;
 
 }
+
+
+template< class measure>
+auto Experiment_Steps_to_DataFrame(basic_Experiment<point<double,double>,measure> e,
+                        const std::string& colname_nsample="nsample")
+{
+    io::myDataFrame<double,std::size_t> d(std::pair(colname_nsample,C<std::size_t>{}));
+
+
+    measure::insert_col(d);
+    for (auto it=e.begin_begin(); it!=e.end_end(); ++it)
+    {
+        auto m=it->data().data();
+        std::apply([&d,&it](auto...x){d.push_back(it->nsamples(), x... );},m);
+    }
+    return d;
+}
+
 
 
 

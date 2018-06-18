@@ -215,7 +215,7 @@ public :
   typedef typename T::base_type base_element;
 
   T* value(){return x_;}
-  const T * const  value()const {return x_;}
+  T * /*const*/  value()const {return x_;}
   //typename T::test test;
 
 

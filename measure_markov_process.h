@@ -181,8 +181,8 @@ void meansure_trace(std::vector<Point>& out,measure_algorithm_state& current,con
 }
 
 
-template<class F,class Model,template<class > class Experiment, class Point>
-auto measure_experiment(const F& f, std::mt19937_64& mt, Model& m,const Experiment<Point>& e, std::size_t n_substeps)
+template<class F,class Model,template<class, class > class Experiment, class Point, class measure>
+auto measure_experiment(const F& f, std::mt19937_64& mt, Model& m,const Experiment<Point,measure>& e, std::size_t n_substeps)
 {
     double fs=e.frequency_of_sampling();
     auto first_point=*e.begin_begin_begin();
@@ -198,7 +198,7 @@ auto measure_experiment(const F& f, std::mt19937_64& mt, Model& m,const Experime
     {
        meansure_trace(points,current,f,mt,mp,m,*it,n_substeps,fs);
     }
-    return Experiment<Point>(std::move(points),fs);
+    return Experiment<Point, measure>(std::move(points),fs);
  }
 
 

@@ -59,27 +59,32 @@ struct to_experiment
 
 };
 
+template<class measure>
 struct to_DataFrame
 {
     static constexpr auto className=my_static_string("to_dataframe");
 
-    static auto run(const basic_Experiment<point<double,double>>& e,
+    static auto run(const basic_Experiment<point<double,double>,measure>& e,
                             const std::string& colname_time="time",
                             const std::string& colname_nsample="nsample",
                             const std::string& colname_x="x",
                             const std::string& colname_y="y")
     {
+        if constexpr (std::is_same_v<measure,measure_just_y<double >>)
        return experiment::Experiment_to_DataFrame(e,colname_time,colname_nsample,colname_x,colname_y);
+        else
+        return experiment::Experiment_Steps_to_DataFrame(e,colname_nsample);
+
     }
 
 
     static auto get_arguments()
     {
-        return std::make_tuple(grammar::argument(C< const basic_Experiment<point<double,double>>&>{},"experiment"),
-                               grammar::argument(C<std::string>{},"colname_time"),
-                               grammar::argument(C<std::string>{},"colname_nsample"),
-                               grammar::argument(C<std::string>{},"colname_x"),
-                               grammar::argument(C<std::string>{},"colname_y"));
+        return std::make_tuple(grammar::argument(C< const basic_Experiment<point<double,double>,measure>&>{},"experiment"),
+                               grammar::argument(C<std::string>{},"colname_time", std::string("time")),
+                               grammar::argument(C<std::string>{},"colname_nsample",std::string("nsample")),
+                               grammar::argument(C<std::string>{},"colname_x",std::string("x")),
+                               grammar::argument(C<std::string>{},"colname_y",std::string("y")));
     }
 
 
@@ -125,7 +130,7 @@ struct save{
     }
 };
 
-template std::ostream& io::write(std::ostream&, const experiment::basic_Experiment<point<double,double>>&);
+template std::ostream& io::write(std::ostream&, const experiment::basic_Experiment<point<double,double>,measure_just_y<double>>&);
 
 template<class T>
 struct write_variable{
@@ -241,20 +246,61 @@ struct likelihood{
 
 
 
-typedef typename experiment::basic_Experiment<point<double,double>> singleLigandExperiment;
+template<class Experiment,class Model>
+struct likelihood_detail{
+
+
+    static constexpr auto className=my_static_string("likelihood_detail");
+
+    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm)
+    {
+        SingleLigandModel SM(m.Qs(p),m.g(p), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
+
+
+        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e);
+
+        if (algorithm==markov::MacroDR<true>::className.str())
+        {
+           auto out= markov::monitorLikelihood(markov::MacroDR<true>(),MC,e);
+           return out;
+
+        }
+        else return experiment::basic_Experiment<experiment::point<double,double>,markov::measure_likelihood<double>>{};
+    }
+
+    static auto get_arguments()
+    {
+        return std::make_tuple(
+                    grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
+                    grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
+                    grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
+                    grammar::argument(C<std::string>{},"algorithm"));
+    }
+};
+
+
+
+typedef typename experiment::basic_Experiment<point<double,double>, measure_just_y<double>> singleLigandExperiment;
+typedef typename experiment::basic_Experiment<point<double,double>, markov::measure_likelihood<double>> singleLigandLikelihood;
 
 template<>
 struct my_trait < singleLigandExperiment >
 {
     static constexpr  auto className=my_static_string("singleLigandExperiment");
-
 };
+
+template<>
+struct my_trait < singleLigandLikelihood >
+{
+    static constexpr  auto className=my_static_string("singleLigandLikelihood");
+};
+
 
 struct Objects
 {
 
     typedef Cs<Allosteric_Model,singleLigandExperiment> types;
-    typedef Cs<simulate<singleLigandExperiment,Allosteric_Model>, likelihood<singleLigandExperiment,Allosteric_Model>,to_experiment, to_DataFrame> commands;
+    typedef Cs<simulate<singleLigandExperiment,Allosteric_Model>, likelihood<singleLigandExperiment,Allosteric_Model>,likelihood_detail<singleLigandExperiment,Allosteric_Model>,to_experiment, to_DataFrame<measure_just_y<double>>, to_DataFrame<markov::measure_likelihood<double>>> commands;
     typedef CCs<save,write_variable> templateCommands;
 };
 
