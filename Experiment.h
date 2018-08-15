@@ -90,7 +90,7 @@ std::istream& operator>>(std::istream& is,  point<X,Y>& p)
 
 
 
-template<class...>class basic_Experiment;
+template<class, class>class basic_Experiment;
 using namespace std::string_view_literals;
 
 
@@ -396,7 +396,7 @@ public:
     }
 
     template<class Z>
-    static basic_Experiment set_Points(std::vector<point<X,Y>>& newPoints,const basic_Experiment<point<X,Z>>& old)
+    static basic_Experiment set_Points(std::vector<point<X,Y>>& newPoints,const basic_Experiment<point<X,Z>,measure<Z>>& old)
     {
         return basic_Experiment(newPoints, old.get_step_start_points(),old.get_step_start_trace());
     }
@@ -425,6 +425,10 @@ public:
     const std::vector<step>& steps()const { return steps_;}
     auto& traces()const { return traces_;}
 
+    std::size_t num_measurements()const { return steps().size();}
+    std::size_t size()const { return steps().size();}
+
+    Y operator[](std::size_t i)const { return steps()[i].y();}
 
 private:
     void extract_traces_from_Nan()

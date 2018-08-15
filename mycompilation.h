@@ -2,12 +2,12 @@
 #define MYCOMPILATION_H
 
 #include "mygrammar.h"
-#include <optional>
-#include <functional>
-#include "myTuples.h"
+//#include "myTuples.h"
 #include "myoptional.h"
 #include "myfields.h"
 
+#include <optional>
+#include <functional>
 
 
 
@@ -1339,7 +1339,7 @@ make_compiled_argument(const Cm* ,grammar::argument<Arg> a)
 template <class Cm,class ...Args>
 auto compile_all_arguments(Cm const* cm,std::tuple<grammar::argument<Args>...>&& args)
 {
-    return std::apply([&cm](auto& ...x){return std::make_tuple(make_compiled_argument(cm,x)...);},args);
+    return std::apply([cm](auto& ...x){return std::make_tuple(make_compiled_argument(cm,x)...);},args);
 
 }
 
@@ -1348,7 +1348,7 @@ auto compile_all_arguments(Cm const* cm,std::tuple<grammar::argument<Args>...>&&
 template <class Cm,class T, class F,class ...Args>
 auto make_compiled_function(Cm const * cm,C<T>,F&& f, std::tuple<grammar::argument<Args>...>&& args)
 {
-    return new Function_Arg<Cm,T,F,Args...>(C<T>{},f,compile_all_arguments<Cm,Args...>(cm,std::forward<std::tuple<grammar::argument<Args>...>>(std::move(args))));
+    return new Function_Arg<Cm,T,F,Args...>(C<T>{},f,compile_all_arguments<Cm,Args...>(cm,std::forward<std::tuple<grammar::argument<Args>...>>(args)));
 }
 
 

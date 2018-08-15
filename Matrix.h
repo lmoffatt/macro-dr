@@ -320,6 +320,7 @@ template<typename T>
 class M_Matrix
 {
 public:
+    constexpr static auto className=my_static_string("matrix_")+my_trait<T>::className;
 
     class MyConstIterator;
     enum ITER_TYPE{FULL_IT,LT_IT,UT_IT,DIAG_IT,SCALAR_IT, ZERO_IT};
@@ -613,7 +614,7 @@ public:
         MyConstIterator out(*this,nrows(),0);
         return out;
     }
-    operator double()const
+     double getvalue()const
     {
         assert(size()==1);
         return (*this)[0];
@@ -1480,6 +1481,91 @@ M_Matrix<T>
 Forward_Sustitution_Ly_b(const M_Matrix<T>& L, const M_Matrix<T>& b);
 
 
+/**
+     Scalar Multiplication assignment.
+     @returns a reference to itself
+     @post all the values of the matrix are multiplied by the value x
+     */
+template<typename E, typename T>
+M_Matrix<E>& operator*=(M_Matrix<E>& itself, T x);
+
+
+/**
+     Scalar Division assignment.
+     @returns a reference to itself
+     @post all the values of the matrix are divided by the value x
+     */
+template<typename E,typename T>
+M_Matrix<E>& operator/=(M_Matrix<E>& itself, T x);
+
+
+/**
+     Scalar Addition.
+     @returns a copy of the matrix with its values summed by x
+     */
+template<typename T>
+M_Matrix<T> operator+(const M_Matrix<T>& x,T t);
+
+/**
+     Scalar Addition reverse order.
+     */
+template<typename T>
+M_Matrix<T> operator+(T t,const M_Matrix<T>& x);
+/**
+     Scalar Subtraction.
+     @returns a copy of the matrix with its values substracted by x
+     */
+template<typename T>
+M_Matrix<T> operator-(const M_Matrix<T>& x,T t);
+
+/**
+     Scalar Subtraction reverse order.
+     */
+template<typename T>
+M_Matrix<T> operator-(T t,const M_Matrix<T>& x);
+/**
+     Scalar Multiplication.
+     @returns a copy of the matrix with its values multiplied by the value x
+     */
+template<typename E, typename T>
+auto operator*(const M_Matrix<E> & x,T t)
+->M_Matrix<decltype(std::declval<E>()*std::declval<T>())>;
+
+/**
+     Scalar Multiplication reverse order.
+     */
+
+template<typename T>
+M_Matrix<T> operator*(T t,const M_Matrix<T>& x);
+
+
+/**
+     Scalar Division.
+     @returns a copy of the matrix with its values divided by x
+     @returns a matrix of real numbers
+ */
+template<typename T>
+M_Matrix<double> operator/(const M_Matrix<T>& x,T t);
+
+/**
+     Division by inhomogeneus types
+
+     */
+
+template<typename T,typename S>
+M_Matrix<decltype (std::declval<T>()*std::declval<S>)> operator/(const M_Matrix<T>& x,S t);
+
+
+
+/**
+     Scalar Division reverse order.
+     */
+template<typename T>
+M_Matrix<T> operator/(T t,const M_Matrix<T>& x);
+
+
+
+
 }
 
 using namespace Matrix_Binary_Transformations;
@@ -2025,7 +2111,7 @@ M_Matrix<T>  full_exp(const M_Matrix<T>& x)
     // Scale A by power of 2 so that its norm is < 1/2 .
     std::size_t s = Matrix_Unary_Functions::log2_norm(x)+1;
 
-    M_Matrix<T> A = x/std::pow(2.0,int(s));
+    M_Matrix<T> A = x*(1.0/std::pow(2.0,int(s)));
 
     // Pade approximation for exp(A)
     auto E = expm_pade(A);

@@ -295,7 +295,8 @@ public:
         auto&  m=  std::get<typename Dm::template fun_map<T>>(d_.f_);
         m.emplace(id_args,make_compiled_function<self_type,T>(this,C<T>{},std::forward<F>(f),
                                                               std::forward<std::tuple<grammar::argument<Args>...>>(args)));
-        d_.fgen_.emplace(std::move(id_args),m.at(id_args).get());
+        auto p=m.at(id_args).get();
+        d_.fgen_.emplace(std::move(id_args),p);
     }
     template <class T, class ...Args>
     void insert_function(C<T>,std::pair<std::string,std::map<std::string, std::string>>&& id_args,Constructor<T>, std::tuple<grammar::field<T,Args>...>&& args)
@@ -303,8 +304,10 @@ public:
         //typename decltype (d_.f_)::ojo_aca d;
         auto&  m=  std::get<typename Dm::template fun_map<T>>(d_.f_);
         m.emplace(id_args,make_compiled_constructor(this,C<T>{},Constructor<T>{}, std::forward<std::tuple<grammar::field<T,Args>...>>(args)));
-        d_.fgen_.emplace(id_args,m.at(id_args).get());
-        
+
+        auto p=m.at(id_args).get();
+        d_.fgen_.emplace(std::move(id_args),p);
+
     }
     
     

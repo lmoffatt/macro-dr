@@ -6,7 +6,8 @@ CONFIG += c++1z
 QMAKE_CXXFLAGS += -std=c++17 -Werror=return-type -ftemplate-backtrace-limit=0
 LIBS +=  -lblas  -llapack
 
-
+#QMAKE_CC = /usr/bin/clang-6.0
+#QMAKE_CXX = /usr/bin/clang++-6.0
 SOURCES += \
     main.cpp
 
@@ -32,7 +33,10 @@ HEADERS += \
     commands.h \
     myparameters.h \
     mycontainer.h \
-    likelihood_markov_process.h
+    likelihood_markov_process.h \
+    mydata.h \
+    myevidence.h \
+    qlikelihood.h
 
 DISTFILES += \
     simulation.txt

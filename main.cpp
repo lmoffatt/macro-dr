@@ -8,6 +8,8 @@
 #include "myscriptmanager.h"
 #include "Experiment.h"
 #include "commands.h"
+//#include "myoptimization.h"
+#include "myevidence.h"
 int main(int argc, char **argv)
 {
     std::cerr<<argv[0]<<"\n";
@@ -113,6 +115,9 @@ int main(int argc, char **argv)
 
 
     //typedef experiment::basic_Experiment<experiment::point<double,double>> singleLigandExperiment;
+
+
+
 
 
 

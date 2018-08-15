@@ -770,7 +770,7 @@ public:
 
     Markov_Transition_step& operator*=(const Markov_Transition_step& other)
     {
-        P_*=other.P();
+        P_=P_*other.P();
         g_=other.gmean_i();
         nsamples_+=other.nsamples();
         return *this;
@@ -1390,6 +1390,7 @@ public:
 
     SingleLigandModel(std::pair<M_Matrix<double>,M_Matrix<double>>&& Qs, M_Matrix<double>&& g, double N, double noise)
         :Q0_{std::move(Qs.first)},Qa_{std::move(Qs.second)}, g_{std::move(g)},N_channels_{N},noise_variance_{noise}{}
+
 private:
     M_Matrix<double> Q0_;
     M_Matrix<double> Qa_;

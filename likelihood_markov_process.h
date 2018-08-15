@@ -230,6 +230,27 @@ struct partialLogLikelihood_function
 
 };
 
+struct partialDistribution_function
+{
+    template<class Experiment>
+    auto operator()(const Experiment& e)const
+    {
+        std::size_t n=e.num_measurements();
+
+        return std::vector<Normal_Distribution<double>>(n);
+    }
+
+   // template<class mp_state_information>
+    void operator()(const mp_state_information& mp,std::vector<Normal_Distribution<double>>& v, std::size_t& i)const
+    {
+        if (std::isfinite(mp.plogL()))
+        {
+            v[i]=Normal_Distribution<double>(mp.y_mean(),mp.y_var());
+            ++i;
+        }
+    }
+
+};
 
 
 
@@ -263,6 +284,13 @@ std::vector<double> partialLogLikelihood(const MacroDR& a, Model& m, const Exper
 {
     return logLikelihood_experiment_calculation(partialLogLikelihood_function(),a,m,e);
 }
+
+template<class MacroDR,class Model,class Experiment>
+std::vector<Normal_Distribution<double>> partialDistribution(const MacroDR& a, Model& m, const Experiment e )
+{
+    return logLikelihood_experiment_calculation(partialDistribution_function(),a,m,e);
+}
+
 
 template<class Y>
 struct measure_likelihood:public experiment::measure_just_y<Y>
@@ -318,6 +346,9 @@ auto monitorLikelihood(const MacroDR& a, Model& m, const Experiment e )
     auto v= logLikelihood_experiment_calculation(partialLogLikelihood_monitor_function<measure_likelihood<double>>(),a,m,e);
     return experiment::basic_Experiment<experiment::point<double,double>,measure_likelihood<double>>(e,std::move(v));
 }
+
+
+
 
 
 

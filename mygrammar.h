@@ -16,10 +16,6 @@
 namespace grammar {
 
 
-typedef io::token<'('> arg_start;
-typedef io::token<','> arg_separator;
-
-typedef io::token<')'> arg_end;
 
 typedef io::token<';'> statement_end;
 
@@ -649,7 +645,7 @@ public:
         else
         {
             std::vector<std::unique_ptr<Expression>> out;
-            std::variant<array_end,Expression*> v;
+            //std::variant<array_end,Expression*> v;
             std::string s;
             while(true)
             {
@@ -1063,7 +1059,7 @@ myOptional_t<void> Function::get(std::stringstream &ss)
         {ss.clear(); ss.seekg(pos); return {false,"error in function arguments: "+oarg.error()};}
         else
         {
-            *this=std::move(Function(std::move(id),std::move(oarg.release())));
+            *this=Function(std::move(id),oarg.release());
             return  {true,""};
         }
     }
@@ -1178,7 +1174,7 @@ myOptional_t<Term*> get_term_from_identifier(C<Term*>,std::stringstream& ss, std
         auto out=Function::getArguments(C<typename Function::arg_map>{},ss);
         if (!out){ return {false,"error on function arguments: "+out.error()};}
         else {
-            return new Function(std::move(*id.release()), std::move(out.release()));
+            return new Function(std::move(*id.release()), out.release());
         }
     }
     else

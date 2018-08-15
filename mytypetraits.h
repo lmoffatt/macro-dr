@@ -1,5 +1,6 @@
 #ifndef MYTYPETRAITS_H
 #define MYTYPETRAITS_H
+
 #include <type_traits>
 #include <variant>
 #include <set>
@@ -56,11 +57,6 @@ my_static_string(const char (&lit)[N])   // <- match this
 -> my_static_string<N>;
 
 
-
-
-
-
-
 template <std::size_t N1, std::size_t N2>
 constexpr auto operator+(const my_static_string<N1>& s1,
                          const my_static_string<N2>& s2)
@@ -68,9 +64,6 @@ constexpr auto operator+(const my_static_string<N1>& s1,
 {
     return my_static_string<N1 + N2 - 1>(s1, s2);
 }
-
-
-
 
 template<typename T>
 struct C
@@ -81,14 +74,17 @@ struct C
 template<typename... Ts>
 struct Cs{};
 
+template <class >
+struct Derived_types{};
+
+template <class T>
+using Derived_types_t=typename Derived_types<T>::type;
+
 template<template<typename...>class... Ts>
 struct CCs{};
 
 template<template<typename...>class Function, template<typename...>class useThisType>
 struct templatePair{};
-
-
-
 
 
 template<class...> struct has_this_type{};
@@ -97,7 +93,6 @@ template< template<typename...> class Cs, typename... Ts, typename T>
 struct has_this_type<Cs<Ts...>,T>
 {
     static constexpr bool value=(std::is_same_v<T,Ts >||...||false);
-
 };
 
 template<class ...Ts>
@@ -107,39 +102,21 @@ constexpr inline bool has_this_type_v=has_this_type<Ts...>::value;
 
 
 template<template<typename...> class C>
-class Co
-{
-
-};
+class Co{};
 
 template <class C>
-struct Constructor
-{
-    typedef C myClass;
-};
+struct Constructor { typedef C myClass;};
 
 template <class C>
-struct Loader
-{
-    typedef C myClass;
-};
+struct Loader { typedef C myClass; };
 
 template <class C>
-struct Valuer
-{
+struct Valuer{
     typedef C myClass;
 };
-
-
-
-
-
 
 template <class...>
-struct my_trait
-{
-
-};
+struct my_trait{};
 
 template <>
 struct my_trait<std::string>
@@ -203,6 +180,33 @@ struct my_trait<std::vector<T>>
     constexpr static auto className=my_static_string("vector_")+my_trait<T>::className;
 };
 
+
+
+
+template <typename T>
+struct my_trait<std::unique_ptr<T>>
+{
+    constexpr static auto className=my_static_string("upt_")+my_trait<T>::className;
+};
+
+template<class...>struct my_trait_tuple{};
+template <typename T>
+struct my_trait_tuple<T>
+{
+    constexpr static auto className=my_trait<T>::className;
+};
+
+template <typename T,typename K,typename... Ts>
+struct my_trait_tuple<T,K,Ts...>
+{
+    constexpr static auto className=my_trait<T>::className+my_static_string("_")+my_trait_tuple<K,Ts...>::className;
+};
+template <typename... T>
+struct my_trait<std::tuple<T...>>
+{
+    constexpr static auto className=my_static_string("tuple_")+my_trait_tuple<T...>::className;
+};
+
 template <class C>
 struct my_trait<const C&>
 {
@@ -214,6 +218,14 @@ struct my_trait< C&>
 {
     constexpr static auto className=my_trait<std::decay_t<C>>::className+my_static_string("_ref");
 };
+
+template <class C>
+struct my_trait< C*>
+{
+    constexpr static auto className=my_trait<std::decay_t<C>>::className+my_static_string("_ptr");
+};
+
+
 
 template <class C>
 struct my_trait<C>

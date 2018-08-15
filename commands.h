@@ -9,18 +9,21 @@
 
 #include "measure_markov_process.h"
 #include "likelihood_markov_process.h"
-#include <type_traits>
 #include "myfields.h"
 #include "qmodel.h"
 #include "myparameters.h"
+//#include "myoptimization.h"
+#include "qlikelihood.h"
+#include <type_traits>
 
+//using opt::Template_Tempering_mcmc;
 using namespace experiment;
 struct get_current
 {
     template <class Model, class X>
     double operator()(markov_process<std::size_t> mp, const Model& m, const X& x)const
     {
-        return (mp.N()*m.g(x));
+        return (mp.N()*m.g(x)).getvalue();
     }
 };
 
@@ -182,7 +185,7 @@ struct simulate{
 
 
     static constexpr auto className=my_static_string("simulate");
-    static auto run(std::mt19937_64::result_type initseed,const Experiment& e,   Model& m , const Parameters_values<Model>& p,std::size_t n)
+    static auto run(std::mt19937_64::result_type initseed,const Experiment& e,  const Model& m , const Parameters_values<Model>& p,std::size_t n)
     {
         SingleLigandModel SM(m.Qs(p),m.g(p),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()));
 
@@ -202,7 +205,7 @@ struct simulate{
         return std::make_tuple(
                     grammar::argument(C<typename std::mt19937_64::result_type>{},"initseed",typename std::mt19937_64::result_type(0)),
                     grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
-                    grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
+                    grammar::argument(C<const Model&>{},my_trait<Model>::className.c_str()),
                     grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
                     grammar::argument(C<std::size_t>{},"number_of_sub_intervals",10ul));
     }
@@ -296,11 +299,67 @@ struct my_trait < singleLigandLikelihood >
 };
 
 
+
+template<class Experiment,class Model>
+struct Evidence{
+
+
+    static constexpr auto className=my_static_string("evidence");
+
+    static auto run(const Experiment& e,
+                    const Model& m ,
+                    const Parameters_distribution<Model>& p,
+                    std::string algorithm,
+                    double eps,
+                    std::mt19937_64::result_type initseed,
+                    std::vector<double> betas,
+                    std::vector<double>landa,
+                    std::vector<std::vector<double>>landa_50_hill,
+                    double gain_moment,
+                    std::size_t nSamples)
+    {
+
+        Markov_Model_DLikelihood<Model,Experiment> lik(m,p,e,algorithm,eps);
+        if (initseed==0)
+        {
+            std::random_device rd;
+            initseed=rd();
+        }
+        std::mt19937_64 mt(initseed);
+
+        return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model>(p),lik,mt,betas,landa,landa_50_hill,gain_moment,nSamples);
+    }
+
+    static auto get_arguments()
+    {
+        return std::make_tuple(
+                    grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
+                    grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
+                    grammar::argument(C<const Parameters_distribution<Model>&>{},"model_parameters_distribution"),
+                    grammar::argument(C<std::string>{},"algorithm"),
+                    grammar::argument(C<double>{},"eps"),
+                    grammar::argument(C<std::mt19937_64::result_type>{},"initseed"),
+                    grammar::argument(C<std::vector<double>>{},"betas"),
+                    grammar::argument(C<std::vector<double>>{},"landas"),
+                    grammar::argument(C<std::vector<std::vector<double>>>{},"landa_50_hill"),
+                    grammar::argument(C<double>{},"gain_moment"),
+                    grammar::argument(C<std::size_t>{},"nSamples")
+                    );
+    }
+};
+
+
+
+
 struct Objects
 {
 
     typedef Cs<Allosteric_Model,singleLigandExperiment> types;
-    typedef Cs<simulate<singleLigandExperiment,Allosteric_Model>, likelihood<singleLigandExperiment,Allosteric_Model>,likelihood_detail<singleLigandExperiment,Allosteric_Model>,to_experiment, to_DataFrame<measure_just_y<double>>, to_DataFrame<markov::measure_likelihood<double>>> commands;
+    typedef Cs<simulate<singleLigandExperiment,Allosteric_Model>, likelihood<singleLigandExperiment,Allosteric_Model>,
+    likelihood_detail<singleLigandExperiment,Allosteric_Model>,
+    Evidence<singleLigandExperiment,Allosteric_Model>,
+
+    to_experiment, to_DataFrame<measure_just_y<double>>, to_DataFrame<markov::measure_likelihood<double>>> commands;
     typedef CCs<save,write_variable> templateCommands;
 };
 

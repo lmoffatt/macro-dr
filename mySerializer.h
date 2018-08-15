@@ -34,13 +34,12 @@ std::string my_to_string(double x)
     std::stringstream strstr;
     if ((std::abs(x)<1e-3)||(std::abs(x)>1e3))
     {
-    strstr << std::scientific << x;
+        strstr << std::scientific << x;
     }
     else
         strstr  << x;
 
-
-   return strstr.str();
+    return strstr.str();
 }
 
 
@@ -164,6 +163,11 @@ typedef token<'='> equal;
 
 typedef separator write_separator;
 
+typedef io::token<'('> arg_start;
+typedef io::token<','> arg_separator;
+
+typedef io::token<')'> arg_end;
+
 
 struct size_of_container
 {
@@ -213,6 +217,9 @@ template <class Object,class Method> std::ostream& output_operator_on_Field(std:
 template<class FieldObject> auto write_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (myObject.get_constructor_fields(),os)&;
 template<class FieldObject> auto output_operator_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (myObject.get_constructor_fields(),os)&;
 
+template<class AbstractObject> auto output_operator_on_Abstract_Object(std::ostream& os,const AbstractObject& myObject)->decltype (myObject.get_constructor_fields(),os)&;
+
+
 
 template <class Object,class Method>
 bool read_on_if_field(std::istream& is,const std::string id,  grammar::field<Object,Method>& myField);
@@ -233,6 +240,9 @@ auto read_on_Object(std::istream& is, FieldObject& myObject)->decltype (myObject
 
 template<class FieldObject>
 auto input_operator_on_Object(std::istream& is, FieldObject& myObject)->decltype (myObject.get_constructor_fields(),is)&;
+
+template<class AbstractObject>
+auto input_operator_on_Abstract_Object(std::istream& is, AbstractObject*& myObject)->decltype (std::declval<AbstractObject>().get_constructor_fields(),is)&;
 
 
 template<typename T1, typename T2> std::ostream& operator<<(std::ostream& os,const std::pair<T1,T2>& other);
@@ -543,7 +553,7 @@ std::istream& read_one_element_on_vector(std::istream& is, std::vector<T>& v)
     is>>io::separator{};
     T e;
     if (!read(is,e))
-    return is;
+        return is;
     else
     {
         v.emplace_back(std::move(e));
@@ -557,7 +567,7 @@ std::istream& read_one_element_on_vector(std::istream& is, std::vector<T*>& v)
     is>>io::separator{};
     T* e=new T;
     if (!read(is,*e))
-    return is;
+        return is;
     else
     {
         v.emplace_back(std::move(e));
@@ -731,13 +741,6 @@ template<typename ...Args> std::ostream& write_tuple(std::ostream& os, const std
     return os;
 }
 
-template<typename ...Args> std::istream& operator>>(std::istream& is,  std::tuple<Args...>& tu)
-{
-    is>>io::start_of_Container{};
-    std::apply([&is](auto&... v){return ((is>>io::separator{}>>v),...,0);},tu);
-    is>>io::end_of_Container{};
-    return is;
-}
 
 template<typename ...Args> std::istream& read_tuple(std::istream& is,  std::tuple<Args...>& tu)
 {
@@ -788,6 +791,49 @@ auto output_operator_on_Object(std::ostream& os,const FieldObject& myObject)->de
 }
 
 
+template<class AbstractObject> auto output_operator_on_Abstract_Object(std::ostream& os,const AbstractObject& myObject)->decltype (myObject.get_constructor_fields(),os)&
+{
+    os<<myObject.myclass()<<io::arg_start();
+    output_operator_on_Object(os,myObject);
+    os<<io::arg_end();
+    return os;
+}
+
+template<class AbstractObject>
+auto& output_operator_on_Abstract_Object(std::ostream& os,std::enable_if_t<std::is_abstract_v<AbstractObject>,AbstractObject&> myObject,Cs<>)
+{
+
+    os<<myObject.myClass()<<" is not completely implemented ";
+    return os;
+}
+
+template<class AbstractObject, class Derived, class... Deriveds>
+auto& output_operator_on_Abstract_Object(std::ostream& os, std::enable_if_t<std::is_abstract_v<AbstractObject>,AbstractObject&> myObject,Cs<Derived,Deriveds...>)
+{
+    if (myObject.myClass()==Derived::className.str())
+    {
+        output_operator_on_Object(os,dynamic_cast<Derived&>(myObject));
+        return os;
+
+    }
+    else return output_operator_on_Abstract_Object(os,myObject,C<Deriveds...>());
+}
+
+template<class AbstractObject>
+auto& output_operator_on_Abstract_Object(std::ostream& os, std::enable_if_t<std::is_abstract_v<AbstractObject>,AbstractObject*&> myObject)
+{
+    std::string name;
+    os<<myObject;
+    os<<io::arg_start();
+    output_operator_on_Abstract_Object(os,myObject,typename AbstractObject::derived_types());
+    return os<<io::arg_end{};
+
+}
+
+
+
+
+
 template <class Object,class Method>
 bool read_on_if_field(std::istream& is,const std::string id,  grammar::field<Object,Method>& myField)
 {
@@ -836,11 +882,15 @@ std::istream& read_on_this_field(std::istream& is,const std::string id,  std::tu
 
 }
 
+std::istream& input_operator_on_this_field(std::istream& is,const std::string ,  std::tuple<>& ){
+    return is;
+}
+
+
+
 template <class Object,class... Method>
 std::istream& input_operator_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields){
-
     return std::apply([&](auto&...x)->auto& {if((input_operator_on_if_field(is,id,x)||...)) return is;else {is.setstate(std::ios::failbit);return is;}},myFields);
-
 }
 
 
@@ -913,6 +963,42 @@ auto input_operator_on_Object(std::istream& is, FieldObject& myObject)->decltype
     }
 }
 
+
+template<class AbstractObject>
+auto& input_operator_on_Abstract_Object(std::istream& is, AbstractObject*& , std::string ,Cs<>)
+{
+
+    return set_fail_bit(is);
+}
+
+template<class AbstractObject, class Derived, class... Deriveds>
+std::istream& input_operator_on_Abstract_Object(std::istream& is, AbstractObject*& myObject, std::string name,Cs<Derived,Deriveds...>)
+{
+    if (name==Derived::className.str())
+    {
+        Derived* d=new Derived;
+        input_operator_on_Object(is,*d);
+        if (is.good())
+        {
+            myObject=d;
+            return is;
+        }
+        else return is;
+
+    }
+    else return input_operator_on_Abstract_Object(is,myObject,name,Cs<Deriveds...>());
+}
+
+template<class AbstractObject>
+auto& input_operator_on_Abstract_Object(std::istream& is, AbstractObject*& myObject)
+{
+    std::string name;
+    is>>name;
+    is>>io::arg_start();
+    input_operator_on_Abstract_Object(is,myObject,name,Derived_types_t<AbstractObject>());
+    return is>>io::arg_end{};
+
+}
 
 
 
@@ -1246,7 +1332,7 @@ template<typename T> std::ostream& write(std::ostream& s, const T& v)
 template<typename T> std::istream& read(std::istream& s, T& v)
 {
     if constexpr(std::is_arithmetic_v<T>)
-        return    s>>v;
+            return    s>>v;
     else if constexpr(is_set<T>::value) {
         return io::read_on_set(s,v);
     }
@@ -1269,27 +1355,50 @@ template<typename T> std::istream& read(std::istream& s, T& v)
     else return s>>v;
     // else static_assert (false,"not managed" );
 }
+template<typename T> auto operator<<(std::ostream& s, std::enable_if_t<std::is_abstract_v<T>,T const&> v)
+{
+    return io::output_operator_on_Abstract_Object(s,v);
+}
+
+
 
 template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_field_Object<T>::value,std::ostream&>
 {
-            return io::output_operator_on_Object(s,v);
-    }
+    return io::output_operator_on_Object(s,v);
+}
 
 template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_write_Object<T>::value,std::ostream&>
 {
-            return v.write(s);
+    return v.write(s);
 }
 
 template<typename T> auto operator>>(std::istream& s, T & v)->std::enable_if_t<is_read_Object<T>::value,std::istream&>
 {
-            return v.read(s);
+    return v.read(s);
 }
 
+template<typename T> auto operator>>(std::istream& s, T*& v)
+->std::enable_if_t<std::is_abstract<T>::value,std::istream&>
+
+{
+    return io::input_operator_on_Abstract_Object(s,v);
+}
 
 template<typename T> auto operator>>(std::istream& s, T& v)->std::enable_if_t<is_field_Object<T>::value,std::istream&>
 {
-            return io::input_operator_on_Object(s,v);
-    }
+    if constexpr  (std::is_abstract_v<T>)
+            return io::input_operator_on_Abstract_Object(s,v);
+    else
+    return io::input_operator_on_Object(s,v);
+}
+template<typename ...Args> std::istream& operator>>(std::istream& is,  std::tuple<Args...>& tu)
+{
+    using io::operator>>;
+    is>>io::start_of_Container{};
+    std::apply([&is](auto&... v){return ((is>>io::separator{}>>v),...,0);},tu);
+    is>>io::end_of_Container{};
+    return is;
+}
 
 
 template <typename T> std::string my_to_string(const T& x)

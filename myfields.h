@@ -7,7 +7,7 @@
 #include <optional>
 #include <type_traits>
 #include "myoptional.h"
-#include "mySerializer.h"
+//#include "mySerializer.h"
 namespace grammar {
 
 
@@ -48,6 +48,11 @@ struct field
     default_type default_value;
     field(C<Object>,const char* id, member_type get):idField{id},access_method{get}, default_value{false,"no default value"}{}
 };
+
+bool has_all(const std::tuple<>& )
+{
+    return true;
+}
 
 
 
@@ -231,13 +236,11 @@ struct extract_types<Cs<types...>,Cs<commands...>>
 template<template<class...> class Cs,class... types, class... commands, template<class...>class ... templateCommands>
 struct extract_types<Cs<types...>,Cs<commands...>,CCs<templateCommands...>>
 {
-
     typedef  class_set_union_t<
     extract_types_t<Cs<types...>,Cs<commands...>>,
     extract_all_types_and_decay_t<
     typename build_all_commands<CCs<templateCommands...>,extract_types_t<Cs<types...>,Cs<commands...>>
     >::type>> type;
-
 
 };
 
