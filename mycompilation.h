@@ -27,7 +27,7 @@ public:
 
 
 
-    ~Compiled_Statement(){}
+    virtual ~Compiled_Statement(){}
 };
 
 
@@ -45,15 +45,15 @@ public:
     virtual bool valid_run(Cm* cm) const=0;
     virtual bool valid_run(const Cm* cm) const=0;
     virtual std::string execute(Cm * ) const override { return {};}
-    virtual bool valid_execute(Cm * ) const {return true;};
+    virtual bool valid_execute(Cm * ) const override{return true;};
 
-    virtual Compiled_Expression* clone()const =0;
+    virtual Compiled_Expression* clone()const override    =0;
 
     virtual myOptional<Compiled_Expression<Cm,T>*,derived_ptr_tag>* compile_Assignment(std::string&& id) override;
 
 
 
-    ~Compiled_Expression(){}
+    virtual ~Compiled_Expression(){}
 };
 
 
@@ -65,9 +65,9 @@ public:
     typedef T result_type;
     typedef myOptional_t<T> oT;
     virtual bool valid_execute(Cm * cm) const override=0;
-    virtual Compiled_General_Assignment* clone()const =0;
+    virtual Compiled_General_Assignment* clone()const override =0;
 
-    ~Compiled_General_Assignment(){}
+    virtual ~Compiled_General_Assignment(){}
 };
 
 
@@ -137,7 +137,7 @@ public:
         else
         return false;
     }
-    virtual Compiled_Identifier* clone()const
+    virtual Compiled_Identifier* clone()const override
     {
         return new Compiled_Identifier(*this);
     }
@@ -146,20 +146,20 @@ public:
 
     Compiled_Identifier(const std::string& i):id{i}{}
 
-    static myOptional_t<Compiled_Identifier<Cm,T>*>* create(const Cm* cm, const Identifier* x)
+    static myOptional<Compiled_Identifier<Cm,T>*, derived_ptr_tag>* create(const Cm* cm, const Identifier* x)
     {
         if (cm->has(C<T>{}, x->value()))
             return new myOptional_t<Compiled_Identifier<Cm,T>*>(new Compiled_Identifier(x->value()));
         else return new myOptional_t<Compiled_Identifier<Cm,T>*>(false,x->value()+ " is not "+my_trait<T>::className.str());
     }
-    static myOptional_t<Compiled_Identifier<Cm,T>*>* create(Cm* cm, const Identifier* x)
+    static myOptional<Compiled_Identifier<Cm,T>*, derived_ptr_tag>* create(Cm* cm, const Identifier* x)
     {
         if (cm->has(C<T>{}, x->value()))
             return new myOptional_t<Compiled_Identifier<Cm,T>*>(new Compiled_Identifier(x->value()));
         else return new myOptional_t<Compiled_Identifier<Cm,T>*>(false,x->value()+ " is not "+my_trait<T>::className.str());
     }
 
-
+    virtual ~Compiled_Identifier(){}
 };
 
 template <class Cm,class T>
@@ -741,7 +741,7 @@ public:
 
     Compiled_Assignment(const Compiled_Assignment& other): id_{other.id_}, c_{other.c_->clone()}{}
 
-    virtual Compiled_Assignment* clone()const
+    virtual Compiled_Assignment* clone()const override
     {
         return new Compiled_Assignment(*this);
     }
@@ -764,7 +764,7 @@ public:
 
 
 
-    std::string execute(Cm *cm) const
+    std::string execute(Cm *cm) const override
     {
         oT o=run(cm);
         if constexpr (false && std::is_lvalue_reference_v<T>)
@@ -833,7 +833,7 @@ public:
     }
 
     Compiled_Definition(std::string && id, Compiled_Expression<Cm,T>*&& c):id_{std::move(id)}, c_{std::move(c)}{}
-    std::string execute(Cm *cm) const
+    std::string execute(Cm *cm) const override
     {
         if constexpr(has_this_type_v<typename Cm::allTypes,T>)
         {
@@ -1107,7 +1107,7 @@ public:
         },tu);
 
         if (!res)
-            return std::apply([&f](auto&...x){
+            return std::apply([](auto&...x){
                 return myOptional_t<T>{false,"error in function"+((x.error()+"  ")+...)};
             },tu);
         else
@@ -1164,7 +1164,7 @@ public:
             },tu);
 
             if (!res)
-                return std::apply([&f](auto&...x){
+                return std::apply([](auto&...x){
                     return myOptional_t<T>{false,"error in function"+((x.error()+"  ")+...)};
                 },tu);
             else
@@ -1211,12 +1211,12 @@ public:
         }
 
     }
-    virtual bool valid_run(Cm* cm) const
+    virtual bool valid_run(Cm* cm) const override
     {
         return std::apply([&cm](auto&...x){return (x->valid_run(cm)&&...&&true);},a_);
     }
 
-    virtual bool valid_run(const Cm* cm) const
+    virtual bool valid_run(const Cm* cm) const override
     {
         if constexpr(!is_variable_ref<T>::value&& !has_variable_ref)
         {

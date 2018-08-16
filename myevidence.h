@@ -57,7 +57,7 @@ double getGradient(const Base_Distribution<E>& d,const Base_Distribution<E>& d0,
 }
 
 
-template <template <class>class V,template <class>class Distributions, typename T,class D>
+template <template <class...>class V,template <class...>class Distributions, typename T,class D>
 double getGradient(const V<Distributions<T>>& d,const V<Distributions<T>>& d0, const D& data)
 {
     assert(d.size()==d0.size());
@@ -75,7 +75,7 @@ double getGradient(const Distributions<T>& d,const Distributions<T>& d0, const D
     return getGradient(d,d0,data)/eps;
 }
 
-template <template <class>class Distributions, typename T,class D>
+template <template <class...>class Distributions, typename T,class D>
 M_Matrix<double> getGradient(const Distributions<T>& d0,const std::vector<Distributions<T>>& d, const D& data,double eps)
 {
     M_Matrix<double> out(1,d.size());
@@ -343,7 +343,7 @@ public:
             std::swap(*this,tmp);
             return *this;
         };
-}
+    }
 
     double beta()const {return beta_;}
 
@@ -443,15 +443,15 @@ public:
         }
         static  std::map<Parameters, double> uniform_parameter_prior(const  std::vector<std::vector<double>>& v, double p=-1)
         {
-          std::map<Parameters, double> out;
-          if (p==-1)
-            p=1.0/(v[0].size()*v[1].size());
-          for (std::size_t i=0; i<v[0].size(); ++i)
-            for (std::size_t j=0; j<v[1].size(); ++j)
-              out[{v[0][i],v[1][j]}]+=p;
+            std::map<Parameters, double> out;
+            if (p==-1)
+                p=1.0/(v[0].size()*v[1].size());
+            for (std::size_t i=0; i<v[0].size(); ++i)
+                for (std::size_t j=0; j<v[1].size(); ++j)
+                    out[{v[0][i],v[1][j]}]+=p;
         return out;
-      }
-    };
+    }
+};
     typedef myAcceptProb AcceptanceProbability;
 
     struct myExpectVelocity
@@ -753,12 +753,12 @@ public:
 
         template<class Adaptive_Strecth_Move>
         static mcmc_sample_t<Model,stretch_move> move(const Model& model,
-                                                    std::mt19937_64& mt,
-                                                    const stretch_move_Distribution& d,
-                                                    const emcee_sample<Model,Adaptive_Strecth_Move>& s,
-                                                    const std::vector<std::size_t>& index,
-                                                    mcmc_sample_t<Model,stretch_move>& current
-                                                    )
+                                                      std::mt19937_64& mt,
+                                                      const stretch_move_Distribution& d,
+                                                      const emcee_sample<Model,Adaptive_Strecth_Move>& s,
+                                                      const std::vector<std::size_t>& index,
+                                                      mcmc_sample_t<Model,stretch_move>& current
+                                                      )
         {
             std::uniform_int_distribution<std::size_t> u(0,index.size());
             std::size_t i=index[u(mt)];
@@ -942,7 +942,7 @@ public:
         parDist_(prior_par,nsamples){}
 */
 
-    template<template<typename>class V>
+    template<template<typename...>class V>
     Adaptive_Parameterized_Distribution_Generator(const V<Parameterized_Distribution>& landa,
                                                   const  std::vector<std::vector<double>>& par,
                                                   double gainMoment):
@@ -1398,9 +1398,12 @@ bool run_Thermo_Levenberg_ProbVel(const PriorModel& prior,const Likelihood_Model
     std::vector<LevenbergMarquardt<Model>> las(landa.size());
     for (std::size_t i=0; i<las.size(); ++i)
     {
-       las[i]=LevenbergMarquardt<Model>(landa[i]);
+        las[i]=LevenbergMarquardt<Model>(landa[i]);
     }
-    std::vector<Adaptive_Parameterized_Distribution_Generator<LevenbergMarquardt<Model>>> ala(betas.size(),Adaptive_Parameterized_Distribution_Generator(las,landa_50_hill,gain_moment));
+    std::vector<Adaptive_Parameterized_Distribution_Generator<LevenbergMarquardt<Model>>>
+            ala
+            (betas.size(),
+             Adaptive_Parameterized_Distribution_Generator<LevenbergMarquardt<Model>>(las,landa_50_hill,gain_moment));
     return run_Montecarlo_Markov_Chain(PT,mt,model,ala,nSamples);
 
 }

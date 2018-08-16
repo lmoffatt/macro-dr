@@ -277,7 +277,7 @@ struct has_base_type : std::false_type { };
 
 template <typename T>
 struct has_base_type<T,
-        std::void_t<decltype(std::declval<typename T::base_type>())>>
+        std::void_t<typename T::base_type>>
         : std::true_type { };
 
 

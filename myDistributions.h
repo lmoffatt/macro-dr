@@ -133,8 +133,8 @@ public:
 
     virtual Identity_Transformation* clone()const override{ return new Identity_Transformation(*this);};
 
-    virtual T apply(const T& x)const  {return x;}
-    virtual T apply_inv(const T& x)const {return x;}
+    virtual T apply(const T& x)const override {return x;}
+    virtual T apply_inv(const T& x)const override {return x;}
 
     virtual ~Identity_Transformation(){}
 
@@ -1213,7 +1213,7 @@ public:
     return logLik_;
   }
 
-  std::map<T,double>const & p()const
+  std::map<T,double>const & p()const override
   {
     return p_;
   }
@@ -1230,7 +1230,7 @@ public:
   }
 
   logLikelihood_map()=default;
-  void reduce(double nmax)
+  void reduce(double nmax) override
   {
     double f=nmax/nsamples_;
     if (f<1.0)
@@ -1242,7 +1242,7 @@ public:
   }
 
 
-  double nsamples()const {return nsamples_;}
+  double nsamples()const override {return nsamples_;}
 
 private:
   std::map<T,double> logLik_;

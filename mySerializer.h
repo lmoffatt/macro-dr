@@ -78,7 +78,8 @@ template<typename T1, typename T2> std::istream& read_pair(std::istream& is, std
 template<typename T> auto operator<<(std::ostream& s, const T& v)->std::enable_if_t<is_std_container<T>::value&&!std::is_same_v<T,std::string >,std::ostream&>;
 
 
-template<typename T> auto operator>>(std::istream& s, T& v)->std::enable_if_t<is_std_container<T>::value&&!std::is_same_v<T,std::string >, std::istream&>;
+template<typename T> auto operator>>(std::istream& s, T& v)
+->std::enable_if_t<is_std_container<T>::value&&!std::is_same_v<T,std::string >, std::istream&>;
 template<typename T> std::istream& read_vector(std::istream& s, std::vector<T>& v);
 
 template<typename K,typename T> std::ostream& operator<<(std::ostream& s, const std::map<K,T>& v);
@@ -100,6 +101,17 @@ template<typename K> std::istream& operator>>(std::istream& s, const std::set<K>
 
 template<typename K> std::ostream& write_set(std::ostream& s, const std::set<K>& v);
 template<typename K> std::istream& read_set(std::istream& s,  std::set<K>& v);
+
+template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_field_Object<T>::value,std::ostream&>;
+template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_write_Object<T>::value,std::ostream&>;
+
+template<typename T> auto operator>>(std::istream& s, T & v)->std::enable_if_t<is_read_Object<T>::value,std::istream&>;
+
+template<typename T> auto operator>>(std::istream& s, T*& v)
+->std::enable_if_t<std::is_abstract<T>::value,std::istream&>;
+
+template<typename T> auto operator>>(std::istream& s, T& v)->std::enable_if_t<is_field_Object<T>::value,std::istream&>;
+template<typename ...Args> std::istream& operator>>(std::istream& is,  std::tuple<Args...>& tu);
 
 
 
@@ -517,14 +529,15 @@ std::ostream& write_on_element(std::ostream& os, const T*& e)
 template<typename T>
 std::istream& input_operator_on_element(std::istream& is, T& e)
 {
-    return is>>separator{}>>e;
+    is>>io::separator{};
+    return  is>>e;
 }
 
 template<typename T>
 std::istream& input_operator_on_element(std::istream& is, T*& e)
 {
     e=new T;
-    return is>>separator{}>>*e;
+    return is>>io::separator{}>>*e;
 }
 
 
@@ -1231,6 +1244,13 @@ template<typename T> auto operator<<(std::ostream& s, const T& v)->std::enable_i
 
 template<typename T> auto operator>>(std::istream& s, T& v)->std::enable_if_t<is_std_container<T>::value&&!std::is_same_v<T,std::string >, std::istream&>
 {
+    if constexpr(is_set<T>::value) {
+        return io::input_operator_on_set(s,v);
+    }
+    else if constexpr(is_map<T>::value) {
+        return io::input_operator_on_Map(s,v);
+    }
+    else
     return io::input_operator_on_container(s,v);
 }
 

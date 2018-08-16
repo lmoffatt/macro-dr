@@ -40,6 +40,11 @@ std::ostream& operator<<(std::ostream& os, const Label<T>& x)
 {
     return os<<x.name();
 }
+template<class T>
+std::istream& operator>>(std::istream& is,  Label<T>& x)
+{
+    return x.read(is);
+}
 
 
 template <class label>

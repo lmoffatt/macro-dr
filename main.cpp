@@ -8,7 +8,6 @@
 #include "myscriptmanager.h"
 #include "Experiment.h"
 #include "commands.h"
-//#include "myoptimization.h"
 #include "myevidence.h"
 int main(int argc, char **argv)
 {

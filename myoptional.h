@@ -27,6 +27,7 @@ struct optional_tag
              std::conditional_t<std::is_pointer_v<T>,
              std::conditional_t<has_base_type_v<std::remove_pointer_t<T> >, derived_ptr_tag, base_ptr_tag>,
               reg_tag>>> type;
+
 };
 
 
