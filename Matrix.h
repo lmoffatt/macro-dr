@@ -26,16 +26,6 @@
 #include "mySerializer.h"
 
 
-inline double logit(double x){return std::log(x/(1.0-x));}
-
-
-
-inline std::pair<double,double> logit(double x,double sd){
-    return {std::log(x/(1.0-x)),sd/(x*(1.0-x))};}
-
-
-inline double logistic(double x){return 1.0/(1.0+std::exp(-x));}
-
 
 template<typename T1, typename T2>
 std::pair<T1,T2>& operator+=(std::pair<T1,T2>& x, const std::pair<T1,T2>& other)

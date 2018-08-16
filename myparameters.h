@@ -243,7 +243,7 @@ public:
             out[i]={name(i),tr(i),dist(i)};
         return out;}
     typedef  Parameters_distribution<Model> self_type;
-    constexpr static auto  className=my_trait<Model>::className+my_static_string("_ParametersDistribution");
+    constexpr static auto  className=my_trait<Model>::className+my_static_string("_Parameters_Distribution");
     static auto get_constructor_fields()
     {
         return std::make_tuple(

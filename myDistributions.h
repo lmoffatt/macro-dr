@@ -95,9 +95,20 @@ struct Derived_types<Base_Distribution<double>>
     typedef   Cs<Normal_Distribution<double>,Beta_Distribution, stretch_move_Distribution> type;
 
 };
+inline double logit(double x){return std::log(x/(1.0-x));}
+
+
+
+inline std::pair<double,double> logit(double x,double sd){
+    return {std::log(x/(1.0-x)),sd/(x*(1.0-x))};}
+
+
+inline double logistic(double x){return 1.0/(1.0+std::exp(-x));}
+
 
 template <class T> class Identity_Transformation;
 template <class T> class  Logarithm_Transformation;
+template <class T> class  Logit_Transformation;
 
 
 template<typename T>
@@ -117,7 +128,7 @@ public:
 
 template<>
 struct Derived_types<Base_Transformation<double>>{
-typedef Cs<Identity_Transformation<double>,Logarithm_Transformation<double>> type;
+typedef Cs<Identity_Transformation<double>,Logarithm_Transformation<double>, Logit_Transformation<double>> type;
 };
 
 template<typename T>
@@ -166,6 +177,25 @@ public:
 
 };
 
+template<>
+class Logit_Transformation<double>: public Base_Transformation<double>
+{
+public:
+    typedef  Base_Transformation<double> base_type;
+    static std::tuple<> get_constructor_fields() {return std::tuple<>();}
+    virtual std::string myClass()const override{return className.str();}
+
+    constexpr static auto const className=my_static_string("Logit_Transformation");
+
+    virtual Logit_Transformation* clone()const override{ return new Logit_Transformation(*this);};
+    virtual double apply(const double& x)const override  {return logit(x);}
+    virtual double apply_inv(const double& x)const override {return logistic(x);}
+
+    virtual ~Logit_Transformation(){}
+
+    Logit_Transformation() {}
+
+};
 
 template<template <typename...> class  My_vec,typename _IntType>
 class multinomial_distribution // not a child of  Base_Distribution, modeled after STL random library
