@@ -17,8 +17,8 @@ class DataManager<self_type,Cs<Ts...>, Cs<allT...>, Cs<Bop_terms...>, Cs<Uop_ter
 {
 public:
     
- //   typedef typename Cs<Ts...>::TS_daaMap data_map_types;
- //  typedef typename Cs<allT...>::all_fe def_map_fe;
+    //   typedef typename Cs<Ts...>::TS_daaMap data_map_types;
+    //  typedef typename Cs<allT...>::all_fe def_map_fe;
 
     typedef Cs<Ts...> myTypes;
     
@@ -100,13 +100,13 @@ public:
     typedef class_set_union_t<myTypes,myFuncReturns> allTypes;
 
 
-//    typedef typename myTypes::f jaja;
-//
-//     typedef typename myFuncReturns::f jajaja;
+    //typedef typename myTypes::f jaja;
+    //
+    //typedef typename myFuncReturns::f jajaja;
 
- //    typedef typename allTypes::f jaj;
+    //    typedef typename allTypes::f jaj;
 
- //   typedef typename myCommands::f jajtest;
+    //   typedef typename myCommands::f jajtest;
 
     typedef  Cs<> UopTypes;
     
@@ -195,12 +195,12 @@ public:
     
     template<typename T>
     myOptional_t<T> get(C<T>,std::enable_if_t<!is_variable_ref_v<T>,const std::string&> id)const
-{
+    {
         auto constexpr I=Index<T,myTypes>::value;
         auto &m=std::get<I>(d_.data_);
         auto it=m.find(id);
         if (it!=m.end())
-             return myOptional_t<T>(it->second);
+            return myOptional_t<T>(it->second);
         else
             return {false,"identifier"+id+" not found for "+my_trait<T>::className.str()};
     }
@@ -240,7 +240,7 @@ public:
     
     ///------------------
     ///
-  // <T> get(C<T>,std::enable_if_t<std::is_const_v<T>||!std::is_lvalue_reference_v<T>,const std::string&> id)const
+    // <T> get(C<T>,std::enable_if_t<std::is_const_v<T>||!std::is_lvalue_reference_v<T>,const std::string&> id)const
 
     template<typename T>
     bool has(C<T>,std::enable_if_t<!is_variable_ref_v<T>,const std::string&> id)const
@@ -298,8 +298,10 @@ public:
         auto p=m.at(id_args).get();
         d_.fgen_.emplace(std::move(id_args),p);
     }
+
+
     template <class T, class ...Args>
-    void insert_function(C<T>,std::pair<std::string,std::map<std::string, std::string>>&& id_args,Constructor<T>, std::tuple<grammar::field<T,Args>...>&& args)
+    void insert_function_constructor(C<T>,std::pair<std::string,std::map<std::string, std::string>>&& id_args,Constructor<T>, std::tuple<grammar::field<T,Args>...>&& args)
     {
         //typename decltype (d_.f_)::ojo_aca d;
         auto&  m=  std::get<typename Dm::template fun_map<T>>(d_.f_);
@@ -307,15 +309,33 @@ public:
 
         auto p=m.at(id_args).get();
         d_.fgen_.emplace(std::move(id_args),p);
-
     }
     
+    template <class T, class Derived,class ...Args>
+    void insert_function_derived_constructor(C<T*>,std::pair<std::string,std::map<std::string, std::string>>&& id_args,DerivedConstructor<T,Derived>, std::tuple<grammar::field<Derived,Args>...>&& args)
+    {
+        //typename decltype (d_.f_)::ojo_aca d;
+        auto&  m=  std::get<typename Dm::template fun_map<T*>>(d_.f_);
+        m.emplace(id_args,make_compiled_derived_constructor(this,C<T*>{},DerivedConstructor<T,Derived>{}, std::forward<std::tuple<grammar::field<Derived,Args>...>>(args)));
+
+    }
+
+
     
     template<class type>
     void insert_constructor()
     {
         if constexpr (is_field_Object<type>::value)
-                insert_function(C<type>{},included_types<type, my_tag_t<type>>::getIdArgs(),Constructor<type>{},type::get_constructor_fields());
+        {
+            insert_function_constructor(C<type>{},included_types<type,my_tag_t<type>>::getIdArgs(),Constructor<type>{},type::get_constructor_fields());
+            if constexpr(Base_type<type>::value)
+                    if constexpr (has_this_type<myFuncReturns,typename type::base_type*>::value)
+            {
+                typedef typename type::base_type base;
+                insert_function_derived_constructor(C<base*>{},included_types<type,my_tag_t<type>>::getIdArgs(),DerivedConstructor<base,type>{}
+                                            ,type::get_constructor_fields());
+            }
+        }
     }
     template<class type>
     void insert_loader()
@@ -332,7 +352,7 @@ public:
     template<class type>
     void insert_valuer()
     {
-     //   typedef typename type::test test;
+        //   typedef typename type::test test;
         const std::pair<std::string,std::map<std::string,std::string>> id_args(std::string(my_trait<type>::className.c_str()),std::map<std::string, std::string>({{"value",my_trait<type>::className.str()}}));
         auto&  m=  std::get<Index<type,myTypes>::value>(d_.f_);
         typedef typename std::decay_t<decltype (m)>::value_type value_type;

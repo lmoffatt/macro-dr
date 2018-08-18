@@ -75,10 +75,40 @@ template<typename... Ts>
 struct Cs{};
 
 template <class >
-struct Derived_types{};
+struct Derived_types{
+
+    typedef  Cs<> type;
+    constexpr static bool value=false;
+};
 
 template <class T>
 using Derived_types_t=typename Derived_types<T>::type;
+template <class T>
+constexpr bool static Derived_types_v=Derived_types<T>::value;
+
+template <class T>
+struct Derived_types<T*>
+{
+
+    typedef  Derived_types_t<T> type;
+    constexpr static bool value=Derived_types_v<T>;
+};
+
+template <class T,class =void >
+struct Base_type{
+
+    constexpr static bool value=false;
+};
+
+template <class T>
+struct Base_type<T, std::void_t<typename T::base_type>>
+{
+    typedef typename T::base_type type;
+    constexpr static bool value=true;
+};
+
+
+
 
 template<template<typename...>class... Ts>
 struct CCs{};
@@ -106,6 +136,13 @@ class Co{};
 
 template <class C>
 struct Constructor { typedef C myClass;};
+
+template <class Base, class Derived>
+struct DerivedConstructor {
+    typedef Base base_type;
+    typedef Derived derived_type;
+};
+
 
 template <class C>
 struct Loader { typedef C myClass; };
@@ -332,6 +369,12 @@ template <class T> struct contains_constructor: public std::false_type{};
 template <class C>
 struct contains_constructor<Constructor<C>> : public std::true_type {};
 
+template <class T> struct contains_derived_constructor: public std::false_type{};
+template <class B, class C>
+struct contains_derived_constructor<DerivedConstructor<B,C>> : public std::true_type {};
+
+
+
 template <class T> struct contains_loader: public std::false_type{};
 template <class C>
 struct contains_loader<Loader<C>> : public std::true_type {};
@@ -378,6 +421,10 @@ struct is_field_Object<T,
         std::void_t<decltype(std::declval<T&>().get_constructor_fields())
 >>
    : std::true_type { };
+
+
+
+
 
 template <typename T, typename = void>
 struct is_read_Object : std::false_type { };
@@ -542,9 +589,14 @@ struct value_tag{};
 
 struct map_tag{};
 
+struct tuple_tag{};
+
+
 struct pair_tag{};
 
 struct object_tag{};
+
+struct base_tag{};
 
 struct command_tag{};
 
@@ -559,16 +611,18 @@ struct set_tag{};
 template <class T>
 struct my_tag
 {
-    typedef std::decay_t<T> dT;
+    typedef std::decay_t<std::remove_pointer_t<T>> dT;
     //    typedef typename T::_in_my_tag dff;
     typedef
+    std::conditional_t<is_tuple<dT>::value, tuple_tag,
+    std::conditional_t<Derived_types_v<dT>, base_tag,
     std::conditional_t<is_field_Object<dT>::value, object_tag,
     std::conditional_t<is_arg_Command<dT>::value, command_tag,
     std::conditional_t<is_pair<dT>::value, pair_tag,
     std::conditional_t<has_value_type_v<dT>,
     std::conditional_t<has_mapped_type_v<dT>,map_tag, value_tag>,
-    elem_tag>>>> type;
-    //  typedef typename type::_in_my_tag dfff;
+    elem_tag>>>>>> type;
+    //typedef typename type::_in_my_tag dfff;
 
 };
 
@@ -581,12 +635,13 @@ struct my_tag_arg
     //    typedef typename T::_in_my_tag dff;
     typedef
     std::conditional_t<is_field_Object<dT>::value, std::pair<object_tag,arg_types_t<dT>>,
+    std::conditional_t<is_tuple<dT>::value, std::pair<object_tag,arg_types_t<dT>>,
     std::conditional_t<is_arg_Command<dT>::value, command_tag,
     std::conditional_t<is_pair<dT>::value, pair_tag,
     std::conditional_t<has_push_back<dT>::value,push_back_tag,
     std::conditional_t<has_insert<dT>::value,
     std::conditional_t<has_mapped_type_v<dT>,map_tag,set_tag>,
-    elem_tag>>>>> type;
+    elem_tag>>>>>> type;
     //  typedef typename type::_in_my_tag dfff;
 
 };
@@ -642,6 +697,24 @@ struct included_types<T,pair_tag>
 
 };
 
+template <class...> struct included_types_tuple;
+
+template <class...T>
+struct included_types_tuple<std::tuple<T...>>
+{
+    typedef Cs<included_types_t<std::decay_t<T>>...> type;
+};
+
+
+template <class T>
+struct included_types<T,tuple_tag>
+{
+    typedef Cs<typename included_types_tuple<std::decay_t<T>>::type,T> type;
+     //typedef typename type::tuple_tag test_type;
+
+};
+
+
 
 template <typename T>
 struct included_types<T,value_tag>
@@ -676,11 +749,17 @@ template<typename T>
 struct included_types<T,command_tag>;
 
 template<typename T>
+struct included_types<T,base_tag>;
+
+
+template<typename T>
 struct arg_types<T,object_tag>;
 
 template<typename T>
 struct arg_types<T,command_tag>;
 
+template<typename T>
+struct arg_types<T,tuple_tag>;
 
 
 template< typename T>

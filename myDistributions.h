@@ -93,7 +93,7 @@ template <>
 struct Derived_types<Base_Distribution<double>>
 {
     typedef   Cs<Normal_Distribution<double>,Beta_Distribution, stretch_move_Distribution> type;
-
+    constexpr bool static value=true;
 };
 inline double logit(double x){return std::log(x/(1.0-x));}
 
@@ -129,6 +129,8 @@ public:
 template<>
 struct Derived_types<Base_Transformation<double>>{
 typedef Cs<Identity_Transformation<double>,Logarithm_Transformation<double>, Logit_Transformation<double>> type;
+    constexpr bool static value=true;
+
 };
 
 template<typename T>
@@ -626,6 +628,8 @@ template<>
 class Normal_Distribution<double>: public Base_Distribution<double>
 {
 public:
+    typedef  Base_Distribution<double> base_type;
+
     constexpr static auto const className=my_static_string("Normal_Distribution");
     std::string myClass()const override { return className.str();}
 
@@ -639,7 +643,7 @@ public:
     }
 
 
-    virtual Normal_Distribution* clone()const override{ return new Normal_Distribution(*this);};
+    virtual Normal_Distribution<double>* clone()const override{ return new Normal_Distribution<double>(*this);};
 
     virtual double sample(std::mt19937_64& mt) const override{ return std::normal_distribution<double> {param_[0],param_[1]}(mt);}
 
@@ -677,6 +681,12 @@ public:
     {
         return -1.0/variance();
     }
+
+    Normal_Distribution(const Normal_Distribution&)=default;
+    Normal_Distribution(Normal_Distribution&&)=default;
+    Normal_Distribution&operator=(const Normal_Distribution&)=default;
+    Normal_Distribution&operator=(Normal_Distribution&&)=default;
+
 
     protected:
     M_Matrix<double> param_;
@@ -858,6 +868,7 @@ inline double BetaDistribution(double p, std::size_t success, std::size_t failur
 class Beta_Distribution:public Base_Distribution<double>
 {
 public:
+    typedef  Base_Distribution<double> base_type;
     constexpr static auto const className=my_static_string("Beta_Distribution");
     std::string myClass()const override { return className.str();}
     typedef   Beta_Distribution self_type ;

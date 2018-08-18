@@ -119,7 +119,6 @@ int main(int argc, char **argv)
 
 
 
-
     typedef grammar::CommandManager<typename Objects::types,typename Objects::commands, typename Objects::templateCommands> CM;
 //    typedef grammar::CommandManager<> CM;
     static_assert (!has_base_type<grammar::Compiled_Statement<CM>>::value,"" );

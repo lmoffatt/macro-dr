@@ -248,7 +248,7 @@ public:
         {
             auto c=e->run(cm);
             if (! c) return oT(false," array error in "+c.error());
-            else out.push_back(c.value());
+            else out.push_back(std::move(c).value());
         }
         return oT(out);
     }
@@ -261,7 +261,7 @@ public:
         {
             auto c=e->run(cm);
             if (! c) return oT(false," array error in "+c.error());
-            else out.push_back(c.value());
+            else out.push_back(std::move(c).value());
         }
         return oT(out);
     }
@@ -334,7 +334,7 @@ public:
         {
             auto c=e->run(cm);
             if (! c) return oT(false,"array run error: "+c.error());
-            else out.insert(c.value());
+            else out.insert(std::move(c).value());
         }
         return oT(out);
     }
@@ -347,7 +347,7 @@ public:
         {
             auto c=e->run(cm);
             if (! c) return oT(false,"array run error: "+c.error());
-            else out.insert(c.value());
+            else out.insert(std::move(c).value());
         }
         return oT(out);
     }
@@ -440,7 +440,7 @@ public:
             auto c=e->run(cm);
             if (! c)
                 return oT(false,"error in array: "+c.error());
-            else out.insert(c.value());
+            else out.insert(std::move(c).value());
         }
         return oT(out);
     }
@@ -517,7 +517,7 @@ public:
         auto f=f_->run(cm);
         auto s=s_->run(cm);
         if (f.has_value()&&s.has_value())
-            return oT(std::pair(f.value(),s.value()));
+            return oT(std::pair(std::move(f).value(),std::move(s).value()));
         else
             return oT(false, "error runing pair "+f.error()+": "+s.error());
     }
@@ -1106,49 +1106,53 @@ public:
                      &&...&&true));
         },tu);
 
-        if (!res)
-            return std::apply([](auto&...x){
-                return myOptional_t<T>{false,"error in function"+((x.error()+"  ")+...)};
-            },tu);
-        else
-        {
-            if constexpr (contains_constructor<F>::value)
-                    return std::apply([](auto&...x){
-                return myOptional_t<T>(T(x.value()...));
-            },tu);
-            else if constexpr (contains_loader<F>::value)
-            {
-                auto f=std::get<myOptional_t<std::string>>(tu);
-                if (!f.has_value())
-                {
-                    return {false,"filename was not provided"};
-                }
-                else {
-                    std::ifstream fe;
-                    fe.open(f.value().c_str());
-                    if (!fe)
-                        return myOptional_t<T>(false,"file" + f.value()+" not found");
-                    else
-                    {
-                        std::decay_t<T> x;
-                        x.read(fe);
-                        if (fe.good()||fe.eof())
-                            return myOptional_t<T>(std::move(x));
-                        else return myOptional_t<T>(false,"error in reading the file");
-                    }
-                }
-            }
-            else if constexpr (contains_valuer<F>::value)
-            {
-                return std::get<myOptional_t<T>>(tu);
-            }
-            else    return std::apply([&f](auto&...x){
-                return myOptional_t<T>(f(x.value()...));
-            },tu);
+        if constexpr (sizeof... (Args)>0)
+                if (!res)
+                return std::apply([](auto&...x){
+            return myOptional_t<T>{false,"error in function"+((x.error()+"  ")+...)};
+        },tu);
 
+        if constexpr (contains_constructor<F>::value)
+                return std::apply([](auto&&...x){
+            return myOptional_t<T>(T(std::move(x).value()...));   // std::move(x).value() so it uses value()&& ->makes unique_ptr to use release()
+        },std::move(tu));
+        else if constexpr (contains_derived_constructor<F>::value)
+                return std::apply([](auto&&...x){
+            return myOptional_t<T>(new typename F::derived_type(std::move(x).value()...));
+        },std::move(tu));
+        else if constexpr (contains_loader<F>::value)
+        {
+            auto f=std::get<myOptional_t<std::string>>(tu);
+            if (!f.has_value())
+            {
+                return {false,"filename was not provided"};
+            }
+            else {
+                std::ifstream fe;
+                fe.open(f.value().c_str());
+                if (!fe)
+                    return myOptional_t<T>(false,"file" + f.value()+" not found");
+                else
+                {
+                    std::decay_t<T> x;
+                    x.read(fe);
+                    if (fe.good()||fe.eof())
+                        return myOptional_t<T>(std::move(x));
+                    else return myOptional_t<T>(false,"error in reading the file");
+                }
+            }
         }
+        else if constexpr (contains_valuer<F>::value)
+        {
+            return std::get<myOptional_t<T>>(tu);
+        }
+        else    return std::apply([&f](auto&&...x){
+            return myOptional_t<T>(f(std::move(x).value()...));
+        },std::move(tu));
 
     }
+
+
 
     virtual myOptional_t<T> run(const Cm* cm) const override
     {
@@ -1163,54 +1167,59 @@ public:
                 return ((x.has_value()&&...&&true));
             },tu);
 
-            if (!res)
-                return std::apply([](auto&...x){
-                    return myOptional_t<T>{false,"error in function"+((x.error()+"  ")+...)};
-                },tu);
-            else
-            {
-                if constexpr (contains_constructor<F>::value)
-                        return std::apply([](auto&...x){
-                    return myOptional_t<T>(T(x.value()...));
-                },tu);
+            if constexpr (sizeof... (Args)>0)
+                    if(!res)
+                    return std::apply([](auto&...x){
+                return myOptional_t<T>{false,"error in function"+((x.error()+"  ")+...)};
+            },tu);
 
-                else if constexpr (contains_loader<F>::value)
+            if constexpr (contains_constructor<F>::value)
+                    return std::apply([](auto&&...x){
+                return myOptional_t<T>(T(std::move(x).value()...));
+            },std::move(tu));
+
+            else if constexpr (contains_derived_constructor<F>::value)
+                    return std::apply([](auto&&...x){
+                return myOptional_t<T>(new typename F::derived_type(std::move(x).value()...));
+            },std::move(tu));
+
+            else if constexpr (contains_loader<F>::value)
+            {
+                auto f=std::get<myOptional_t<std::string>>(tu);
+                if (!f.has_value())
                 {
-                    auto f=std::get<myOptional_t<std::string>>(tu);
-                    if (!f.has_value())
-                    {
-                        return {false,"a filename was not provided"};
-                    }
+                    return {false,"a filename was not provided"};
+                }
+                else
+                {
+                    std::ifstream fe;
+                    fe.open(f.value().c_str());
+                    if (!fe)
+                        return myOptional_t<T>(false,std::string("file") + f.value()+" not found");
                     else
                     {
-                        std::ifstream fe;
-                        fe.open(f.value().c_str());
-                        if (!fe)
-                            return myOptional_t<T>(false,std::string("file") + f.value()+" not found");
+                        std::decay_t<T> x;
+                        x.read(fe);
+                        if (fe.good()||fe.eof())
+                            return myOptional_t<T>(std::move(x));
                         else
-                        {
-                            std::decay_t<T> x;
-                            x.read(fe);
-                            if (fe.good()||fe.eof())
-                                return myOptional_t<T>(std::move(x));
-                            else
-                                return myOptional_t<T>(false,"error in reading the file");
-                        }
+                            return myOptional_t<T>(false,"error in reading the file");
                     }
                 }
-                else if constexpr (contains_valuer<F>::value)
-                {
-                    return std::get<myOptional_t<T>>(tu);
-                }
-                else    return std::apply([&f](auto&...x){
-                    return myOptional_t<T>(f(x.value()...));
-                },tu);
-
             }
+            else if constexpr (contains_valuer<F>::value)
+            {
+                return std::get<myOptional_t<T>>(tu);
+            }
+            else    return std::apply([&f](auto&&...x){
+                return myOptional_t<T>(f(std::move(x).value()...));
+            },std::move(tu));
 
         }
 
     }
+
+
     virtual bool valid_run(Cm* cm) const override
     {
         return std::apply([&cm](auto&...x){return (x->valid_run(cm)&&...&&true);},a_);
@@ -1276,7 +1285,9 @@ public :
         auto opt_args=std::apply([&cm,&argsMap](auto& ...x)
         {return std::make_tuple(std::unique_ptr<myOptional_t<Compiled_Expression<Cm,Args>*>>(compile_argument(cm,x,argsMap))...);},a_);
 
-        if (std::apply([](auto&...x){return (x->has_value()&&...&&true);},opt_args))
+        if constexpr (sizeof... (Args)==0)
+                return  new myOptional_t<Compiled_Function_Arg<Cm,T,F,Args...>*>(new Compiled_Function_Arg<Cm,T,F,Args...>(f_,std::tuple<>()));
+        else if (std::apply([](auto&...x){return (x->has_value()&&...&&true);},opt_args))
         {
             auto args=std::apply([](auto&...x)
             {return std::make_tuple(std::unique_ptr<Compiled_Expression<Cm,Args>>(x->release())...);},opt_args);
@@ -1300,7 +1311,9 @@ public :
         auto opt_args=std::apply([&cm,&argsMap](auto& ...x)
         {return std::make_tuple(std::unique_ptr<myOptional_t<Compiled_Expression<Cm,Args>*>>(compile_argument(cm,x,argsMap))...);},a_);
 
-        if (std::apply([](auto&...x){return (x->has_value()&&...&&true);},opt_args))
+        if constexpr (sizeof... (Args)==0)
+                return  new myOptional_t<Compiled_Function_Arg<Cm,T,F,Args...>*>(new Compiled_Function_Arg<Cm,T,F,Args...>(f_,std::tuple<>()));
+        else if (std::apply([](auto&...x){return (x->has_value()&&...&&true);},opt_args))
         {
             auto args=std::apply([](auto&...x)
             {return std::make_tuple(std::unique_ptr<Compiled_Expression<Cm,Args>>(x->release())...);},opt_args);
@@ -1324,7 +1337,7 @@ public :
 
 template <class Cm,class Arg>
 std::pair<std::string, myOptional_t<Compiled_Expression<Cm,Arg>*>>
-make_compiled_argument(const Cm* ,grammar::argument<Arg> a)
+make_compiled_argument(const Cm* ,const grammar::argument<Arg>& a)
 {
     typedef myOptional_t<Compiled_Expression<Cm,Arg>*> oT;
     if (a.default_value.has_value())
@@ -1336,10 +1349,26 @@ make_compiled_argument(const Cm* ,grammar::argument<Arg> a)
 
 }
 
+template <class Cm,class Arg>
+std::pair<std::string, myOptional_t<Compiled_Expression<Cm,Arg>*>>
+make_compiled_argument(const Cm* ,grammar::argument<Arg>&& a)
+{
+    typedef myOptional_t<Compiled_Expression<Cm,Arg>*> oT;
+    if (a.default_value.has_value())
+    {
+        if constexpr (!std::is_lvalue_reference_v<Arg>)
+                return std::pair(a.idField,oT(new Compiled_Literal<Cm,Arg>(a.default_value.value())));
+    }
+    return {a.idField,oT(false,"not default argument")};
+
+}
+
+
+
 template <class Cm,class ...Args>
 auto compile_all_arguments(Cm const* cm,std::tuple<grammar::argument<Args>...>&& args)
 {
-    return std::apply([cm](auto& ...x){return std::make_tuple(make_compiled_argument(cm,x)...);},args);
+    return std::apply([cm](auto& ...x){return std::make_tuple(make_compiled_argument(cm,x)...);},std::move(args));
 
 }
 
@@ -1348,7 +1377,10 @@ auto compile_all_arguments(Cm const* cm,std::tuple<grammar::argument<Args>...>&&
 template <class Cm,class T, class F,class ...Args>
 auto make_compiled_function(Cm const * cm,C<T>,F&& f, std::tuple<grammar::argument<Args>...>&& args)
 {
-    return new Function_Arg<Cm,T,F,Args...>(C<T>{},f,compile_all_arguments<Cm,Args...>(cm,std::forward<std::tuple<grammar::argument<Args>...>>(args)));
+   // return new Function_Arg<Cm,T,F,Args...>(C<T>{},f,compile_all_arguments<Cm,Args...>(cm,std::forward<std::tuple<grammar::argument<Args>...>>(args)));
+    return new Function_Arg<Cm,T,F,Args...>(C<T>{},f,std::apply([cm](auto& ...x){return std::make_tuple(make_compiled_argument(cm,std::move(x))...);},args));
+
+
 }
 
 
@@ -1378,6 +1410,12 @@ auto compile_all_fields(const Cm* cm,const std::tuple<grammar::field<C,Args>...>
     return std::apply([&cm](auto& ...x){return std::make_tuple(make_compiled_field(cm,x)...);},args);
 
 }
+template <class Cm>
+auto compile_all_fields(const Cm* ,const std::tuple<>& )
+{
+    return std::tuple<>();
+
+}
 
 
 
@@ -1388,6 +1426,17 @@ auto make_compiled_constructor(const Cm *cm,C<T>,Constructor<T>,const std::tuple
     auto a=compile_all_fields(cm,args);
     return new Function_Arg<Cm,T,Constructor<T>,typename grammar::field<T,Args>::result_type...>(C<T>{},Constructor<T>{},std::move(a));
 }
+
+template <class Cm,class Base,class T, class ...Args>
+auto make_compiled_derived_constructor(const Cm *cm,C<Base*>,DerivedConstructor<Base,T>,const std::tuple<grammar::field<T,Args>...>& args)
+{
+
+    auto a=compile_all_fields(cm,args);
+    return new Function_Arg<Cm,Base*,DerivedConstructor<Base,T>,typename grammar::field<T,Args>::result_type...>(C<Base*>{},DerivedConstructor<Base,T>{},std::move(a));
+}
+
+
+
 
 template <class Cm,class T>
 auto make_compiled_loader(const Cm *,C<T>)
@@ -1685,7 +1734,12 @@ myOptional_t<Compiled_Expression<Cm,T>*>* compile(const Cm* cm,C<T>,Expression c
     {
         if constexpr (has_this_type_v<typename Cm::allTypes,T>)
         {
-            auto f=cm->template get_Function_Typed(C<T>{},x->getIdArg());
+            auto f=cm->template get_Function_Typed(C<T>{},x->getIdArg());  /*aca es*/
+
+            if (f.empty())
+                return new myOptional_t<Compiled_Expression<Cm,T>*>(false, "function :["+ToString(x->getIdArg())+"] for type "
+                                                                    +my_trait<T>::className.str()+" not found");
+
             std::string errors;
             for (auto &e:f)
             {
@@ -1695,7 +1749,7 @@ myOptional_t<Compiled_Expression<Cm,T>*>* compile(const Cm* cm,C<T>,Expression c
                 else errors+=c->error()+"\n";
             }
 
-            return new myOptional_t<Compiled_Expression<Cm,T>*>(false, "function "+x->value()+" errors: \n"+errors);
+            return new myOptional_t<Compiled_Expression<Cm,T>*>(false, "function :["+ToString(x->getIdArg())+"]  errors: \n"+errors);
         }
         else return new myOptional_t<Compiled_Expression<Cm,T>*>(false, "type "+my_trait<T>::className.str()+" not found");
     }
@@ -1751,7 +1805,7 @@ myOptional_t<Compiled_Statement<Cm>*>* compile(const Cm* cm,Function const* fn)
             return c.release();
         else errors+=c->error()+"\n";
     }
-    return new myOptional_t<Compiled_Statement<Cm>*>(false,"function "+fn->value()+" does not compile. Candidate Errors: "+errors);
+    return new myOptional_t<Compiled_Statement<Cm>*>(false,"function "+fn->value()+" does not compile. Candidate Errors: {"+errors+"}");
 }
 
 template <class Cm>

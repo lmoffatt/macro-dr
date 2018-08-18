@@ -36,6 +36,9 @@ typedef  io::token<'"'> label_start;
 typedef  io::token<'"'> label_end;
 
 
+template <typename Pos>
+std::string  print_pos(const Pos& pos) { return "@ pos="+std::to_string(pos)+" :";}
+
 class Statement
 {
 public:
@@ -99,11 +102,15 @@ class Identifier: public Term
     std::string id_;
     // Expression interface
 public:
+    constexpr static char valid_chars[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789";
+
+    static  bool valid_char(char ch) { return std::string(valid_chars).find_first_of(ch)!=std::string::npos; }
+
     typedef Term base_type;
     static bool isValidIdentfier(const std::string& s)
     {
         if (!std::isalpha(s[0])) return false;
-        if (s.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789")!=s.npos) return false;
+        if (s.find_first_not_of(valid_chars)!=s.npos) return false;
         return true;
     }
     virtual std::string value() const override
@@ -149,14 +156,20 @@ public:
         auto pos=ss.tellg();
         std::string idCandidate;
         auto line=ss.str();
-        ss>>idCandidate;
+        char ch;
+        while (ss.get(ch))
+        {
+            if (valid_char(ch)) idCandidate.push_back(ch);
+            else if (!std::isspace(ch)||(idCandidate.size()>0))
+                    {ss.putback(ch); break;}
+        }
         if ((!ss.good())||(!isValidIdentfier(idCandidate)))
         {
             ss.clear();
             ss.seekg(pos);
             if (!ss.good())
-                return {false,"not a string"};
-            else return {false,"not a valid candidate"};
+                return {false,print_pos(pos)+"not a string"};
+            else return {false,print_pos(pos)+"not a valid candidate"};
         }
         else
         {
@@ -386,7 +399,7 @@ public:
         {
             ss.clear();
             ss.seekg(pos);
-            return {false,"operator symbol not found"};
+            return {false, print_pos(pos)+"operator symbol not found"};
         }
     }
 };
@@ -640,7 +653,7 @@ public:
         {
             ss.clear();
             ss.seekg(pos);
-            return {false,"lacks an array start"};
+            return {false,print_pos(pos)+"lacks an array start"};
         }
         else
         {
@@ -654,7 +667,7 @@ public:
                 {
                     ss.clear();
                     ss.seekg(pos);
-                    return {false, "invalid input at the "+std::to_string(out.size())+"th place of the array: "+v.error()};
+                    return {false, print_pos(pos)+"invalid input at the "+std::to_string(out.size())+"th place of the array: "+v.error()};
                 }
                 else if (v.value().index()==1)
                     out.emplace_back(std::get<Expression*>(v.value()));
@@ -731,18 +744,18 @@ public:
         auto pos=ss.tellg();
         if (!(ss>>group_start{}))
         {
-            ss.clear(); ss.seekg(pos); return {false,"lacks group start"};
+            ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"lacks group start"};
         }
         else
         {
             auto o=grammar::get(C<Expression*>{},ss);
             if  (!o)
             {
-                ss.clear(); ss.seekg(pos); return {false,"error inside group: "+o.error()};
+                ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"error inside group: "+o.error()};
             }
             else if (!(ss>>group_end{}))
             {
-                ss.clear(); ss.seekg(pos); return {false,"group end is lacking"};
+                ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"group end is lacking"};
             }
             else
             {
@@ -911,7 +924,7 @@ public:
         {
             ss.clear();
             ss.seekg(pos);
-            return {false, "not a"+my_trait<T>::className.str()};
+            return {false,print_pos(pos)+ "not a"+my_trait<T>::className.str()};
         }
     }
 
@@ -965,7 +978,7 @@ public:
         {
             ss.clear();
             ss.seekg(pos);
-            return {false, "lacks label start"};
+            return {false, print_pos(pos)+"lacks label start"};
 
         }
         else
@@ -994,7 +1007,7 @@ public:
             {
                 ss.clear();
                 ss.seekg(pos);
-                return {false, "some eror in label that I do not currently understand"};
+                return {false, print_pos(pos)+"some eror in label that I do not currently understand"};
 
             }
         }
@@ -1050,13 +1063,13 @@ myOptional_t<void> Function::get(std::stringstream &ss)
 
     auto oid=id.get(ss);
     if (!oid)
-    {ss.clear(); ss.seekg(pos); return {false,"Lacks identifier: "+oid.error()};}
+    {ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"Lacks identifier: "+oid.error()};}
     else if (!(ss>>arg_start{}))
-    {ss.clear(); ss.seekg(pos); return {false,"Lacks argument starter: "};}
+    {ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"Lacks argument starter: "};}
     else{
         auto oarg=getArguments(C<typename Function::arg_map>{},ss);
         if (!oarg)
-        {ss.clear(); ss.seekg(pos); return {false,"error in function arguments: "+oarg.error()};}
+        {ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"error in function arguments: "+oarg.error()};}
         else
         {
             *this=Function(std::move(id),oarg.release());
@@ -1103,14 +1116,14 @@ myOptional_t<void> basic_Assignment<B,AssignmentGenericOperator>::get(std::strin
 {
     auto pos=ss.tellg();
     auto oid=grammar::get(C<Identifier*>{},ss);
-    if (!oid) {ss.clear(); ss.seekg(pos); return {false,"Assignment without Identifier: "+oid.error()};}
+    if (!oid) {ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"Assignment without Identifier: "+oid.error()};}
     else
     {
         auto oa=grammar::get(C<AssignmentGenericOperator*>{},ss);
-        if (!oa ) {ss.clear(); ss.seekg(pos); return {false,"Assignment without assignment operator: "+oa.error()};}
+        if (!oa ) {ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"Assignment without assignment operator: "+oa.error()};}
         else {
             auto oe=grammar::get(C<Expression*>{},ss);
-            if (!oe ) {ss.clear(); ss.seekg(pos); return {false,"Assignment with an error in Expression: "+oe.error()};}
+            if (!oe ) {ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"Assignment with an error in Expression: "+oe.error()};}
             else {
                 *this=basic_Assignment(oid.release(),oa.release(),oe.release());
                 return {true,""};
@@ -1224,14 +1237,14 @@ myOptional_t<Term*> get(C<Term*>,std::stringstream& ss)
     auto pos=ss.tellg();
     auto line=ss.str();
     auto ofirst=get_variant(C<valid_start>{},ss);
-    if (!ofirst) { ss.clear(); ss.seekg(pos); return {false, "invalid start of term:"+ofirst.error()}; }
+    if (!ofirst) { ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+ "invalid start of term:"+ofirst.error()}; }
     else
     {
         if (std::holds_alternative<Identifier*>(ofirst.value()))
         {
             auto id=std::get<Identifier*>(ofirst.value());
             auto ot=grammar::get_term_from_identifier(C<Term*>{},ss,std::unique_ptr<Identifier>(id));
-            if (!ot) {ss.clear(); ss.seekg(pos); return {false,"error after Id: "+ot.error()};}
+            if (!ot) {ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"error after Id: "+ot.error()};}
             else return ot;
         }
         else return get_term_from_the_rest(C<Term*>{},ss, ofirst.value());
@@ -1271,7 +1284,7 @@ myOptional_t<Expression*> get(C<Expression*>,std::stringstream& ss)
     auto pos=ss.tellg();
     auto ot=get(C<Term*>{},ss);
     if (!ot)
-    { ss.clear(); ss.seekg(pos); return {false, "error in Term :"+ot.error()}; }
+    { ss.clear(); ss.seekg(pos); return {false, print_pos(pos)+"error in Term :"+ot.error()}; }
     return get_expression_from_term(C<Expression*>{},ss,ot.release());
 }
 
@@ -1286,7 +1299,7 @@ myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss)
     auto pos=ss.tellg();
     auto ofirst=get_variant(C<valid_start>{},ss);
     if (!ofirst)
-    { ss.clear(); ss.seekg(pos); return {false,"Statement failed start: "+ofirst.error()}; }
+    { ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"Statement failed start: "+ofirst.error()}; }
     else
     {
         if (std::holds_alternative<Identifier*>(ofirst.value()))
@@ -1297,7 +1310,7 @@ myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss)
             {
                 auto oe2=grammar::get(C<Expression*>{},ss);
                 if (!oe2)
-                {ss.clear(); ss.seekg(pos); return {false,"failed expression after asignment :"+ oe2.error()};}
+                {ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"failed expression after asignment :"+ oe2.error()};}
                 else {
                     return new Assignment(id, oopa.release(),oe2.release());
                 }
@@ -1309,7 +1322,7 @@ myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss)
                 {
                     auto oe2=grammar::get(C<Expression*>{},ss);
                     if (!oe2)
-                    {ss.clear(); ss.seekg(pos); return {false,"failed expression after definition :"+ oe2.error()};}
+                    {ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"failed expression after definition :"+ oe2.error()};}
                     else {
                         return new Definition(id, oopd.release(),oe2.release());
                     }
@@ -1317,7 +1330,7 @@ myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss)
                 else
                 {
                     auto ot=get_term_from_identifier(C<Term*>{},ss,std::unique_ptr<Identifier>(id));
-                    if (!ot) {ss.clear(); ss.seekg(pos); return {false, "error after identifier : "+ot.error()};}
+                    if (!ot) {ss.clear(); ss.seekg(pos); return {false, print_pos(pos)+"error after identifier : "+ot.error()};}
                     else return get_expression_from_term(C<Expression*>{},ss,ot.release());
 
                 }
@@ -1327,7 +1340,7 @@ myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss)
         {
             auto ot=get_term_from_the_rest(C<Term*>{},ss,ofirst.value());
             if (!ot)
-            {ss.clear(); ss.seekg(pos); return {false, "error after rest: "+ot.error()};}
+            {ss.clear(); ss.seekg(pos); return {false, print_pos(pos)+"error after rest: "+ot.error()};}
             else return get_expression_from_term(C<Expression*>{},ss,ot.release());
 
         }
@@ -1343,13 +1356,13 @@ myOptional_t<Generic_Assignment*> get(C<Generic_Assignment*>,std::stringstream& 
 {
     auto pos=ss.tellg();
     auto oid=get(C<Identifier*>{},ss);
-    if (!oid) {ss.clear(); ss.seekg(pos);return {false,"assignment with invalid identifier: "+oid.error()};}
+    if (!oid) {ss.clear(); ss.seekg(pos);return {false,print_pos(pos)+"assignment with invalid identifier: "+oid.error()};}
     auto oop=get_variant(C<std::variant<AssignmentGenericOperator*,DefinitionGenericOperator*>>{},ss);
     if (!oop)
-    {ss.clear(); ss.seekg(pos);return {false,"assignment with invalid operator : "+oop.error()};}
+    {ss.clear(); ss.seekg(pos);return {false,print_pos(pos)+"assignment with invalid operator : "+oop.error()};}
     auto oe=grammar::get(C<Expression*>{},ss);
     if (!oe)
-    {ss.clear(); ss.seekg(pos);return {false,"assignment with invalid expression : "+oe.error()};}
+    {ss.clear(); ss.seekg(pos);return {false,print_pos(pos)+"assignment with invalid expression : "+oe.error()};}
     else
     {
         if (std::holds_alternative<AssignmentGenericOperator*>(oop.value()))
@@ -1430,17 +1443,17 @@ myOptional_t<void> BinaryOperation::get(std::stringstream &ss)
     auto pos=ss.tellg();
     auto ot1=grammar::get(C<Term*>{},ss);
     if (!ot1)
-    {ss.clear();ss.seekg(pos); return {false, "binary operation failed on first term: "+ot1.error()};}
+    {ss.clear();ss.seekg(pos); return {false, print_pos(pos)+"binary operation failed on first term: "+ot1.error()};}
     else
     {
         auto oop=grammar::get(C<BinaryOperator*>{},ss);
         if (!oop)
-        {ss.clear();ss.seekg(pos); return {false, "binary operation failed on operator: "+oop.error()};}
+        {ss.clear();ss.seekg(pos); return {false,print_pos(pos)+ "binary operation failed on operator: "+oop.error()};}
         else
         {
             auto ot2=grammar::get(C<Term*>{},ss);
             if (!ot2)
-            {ss.clear();ss.seekg(pos); return {false, "binary operation failed on second term: "+ot2.error()};}
+            {ss.clear();ss.seekg(pos); return {false,print_pos(pos)+ "binary operation failed on second term: "+ot2.error()};}
             else
             {
                 auto ob= resolve_operator_order(C<BinaryOperation*>{},ss,std::unique_ptr<Term>(ot1.release()),std::unique_ptr<BinaryOperator>(oop.release())
@@ -1462,14 +1475,14 @@ myOptional_t<void> UnaryOperation::get(std::stringstream &ss)
     {
         ss.clear();
         ss.seekg(pos);
-        return {false,"Unary Operator not recognized:"+oop.error()};
+        return {false,print_pos(pos)+"Unary Operator not recognized:"+oop.error()};
     }
     else
     {
         auto oe=grammar::get(C<Term*>{},ss);
         if (!oe)
         {
-            ss.clear(); ss.seekg(pos);return {false,"Term error after Unary Operator:"+oe.error()};
+            ss.clear(); ss.seekg(pos);return {false,print_pos(pos)+"Term error after Unary Operator:"+oe.error()};
 
         }    else
         {

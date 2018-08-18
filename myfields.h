@@ -68,6 +68,11 @@ auto getIdFields(const std::tuple<Field...>& fs)
     return std::apply([](auto&...x){return std::map<std::string, std::string>{{x.idField, x.idType}...};},fs);
 }
 
+auto getIdFields(const std::tuple<>& )
+{
+    return std::map<std::string, std::string>{};
+}
+
 
 
 
@@ -96,7 +101,18 @@ struct arg_types<C,object_tag>
     typedef arg_types_t<decltype (C::get_constructor_fields())> type;
 };
 
+template<class...> struct arg_types_tuple;
+template <class...T>
+struct arg_types_tuple<std::tuple<T...>>
+{
+    typedef Cs<T...> type;
+};
 
+template <class T>
+struct arg_types<T,tuple_tag>
+{
+     typedef typename arg_types_tuple<std::decay_t<T>>::type type;
+};
 
 
 template <class Object,class... Method>
@@ -140,9 +156,18 @@ struct included_types<T,object_tag>
     typedef Cs<T,included_types_t<std::invoke_result_t<decltype(std::decay_t<T>::get_constructor_fields)> >> type;
     static std::pair<std::string,std::map<std::string, std::string>> getIdArgs()
     {
-        return {my_trait<T>::className.c_str(),getIdFields(std::decay_t<T>::get_constructor_fields())};
+        return {my_trait<T>::className.c_str(),grammar::getIdFields(std::decay_t<T>::get_constructor_fields())};
     }
     //typedef typename type::object_tag test_type;
+
+
+};
+
+template<typename T>
+struct included_types<T,base_tag>
+{
+    typedef Cs<T,included_types_t<Derived_types_t<T>> > type;
+    //typedef typename type::base_tag test_type;
 
 
 };
@@ -184,14 +209,17 @@ using extract_types_t=typename extract_types<T...>::type;
 template<template<class...> class Cs, class... types,class... commands>
 struct extract_function_return_types<Cs<types...>,Cs<commands...>>
 {
-    typedef     class_set_union_t<class_set_union_t<Cs<>,remove_void_t<Cs<std::conditional_t<is_field_Object<types>::value,types,void>...>>>,Cs<result_of_command_t<commands>...>> type;
+    typedef     class_set_union_t<class_set_union_t<Cs<>,remove_void_t<Cs<std::conditional_t<is_field_Object<types>::value || std::is_pointer_v<types>,types,void>...>>>,Cs<result_of_command_t<commands>...>> type;
 
 };
 
 template <template <class...>class Cs,class ...Ts>
 struct extract_all_types_and_decay<Cs<Ts...>>
 {
+    //typedef typename Cs<Ts...>::input input;
+
     typedef class_set_union_t<Cs<>,typename apply_Op_t_to_all<std::decay_t, Cs<included_types_t<Ts>...>>::type> type;
+   // typedef typename type::output output;
 };
 
 

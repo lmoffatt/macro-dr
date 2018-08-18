@@ -171,8 +171,10 @@ class myOptional<T*, base_ptr_tag>
   std::string error_;
 
 public :
-  T* value(){return x_.get();}
-  const T *   value()const {return x_.get();}
+  T* value()&{return x_.get();}
+  const T *   value()const& {return x_.get();}
+  T* value()&&{return release();}
+  const T *   value()const&& {return release();}
   //typename T::test test;
 
   bool has_value()const { return has_;}
@@ -183,10 +185,17 @@ public :
   //myOptional(U* x):x_{x},has_{true},error_{}{}
 
 
-  myOptional(T* x): x_{x},has_{true},error_{}{}
+  myOptional(T* x):
+      x_{x},
+      has_{true},error_{}{}
 
   myOptional(bool,const std::string& msg):x_{nullptr},has_{false},error_{msg}{}
   myOptional(bool,std::string&& msg):x_{nullptr},has_{false},error_{std::move(msg)}{}
+
+  myOptional(const myOptional& other): x_(other.has_value()?other.value()->clone(): nullptr), has_(other.has_value()),error_(other.error()){}
+  myOptional& operator=(const myOptional&)=default;
+  myOptional(myOptional&&)=default;
+  myOptional& operator=(myOptional&&)=default;
 
   operator bool() { return has_;}
 
@@ -215,8 +224,10 @@ public :
   typedef myOptional_t<typename T::base_type*> base_type;
   typedef typename T::base_type base_element;
 
-  T* value(){return x_;}
-  T * /*const*/  value()const {return x_;}
+  T* value()&{return x_;}
+  T * /*const*/  value()const& {return x_;}
+  T* value()&&{return release();}
+  T * /*const*/  value()const&& {return release();}
   //typename T::test test;
 
 
@@ -368,91 +379,6 @@ invoke_optional_functor(F&& f, Args&&... args)
     }
 }
 
-
-
-template< class F, class... Args>
-auto apply_optional(F&& f, std::tuple<myOptional_t<Args>...>&& args)
-{
-    auto res=std::apply([](auto&... x){
-        return ((
-                    x.has_value()
-                    &&...&&true));
-    },
-    args);
-
-    if constexpr (contains_constructor<F>::value)
-    {
-
-        typedef   typename F::myClass T;
-        if (res)
-            return myOptional_t<T>(std::apply([](auto&... x){ return T(std::forward<Args>(x.value())...);}, args));
-        else return myOptional_t<T>{};
-    }
-    else if constexpr (contains_loader<F>::value)
-    {
-        typedef typename F::myClass T;
-
-        if (res)
-        {
-
-            auto f=std::get<myOptional_t<std::string>>(args);
-            if (f.has_value())
-            {
-                std::ifstream fe;
-                fe.open(f.value().c_str());
-                std::decay_t<T> x;
-                x.read(fe);
-                if (fe.good()||fe.eof())
-                    return myOptional_t<T>(std::move(x));
-            }
-        }
-        return myOptional_t<T>{};
-    }
-    else if constexpr (contains_valuer<F>::value)
-    {
-        typedef typename F::myClass T;
-        if (res)
-        {
-
-            return std::get<myOptional_t<T>>(args);
-        }
-        else return myOptional_t<typename F::myClass>{};
-    }
-    else
-    {
-        typedef std::invoke_result_t<F, Args...> T;
-        if (res)
-            return myOptional_t<T>(std::apply([&f](auto&... x){ return std::invoke<F,Args...>(std::forward<F>(f),std::forward<Args>(optional_value(x))...);}, args));
-        else
-            return myOptional_t<T>();
-
-    }
-}
-
-template< class F, class... Args>
-auto apply_optional(const F& f, myOptional_t<Args>&& ...args)
-{
-    auto res=(args.has_value()&&...&&true);
-
-    if constexpr (contains_constructor<F>::value)
-    {
-
-        typedef typename F::myClass T;
-        if (res)
-            return myOptional_t<T>(typename F::myClass(args.value()...));
-        else
-            return myOptional_t<T>{};
-    }
-    else
-    {
-        typedef  invoke_optional_result_t<F, Args...> T;
-        if (res)
-            return myOptional_t<T>(f(args.value()...));
-        else
-            return myOptional_t<T>{};
-
-    }
-}
 
 
 

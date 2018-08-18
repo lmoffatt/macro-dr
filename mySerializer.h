@@ -43,6 +43,10 @@ std::string my_to_string(double x)
 }
 
 
+template <typename T>
+std::string ToString(const T& x) {std::stringstream ss; ss<<x; return ss.str();}
+
+
 template<typename T> std::ostream& write(std::ostream& s, const T& v);
 template<typename T> std::istream& read(std::istream& s, T& v);
 
@@ -838,7 +842,7 @@ auto& output_operator_on_Abstract_Object(std::ostream& os, std::enable_if_t<std:
     std::string name;
     os<<myObject;
     os<<io::arg_start();
-    output_operator_on_Abstract_Object(os,myObject,typename AbstractObject::derived_types());
+    output_operator_on_Abstract_Object(os,myObject, Derived_types_t< AbstractObject>());
     return os<<io::arg_end{};
 
 }
