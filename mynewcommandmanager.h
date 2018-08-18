@@ -430,16 +430,16 @@ public:
         else return nullptr;
     }
     
-    std::set<Function_Compiler<self_type> const*> get_Function(const std::pair<std::string,std::map<std::string, std::string>>& id)const
+    myOptional_t<std::set<Function_Compiler<self_type> const*>> get_Function(const std::pair<std::string,std::map<std::string, std::string>>& id)const
     {
+        typedef myOptional_t<std::set<Function_Compiler<self_type> const*>> oT;
         std::set<Function_Compiler<self_type> const*> out;
 
         auto&  m=  d_.fgen_;
         auto it=m.find(id);
-        if (it!=m.end()) return {it->second};
+        if (it!=m.end()) {out.insert(it->second);return oT(out);}
         else
         {
-            it =m.lower_bound(id);
             std::set<Function_Compiler<self_type> const*> out;
             it =m.lower_bound(id);
             while ((it!=m.end())&& (it->first.first==id.first))
@@ -448,7 +448,20 @@ public:
                     out.insert(it->second);
                 ++it;
             }
-            return out;
+            if (!out.empty())
+               return oT(out);
+            else
+            {
+                std::string error="look for : \n["+ ToString(id)+"]\ncandidates: ";
+                std::pair<std::string,std::map<std::string, std::string>> id0(id.first,{});
+                it =m.lower_bound(id0);
+                while ((it!=m.end())&& (it->first.first==id.first))
+                {
+                   error+="\n{"+ToString(it->first)+"}\n";
+                    ++it;
+                }
+                return oT(false,error);
+            }
 
         }
     }

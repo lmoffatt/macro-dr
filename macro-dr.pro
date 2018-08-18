@@ -4,6 +4,13 @@ CONFIG -= app_bundle
 CONFIG -= qt
 CONFIG += c++1z
 QMAKE_CXXFLAGS += -std=c++17 -Werror=return-type -ftemplate-backtrace-limit=0
+QMAKE_CXXFLAGS_RELEASE += -lpthread
+QMAKE_CXXFLAGS_DEBUG += -lpthread
+
+
+QMAKE_CXXFLAGS += -fopenmp
+QMAKE_LFLAGS +=  -fopenmp
+LIBS += -lpthread
 LIBS +=  -lblas  -llapack
 
 #QMAKE_CC = /usr/bin/clang-6.0
