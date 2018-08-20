@@ -44,7 +44,8 @@ double getLikelihood(const V<Distribution<T>>& P, const D& data)
     double logL=0;
     for (std::size_t i=0; i<data.num_measurements(); ++i)
     {
-        logL+=getLikelihood(P[i],data[i]);
+        double lik=getLikelihood(P[i],data[i]);
+        if (std::isfinite(lik)) logL+=lik;
     }
     return logL;
 }
@@ -53,7 +54,9 @@ double getLikelihood(const V<Distribution<T>>& P, const D& data)
 template <class E, class D>
 double getGradient(const Base_Distribution<E>& d,const Base_Distribution<E>& d0, const D& data)
 {
+    if (std::isfinite(data))
     return d.logP(data)-d0.logP(data);
+    else return 0;
 }
 
 
@@ -79,7 +82,7 @@ template <template <class...>class Distributions, typename T,class D>
 M_Matrix<double> getGradient(const Distributions<T>& d0,const std::vector<Distributions<T>>& d, const D& data,double eps)
 {
     M_Matrix<double> out(1,d.size());
-    for (std::size_t i=0; i<d.size();)
+    for (std::size_t i=0; i<d.size();++i)
         out[i]= getGradient(d[i],d0,data)/eps;
     return out;
 }
@@ -128,7 +131,7 @@ M_Matrix<double> getHessian(const std::vector<Distributions>& d0, const std::vec
     auto n=d0.size();
     assert(n==data.size());
 
-    M_Matrix<double> out(k,k,0.0);
+    M_Matrix<double> out(k,k,M_Matrix<double>::SYMMETRIC,0.0);
     for (std::size_t i=0; i<n; ++i)
     {
         auto& d_i=d0[i];
@@ -138,10 +141,11 @@ M_Matrix<double> getHessian(const std::vector<Distributions>& d0, const std::vec
         M_Matrix<double> J(npar,k);
         for (std::size_t j=0; j<k; ++j)
         {
-            J(j,":")=(getParameter(d[j][i])-param)*(1.0/eps);
+            J(":",j, (getParameter(d[j][i])-param)*(1.0/eps));
         }
-        auto H=TranspMult(J,FIM)*J;
-        out+=H;
+        /*auto H_=TranspMult(J,FIM)*J;*/
+        auto H=quadraticForm_BT_A_B(FIM,J);
+        out-=H;
     }
     return out;
 }
@@ -166,14 +170,16 @@ public:
     const M_Matrix<double>& H()const {return H_;}
     operator bool()const { return (G_.size()>0)&&(H_.size()>0)&&logLikelihood::operator bool();}
     void  G(M_Matrix<double>&& gradient) { G_=std::move(gradient);}
-    void  H(M_Matrix<double>&& hessian) { H_=std::move(hessian);}
+    void  H(M_Matrix<double>&& hessian) {
+        assert(hessian.isSymmetric());
+        H_=std::move(hessian);}
 
 
 
     DlogLikelihood(double logL, const M_Matrix<double>& Gradient, const M_Matrix<double>& Hessian)
-        :logLikelihood(logL), G_{Gradient},H_{Hessian}{}
+        :logLikelihood(logL), G_{Gradient},H_{Hessian}{assert(H_.isSymmetric());}
     DlogLikelihood(double logL,  M_Matrix<double>&& Gradient,  M_Matrix<double>&& Hessian)
-        :logLikelihood(logL), G_{std::move(Gradient)},H_{std::move(Hessian)}{}
+        :logLikelihood(logL), G_{std::move(Gradient)},H_{std::move(Hessian)}{assert(H_.isSymmetric());}
     DlogLikelihood()=default;
 private:
     M_Matrix<double> G_;
@@ -236,7 +242,7 @@ public:
     typedef M_Matrix<double> Parameters;
 
     Parameters sample(std::mt19937_64& mt)const { return prior_.sample(mt);}
-    logLikelihood getLikelihood(const M_Matrix<double>& x)
+    logLikelihood getLikelihood(const M_Matrix<double>& x)const
     {
         return logLikelihood(prior_.logP(x));
     }
@@ -244,7 +250,7 @@ public:
     {
         return DlogLikelihood(prior_.logP(x), prior_.dlogL_dx(x), prior_.dlogL_dx2(x));
     }
-    Prior_Model(const Parameters_distribution<Model>& prior): prior_{prior}{}
+   Prior_Model(const Parameters_distribution<Model>& prior): prior_{prior}{}
 private:
     Parameters_distribution<Model> prior_;
 
@@ -273,8 +279,8 @@ public:
 
 
 protected:
-    const Distribution_Model& l_;
-    const Data& d_;
+    Distribution_Model l_;
+    Data d_;
 };
 
 
@@ -335,8 +341,8 @@ public:
     Thermodynamic_Model(const PriorModel& prior, const LikelihoodModel& lik, double beta):prior_{prior}, lik_{lik}, beta_{beta}{}
     Thermodynamic_Model(const Thermodynamic_Model& other):prior_{other.prior_}, lik_{other.lik_}, beta_{other.beta_}{};
     Thermodynamic_Model(Thermodynamic_Model&& other):prior_{other.prior_}, lik_{other.lik_}, beta_{std::move(other.beta_)}{};
-    Thermodynamic_Model& operator=(const Thermodynamic_Model&)=default;
-    Thermodynamic_Model& operator=(Thermodynamic_Model&&other){
+    Thermodynamic_Model& operator=(Thermodynamic_Model&&)=default;
+    Thermodynamic_Model& operator=(const Thermodynamic_Model&other){
         if (&other!=this)
         {
             Thermodynamic_Model tmp(other);
@@ -344,6 +350,7 @@ public:
             return *this;
         };
     }
+
 
     double beta()const {return beta_;}
 
@@ -368,8 +375,8 @@ public:
     LikelihoodModel const & likelihood() const { return lik_;}
 
 private:
-    PriorModel const & prior_;
-    LikelihoodModel const & lik_;
+    PriorModel  prior_;
+    LikelihoodModel lik_;
     double beta_;
 };
 
@@ -397,6 +404,7 @@ public:
     Thermodynamic_Model<PriorModel,LikelihoodModel>& model(std::size_t i){ return models_[i];}
     Thermodynamic_Model<PriorModel,LikelihoodModel>const & model(std::size_t i)const { return models_[i];}
 
+    Thermodynamic_Model_Series(const Thermodynamic_Model_Series&)=delete ;
 
 
 private:
@@ -474,10 +482,10 @@ public:
         auto& H=logL.H();
         auto& G=logL.G();
         auto Hl=H+diag(H)*landa_;
-        auto cov=inv(Hl);
+        auto cov=inv(-Hl);
         if (cov.second.empty())
         {
-            Parameters d=-(G*cov.first);
+            Parameters d=(G*cov.first);
             Parameters newpoint=x+d;
             return Normal_Distribution<Parameters>(newpoint,cov.first);
         }
@@ -1157,7 +1165,7 @@ public:
 
         std::mt19937_64& mt(std::size_t i){return mt_[i];}
 
-        samples(const Adaptive_Metropolis_H<Hastings>& adm,Thermodynamic_Model_Series<priorModel,LikelihoodModel> m,std::mt19937_64& _mt, std::vector<Adapative_Distribution_Generator>& adaptive):
+        samples(const Adaptive_Metropolis_H<Hastings>& adm,const Thermodynamic_Model_Series<priorModel,LikelihoodModel>& m,std::mt19937_64& _mt, std::vector<Adapative_Distribution_Generator>& adaptive):
             mt_{mts(_mt,m.size())}, i_to_scout{init_map(m.size())}, scouts_(m.size())
         {
             for (std::size_t i=0; i<m.size(); ++i)
@@ -1381,14 +1389,16 @@ bool run_Montecarlo_Markov_Chain(const Metropolis_algorithm& mcmc,std::mt19937_6
     {
         mcmc.next(M,mt,G,state);
         if (!bool(state)) return false;
-        else
+        else{
             ++isample;
+            std::cerr<<"\tisample="<<isample;
+        }
     }
     return true;
 }
 
 template<class PriorModel, class Likelihood_Model>
-bool run_Thermo_Levenberg_ProbVel(const PriorModel& prior,const Likelihood_Model& lik, std::mt19937_64& mt, std::vector<double> betas,
+bool run_Thermo_Levenberg_ProbVel(const PriorModel& prior,const Likelihood_Model& lik, std::mt19937_64& mt, const std::vector<double>& betas,
                                   const std::vector<double>& landa, const std::vector<std::vector<double>>& landa_50_hill,double gain_moment,std::size_t nSamples)
 {
     typedef  Thermodynamic_Model<PriorModel,Likelihood_Model> Model;

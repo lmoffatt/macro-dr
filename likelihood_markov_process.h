@@ -31,7 +31,9 @@ public:
                          double y_var__,
                          double plogL__,
                          double eplogL__):
-        P_mean_{P_mean__},P_cov_{P_cov__}, y_mean_{y_mean__}, y_var_{y_var__},plogL_{plogL__},eplogL_{eplogL__}{}
+        P_mean_{std::move(P_mean__)},P_cov_{std::move( P_cov__)}, y_mean_{y_mean__}, y_var_{y_var__},plogL_{plogL__},eplogL_{eplogL__}{
+        assert(P_cov__.isSymmetric());
+    }
     
     const M_Matrix<double>& P_mean()const{return P_mean_;}
     const M_Matrix<double>& P_cov()const {return P_cov_;}
@@ -118,7 +120,9 @@ struct MacroDR
             double plogL=std::numeric_limits<double>::quiet_NaN();
             double eplogL=std::numeric_limits<double>::quiet_NaN();
             //auto chi2=std::numeric_limits<double>::quiet_NaN();
-            auto P_cov=TranspMult(Q_dt.P(),(prior.P_cov()-diag(prior.P_mean()))*Q_dt.P());
+           /* auto P_cov=TranspMult(Q_dt.P(),(prior.P_cov()-diag(prior.P_mean()))*Q_dt.P());*/
+            auto P_cov=quadraticForm_BT_A_B((prior.P_cov()-diag(prior.P_mean())),Q_dt.P());
+
             auto P_mean = prior.P_mean()*Q_dt.P();
             P_cov+=diag(prior.P_mean());
             return mp_state_information(std::move(P_mean),std::move(P_cov),y_mean,y_var,plogL,eplogL);
@@ -154,11 +158,18 @@ struct MacroDR
             
             double eplogL=-0.5*(1.0+log(2*PI*y_var));
             
-            auto P_cov=TranspMult(Q_dt.P(),Sm)*Q_dt.P()+diag(prior.P_mean()*Q_dt.P())-
+          /*  auto P_cov=TranspMult(Q_dt.P(),Sm)*Q_dt.P()+diag(prior.P_mean()*Q_dt.P())-
                     TranspMult(gS,gS)*(N/y_var)-
                     (TranspMult(sS,gS)+TranspMult(gS,sS))*(N*N*sSg/y_var/sB4)+
-                    TranspMult(sS,sS)*(N/sB4-N/y_var*N*N*sSg*sSg/sB4/sB4);
+                    TranspMult(sS,sS)*(N/sB4-N/y_var*N*N*sSg*sSg/sB4/sB4);*/
             
+            auto P_cov=quadraticForm_BT_A_B(Sm,Q_dt.P())+
+                    diag(prior.P_mean()*Q_dt.P())-
+                    quadraticForm_XTX(gS)*(N/y_var)-
+                    TransposeSum(TranspMult(sS,gS))*(N*N*sSg/y_var/sB4)+
+                    quadraticForm_XTX(sS)*(N/sB4-N/y_var*N*N*sSg*sSg/sB4/sB4);
+
+
             if constexpr (zero_guard)
             if (!(diag(P_cov)>=0.0)||!(diag(P_cov)<=1.0))
             {
@@ -180,7 +191,7 @@ struct MacroDR
     template< class Model, class Step>
     mp_state_information start(Model& m,const Step& p )const {
         auto P_mean=m.Peq(p.begin()->x());
-        auto P_cov=diag(P_mean)-TranspMult(P_mean,P_mean);
+        auto P_cov=diag(P_mean)-quadraticForm_XTX(P_mean);
         double nan=std::numeric_limits<double>::quiet_NaN();
        return mp_state_information(std::move(P_mean),std::move(P_cov),nan,nan,nan,nan);
     }
@@ -246,6 +257,11 @@ struct partialDistribution_function
         if (std::isfinite(mp.plogL()))
         {
             v[i]=Normal_Distribution<double>(mp.y_mean(),mp.y_var());
+            ++i;
+        }
+        else // hack to avoid including intervals in the Jacobian calculation
+        {
+            v[i]=Normal_Distribution<double>(0,1);
             ++i;
         }
     }

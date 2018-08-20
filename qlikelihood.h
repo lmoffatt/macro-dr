@@ -16,14 +16,14 @@ public:
         auto p=p_.tr_to_Parameter(parameters);
         SingleLigandModel SM(m.Qs(p),m.g(p), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
         Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e);
-        if(algorithm_=="macroDR")
+        if(algorithm_=="MacroDR")
         {
         auto out= markov::partialDistribution(markov::MacroDR<true>(),MC,e);
         return out;
         }
         else return {};
     };
-    Markov_Model_Likelihood(const Model& m, Parameters_distribution<Model> p, const std::string algorithm): m{m},p_{p}, algorithm_{algorithm}{}
+    Markov_Model_Likelihood(const Model& m, const Parameters_distribution<Model>& p, const std::string& algorithm): m{m},p_{p}, algorithm_{algorithm}{}
 private:
    Model m;
    Parameters_distribution<Model> p_;

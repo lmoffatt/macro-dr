@@ -782,6 +782,8 @@ public:
       logDetCov_(logDiagProduct(cho_cov_))
     {
       assert(!cho_cov_.empty());
+      assert(Cov().isSymmetric());
+      assert(covinv_.isSymmetric());
 
     }
 
@@ -792,6 +794,10 @@ public:
       cho_cov_(chol(cov,"lower").first),
       logDetCov_(logDiagProduct(cho_cov_))
     {
+      assert(cov.isSymmetric());
+      assert(Cov().isSymmetric());
+      assert(covinv_.isSymmetric());
+
       assert(!cho_cov_.empty());
 
     }
@@ -805,9 +811,9 @@ public:
     M_Matrix<E> d2logL_dCov2()const
     {
         std::size_t n=CovInv().size();
-        M_Matrix<E> out(n,n);
+        M_Matrix<E> out(n,n,M_Matrix<E>::DIAGONAL);
         for (std::size_t i=0; i<n; ++i)
-            for (std::size_t j=0; j<n; ++j)
+            for (std::size_t j=0; j<i+1; ++j)
             {
                 out(i,j)=0.5*CovInv()[i]*CovInv()[j];
             }

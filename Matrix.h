@@ -1377,6 +1377,8 @@ template <class T>
 std::pair<M_Matrix<T>, std::string>
 chol(const M_Matrix<T>& x, const std::string& kind);
 
+
+
 } // namespace Matrix_Unary_Transformations
 
 using namespace Matrix_Unary_Transformations;
@@ -1761,6 +1763,10 @@ M_Matrix<T> diag(const M_Matrix<T>& x);
 template<typename T>
 M_Matrix<T> Transpose(const M_Matrix<T>& x);
 
+template<typename T>
+M_Matrix<T> TransposeSum(const M_Matrix<T>& x);
+
+
 
 }
 using namespace Matrix_Unary_Transformations;
@@ -2016,6 +2022,31 @@ M_Matrix<T>  Transpose(const M_Matrix<T>& x)
     }
 }
 
+template<class T>
+M_Matrix<T>  TransposeSum(const M_Matrix<T>& x)
+{
+    assert(x.ncols()==x.nrows());
+    switch(x.type())
+    {
+    case M_Matrix<T>::FULL:
+    {
+        M_Matrix<T> out(x.ncols(),x.nrows(),M_Matrix<T>::SYMMETRIC);
+        for (std::size_t i=0; i<x.nrows(); i++)
+            for (std::size_t j=0; j<i+1; ++j)
+                out(j,i)=x(i,j)+x(j,i);
+        return out;
+    }
+    case M_Matrix<T>::ZERO:
+    case M_Matrix<T>::SYMMETRIC:
+    case M_Matrix<T>::DIAGONAL:
+    case M_Matrix<T>::SCALAR_DIAGONAL:
+    case M_Matrix<T>::SCALAR_FULL:
+    default:
+    {
+        return x*2.0;
+    }
+    }
+}
 
 template<typename T>
 M_Matrix<T>  expm_pade(const M_Matrix<T>& M)
@@ -3149,9 +3180,9 @@ M_Matrix<T> diag(const M_Matrix<T>& x)
     if ((nr>1)&(nc>1))
     {
         std::size_t n=std::min(nr,nc);
-        M_Matrix<T> diagV(1,n);
+        M_Matrix<T> diagV(nr,nc,M_Matrix<T>::DIAGONAL);
         for (size_t i=0; i<n; ++i)
-            diagV(0,i)=x(i,i);
+            diagV(i,i)=x(i,i);
         return diagV;
     }
     else

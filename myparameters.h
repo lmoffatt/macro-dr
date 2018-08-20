@@ -257,7 +257,10 @@ public:
 
     Parameters_distribution(const Parameters_distribution& other): tu_{tucopy(other.tu_)}{};
     Parameters_distribution( Parameters_distribution&&)=default;
-    Parameters_distribution& operator=(const Parameters_distribution&)=default;
+    Parameters_distribution& operator=(const Parameters_distribution& other)
+    {if (this!=&other){
+            Parameters_distribution tmp(other); *this=std::move(tmp);} return *this;
+    }
     Parameters_distribution& operator=( Parameters_distribution&&)=default;
 
 
@@ -281,7 +284,9 @@ private:
     {
         std::vector<std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>>> out;
         for (auto& e:in)
-            out.emplace_back(std::get<0>(e),std::get<1>(e)->clone(), std::get<2>(e)->clone());
+            out.emplace_back(std::get<0>(e),
+                             std::unique_ptr<Base_Transformation<double>>(std::get<1>(e)->clone()),
+                             std::unique_ptr<Base_Distribution<double>>(std::get<2>(e)->clone()));
         return out;
 
     }
