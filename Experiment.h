@@ -60,12 +60,24 @@ struct point{
     }
 
 
-   point()=default;
+    point()=default;
     point(double _t, std::size_t _nsamples,X _x,Y _y):t_{_t},nsamples_{_nsamples}, x_{_x},y_{_y}{}
 
     template<typename Z>
     point(const point<X,Z>& p, Y new_y):t_{p.t()},nsamples_{p.nsamples()},
         x_{p.x()},y_{new_y}{}
+
+    void reset(){nsamples_=0;t_=0; x_=0; y_=0;}
+
+    point& operator+=(const point& other)
+    {
+        double n=nsamples()+other.nsamples_;
+        t_=(t()*nsamples()+other.t()*other.nsamples())/n;
+        x_=(x() * nsamples() +other.x()*other.nsamples())/n;
+        y_=(y()*nsamples()+other.y()*other.nsamples())/n;
+        nsamples_=n;
+        return *this;
+    }
 
 };
 
@@ -73,7 +85,7 @@ struct point{
 template<class Y=double>
 struct measure_just_y
 {
-  Y y;
+    Y y;
 };
 
 template <class X, class Y>
@@ -126,6 +138,7 @@ public:
         std::size_t myIndex_;
         std::size_t index_of_start_point_;
         std::size_t nsamples_;
+        point<X,Y> mean_point_;
         measure<Y> y_; //invariant: average of point::y
 
 
@@ -140,32 +153,31 @@ public:
 
         step()=default;
         step(basic_Experiment* e,const step& other):
-            e_{e},myIndex_{other.myIndex_},index_of_start_point_{other.index_of_start_point_},nsamples_{other.nsamples_},y_{other.y_}{}
+            e_{e},myIndex_{other.myIndex_},index_of_start_point_{other.index_of_start_point_},nsamples_{other.nsamples_},mean_point_{other.mean_point_},y_{other.y_}{}
         step(basic_Experiment* e,step&& other):
-            e_{e},myIndex_{std::move(other.myIndex_)},index_of_start_point_{std::move(other.index_of_start_point_)},nsamples_{std::move(other.nsamples_)},y_{std::move(other.y_)}{other.e_=nullptr;}
+            e_{e},myIndex_{std::move(other.myIndex_)},index_of_start_point_{std::move(other.index_of_start_point_)},nsamples_{std::move(other.nsamples_)},
+            mean_point_{std::move(other.mean_point_)},y_{std::move(other.y_)}{other.e_=nullptr;}
 
         void calc()
         {
             if (++begin()==end())
             {
-                nsamples_=(*begin()).nsamples();
-                y_.y=(*begin()).y();
+                mean_point_=*begin();
             }
             else
             {
-                nsamples_=0;
-                y_.y={};
+                mean_point_.reset();
                 for (auto it=begin(); it!=end(); ++it)
                 {
-                    nsamples_+=(*it).nsamples();
-                    y_.y+=(*it).y() * (*it).nsamples();
+                    mean_point_+=*it;
                 }
-                y_.y/=nsamples_;
             }
+            nsamples_=mean_point_.nsamples();
+            y_.y=mean_point_.y();
         }
 
         Y y()const {return y_.y;}
-
+        point<X,Y>const & x()const {return mean_point_;}
         measure<Y>& data(){return y_;}
         auto begin(){return e_->begin_begin_begin()+index_of_start_point_;}
         auto begin()const {return e_->begin_begin_begin()+index_of_start_point_;}
@@ -299,8 +311,8 @@ public:
     {
         return std::make_tuple(
                     grammar::field(C<self_type>{},"points",&self_type::get_Points),
-                    grammar::field(C<self_type>{},"frequency_of_sampling",&self_type::frequency_of_sampling)
-                    );
+                    grammar::field(C<self_type>{},"holding_potential",&self_type::Vm),
+                    grammar::field(C<self_type>{},"frequency_of_sampling",&self_type::frequency_of_sampling));
 
     }
 
@@ -326,8 +338,8 @@ public:
 
     basic_Experiment()=default;
 
-    basic_Experiment(std::vector<point<X,Y>>&& points, double fs)
-        : frequency_of_sampling_{fs},points_{std::move(points)}, steps_{},traces_{}
+    basic_Experiment(std::vector<point<X,Y>>&& points, double Vm,double fs)
+        : frequency_of_sampling_{fs},Vm_{Vm},points_{std::move(points)}, steps_{},traces_{}
 
     {
         for (std::size_t i=0; i<points_.size(); ++i)
@@ -338,8 +350,8 @@ public:
     }
 
 
-    basic_Experiment(const std::vector<point<X,Y>>& points, double fs)
-        : frequency_of_sampling_{fs},points_{points}, steps_{},traces_{}
+    basic_Experiment(const std::vector<point<X,Y>>& points, double Vm, double fs)
+        : frequency_of_sampling_{fs},Vm_{Vm},points_{points}, steps_{},traces_{}
 
     {
         for (std::size_t i=0; i<points_.size(); ++i)
@@ -350,25 +362,29 @@ public:
     }
     template<template<class>class othermeasure>
     basic_Experiment(const basic_Experiment<point<X,Y>,othermeasure<Y>>& other, std::vector<measure<Y>>&& meas):
-    frequency_of_sampling_{other.frequency_of_sampling()},points_{other.points()},
-    steps_{copy(this,other.steps(),std::move(meas))},traces_{copy_trace(this,other.traces())}
-{}
+        frequency_of_sampling_{other.frequency_of_sampling()},Vm_{other.Vm()},points_{other.points()},
+        steps_{copy(this,other.steps(),std::move(meas))},traces_{copy_trace(this,other.traces())}
+    {
+        for (auto &e:steps_) e.calc();
+
+    }
 
     basic_Experiment(basic_Experiment&& other):
-        frequency_of_sampling_{std::move(other.frequency_of_sampling_)},points_{std::move(other.points_)},
+        frequency_of_sampling_{std::move(other.frequency_of_sampling_)},Vm_{other.Vm()},points_{std::move(other.points_)},
         steps_{move(this,std::move(other.steps_))},traces_{move(this,std::move(other.traces_))}{
 
 
     }
 
     basic_Experiment(const basic_Experiment& other):
-        frequency_of_sampling_{other.frequency_of_sampling_},points_{other.points_},
+        frequency_of_sampling_{other.frequency_of_sampling_},Vm_{other.Vm()},points_{other.points_},
         steps_{copy(this,other.steps_)},traces_{copy(this,other.traces_)}
     {}
 
 
     basic_Experiment& operator=(basic_Experiment&& other){
         frequency_of_sampling_=std::move(other.frequency_of_sampling_);
+        Vm_=other.Vm();
         points_=std::move(other.points_);
         steps_=std::move(other.steps_);
         traces_=std::move(other.traces_);
@@ -378,6 +394,7 @@ public:
 
     basic_Experiment& operator=(const basic_Experiment& other){
         frequency_of_sampling_=other.frequency_of_sampling_;
+        Vm_=other.Vm();
         points_=other.points_;
         steps_=other.steps_;
         traces_=other.traces_;
@@ -427,6 +444,7 @@ public:
 
     std::size_t num_measurements()const { return steps().size();}
     std::size_t size()const { return steps().size();}
+    double Vm()const { return Vm_;}
 
     Y operator[](std::size_t i)const { return steps()[i].y();}
 
@@ -446,6 +464,7 @@ private:
 
     }
     double frequency_of_sampling_;
+    double Vm_;
     std::vector<point<X,Y>> points_;
     std::vector<step> steps_;
     std::vector<trace> traces_;
@@ -464,6 +483,7 @@ DataFrame_to_Experiment(const io::myDataFrame<Ts...>& d
                         const std::string& colname_nsample,
                         const std::string& colname_x,
                         const std::string& colname_y,
+                        double Vm,
                         double frequency_of_sampling)
 {
 
@@ -475,7 +495,7 @@ DataFrame_to_Experiment(const io::myDataFrame<Ts...>& d
                                            d.template get<double>(colname_x,i).value(),
                                            d.template get<double>(colname_y,i).value()));
     }
-    return basic_Experiment<point<double,double>,measure_just_y<double>>(std::move(out),frequency_of_sampling);
+    return basic_Experiment<point<double,double>,measure_just_y<double>>(std::move(out),Vm,frequency_of_sampling);
 }
 
 
@@ -483,19 +503,28 @@ DataFrame_to_Experiment(const io::myDataFrame<Ts...>& d
 
 
 auto Experiment_to_DataFrame(basic_Experiment<point<double,double>,measure_just_y<double>> e,
-                        const std::string& colname_time="time",
-                        const std::string& colname_nsample="nsample",
-                        const std::string& colname_x="x",
-                        const std::string& colname_y="y")
+                             const std::string& colname_trace="trace",
+                             const std::string& colname_time="time",
+                             const std::string& colname_nsample="nsample",
+                             const std::string& colname_x="x",
+                             const std::string& colname_y="y")
 {
-    io::myDataFrame<double,std::size_t> d(std::pair(colname_time,C<double>{}),
-                              std::pair(colname_nsample,C<std::size_t>{}),
-                              std::pair(colname_x,C<double>{}),
-                              std::pair(colname_y,C<double>{}));
+    io::myDataFrame<double,std::size_t> d(std::pair(colname_trace,C<std::size_t>{}),
+                                          std::pair(colname_time,C<double>{}),
+                                          std::pair(colname_nsample,C<std::size_t>{}),
+                                          std::pair(colname_x,C<double>{}),
+                                          std::pair(colname_y,C<double>{}));
 
-    for (auto it=e.begin_begin_begin(); it!=e.end_end_end(); ++it)
+    std::size_t ntrace=0;
+    for (auto it=e.begin(); it!=e.end(); ++it)
     {
-        d.push_back(it->t(), it->nsamples(), it->x(), it->y());
+        for (auto it2=it->begin(); it2!=it->end(); ++it2)
+            for (auto it3=it2->begin(); it3!=it2->end(); ++it3)
+            {
+                auto n=ntrace;
+                d.push_back(n,it3->t(), it3->nsamples(), it3->x(), it3->y());
+            }
+        ++ntrace;
     }
     return d;
 
@@ -504,16 +533,30 @@ auto Experiment_to_DataFrame(basic_Experiment<point<double,double>,measure_just_
 
 template< class measure>
 auto Experiment_Steps_to_DataFrame(basic_Experiment<point<double,double>,measure> e,
-                        const std::string& colname_nsample="nsample")
+                                   const std::string& colname_trace="trace",
+                                   const std::string& colname_time="t",
+                                   const std::string& colname_nsample="nsample",
+                                   const std::string& colname_x="x",
+                                   const std::string& colname_y="y")
 {
-    io::myDataFrame<double,std::size_t> d(std::pair(colname_nsample,C<std::size_t>{}));
+    io::myDataFrame<double,std::size_t> d(std::pair(colname_trace,C<std::size_t>{}),
+                                           std::pair(colname_time,C<double>{}),
+                                           std::pair(colname_nsample,C<std::size_t>{}),
+                                           std::pair(colname_x,C<double>{}),
+                                           std::pair(colname_y,C<double>{}));
 
 
     measure::insert_col(d);
-    for (auto it=e.begin_begin(); it!=e.end_end(); ++it)
+    std::size_t itrace=0;
+    for (auto itr=e.begin(); itr!=e.end(); ++itr)
+    {
+    for (auto it=itr->begin(); it!=itr->end(); ++it)
     {
         auto m=it->data().data();
-        std::apply([&d,&it](auto...x){d.push_back(it->nsamples(), x... );},m);
+
+        std::apply([&d,&it,itrace](auto...x){d.push_back(itrace,it->x().t(),it->x().nsamples(),it->x().x(),it->x().y(), x... );},m);
+    }
+    ++itrace;
     }
     return d;
 }

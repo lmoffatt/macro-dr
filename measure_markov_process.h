@@ -85,7 +85,8 @@ if ((current.nsubsamples!=actual_nsubsamples)||(current.x!=new_x))
 {
     current.x=new_x;
     current.nsubsamples=actual_nsubsamples;
-    auto P=m.get_P(current.x,current.nsubsamples).P();
+    auto P=m.calc_P(current.x,current.nsubsamples).P();
+//    auto P=m.get_P(current.x,current.nsubsamples).P();
     mp.set_P(std::move(P));
 }
 }
@@ -102,7 +103,8 @@ auto init_mp(std::mt19937_64& mt, Model& m, X x, std::size_t nsamples)
     current.x=x;
     current.sum_samples=nsamples;
     current.sum_samples=0;
-    auto P=m.get_P(x,nsamples);
+    auto P=m.calc_P(x,nsamples);
+//    auto P=m.get_P(x,nsamples);
     return std::make_tuple(markov_process<std::size_t>(Nini, P.P()),current);
 }
 
@@ -198,7 +200,7 @@ auto measure_experiment(const F& f, std::mt19937_64& mt, Model& m,const Experime
     {
        meansure_trace(points,current,f,mt,mp,m,*it,n_substeps,fs);
     }
-    return Experiment<Point, measure>(std::move(points),fs);
+    return Experiment<Point, measure>(std::move(points),e.Vm(),fs);
  }
 
 

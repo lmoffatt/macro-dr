@@ -38,14 +38,15 @@ struct to_experiment
 {
     static constexpr auto className=my_static_string("to_experiment");
 
-   static auto run(const io::myDataFrame<double>& da
-                                            ,const std::string& colname_time,
-                                            const std::string& colname_nsample,
-                                            const std::string& colname_x,
-                                            const std::string& colname_y,
-                                            double frequency_of_sampling)
+    static auto run(const io::myDataFrame<double>& da
+                    ,const std::string& colname_time,
+                    const std::string& colname_nsample,
+                    const std::string& colname_x,
+                    const std::string& colname_y,
+                    double Vm,
+                    double frequency_of_sampling)
     {
-       return experiment::DataFrame_to_Experiment(da,colname_time,colname_nsample,colname_x,colname_y,frequency_of_sampling);
+        return experiment::DataFrame_to_Experiment(da,colname_time,colname_nsample,colname_x,colname_y,Vm,frequency_of_sampling);
     }
 
 
@@ -56,11 +57,24 @@ struct to_experiment
                                grammar::argument(C<std::string>{},"colname_nsample"),
                                grammar::argument(C<std::string>{},"colname_x"),
                                grammar::argument(C<std::string>{},"colname_y"),
-                    grammar::argument(C<double>{},"frequency_of_sampling"));
+                               grammar::argument(C<double>{},"holding_potential"),
+                               grammar::argument(C<double>{},"frequency_of_sampling"));
     }
 
 
 };
+
+struct function_log10
+{
+    static constexpr auto className=my_static_string("log10");
+    static double run(double x){ return std::log10(x);}
+    static   auto get_arguments()
+    {
+        return std::make_tuple(grammar::argument(C< double>{},"x"));
+    }
+};
+
+
 
 template<class measure>
 struct to_DataFrame
@@ -68,15 +82,17 @@ struct to_DataFrame
     static constexpr auto className=my_static_string("to_dataframe");
 
     static auto run(const basic_Experiment<point<double,double>,measure>& e,
-                            const std::string& colname_time="time",
-                            const std::string& colname_nsample="nsample",
-                            const std::string& colname_x="x",
-                            const std::string& colname_y="y")
+                    const std::string& colname_trace="trace",
+                    const std::string& colname_time="time",
+                    const std::string& colname_nsample="nsample",
+                    const std::string& colname_x="x",
+                    const std::string& colname_y="y")
     {
         if constexpr (std::is_same_v<measure,measure_just_y<double >>)
-       return experiment::Experiment_to_DataFrame(e,colname_time,colname_nsample,colname_x,colname_y);
+                return experiment::Experiment_to_DataFrame(e,colname_trace,colname_time,colname_nsample,colname_x,colname_y);
         else
-        return experiment::Experiment_Steps_to_DataFrame(e,colname_nsample);
+        return experiment::Experiment_Steps_to_DataFrame(e,colname_trace,colname_time,colname_nsample,colname_x,colname_y);
+
 
     }
 
@@ -84,6 +100,7 @@ struct to_DataFrame
     static auto get_arguments()
     {
         return std::make_tuple(grammar::argument(C< const basic_Experiment<point<double,double>,measure>&>{},"experiment"),
+                               grammar::argument(C<std::string>{},"colname_trace", std::string("trace")),
                                grammar::argument(C<std::string>{},"colname_time", std::string("time")),
                                grammar::argument(C<std::string>{},"colname_nsample",std::string("nsample")),
                                grammar::argument(C<std::string>{},"colname_x",std::string("x")),
@@ -105,24 +122,24 @@ struct save{
     struct uses
     {
         //typedef decltype (operator<< (std::declval<std::ostream&>(),std::declval<type_candidate const &>())) test;
-       // static_assert(!has_global_extractor<type_candidate>::value,"test");
+        // static_assert(!has_global_extractor<type_candidate>::value,"test");
         typedef has_global_extractor<type_candidate> type;
     };
 
 
     static std::string run(const T& x, const std::string& filename)
     {
-         std::ofstream of;
-         of.open(filename.c_str());
-         if (!of.good())
-             return filename+" could not be created";
-         else
-         {
-             if (!(of<<x))
-                 return "variable could not be written";
-             else
-                 return "written successfully";
-         }
+        std::ofstream of;
+        of.open(filename.c_str());
+        if (!of.good())
+            return filename+" could not be created";
+        else
+        {
+            if (!(of<<x))
+                return "variable could not be written";
+            else
+                return "written successfully";
+        }
     }
 
     static auto get_arguments()
@@ -143,28 +160,28 @@ struct write_variable{
     struct uses
     {
         //typedef decltype (operator<< (std::declval<std::ostream&>(),std::declval<type_candidate const &>())) test;
-       // static_assert(!has_global_extractor<type_candidate>::value,"test");
+        // static_assert(!has_global_extractor<type_candidate>::value,"test");
         typedef is_write_Object<type_candidate> type;
 
-       //static_assert (type::value,"true" );
-       // static_assert (!type::value,"false" );
+        //static_assert (type::value,"true" );
+        // static_assert (!type::value,"false" );
 
     };
 
 
     static std::string run(const T& x, const std::string& filename)
     {
-         std::ofstream of;
-         of.open(filename.c_str());
-         if (!of.good())
-             return filename+" could not be created";
-         else
-         {
-             if (!x.write(of))
-                 return "variable could not be written";
-             else
-                 return "written successfully";
-         }
+        std::ofstream of;
+        of.open(filename.c_str());
+        if (!of.good())
+            return filename+" could not be created";
+        else
+        {
+            if (!x.write(of))
+                return "variable could not be written";
+            else
+                return "written successfully";
+        }
     }
 
     static auto get_arguments()
@@ -187,7 +204,7 @@ struct simulate{
     static constexpr auto className=my_static_string("simulate");
     static auto run(std::mt19937_64::result_type initseed,const Experiment& e,  const Model& m , const Parameters_values<Model>& p,std::size_t n)
     {
-        SingleLigandModel SM(m.Qs(p),m.g(p),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()));
+        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()));
 
         Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,Experiment,double> MC(SM,e);
 
@@ -222,18 +239,26 @@ struct likelihood{
 
     static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm)
     {
-        SingleLigandModel SM(m.Qs(p),m.g(p), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
+        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
 
 
         Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e);
 
-        if (algorithm==markov::MacroDR<true>::className.str())
+        if (algorithm==my_trait<markov::MacroDR<true>>::className.str())
         {
-           auto out= markov::logLikelihood(markov::MacroDR<true>(),MC,e);
-           std::cerr<<"logLikelihodd = "<<out<<std::endl;
-           return out;
+            auto out= markov::logLikelihood(markov::MacroDR<true>(),MC,e);
+            std::cerr<<"logLikelihodd = "<<out<<std::endl;
+            return out;
 
         }
+        else if (algorithm==my_trait<markov::MacroDR<false>>::className.str())
+        {
+            auto out= markov::logLikelihood(markov::MacroDR<false>(),MC,e);
+            std::cerr<<"logLikelihodd = "<<out<<std::endl;
+            return out;
+
+        }
+
         else return mynan;
     }
 
@@ -257,15 +282,21 @@ struct likelihood_detail{
 
     static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm)
     {
-        SingleLigandModel SM(m.Qs(p),m.g(p), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
+        SingleLigandModel SM(m.Qs(p),m.g(p), e.Vm(),p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
 
 
         Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e);
 
-        if (algorithm==markov::MacroDR<true>::className.str())
+        if (algorithm==my_trait<markov::MacroDR<true>>::className.str())
         {
-           auto out= markov::monitorLikelihood(markov::MacroDR<true>(),MC,e);
-           return out;
+            auto out= markov::monitorLikelihood(markov::MacroDR<true>(),MC,e);
+            return out;
+
+        }
+        else         if (algorithm==my_trait<markov::MacroDR<false>>::className.str())
+        {
+            auto out= markov::monitorLikelihood(markov::MacroDR<false>(),MC,e);
+            return out;
 
         }
         else return experiment::basic_Experiment<experiment::point<double,double>,markov::measure_likelihood<double>>{};
@@ -316,7 +347,9 @@ struct Evidence{
                     std::vector<double>landa,
                     std::vector<std::vector<double>>landa_50_hill,
                     double gain_moment,
-                    std::size_t nSamples)
+                    std::size_t nSamples,
+                    bool parameters,
+                    bool gradient)
     {
 
         Markov_Model_DLikelihood<Model,Experiment> lik(m,p,e,algorithm,eps);
@@ -326,8 +359,9 @@ struct Evidence{
             initseed=rd();
         }
         std::mt19937_64 mt(initseed);
+        evidence::OutputGenerator out(std::cerr,parameters,gradient);
 
-        return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model>(p),lik,mt,betas,landa,landa_50_hill,gain_moment,nSamples);
+        return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model>(p),lik,mt,betas,landa,landa_50_hill,gain_moment,nSamples,out);
     }
 
     static auto get_arguments()
@@ -343,7 +377,10 @@ struct Evidence{
                     grammar::argument(C<std::vector<double>>{},"landas"),
                     grammar::argument(C<std::vector<std::vector<double>>>{},"landa_50_hill"),
                     grammar::argument(C<double>{},"gain_moment"),
-                    grammar::argument(C<std::size_t>{},"nSamples")
+                    grammar::argument(C<std::size_t>{},"nSamples"),
+                    grammar::argument(C<bool>{},"parameters_output"),
+                    grammar::argument(C<double>{},"gradient_output")
+
                     );
     }
 };
@@ -355,7 +392,9 @@ struct Objects
 {
 
     typedef Cs<Allosteric_Model,singleLigandExperiment> types;
-    typedef Cs<simulate<singleLigandExperiment,Allosteric_Model>, likelihood<singleLigandExperiment,Allosteric_Model>,
+    typedef Cs<
+    function_log10,
+    simulate<singleLigandExperiment,Allosteric_Model>, likelihood<singleLigandExperiment,Allosteric_Model>,
     likelihood_detail<singleLigandExperiment,Allosteric_Model>,
     Evidence<singleLigandExperiment,Allosteric_Model>,
 

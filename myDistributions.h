@@ -3,6 +3,7 @@
 
 #include "Matrix.h"
 #include "mymath.h"
+# include "mytests.h"
 #include <random>
 #include <cmath>
 
@@ -71,7 +72,7 @@ public:
 
     virtual M_Matrix<T> param()const =0;
 
-   // virtual M_Matrix<T> Score(const T& x)const =0;    // V(x)
+    // virtual M_Matrix<T> Score(const T& x)const =0;    // V(x)
     
     virtual M_Matrix<T> Fisher_Information()const =0;    //I()
     
@@ -128,7 +129,7 @@ public:
 
 template<>
 struct Derived_types<Base_Transformation<double>>{
-typedef Cs<Identity_Transformation<double>,Logarithm_Transformation<double>, Logit_Transformation<double>> type;
+    typedef Cs<Identity_Transformation<double>,Logarithm_Transformation<double>, Logit_Transformation<double>> type;
     constexpr bool static value=true;
 
 };
@@ -170,8 +171,8 @@ public:
     constexpr static auto const className=my_static_string("Logarithm_Transformation");
 
     virtual Logarithm_Transformation* clone()const override{ return new Logarithm_Transformation(*this);};
-    virtual double apply(const double& x)const override  {return std::log(x);}
-    virtual double apply_inv(const double& x)const override {return std::exp(x);}
+    virtual double apply(const double& x)const override  {return std::log10(x);}
+    virtual double apply_inv(const double& x)const override {return std::pow(10.0,x);}
 
     virtual ~Logarithm_Transformation(){}
 
@@ -588,34 +589,34 @@ private:
 
 M_Matrix<double> normalize_to_prob(M_Matrix<double>&& P)
 {
-  if (P.nrows()==1)
-  {
-      double sum=0;
-      for (std::size_t i=0; i<P.ncols(); ++i)
-          sum+=std::abs(P(0,i));
-      for (std::size_t i=0; i<P.ncols(); ++i)
-          P(0,i)=std::abs(P(0,i))/sum;
-  }
-  else if (P.ncols()==1)
-{      double sum=0;
-      for (std::size_t i=0; i<P.nrows(); ++i)
-          sum+=std::abs(P(i,0));
-      for (std::size_t i=0; i<P.nrows(); ++i)
-          P(i,0)=std::abs(P(i,0))/sum;
- }
-  else
-  {
-      for (std::size_t j=0; j<P.ncols();++j)
-      {
-          double sum=0;
-          for (std::size_t i=0; i<P.nrows(); ++i)
-              sum+=std::abs(P(i,j));
-          for (std::size_t i=0; i<P.nrows(); ++i)
-              P(i,j)=std::abs(P(i,j))/sum;
+    if (P.nrows()==1)
+    {
+        double sum=0;
+        for (std::size_t i=0; i<P.ncols(); ++i)
+            sum+=std::abs(P(0,i));
+        for (std::size_t i=0; i<P.ncols(); ++i)
+            P(0,i)=std::abs(P(0,i))/sum;
+    }
+    else if (P.ncols()==1)
+    {      double sum=0;
+        for (std::size_t i=0; i<P.nrows(); ++i)
+            sum+=std::abs(P(i,0));
+        for (std::size_t i=0; i<P.nrows(); ++i)
+            P(i,0)=std::abs(P(i,0))/sum;
+    }
+    else
+    {
+        for (std::size_t j=0; j<P.ncols();++j)
+        {
+            double sum=0;
+            for (std::size_t i=0; i<P.nrows(); ++i)
+                sum+=std::abs(P(i,j));
+            for (std::size_t i=0; i<P.nrows(); ++i)
+                P(i,j)=std::abs(P(i,j))/sum;
 
-      }
-  }
-  return std::move(P);
+        }
+    }
+    return std::move(P);
 }
 
 
@@ -652,7 +653,7 @@ public:
     virtual double logP(const double& x)const override {return -0.5*std::log(2*PI)-std::log(stddev())-0.5*sqr((x-mean())/stddev());}
 
 
-   /*
+    /*
     virtual M_Matrix<double> Score(const double& x) const override
     { return M_Matrix<double>(1,2,std::vector<double>{dlogL_dmean(x),dlogL_dstddev(x)});};
 */
@@ -677,7 +678,7 @@ public:
         return (mean()-x)/variance();
     }
 
-       virtual double dlogL_dx2(const double& )const override
+    virtual double dlogL_dx2(const double& )const override
     {
         return -1.0/variance();
     }
@@ -688,7 +689,7 @@ public:
     Normal_Distribution&operator=(Normal_Distribution&&)=default;
 
 
-    protected:
+protected:
     M_Matrix<double> param_;
 
 
@@ -723,32 +724,32 @@ public:
 
     M_Matrix<E> sample(std::mt19937_64& mt)const override
     {
-      M_Matrix<E> r;
-      std::normal_distribution<> normal;
-      if (param_.size()>0)
+        M_Matrix<E> r;
+        std::normal_distribution<> normal;
+        if (param_.size()>0)
         {
-          auto z=Rand(mean(),normal,mt);
-          r=mean()+multTransp(z,Chol());
+            auto z=Rand(mean(),normal,mt);
+            r=mean()+multTransp(z,Chol());
         }
-      return r;
+        return r;
     }
 
 
     virtual  M_Matrix<M_Matrix<E>> Fisher_Information()const override{
         return M_Matrix<M_Matrix<E>>(2,2,M_Matrix<M_Matrix<E>>::DIAGONAL,
-                                std::vector<M_Matrix<E>>{d2logL_dmean2(),d2logL_dCov2()});}
+                                     std::vector<M_Matrix<E>>{d2logL_dmean2(),d2logL_dCov2()});}
 
 
     double logP(const M_Matrix<E> &x) const override
     {
-      if (param_.size()>0)
-        return -0.5*mean().size()*log(PI)-logDetCov()-chi2(x);
-      else
-          return std::numeric_limits<double>::quiet_NaN();
+        if (param_.size()>0)
+            return -0.5*mean().size()*log(PI)-logDetCov()-chi2(x);
+        else
+            return std::numeric_limits<double>::quiet_NaN();
     }
     double p(const M_Matrix<E>& x)const override
     {
-      return exp(logP(x));
+        return exp(logP(x));
     }
 
     virtual M_Matrix<M_Matrix<E>>  param()const override {return param_;}
@@ -762,43 +763,43 @@ public:
 
     virtual ~Normal_Distribution(){}
 
-     M_Matrix<E> mean()const override {return param_[0];};
-     M_Matrix<E> Cov()const {return param_[1];};
-     M_Matrix<E> stddev()const override{return cho_cov_;}
+    M_Matrix<E> mean()const override {return param_[0];};
+    M_Matrix<E> Cov()const {return param_[1];};
+    M_Matrix<E> stddev()const override{return cho_cov_;}
 
     double chi2(const M_Matrix<E> &x) const
     {
-      if (!param_.empty())
-        return 0.5*xTSigmaX(x-mean(),covinv_);
-      else return std::numeric_limits<double>::quiet_NaN();
+        if (!param_.empty())
+            return 0.5*xTSigmaX(x-mean(),covinv_);
+        else return std::numeric_limits<double>::quiet_NaN();
     }
 
 
     Normal_Distribution(const M_Matrix<E> &mean,
-                         const M_Matrix<E>& cov):
+                        const M_Matrix<E>& cov):
         param_(M_Matrix<M_Matrix<E>>(1,2,std::vector<M_Matrix<E>>{mean,cov})),
-      covinv_(inv(cov).first),
-      cho_cov_(chol(cov,"lower").first),
-      logDetCov_(logDiagProduct(cho_cov_))
+        covinv_(inv(cov).first),
+        cho_cov_(chol(cov,"lower").first),
+        logDetCov_(logDiagProduct(cho_cov_))
     {
-      assert(!cho_cov_.empty());
-      assert(Cov().isSymmetric());
-      assert(covinv_.isSymmetric());
+        assert(!cho_cov_.empty());
+        assert(Cov().isSymmetric());
+        assert(covinv_.isSymmetric());
 
     }
 
     Normal_Distribution(const M_Matrix<E> &mean,
-                         const M_Matrix<E>& cov, const M_Matrix<E>& covInv):
+                        const M_Matrix<E>& cov, const M_Matrix<E>& covInv):
         param_(M_Matrix<M_Matrix<E>>(1,2,std::vector<M_Matrix<E>>{mean,cov})),
-      covinv_(covInv),
-      cho_cov_(chol(cov,"lower").first),
-      logDetCov_(logDiagProduct(cho_cov_))
+        covinv_(covInv),
+        cho_cov_(chol(cov,"lower").first),
+        logDetCov_(logDiagProduct(cho_cov_))
     {
-      assert(cov.isSymmetric());
-      assert(Cov().isSymmetric());
-      assert(covinv_.isSymmetric());
+        assert(cov.isSymmetric());
+        assert(Cov().isSymmetric());
+        assert(covinv_.isSymmetric());
 
-      assert(!cho_cov_.empty());
+        assert(!cho_cov_.empty());
 
     }
 
@@ -824,25 +825,25 @@ public:
 
     void autoTest(std::mt19937_64& mt,std::size_t n)const
     {
-      std::cerr<<"chi test n="<<mean().size()<<" chis\n";
-      double chisum=0;
-      double chisqr=0;
-      for (std::size_t i=0; i<n; ++i)
+        std::cerr<<"chi test n="<<mean().size()<<" chis\n";
+        double chisum=0;
+        double chisqr=0;
+        for (std::size_t i=0; i<n; ++i)
         {
-          auto s=sample(mt);
-          auto chi=chi2(s);
-          //  std::cerr<<chi<<" ";
-          chisum+=chi;
-          chisqr+=chi*chi;
+            auto s=sample(mt);
+            auto chi=chi2(s);
+            //  std::cerr<<chi<<" ";
+            chisum+=chi;
+            chisqr+=chi*chi;
         }
-      chisum/=n;
-      chisqr-=n*chisum*chisum;
-      chisqr/=(n-1);
-      std::cerr<<"\n chimean="<<chisum<<" chisqr="<<chisqr;
+        chisum/=n;
+        chisqr-=n*chisum*chisum;
+        chisqr/=(n-1);
+        std::cerr<<"\n chimean="<<chisum<<" chisqr="<<chisqr;
     }
     bool isValid()const
     {
-      return !cho_cov_.empty();
+        return !cho_cov_.empty();
     }
 
     virtual M_Matrix<E> dlogL_dx(const M_Matrix<E>& x)const override
@@ -850,13 +851,13 @@ public:
         return CovInv()*(mean()-x);
     }
 
-       virtual M_Matrix<E> dlogL_dx2(const M_Matrix<E>& )const override
+    virtual M_Matrix<E> dlogL_dx2(const M_Matrix<E>& )const override
     {
         return -CovInv();
     }
 
 
-  protected:
+protected:
     M_Matrix<M_Matrix<E>> param_;
     M_Matrix<E> covinv_;
     M_Matrix<E> cho_cov_;
@@ -866,7 +867,7 @@ public:
 
 inline double BetaDistribution(double p, std::size_t success, std::size_t failures)
 {
-  return std::pow(p,success)*std::pow(1.0-p,failures)/std::exp(log_beta_f(1.0+success,1.0+failures));
+    return std::pow(p,success)*std::pow(1.0-p,failures)/std::exp(log_beta_f(1.0+success,1.0+failures));
 }
 
 
@@ -889,88 +890,88 @@ public:
 
     virtual Base_Distribution* clone()const override{ return new Beta_Distribution(*this);};
 
-  Beta_Distribution(double alfa, double beta):
-      a_(1,2,std::vector<double>{alfa,beta}){}
+    Beta_Distribution(double alfa, double beta):
+        a_(1,2,std::vector<double>{alfa,beta}){}
 
-  Beta_Distribution():Beta_Distribution(0.5,0.5){}
-
-
-  double count()const {return alfa()+beta();}
-
-  static Beta_Distribution UniformPrior()
-  {
-    return Beta_Distribution(1.0,1.0);
-  }
-  static Beta_Distribution UnInformativePrior()
-  {
-    return Beta_Distribution(0.5,0.5);
-  }
+    Beta_Distribution():Beta_Distribution(0.5,0.5){}
 
 
-  double p()const {return mean();}
+    double count()const {return alfa()+beta();}
 
-  void push_accept()
-  {
-    ++a_[0];
-  }
-  void push_reject()
-  {
-    ++a_[1];
-  }
+    static Beta_Distribution UniformPrior()
+    {
+        return Beta_Distribution(1.0,1.0);
+    }
+    static Beta_Distribution UnInformativePrior()
+    {
+        return Beta_Distribution(0.5,0.5);
+    }
 
 
-  double sample(std::mt19937_64& mt)const override
-  {
-    std::gamma_distribution<double> ga(alfa(),2.0);
-    std::gamma_distribution<double> gb(beta(),2.0);
+    double p()const {return mean();}
 
-    double a=ga(mt);
-    double b=gb(mt);
-    return a/(a+b);
-  }
+    void push_accept()
+    {
+        ++a_[0];
+    }
+    void push_reject()
+    {
+        ++a_[1];
+    }
+
+
+    double sample(std::mt19937_64& mt)const override
+    {
+        std::gamma_distribution<double> ga(alfa(),2.0);
+        std::gamma_distribution<double> gb(beta(),2.0);
+
+        double a=ga(mt);
+        double b=gb(mt);
+        return a/(a+b);
+    }
 
 
 private:
-  M_Matrix<double> a_;
+    M_Matrix<double> a_;
 
 
-  // Base_Distribution interface
+    // Base_Distribution interface
 public:
-  virtual double p(const double &x) const override{
-      return std::exp(logP(x));
-  }
-  virtual double logP(const double &x) const override
-  {
-          return alfa()*std::log(x)+beta()*std::log(1.0-x)-log_beta_f(1.0+alfa(),1.0+beta());
-  }
+    virtual double p(const double &x) const override{
+        return std::exp(logP(x));
+    }
+    virtual double logP(const double &x) const override
+    {
+        return alfa()*std::log(x)+beta()*std::log(1.0-x)-log_beta_f(1.0+alfa(),1.0+beta());
+    }
 
-  double alfa()const{return a_[0];}
-  double beta()const{return a_[1];}
+    double alfa()const{return a_[0];}
+    double beta()const{return a_[1];}
 
-  virtual  M_Matrix<double> param() const override{ return a_;}
-  virtual M_Matrix<double> Fisher_Information() const override
-  { return M_Matrix<double>(2,2,std::vector<double>{d2logLik_dalfa2(),d2logLik_dalfadbeta(),d2logLik_dalfadbeta(),d2logLik_dbeta2()});}
+    virtual  M_Matrix<double> param() const override{ return a_;}
+    virtual M_Matrix<double> Fisher_Information() const override
+    { return M_Matrix<double>(2,2,std::vector<double>{d2logLik_dalfa2(),d2logLik_dalfadbeta(),d2logLik_dalfadbeta(),d2logLik_dbeta2()});}
 
-  virtual double mean() const override { return alfa()/(alfa()+beta());}
-  virtual double stddev() const override { return std::sqrt(variance());}
-  double variance() const {return alfa()*beta()/(sqr(alfa()+beta())*(alfa()+beta()+1));}
+    virtual double mean() const override { return alfa()/(alfa()+beta());}
+    virtual double stddev() const override { return std::sqrt(variance());}
+    double variance() const {return alfa()*beta()/(sqr(alfa()+beta())*(alfa()+beta()+1));}
 
-  double d2logLik_dalfadbeta()const { return -digamma(alfa()+beta());}
+    double d2logLik_dalfadbeta()const { return -digamma(alfa()+beta());}
 
-  double d2logLik_dalfa2()const { return digamma(alfa())+d2logLik_dalfadbeta();}
-  double d2logLik_dbeta2()const { return digamma(beta())+d2logLik_dalfadbeta();}
+    double d2logLik_dalfa2()const { return digamma(alfa())+d2logLik_dalfadbeta();}
+    double d2logLik_dbeta2()const { return digamma(beta())+d2logLik_dalfadbeta();}
 
-  virtual double dlogL_dx(const double& x)const override
-  {
-      return alfa()/x-beta()/(1.0-x);
+    virtual double dlogL_dx(const double& x)const override
+    {
+        return alfa()/x-beta()/(1.0-x);
 
-  }
+    }
 
-  virtual double dlogL_dx2(const double& x)const override
-  {
-      return -alfa()/sqr(x)+ beta()/sqr(1-x);
+    virtual double dlogL_dx2(const double& x)const override
+    {
+        return -alfa()/sqr(x)+ beta()/sqr(1-x);
 
-  }
+    }
 
 
 };
@@ -1029,14 +1030,14 @@ public:
 template<class P>
 struct complement_prob
 {
-  complement_prob(const P& p):p_{p}{}
-  template<typename... Ts>
-  double operator()(Ts... xs)const
-  {
-    return 1.0-p_(xs...);
-  }
+    complement_prob(const P& p):p_{p}{}
+    template<typename... Ts>
+    double operator()(Ts... xs)const
+    {
+        return 1.0-p_(xs...);
+    }
 private:
-  const P& p_;
+    const P& p_;
 };
 
 template<class P>
@@ -1047,14 +1048,14 @@ Complement_prob(const P& p){return complement_prob<P>(p);}
 template<class P>
 struct log_of
 {
-  log_of(const P& p):p_{p}{}
-  template<typename... Ts>
-  double operator()(Ts... xs)const
-  {
-    return std::log(p_(xs...));
-  }
+    log_of(const P& p):p_{p}{}
+    template<typename... Ts>
+    double operator()(Ts... xs)const
+    {
+        return std::log(p_(xs...));
+    }
 private:
-  const P& p_;
+    const P& p_;
 };
 
 
@@ -1064,14 +1065,14 @@ log_of<P> Log_of(const P& p){return log_of<P>(p);}
 template<class P>
 struct exp_of
 {
-  exp_of(const P& p):p_{p}{}
-  template<typename... Ts>
-  double operator()(Ts... xs)const
-  {
-    return std::exp(p_(xs...));
-  }
+    exp_of(const P& p):p_{p}{}
+    template<typename... Ts>
+    double operator()(Ts... xs)const
+    {
+        return std::exp(p_(xs...));
+    }
 private:
-  const P& p_;
+    const P& p_;
 };
 
 
@@ -1080,31 +1081,31 @@ template <class T>
 std::pair<std::map<T,double>,double>
 logLik_to_p(const std::map<T,double>& logLikelihoods)
 {
-  std::map<T,double> out(logLikelihoods);
-  double Evidence=0;
-  double maxlog=out.begin()->second;
-  for (auto& e:out)
+    std::map<T,double> out(logLikelihoods);
+    double Evidence=0;
+    double maxlog=out.begin()->second;
+    for (auto& e:out)
     {
-      if (e.second>maxlog) maxlog=e.second;
+        if (e.second>maxlog) maxlog=e.second;
     }
-  for (auto& e:out)
+    for (auto& e:out)
     {
-      e.second=std::exp(e.second-maxlog);
-      Evidence+=e.second;
+        e.second=std::exp(e.second-maxlog);
+        Evidence+=e.second;
     }
 
-  for (auto& e:out) e.second/=Evidence;
+    for (auto& e:out) e.second/=Evidence;
 
-  return {out,Evidence};
+    return {out,Evidence};
 }
 
 template <typename T>
 T sample_rev_map(const std::map<double,T>& reverse_prior,std::mt19937_64& mt)
 {
-  std::uniform_real_distribution<> u;
-  double r= u(mt);
-  auto it=reverse_prior.lower_bound(r);
-  return it->second;
+    std::uniform_real_distribution<> u;
+    double r= u(mt);
+    auto it=reverse_prior.lower_bound(r);
+    return it->second;
 
 }
 
@@ -1118,6 +1119,66 @@ double Expectance(const F& f, const Likelihood& lik,const P_map& pm, const T& la
         sum+=e.second*lik(e.first,landa)*f(landa);
     return sum;
 }
+struct Probability: public invariant{};
+
+struct Probability_value: public Probability
+{
+    template <class C>
+    static bool test(const C& e, double ,double eps=std::sqrt(std::numeric_limits<double>::epsilon())*10)
+    {return (e+eps>0)&&(e-eps<1);}
+};
+
+
+
+struct Probability_distribution: public Probability
+{
+    template<class P>
+    static bool test(const P& p,double eps=std::sqrt(std::numeric_limits<double>::epsilon())*10)
+    {
+        double sum=0;
+        for (std::size_t i=0; i<p.size(); ++i)
+            if (!Probability_value::test(p[i],eps))
+                return false;
+            else sum+=p[i];
+        return std::abs(sum-1.0)<eps;
+
+    }
+};
+
+struct Probability_distribution_covariance: public Probability
+{
+    template<class P>
+    static bool test(const P& p,double eps=std::sqrt(std::numeric_limits<double>::epsilon())*10)
+    {
+        for (std::size_t i=0; i<p.nrows(); ++i)
+        {
+            if (!Probability_value::test(p(i,i),eps))
+                return false;
+            double sum=0;
+            for (std::size_t j=0; j<p.ncols(); ++j)
+            {
+                if ((p(i,j)+eps<-1)||(p(i,j)-eps>1))
+                    return false;
+                else
+                    sum+=p(i,j);
+            }
+            if (std::abs(sum)>eps)
+                return false;
+        }
+        return true;
+    }
+
+};
+
+
+
+struct Variance: public are_non_negative
+{
+
+};
+
+
+
 
 
 
@@ -1126,12 +1187,12 @@ template<typename T>
 class Base_Probability_map
 {
 public:
-  virtual T sample(std::mt19937_64& mt)const=0;
+    virtual T sample(std::mt19937_64& mt)const=0;
 
-  virtual const std::map<T,double>& p() const=0;
+    virtual const std::map<T,double>& p() const=0;
 
-  virtual void reduce(double nmax)=0;
-  virtual double nsamples()const =0;
+    virtual void reduce(double nmax)=0;
+    virtual double nsamples()const =0;
 
 };
 
@@ -1139,29 +1200,29 @@ template <class T>
 std::map<double,T>
 cumulative_reverse_map(const std::map<T,double>& normalized_map)
 {
-  std::map<double,T> out;
-  double sump=0;
-  for (auto& e:normalized_map)
+    std::map<double,T> out;
+    double sump=0;
+    for (auto& e:normalized_map)
     {
-      sump+=e.second;
-      out[sump]=e.first;
+        sump+=e.second;
+        out[sump]=e.first;
     }
-  return out;
+    return out;
 }
 
 template <class T>
 std::pair<std::map<T,double>,double>
 normalize_map(const std::map<T,double>& unnormalized_map)
 {
-  std::map<T,double> out(unnormalized_map);
-  double Evidence=0;
-  for (auto& e:out)
+    std::map<T,double> out(unnormalized_map);
+    double Evidence=0;
+    for (auto& e:out)
     {
-      Evidence+=e.second;
+        Evidence+=e.second;
     }
-  for (auto& e:out) e.second/=Evidence;
+    for (auto& e:out) e.second/=Evidence;
 
-  return {out,Evidence};
+    return {out,Evidence};
 }
 
 
@@ -1169,134 +1230,134 @@ template<typename T>
 class Probability_map: public Base_Probability_map<T>
 {
 public:
-  T sample(std::mt19937_64& mt)const
-  {
-    return sample_rev_map(rev_,mt);
-  }
+    T sample(std::mt19937_64& mt)const
+    {
+        return sample_rev_map(rev_,mt);
+    }
 
-  const std::map<T,double>& p() const
-  {
-    return p_;
-  }
+    const std::map<T,double>& p() const
+    {
+        return p_;
+    }
 
-  Probability_map(const std::map<T,double>& myNormalized_map, double nsamples)
-    :
-      p_{myNormalized_map},rev_{cumulative_reverse_map(p_)}, nsamples_(nsamples)
-  {
+    Probability_map(const std::map<T,double>& myNormalized_map, double nsamples)
+        :
+          p_{myNormalized_map},rev_{cumulative_reverse_map(p_)}, nsamples_(nsamples)
+    {
 
-  }
+    }
 
-  template<template<typename...>class V>
-  Probability_map(const V<T>& x):p_(Uniform(x)),rev_(cumulative_reverse_map(p_)), nsamples_(0)
-  {}
-  Probability_map()=default;
+    template<template<typename...>class V>
+    Probability_map(const V<T>& x):p_(Uniform(x)),rev_(cumulative_reverse_map(p_)), nsamples_(0)
+    {}
+    Probability_map()=default;
 
-  template<template<typename...>class V>
-  static
-  std::map<T,double> Uniform(const V<T>& x)
-  {
-    std::map<T,double> out;
-    std::size_t n=x.size();
-    double p=1.0/n;
-    for (std::size_t i=0; i<n;++i )
-      out[x[i]]+=p;
-    return out;
-  }
+    template<template<typename...>class V>
+    static
+    std::map<T,double> Uniform(const V<T>& x)
+    {
+        std::map<T,double> out;
+        std::size_t n=x.size();
+        double p=1.0/n;
+        for (std::size_t i=0; i<n;++i )
+            out[x[i]]+=p;
+        return out;
+    }
 
-  template<class K>
-  static
-  std::map<T,double> Uniform(const std::map<T,K>& x)
-  {
-    std::map<T,double> out;
-    std::size_t n=x.size();
-    double p=1.0/n;
-    for (auto& e:x )
-      out[e.first]+=p;
-    return out;
-  }
-
-
+    template<class K>
+    static
+    std::map<T,double> Uniform(const std::map<T,K>& x)
+    {
+        std::map<T,double> out;
+        std::size_t n=x.size();
+        double p=1.0/n;
+        for (auto& e:x )
+            out[e.first]+=p;
+        return out;
+    }
 
 
-  void reduce(double nmax)
-  {
-    double f=nsamples_/nmax;
-    if (f<1.0)
-      {
-        auto o=p_;
-        for (auto& e:o) e.second=std::pow(e.second,f);
-        *this=normalize(o,nmax).first;
-      }
 
-  }
-  double nsamples()const {return nsamples_;}
 
-  static std::pair<Probability_map,double> normalize(const std::map<T,double>& myposterior , double nsamples)
-  {
-    auto out= normalize_map(myposterior);
-    return {Probability_map(out.first,nsamples),out.second};
-  }
+    void reduce(double nmax)
+    {
+        double f=nsamples_/nmax;
+        if (f<1.0)
+        {
+            auto o=p_;
+            for (auto& e:o) e.second=std::pow(e.second,f);
+            *this=normalize(o,nmax).first;
+        }
+
+    }
+    double nsamples()const {return nsamples_;}
+
+    static std::pair<Probability_map,double> normalize(const std::map<T,double>& myposterior , double nsamples)
+    {
+        auto out= normalize_map(myposterior);
+        return {Probability_map(out.first,nsamples),out.second};
+    }
 
 
 
 private:
 
-  std::map<T,double> p_;
-  std::map<double,T> rev_;
-  double nsamples_;
+    std::map<T,double> p_;
+    std::map<double,T> rev_;
+    double nsamples_;
 };
 
 template<typename T>
 class logLikelihood_map: public Base_Probability_map<T>
 {
 public:
-  T sample(std::mt19937_64& mt) const override
-  {
-    return sample_rev_map(rev_,mt);
-  }
+    T sample(std::mt19937_64& mt) const override
+    {
+        return sample_rev_map(rev_,mt);
+    }
 
-  const std::map<T,double>& logLik() const
-  {
-    return logLik_;
-  }
+    const std::map<T,double>& logLik() const
+    {
+        return logLik_;
+    }
 
-  std::map<T,double>const & p()const override
-  {
-    return p_;
-  }
+    std::map<T,double>const & p()const override
+    {
+        return p_;
+    }
 
-  logLikelihood_map(const std::map<T,double>& mylogLikelihood_Map, double nsamples)
-    :
-      logLik_{mylogLikelihood_Map}
-  {
-    auto p=logLik_to_p(mylogLikelihood_Map);
-    p_=std::move(p.first);
-    Evidence_=p.second;
-    rev_=cumulative_reverse_map(p_);
-    nsamples_=nsamples;
-  }
+    logLikelihood_map(const std::map<T,double>& mylogLikelihood_Map, double nsamples)
+        :
+          logLik_{mylogLikelihood_Map}
+    {
+        auto p=logLik_to_p(mylogLikelihood_Map);
+        p_=std::move(p.first);
+        Evidence_=p.second;
+        rev_=cumulative_reverse_map(p_);
+        nsamples_=nsamples;
+    }
 
-  logLikelihood_map()=default;
-  void reduce(double nmax) override
-  {
-    double f=nmax/nsamples_;
-    if (f<1.0)
-      {
-        auto o=logLik_;
-        for (auto& e:o) e.second*=f;
-        *this=logLikelihood_map(o,nmax);
-      }
-  }
+    logLikelihood_map()=default;
+    void reduce(double nmax) override
+    {
+        double f=nmax/nsamples_;
+        if (f<1.0)
+        {
+            auto o=logLik_;
+            for (auto& e:o) e.second*=f;
+            *this=logLikelihood_map(o,nmax);
+        }
+    }
 
 
-  double nsamples()const override {return nsamples_;}
+    double nsamples()const override {return nsamples_;}
 
 private:
-  std::map<T,double> logLik_;
-  std::map<T,double>p_;
-  std::map<double,T> rev_;
-  double Evidence_;
-  double nsamples_;
+    std::map<T,double> logLik_;
+    std::map<T,double>p_;
+    std::map<double,T> rev_;
+    double Evidence_;
+    double nsamples_;
 
 };
 
@@ -1306,118 +1367,118 @@ class Beta_map //: public Base_Probability_map<T>
 {
 
 public:
-  Beta_map(const std::map<T,Beta_Distribution> a):a_(a){}
+    Beta_map(const std::map<T,Beta_Distribution> a):a_(a){}
 
-  void reduce(double nmax)
-  {
-    double f=nmax/count();
-    if (f<1.0)
-      {
+    void reduce(double nmax)
+    {
+        double f=nmax/count();
+        if (f<1.0)
+        {
+            for (auto& e:a_)
+            {
+                e.second.Parameters()[0]*=f;
+                e.second.Parameters()[0]*=f;
+
+            }
+        }
+    }
+
+    static Beta_map UniformPrior(const std::map<T,double> a)
+    {
+        std::map<T,Beta_Distribution> o;
+        for (auto& e:a)
+            o[e.first]=Beta_Distribution::UniformPrior();
+        return Beta_map(o);
+    }
+
+
+    static Beta_map UnInformativePrior(const std::map<T,double> a)
+    {
+        std::map<T,Beta_Distribution> o;
+        for (auto& e:a)
+            o[e.first]=Beta_Distribution::UnInformativePrior();
+        return Beta_map(o);
+    }
+
+
+
+
+    Beta_map()=default;
+
+    std::size_t size()const {return a_.size();}
+
+    double count()const {
+        double sum=0;
+        for (auto& e:a_) sum+=e.second.count();
+        return sum;
+    }
+
+
+    std::map<T,double> sample(std::mt19937_64& mt)
+    {
+        std::map<T,double> out;
+        double sum=0;
+
+        for (auto it=a_.begin(); it!=a_.end(); ++it)
+        {
+            std::gamma_distribution<double> g(it->second);
+            out[it->first]=g(mt);
+            sum+=out[it->first];
+        }
+        for (auto& o:out)
+            o.second/=sum;
+        return out;
+    }
+
+    Beta_map& operator+=(const Beta_map& other)
+    {
         for (auto& e:a_)
-          {
-            e.second.Parameters()[0]*=f;
-            e.second.Parameters()[0]*=f;
+        {
+            auto it=other.a_.find(e.first);
+            if (it!=other.a_.end())
+                e.second.Parameters()+=it->second.Parameters();
+        }
+        return *this;
+    }
 
-          }
-      }
-  }
+    Beta_map operator+(const Beta_map& other)const
+    {
+        Beta_map out(a_);
+        out+=other;
+        return out;
+    }
 
-  static Beta_map UniformPrior(const std::map<T,double> a)
-  {
-    std::map<T,Beta_Distribution> o;
-    for (auto& e:a)
-      o[e.first]=Beta_Distribution::UniformPrior();
-    return Beta_map(o);
-  }
+    std::map<T,double> p()const
+    {
+        std::map<T,double> out;
+        for (auto& e:a_)
+            out[e.first]=e.second.p();
+        return out;
+    }
 
+    Beta_Distribution& operator[](const T& x)
+    {
+        return a_[x];
+    }
 
-  static Beta_map UnInformativePrior(const std::map<T,double> a)
-  {
-    std::map<T,Beta_Distribution> o;
-    for (auto& e:a)
-      o[e.first]=Beta_Distribution::UnInformativePrior();
-    return Beta_map(o);
-  }
+    Beta_Distribution operator[](const T& x)const
+    {
+        auto it=a_.find(x);
+        if (it!=a_.end())
+            return it.second;
+        else
+            return {};
+    }
 
-
-
-
-  Beta_map()=default;
-
-  std::size_t size()const {return a_.size();}
-
-  double count()const {
-    double sum=0;
-    for (auto& e:a_) sum+=e.second.count();
-    return sum;
-  }
-
-
-  std::map<T,double> sample(std::mt19937_64& mt)
-  {
-    std::map<T,double> out;
-    double sum=0;
-
-    for (auto it=a_.begin(); it!=a_.end(); ++it)
-      {
-        std::gamma_distribution<double> g(it->second);
-        out[it->first]=g(mt);
-        sum+=out[it->first];
-      }
-    for (auto& o:out)
-      o.second/=sum;
-    return out;
-  }
-
-  Beta_map& operator+=(const Beta_map& other)
-  {
-    for (auto& e:a_)
-      {
-        auto it=other.a_.find(e.first);
-        if (it!=other.a_.end())
-          e.second.Parameters()+=it->second.Parameters();
-      }
-    return *this;
-  }
-
-  Beta_map operator+(const Beta_map& other)const
-  {
-    Beta_map out(a_);
-    out+=other;
-    return out;
-  }
-
-  std::map<T,double> p()const
-  {
-    std::map<T,double> out;
-    for (auto& e:a_)
-      out[e.first]=e.second.p();
-    return out;
-  }
-
-  Beta_Distribution& operator[](const T& x)
-  {
-    return a_[x];
-  }
-
-  Beta_Distribution operator[](const T& x)const
-  {
-    auto it=a_.find(x);
-    if (it!=a_.end())
-      return it.second;
-    else
-      return {};
-  }
-
-  Probability_map<T> Distribute_on_p(double p)const
-  {
-    auto prior= Probability_map<T>::Uniform(a_);
-    auto& d=a_;
-    return Bayes_rule([&d](const T& x,double target){return d[x].p(target);},p,prior);
-  }
+    Probability_map<T> Distribute_on_p(double p)const
+    {
+        auto prior= Probability_map<T>::Uniform(a_);
+        auto& d=a_;
+        return Bayes_rule([&d](const T& x,double target){return d[x].p(target);},p,prior);
+    }
 
 private:
-  std::map<T,Beta_Distribution> a_;
+    std::map<T,Beta_Distribution> a_;
 };
 
 
@@ -1425,14 +1486,14 @@ template<class logLikelihood, class Data, typename T>
 logLikelihood_map<T>
 logBayes_rule(const logLikelihood& loglik, const Data& data, const logLikelihood_map<T>& prior)
 {
-  auto logP=prior.logLik();
-  for (auto& e:logP)
+    auto logP=prior.logLik();
+    for (auto& e:logP)
     {
-      double logL=loglik(e.first,data);
-      e.second+=logL;
+        double logL=loglik(e.first,data);
+        e.second+=logL;
     }
-  double nsamples=prior.nsamples()+1;
-  return logLikelihood_map<T>(logP,nsamples);
+    double nsamples=prior.nsamples()+1;
+    return logLikelihood_map<T>(logP,nsamples);
 }
 
 
@@ -1442,37 +1503,37 @@ template<class Likelihood, class Data, typename T>
 std::pair<Probability_map<T>,double>
 Bayes_rule(const Likelihood& lik, const Data& data, const Probability_map<T>& prior)
 {
-  auto p=prior.p();
-  for (auto& e:p)
+    auto p=prior.p();
+    for (auto& e:p)
     {
-      double l=lik(e.first,data);
-      e.second*=l;
+        double l=lik(e.first,data);
+        e.second*=l;
     }
-  double nsamples=prior.nsamples()+1;
-  return Probability_map<T>::normalize(p,nsamples);
+    double nsamples=prior.nsamples()+1;
+    return Probability_map<T>::normalize(p,nsamples);
 }
 
 
 
 struct TargetProb
 {
-  double operator()(const std::pair<std::size_t, std::size_t>& p)const
-  {
-    return BetaDistribution(p_target_,p.first,p.second);
-  }
-  TargetProb(double p_target):p_target_(p_target){}
-  TargetProb(){}
+    double operator()(const std::pair<std::size_t, std::size_t>& p)const
+    {
+        return BetaDistribution(p_target_,p.first,p.second);
+    }
+    TargetProb(double p_target):p_target_(p_target){}
+    TargetProb(){}
 private:
-  double p_target_;
+    double p_target_;
 
 };
 
 struct PascalProb
 {
-  double operator()(const std::pair<std::size_t, std::size_t>& p)const
-  {
-    return (1.0+p.first)/(2.0+p.first+p.second);
-  }
+    double operator()(const std::pair<std::size_t, std::size_t>& p)const
+    {
+        return (1.0+p.first)/(2.0+p.first+p.second);
+    }
 };
 
 
@@ -1480,7 +1541,7 @@ struct PascalProb
 template<class AP>
 struct One
 {
-  double operator()(const AP& )const {return 1.0;}
+    double operator()(const AP& )const {return 1.0;}
 };
 
 

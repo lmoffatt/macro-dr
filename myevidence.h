@@ -3,6 +3,8 @@
 #include "Matrix.h"
 #include "myDistributions.h"
 #include "myparameters.h"
+#include <iomanip>
+
 namespace evidence {
 
 
@@ -55,7 +57,7 @@ template <class E, class D>
 double getGradient(const Base_Distribution<E>& d,const Base_Distribution<E>& d0, const D& data)
 {
     if (std::isfinite(data))
-    return d.logP(data)-d0.logP(data);
+        return d.logP(data)-d0.logP(data);
     else return 0;
 }
 
@@ -250,7 +252,7 @@ public:
     {
         return DlogLikelihood(prior_.logP(x), prior_.dlogL_dx(x), prior_.dlogL_dx2(x));
     }
-   Prior_Model(const Parameters_distribution<Model>& prior): prior_{prior}{}
+    Prior_Model(const Parameters_distribution<Model>& prior): prior_{prior}{}
 private:
     Parameters_distribution<Model> prior_;
 
@@ -407,6 +409,8 @@ public:
     Thermodynamic_Model_Series(const Thermodynamic_Model_Series&)=delete ;
 
 
+
+
 private:
     PriorModel prior_;
     LikelihoodModel lik_;
@@ -483,10 +487,10 @@ public:
         auto& G=logL.G();
         auto Hl=H+diag(H)*landa_;
         auto cov=inv(-Hl);
-        if (cov.second.empty())
+        if (cov.second.second.empty())
         {
             Parameters d=(G*cov.first);
-            Parameters newpoint=x+d;
+            Parameters newpoint=x-d;
             return Normal_Distribution<Parameters>(newpoint,cov.first);
         }
         else return {};
@@ -624,6 +628,7 @@ public:
     bool next(const Model& M,std::mt19937_64& mt,const Distribution_Generator& G,mySample& current)const
     {
         auto candidate_point=current.g().sample(mt);
+        current.g().autoTest(mt,300);
         mySample candidate=calculate(M,G,candidate_point);
         double A=Acceptance(current,candidate);
         std::uniform_real_distribution<double> u(0,1);
@@ -1158,16 +1163,19 @@ public:
 
         double Accept(std::size_t i, const ModelSeries& model)const
         {
-            double logA=(model.beta(i)-model.beta(i+1))*(Scout(i).likelihood().logL()-Scout(i+1).likelihood().logL());
+            double logA=-(model.beta(i)-model.beta(i+1))*(Scout(i).likelihood().logL()-Scout(i+1).likelihood().logL());
+            std::cerr<<"logA"<<logA<<"  "<<model.beta(i)<<" "<<model.beta(i+1)<<"  "<<Scout(i).likelihood().logL()<<" "<<Scout(i+1).likelihood().logL()<<"\n";
             return  std::min(1.0,exp(logA));
 
         }
+        std::size_t size()const { return scouts_.size();}
 
         std::mt19937_64& mt(std::size_t i){return mt_[i];}
 
         samples(const Adaptive_Metropolis_H<Hastings>& adm,const Thermodynamic_Model_Series<priorModel,LikelihoodModel>& m,std::mt19937_64& _mt, std::vector<Adapative_Distribution_Generator>& adaptive):
             mt_{mts(_mt,m.size())}, i_to_scout{init_map(m.size())}, scouts_(m.size())
         {
+#pragma omp parallel for
             for (std::size_t i=0; i<m.size(); ++i)
             {
                 scouts_[i]=adm.start(m.model(i),mt(i),adaptive[i]);
@@ -1200,6 +1208,32 @@ public:
 
     };
 
+    template<class Model,class samples>
+    static double Evidence(const Model& m,const samples& s)
+    {
+        auto n=m.size();
+        double beta0=m.beta(0);
+        double sum=0;
+        double sumdb=0;
+        double logLik0=s.Scout(0).likelihood().logL();
+        for (std::size_t i=1; i<m.size(); ++i)
+        {
+            double beta=m.beta(i);
+            double db=beta0-beta;
+            double logLik=s.Scout(i).likelihood().logL();
+            sum+=db*(logLik0+logLik)/2;
+            sumdb+=db;
+            if ((i==n-1)&&(beta>0))
+            {
+                double db0=beta;
+                sum+=(db0*(1+db0/db/2))*logLik-sqr(db0)/db/2*logLik0;
+                sumdb+=db0;
+            }
+            beta0=beta;
+            logLik0=logLik;
+        }
+        return sum;
+    }
 
 
     template<class priorModel, class LikelihoodModel,class Adapative_Distribution_Generator>
@@ -1379,27 +1413,86 @@ private:
 };
 
 
+struct OutputGenerator
+{
+    template<class priorModel, class LikelihoodModel>
+    using ALM=
+    std::vector<Adaptive_Parameterized_Distribution_Generator<LevenbergMarquardt<Thermodynamic_Model<priorModel,LikelihoodModel>>>>;
 
-template<class Metropolis_algorithm,class Model, class Distribution_Generator>
-bool run_Montecarlo_Markov_Chain(const Metropolis_algorithm& mcmc,std::mt19937_64& mt,const Model& M,  Distribution_Generator& G,std::size_t nsamples)
+    template<template <class, class, class>class samples, class priorModel, class LikelihoodModel,class A>
+    void print_title(const samples<priorModel,LikelihoodModel,A>&  )
+    {
+        os<<"nsample"<<sep<<"beta"<<sep<<"Field"<<sep<<"par"<<sep<<"value"<<end_of_line{};
+    };
+
+
+    template<class Model, class Samples>
+    void print_sample(std::size_t isample,const Model& m,const Samples& state )
+    {
+        os<<std::setprecision(std::numeric_limits<double>::digits10 + 1);
+
+        os<<isample<<sep<<""<<sep<<"Evidence"<<sep<<""<<sep<<Parallel_Tempering<true>::Evidence(m,state)<<end_of_line{};
+        for (std::size_t i=0; i<state.size(); ++i)
+        {
+            os<<isample<<sep<<m.beta(i)<<sep<<"Prob"<<sep<<""<<sep<<state.Scout(i).logL()<<end_of_line{};
+            os<<isample<<sep<<m.beta(i)<<sep<<"Prior"<<sep<<""<<sep<<state.Scout(i).prior().logL()<<end_of_line{};
+            os<<isample<<sep<<m.beta(i)<<sep<<"LogLik"<<sep<<""<<sep<<state.Scout(i).likelihood().logL()<<end_of_line{};
+            if (parameter_)
+            for (std::size_t k=0; k<state.Scout(i).x().size(); ++k)
+                os<<isample<<sep<<m.beta(i)<<sep<<"X"<<sep<<k<<sep<<state.Scout(i).x()[k]<<end_of_line{};
+            if (gradient_)
+            {
+                for (std::size_t k=0; k<state.Scout(i).x().size(); ++k)
+                    os<<isample<<sep<<m.beta(i)<<sep<<"bG"<<sep<<k<<sep<<state.Scout(i).G()[k]<<end_of_line{};
+                for (std::size_t k=0; k<state.Scout(i).x().size(); ++k)
+                    os<<isample<<sep<<m.beta(i)<<sep<<"PG"<<sep<<k<<sep<<state.Scout(i).prior().G()[k]<<end_of_line{};
+                for (std::size_t k=0; k<state.Scout(i).x().size(); ++k)
+                    os<<isample<<sep<<m.beta(i)<<sep<<"LG"<<sep<<k<<sep<<state.Scout(i).likelihood().G()[k]<<end_of_line{};
+            }
+        }
+        os.flush();
+
+    };
+
+
+    OutputGenerator(std::ostream& ost, bool parameter,bool gradient, std::string separator="\t"):os(ost),parameter_{parameter}, gradient_{gradient},sep{separator}{}
+private:
+    std::ostream& os;
+    bool parameter_;
+    bool gradient_;
+    std::string sep;
+};
+
+
+
+
+template<class Metropolis_algorithm,class Model, class Distribution_Generator,class OutputGenerator>
+bool run_Montecarlo_Markov_Chain(const Metropolis_algorithm& mcmc,std::mt19937_64& mt,const Model& M,  Distribution_Generator& G,std::size_t nsamples, OutputGenerator& O)
 {
     auto state=mcmc.start(M,mt, G);
+    O.print_title(state);
+    //  O.print_title(G);
     std::size_t isample=0;
+
+    O.print_sample(isample,M,state);
+
     for (std::size_t i=0; i<nsamples; ++i)
     {
         mcmc.next(M,mt,G,state);
         if (!bool(state)) return false;
-        else{
+        else
+        {
             ++isample;
-            std::cerr<<"\tisample="<<isample;
+            O.print_sample(isample,M,state);
+            //   O.print_row(G);
         }
     }
     return true;
 }
 
-template<class PriorModel, class Likelihood_Model>
+template<class PriorModel, class Likelihood_Model, class OutputGenerator>
 bool run_Thermo_Levenberg_ProbVel(const PriorModel& prior,const Likelihood_Model& lik, std::mt19937_64& mt, const std::vector<double>& betas,
-                                  const std::vector<double>& landa, const std::vector<std::vector<double>>& landa_50_hill,double gain_moment,std::size_t nSamples)
+                                  const std::vector<double>& landa, const std::vector<std::vector<double>>& landa_50_hill,double gain_moment,std::size_t nSamples, OutputGenerator& output)
 {
     typedef  Thermodynamic_Model<PriorModel,Likelihood_Model> Model;
 
@@ -1414,7 +1507,7 @@ bool run_Thermo_Levenberg_ProbVel(const PriorModel& prior,const Likelihood_Model
             ala
             (betas.size(),
              Adaptive_Parameterized_Distribution_Generator<LevenbergMarquardt<Model>>(las,landa_50_hill,gain_moment));
-    return run_Montecarlo_Markov_Chain(PT,mt,model,ala,nSamples);
+    return run_Montecarlo_Markov_Chain(PT,mt,model,ala,nSamples,output);
 
 }
 

@@ -70,10 +70,10 @@ int main(int argc, char **argv)
 
     std::map<std::string, double> par=
             {
-                {"LR",300}	,{"LR_L",0},	{"LR_R",1},	{"RL",30},	{"RLR",300},	{"RLR_1",1},	{"RLR_3",1},	{"RLR_L",0},	{"RL_L",0},	{"RL_R",1},	{"RR",3},	{"RRR",1},	{"RRR_R",0.5},	{"RR_1",0.5},	{"RR_2",0.5},	{"alpha",1e7}, 	{"beta",10},	{"g_0",0.0},{"g_1",-0.001},	{"g_2",-0.1}	,{"g_3",-1},	{"koff",1e7},	{"kon",500}, {"Number_of_Channels" , 100} , {"gaussian_noise" , 1.0 }};
+                {"LR",300}	,{"LR_L",0},	{"LR_R",1},	{"RL",30},	{"RLR",300},	{"RLR_1",1},	{"RLR_3",1},	{"RLR_L",0},	{"RL_L",0},	{"RL_R",1},	{"RR",3},	{"RRR",1},	{"RRR_R",0.5},	{"RR_1",0.5},	{"RR_2",0.5},	{"alpha",1e7}, 	{"beta",10},	{"g_0",1e-6},{"g_1",1e-5},	{"g_2",1e-3}	,{"g_3",16e-3},	{"koff",1e7},	{"kon",500}, {"Number_of_Channels" , 100} , {"gaussian_noise" , 1.0 }};
 
     Parameters_values<Allosteric_Model> P(par);
-    SingleLigandModel SM(A.Qs(P),A.g(P),1000,0);
+    SingleLigandModel SM(A.Qs(P),A.g(P),-60.0,1000,0);
 
     write(std::cout,A);
     std::ofstream f;
@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 
 
 
-    auto e=experiment::DataFrame_to_Experiment(da,"t","ns","xATP","yCurrent", 50E3);
+    auto e=experiment::DataFrame_to_Experiment(da,"t","ns","xATP","yCurrent", -60,50E3);
     Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,experiment::basic_Experiment<experiment::point<double,double>,measure_just_y<double>>,double> MC(SM,e);
 
 

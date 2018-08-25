@@ -17,191 +17,214 @@ class myDataFrame
 {
 
 public:
-   struct col
-   {
-       template<typename T>
-       col(std::pair<std::string,C<T>> x)
-           :title{x.first}, data{std::vector<T>()}{}
-       col()=default;
-       std::string title;
-       std::variant<std::vector<Ts>...> data;
-       typedef  std::variant<std::vector<Ts>...> data_type;
-   };
+    struct col
+    {
+        template<typename T>
+        col(std::pair<std::string,C<T>> x)
+            :title{x.first}, data{std::vector<T>()}{}
+        col()=default;
+        std::string title;
+        std::variant<std::vector<Ts>...> data;
+        typedef  std::variant<std::vector<Ts>...> data_type;
+    };
 
-   struct row
-   {
-       std::vector<std::variant<Ts...>> data;
-   };
-
-
-   template<typename... Ks>
-   bool same_types_i(const std::tuple<Ks...>&,std::index_sequence<>)
-   {
-       return true;
-   }
-
-   template<std::size_t I,std::size_t... Is,typename... Ks>
-   bool same_types_i(std::tuple<Ks...> t, std::index_sequence<I,Is...>)
-   {
-
-       if(!std::holds_alternative<std::vector<std::decay_t<std::tuple_element_t<I,std::tuple<Ks...>>>>>(data_[I].data))
-           return false;
-       else return same_types_i(t, std::index_sequence<Is...>());
-   }
+    struct row
+    {
+        std::vector<std::variant<Ts...>> data;
+    };
 
 
+    template<typename... Ks>
+    bool same_types_i(const std::tuple<Ks...>&,std::index_sequence<>)
+    {
+        return true;
+    }
 
-   template<typename... Ks>
-   bool same_types(Ks&&... row_of_data)
-   {
-       constexpr auto N=sizeof...(Ks);
-       if (N!=data_.size())
-           return false;
-       else
-           return same_types_i(std::forward_as_tuple(std::forward<Ks>(row_of_data)...), std::make_index_sequence<N>());
-     }
+    template<std::size_t I,std::size_t... Is,typename... Ks>
+    bool same_types_i(std::tuple<Ks...> t, std::index_sequence<I,Is...>)
+    {
 
-   template<typename...K0>
-   bool push_back_i(std::tuple<K0...> ,Cs<K0...>,Cs<>,std::index_sequence<>){
-       return true;
-   }
-
-   template<std::size_t I,std::size_t... Is,typename...K0, typename K, typename ...K1>
-   bool push_back_i(std::tuple<K0...,K,K1...> t,Cs<K0...>,Cs<K,K1...>,std::index_sequence<I,Is...>)
-   {
-       std::get<std::vector<std::decay_t<K>>>(data_[I].data).push_back(std::move(std::get<I>(t)));
-       return push_back_i(t,Cs<K0...,K>{},Cs<K1...>{},std::index_sequence<Is...>{});
-   }
+        if(!std::holds_alternative<std::vector<std::decay_t<std::tuple_element_t<I,std::tuple<Ks...>>>>>(data_[I].data))
+            return false;
+        else return same_types_i(t, std::index_sequence<Is...>());
+    }
 
 
 
-   template<typename... Ks>
-   bool push_back(Ks&&... row_of_data)
-   {
-       if (!same_types(row_of_data...))
-           return false;
-       else
-           return push_back_i(std::forward_as_tuple<Ks...>(std::forward<Ks>(row_of_data)...),Cs<>{},Cs<Ks...>{},std::index_sequence_for<Ks...>{});
-   }
+    template<typename... Ks>
+    bool same_types(Ks&&... row_of_data)
+    {
+        constexpr auto N=sizeof...(Ks);
+        if (N!=data_.size())
+            return false;
+        else
+            return same_types_i(std::forward_as_tuple(std::forward<Ks>(row_of_data)...), std::make_index_sequence<N>());
+    }
+
+    template<typename...K0>
+    bool push_back_i(std::tuple<K0...> ,Cs<K0...>,Cs<>,std::index_sequence<>){
+        return true;
+    }
+
+    template<std::size_t I,std::size_t... Is,typename...K0, typename K, typename ...K1>
+    bool push_back_i(std::tuple<K0...,K,K1...> t,Cs<K0...>,Cs<K,K1...>,std::index_sequence<I,Is...>)
+    {
+        std::get<std::vector<std::decay_t<K>>>(data_[I].data).push_back(std::move(std::get<I>(t)));
+        return push_back_i(t,Cs<K0...,K>{},Cs<K1...>{},std::index_sequence<Is...>{});
+    }
 
 
 
-   std::size_t ncols()const { return data_.size();}
-
-   std::size_t nrows() const {
-       if (ncols()>0)
-       return std::visit([](auto const& arg){return arg.size();},data_[0].data);
-   else return 0;
-   }
-
-   template<class T>
-   bool insert_column(std::string&& title, C<T>)
-   {
-       if (nrows()>0)
-           return  false;
-       else {
-           data_.push_back(col(std::pair(std::move(title),C<T>{})));
-       return true;
-       }
-   }
+    template<typename... Ks>
+    bool push_back(Ks&&... row_of_data)
+    {
+        assert (same_types(row_of_data...));
+            return push_back_i(std::forward_as_tuple<Ks...>(std::forward<Ks>(row_of_data)...),Cs<>{},Cs<Ks...>{},std::index_sequence_for<Ks...>{});
+    }
+    template<typename... Ks>
+    std::ostream& write_back(std::ostream& os,Ks&&... row_of_data)
+    {
+        assert(same_types(row_of_data...));
+        bool sucess= ((io::write_on_element(os,row_of_data))&&...&&true);
+        return os;
+    }
 
 
-   template<typename T>
-   myOptional_t<T> get(const std::string& id, std::size_t j)const
-   {
-       auto it=map_.find(id);
-       if (it==map_.end()) return{false,"field not found"};
-       else
-       return std::visit([j](auto const& a)
-       {return a[j];}, data_[it->second].data);
-   }
+    std::size_t ncols()const { return data_.size();}
+
+    std::size_t nrows() const {
+        if (ncols()>0)
+            return std::visit([](auto const& arg){return arg.size();},data_[0].data);
+        else return 0;
+    }
+
+    template<class T>
+    bool insert_column(std::string&& title, C<T>)
+    {
+        if (nrows()>0)
+            return  false;
+        else {
+            data_.push_back(col(std::pair(std::move(title),C<T>{})));
+            return true;
+        }
+    }
 
 
-   std::ostream& write(std::ostream& os)const
-   {
-      for (std::size_t i=0; i<ncols(); ++i)
-       io::write_on_element(os,data_[i].title);
-      os<<io::end_of_line{};
-      for (std::size_t j=0; j<nrows(); ++j)
-      {
-          for (std::size_t i=0; i<ncols(); ++i)
-          {
-              std::visit([j, &os](auto const & a){io::write_on_element(os,a[j]);},data_[i].data);
-          }
-          os<<io::end_of_line{};
-      }
-      return os;
-   }
+    template<typename T>
+    myOptional_t<T> get(const std::string& id, std::size_t j)const
+    {
+        auto it=map_.find(id);
+        if (it==map_.end()) return{false,"field not found"};
+        else
+            return std::visit([j](auto const& a)
+            {return a[j];}, data_[it->second].data);
+    }
+
+    std::ostream& write_title(std::ostream& os)const
+    {
+        for (std::size_t i=0; i<ncols(); ++i)
+            if (i+1<ncols())
+                os<<data_[i].title<<io::separator{};
+            else
+                os<<data_[i].title;
+        os<<io::end_of_line{};
+        return os;
+    }
+
+    std::ostream& write_row(std::ostream& os, std::size_t j)const
+    {
+        for (std::size_t i=0; i<ncols(); ++i)
+        {
+            if (i+1<ncols())
+                std::visit([j, &os](auto const & a){io::write_on_element(os,a[j]);os<<io::separator{};},data_[i].data);
+            else
+                std::visit([j, &os](auto const & a){io::write_on_element(os,a[j]);},data_[i].data);
+
+        }
+        os<<io::end_of_line{};
+        return os;
+
+    }
+
+    std::ostream& write(std::ostream& os)const
+    {
+        write_title(os);
+        for (std::size_t j=0; j<nrows(); ++j)
+            write_row(os,j);
+        return os;
+    }
 
 
-   std::ostream& operator<<(std::ostream& os)const
-   {
-      return write(os);
-   }
-
-
-
-   struct lambda
-   {
-      std::stringstream& ss;
-       template<typename T>
-       auto operator()(T& a){
-           io::read_one_element_on_vector(ss,a);}
-       lambda(std::stringstream& s):ss{s}{}
-   };
-   std::istream& read(std::istream& is)
-   {
-      std::vector<std::string> colnames;
-      read_on_vector(is,colnames);
-      std::vector<col> d(colnames.size());
-      for (std::size_t i=0; i<d.size(); ++i )
-          d[i].title=std::move(colnames[i]);
-
-      std::string line;
-      safeGetline(is, line);
-      while (!line.empty())
-      {
-          std::stringstream ss(line);
-          for (std::size_t i=0; i<d.size(); ++i )
-            std::visit(lambda(ss),d[i].data);
-          safeGetline(is,line);
-      }
-      *this=myDataFrame(std::move(d));
-      return is;
-
-   }
-
-   std::istream& operator>>(std::istream& is)
-   {
-       return read(is);
-
-   }
+    std::ostream& operator<<(std::ostream& os)const
+    {
+        return write(os);
+    }
 
 
 
+    struct lambda
+    {
+        std::stringstream& ss;
+        template<typename T>
+        auto operator()(T& a){
+            io::read_one_element_on_vector(ss,a);}
+        lambda(std::stringstream& s):ss{s}{}
+    };
+    std::istream& read(std::istream& is)
+    {
+        std::vector<std::string> colnames;
+        read_on_vector(is,colnames);
+        std::vector<col> d(colnames.size());
+        for (std::size_t i=0; i<d.size(); ++i )
+            d[i].title=std::move(colnames[i]);
+
+        std::string line;
+        safeGetline(is, line);
+        while (!line.empty())
+        {
+            std::stringstream ss(line);
+            for (std::size_t i=0; i<d.size(); ++i )
+            {
+                std::visit(lambda(ss),d[i].data);
+                if (i+1<d.size()) ss>>io::separator{};
+            }safeGetline(is,line);
+        }
+        *this=myDataFrame(std::move(d));
+        return is;
+
+    }
+
+    std::istream& operator>>(std::istream& is)
+    {
+        return read(is);
+
+    }
 
 
-   static std::map<std::string, std::size_t> getMap(const std::vector<col>& d)
-   {
-       std::map<std::string, std::size_t> m;
-       for (std::size_t i=0; i<d.size(); ++i)
-           m[d[i].title]=i;
-       return m;
-   }
 
-   template<typename... Ks>
-   myDataFrame(std::pair<std::string,C<Ks>>&&... titles):
-       data_{{col(titles)...}},map_{getMap(data_)}{}
 
-   myDataFrame(std::vector<col>&& data):data_{std::move(data)}, map_{getMap(data_)}{}
-  myDataFrame()=default;
 
-      constexpr static auto className=my_static_string("DataFrame")+my_trait<Cs<Ts...>>::className;
+    static std::map<std::string, std::size_t> getMap(const std::vector<col>& d)
+    {
+        std::map<std::string, std::size_t> m;
+        for (std::size_t i=0; i<d.size(); ++i)
+            m[d[i].title]=i;
+        return m;
+    }
+
+    template<typename... Ks>
+    myDataFrame(std::pair<std::string,C<Ks>>&&... titles):
+        data_{{col(titles)...}},map_{getMap(data_)}{}
+
+    myDataFrame(std::vector<col>&& data):data_{std::move(data)}, map_{getMap(data_)}{}
+    myDataFrame()=default;
+
+    constexpr static auto className=my_static_string("DataFrame")+my_trait<Cs<Ts...>>::className;
 
 
 private:
-   std::vector<col> data_;
-   std::map<std::string, std::size_t> map_;
+    std::vector<col> data_;
+    std::map<std::string, std::size_t> map_;
 
 };
 

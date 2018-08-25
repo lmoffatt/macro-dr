@@ -24,7 +24,7 @@
 #include <memory>
 
 #include "mySerializer.h"
-
+#include "mytests.h"
 
 
 template<typename T1, typename T2>
@@ -161,6 +161,17 @@ extern "C" void dgecon_(char *  NORM,
                         int *  IWORK,
                         int *  INFO );
 
+extern "C" void  dsycon_( 	char*  	UPLO,
+                            int *  	N,
+                            double */* precision, dimension( lda, * ) */  	A,
+                            int *  	LDA,
+                            int */*, dimension( * ) */ 	IPIV,
+                            double *  	ANORM,
+                            double *   	RCOND,
+                            double */* dimension( * )  */	WORK,
+                            int */* dimension( * ) */ 	IWORK,
+                            int *  	INFO);
+
 extern "C" void dsytrf_( char *UPLO,
                          int *N,
                          double* A,
@@ -186,6 +197,10 @@ extern "C" void dsytri_(char* UPLO,
                         int */* dimension( * ) */ 	IPIV,
                         double * /*dimension( * )*/  	WORK,
                         int *	INFO );
+
+
+
+
 
 extern "C" void dgemm_(char * 	TRANSA,
                        char * 	TRANSB,
@@ -232,6 +247,31 @@ extern "C" void dgeev_(char *jobvl,
                        int *lwork,
                        int *info);
 
+
+extern "C" void  dgeevx_ 	( 	char*  	BALANC,
+                                char*  	JOBVL,
+                                char*  	JOBVR,
+                                char*  	SENSE,
+                                int*  	N,
+                                double * /* precision, dimension( lda, * ) */  	A,
+                                int*  	LDA,
+                                double * /* precision, dimension( * ) */  	WR,
+                                double * /* precision, dimension( * ) */  	WI,
+                                double * /* precision, dimension( ldvl, * ) */  	VL,
+                                int*  	LDVL,
+                                double * /* precision, dimension( ldvr, * ) */  	VR,
+                                int*  	LDVR,
+                                int*  	ILO,
+                                int*  	IHI,
+                                double * /* precision, dimension( * ) */  	SCALE,
+                                double *  	ABNRM,
+                                double * /* precision, dimension( * ) */  	RCONDE,
+                                double * /* precision, dimension( * ) */  	RCONDV,
+                                double * /* precision, dimension( * ) */  	WORK,
+                                int*  	LWORK,
+                                int* /*dimension( * ) */  	IWORK,
+                                int*  	INFO
+                                );
 
 
 
@@ -604,7 +644,7 @@ public:
         MyConstIterator out(*this,nrows(),0);
         return out;
     }
-     double getvalue()const
+    double getvalue()const
     {
         assert(size()==1);
         return (*this)[0];
@@ -1231,6 +1271,10 @@ private:
     T zero_=T{};
 };
 
+
+
+
+
 template<typename T>
 M_Matrix<T> operator-(const M_Matrix<T>& x)
 {
@@ -1370,7 +1414,7 @@ namespace Matrix_Unary_Transformations {
 
 
 template <class T>
-std::pair<M_Matrix<T>, std::string>
+std::pair<M_Matrix<T>, std::pair<double,std::string>>
 inv(const M_Matrix<T>& x);
 
 template <class T>
@@ -1567,7 +1611,7 @@ using namespace Matrix_Binary_Transformations;
 namespace Matrix_Decompositions {
 
 
-auto EigenSystem_full_real_eigenvalue(const M_Matrix<double>& x)
+auto EigenSystem_full_real_eigenvalue_dgeev(const M_Matrix<double>& x)
 {
     using lapack::dgeev_;
     M_Matrix<double> VL(x.ncols(),x.nrows());
@@ -1586,18 +1630,398 @@ auto EigenSystem_full_real_eigenvalue(const M_Matrix<double>& x)
     int lda = N;
     int ldvl = N;
     int ldvr = N;
-    auto work = std::make_unique<double[]>(N*N);
-    int lwork = N*N;
+    auto work = std::make_unique<double[]>(N*N*4);
+    int lwork = N*N*4;
     int n=N;
     int info;
     dgeev_(&jobvl, &jobvr, &n, &A(0,0), &lda, &L(0,0), &L_imag(0,0), &VL(0,0),
            &ldvl, &VR(0,0), &ldvr, work.get(), &lwork, &info);
 
+    auto invVR=inv(VR);
+    if (info!=0)
+        assert(false);
 
-    return std::make_tuple(VR,L,inv(VR).first); // in reality VL, L, VR because of transposition
+    assert(are_zero::test(L_imag,1));
+
+    return std::make_tuple(VR,L,invVR.first, invVR.second.first); // in reality VL, L, VR because of transposition
 }
 
+auto EigenSystem_full_real_eigenvalue(const M_Matrix<double>& x)
+{
+    using lapack::dgeevx_;
+
+
+    /**
+dgeevx()
+subroutine dgeevx 	(
+    character  	BALANC,
+        character  	JOBVL,
+        character  	JOBVR,
+        character  	SENSE,
+        integer  	N,
+        double precision, dimension( lda, * )  	A,
+        integer  	LDA,
+        double precision, dimension( * )  	WR,
+        double precision, dimension( * )  	WI,
+        double precision, dimension( ldvl, * )  	VL,
+        integer  	LDVL,
+        double precision, dimension( ldvr, * )  	VR,
+        integer  	LDVR,
+        integer  	ILO,
+        integer  	IHI,
+        double precision, dimension( * )  	SCALE,
+        double precision  	ABNRM,
+        double precision, dimension( * )  	RCONDE,
+        double precision, dimension( * )  	RCONDV,
+        double precision, dimension( * )  	WORK,
+        integer  	LWORK,
+        integer, dimension( * )  	IWORK,
+        integer  	INFO
+    )
+
+DGEEVX computes the eigenvalues and, optionally, the left and/or right eigenvectors for GE matrices
+
+Download DGEEVX + dependencies [TGZ] [ZIP] [TXT]
+
+Purpose:
+
+     DGEEVX computes for an N-by-N real nonsymmetric matrix A, the
+     eigenvalues and, optionally, the left and/or right eigenvectors.
+
+     Optionally also, it computes a balancing transformation to improve
+     the conditioning of the eigenvalues and eigenvectors (ILO, IHI,
+     SCALE, and ABNRM), reciprocal condition numbers for the eigenvalues
+     (RCONDE), and reciprocal condition numbers for the right
+     eigenvectors (RCONDV).
+
+     The right eigenvector v(j) of A satisfies
+                      A * v(j) = lambda(j) * v(j)
+     where lambda(j) is its eigenvalue.
+     The left eigenvector u(j) of A satisfies
+                   u(j)**H * A = lambda(j) * u(j)**H
+     where u(j)**H denotes the conjugate-transpose of u(j).
+
+     The computed eigenvectors are normalized to have Euclidean norm
+     equal to 1 and largest component real.
+
+     Balancing a matrix means permuting the rows and columns to make it
+     more nearly upper triangular, and applying a diagonal similarity
+     transformation D * A * D**(-1), where D is a diagonal matrix, to
+     make its rows and columns closer in norm and the condition numbers
+     of its eigenvalues and eigenvectors smaller.  The computed
+     reciprocal condition numbers correspond to the balanced matrix.
+     Permuting rows and columns will not change the condition numbers
+     (in exact arithmetic) but diagonal scaling will.  For further
+     explanation of balancing, see section 4.10.2 of the LAPACK
+     Users' Guide.
+
+Parameters
+
+*/
+    /**
+    [in]	BALANC
+
+              BALANC is CHARACTER*1
+              Indicates how the input matrix should be diagonally scaled
+              and/or permuted to improve the conditioning of its
+              eigenvalues.
+              = 'N': Do not diagonally scale or permute;
+              = 'P': Perform permutations to make the matrix more nearly
+                     upper triangular. Do not diagonally scale;
+              = 'S': Diagonally scale the matrix, i.e. replace A by
+                     D*A*D**(-1), where D is a diagonal matrix chosen
+                     to make the rows and columns of A more equal in
+                     norm. Do not permute;
+              = 'B': Both diagonally scale and permute A.
+
+              Computed reciprocal condition numbers will be for the matrix
+              after balancing and/or permuting. Permuting does not change
+              condition numbers (in exact arithmetic), but balancing does.
+  */
+    char  	BALANC='B';
+
+    /**
+    [in]	JOBVL
+
+              JOBVL is CHARACTER*1
+              = 'N': left eigenvectors of A are not computed;
+              = 'V': left eigenvectors of A are computed.
+              If SENSE = 'E' or 'B', JOBVL must = 'V'.
+*/
+    char  	JOBVL='V';
+    /**
+    [in]	JOBVR
+
+              JOBVR is CHARACTER*1
+              = 'N': right eigenvectors of A are not computed;
+              = 'V': right eigenvectors of A are computed.
+              If SENSE = 'E' or 'B', JOBVR must = 'V'.
+   */
+
+    char  	JOBVR='V';
+
+
+    /**
+
+    [in]	SENSE
+
+              SENSE is CHARACTER*1
+              Determines which reciprocal condition numbers are computed.
+              = 'N': None are computed;
+              = 'E': Computed for eigenvalues only;
+              = 'V': Computed for right eigenvectors only;
+              = 'B': Computed for eigenvalues and right eigenvectors.
+
+              If SENSE = 'E' or 'B', both left and right eigenvectors
+              must also be computed (JOBVL = 'V' and JOBVR = 'V').
+
+    */
+    char  	SENSE='B';
+
+    /**
+
+    [in]	N
+
+              N is INTEGER
+              The order of the matrix A. N >= 0.
+    */
+    int  	N=x.nrows();
+
+    /**
+
+    [in,out]	A
+
+              A is DOUBLE PRECISION array, dimension (LDA,N)
+              On entry, the N-by-N matrix A.
+              On exit, A has been overwritten.  If JOBVL = 'V' or
+              JOBVR = 'V', A contains the real Schur form of the balanced
+              version of the input matrix A.
+
+    */
+    M_Matrix<double>  /* precision; dimension( lda; * ) */  	A(x);
+
+    /**
+    [in]	LDA
+
+              LDA is INTEGER
+              The leading dimension of the array A.  LDA >= max(1,N).
+
+    */
+    int  	LDA=N;
+
+    /**
+    [out]	WR
+
+              WR is DOUBLE PRECISION array, dimension (N)
+
+    */
+    M_Matrix<double> /* precision; dimension( * ) */  	WR(N,N,M_Matrix<double>::DIAGONAL);
+
+    /**
+    [out]	WI
+
+              WI is DOUBLE PRECISION array, dimension (N)
+              WR and WI contain the real and imaginary parts,
+              respectively, of the computed eigenvalues.  Complex
+              conjugate pairs of eigenvalues will appear consecutively
+              with the eigenvalue having the positive imaginary part
+              first.
+
+    */
+    M_Matrix<double> /* precision; dimension( * ) */  	WI(N,N,M_Matrix<double>::DIAGONAL);
+
+    /**
+    [out]	VL
+
+              VL is DOUBLE PRECISION array, dimension (LDVL,N)
+              If JOBVL = 'V', the left eigenvectors u(j) are stored one
+              after another in the columns of VL, in the same order
+              as their eigenvalues.
+              If JOBVL = 'N', VL is not referenced.
+              If the j-th eigenvalue is real, then u(j) = VL(:,j),
+              the j-th column of VL.
+              If the j-th and (j+1)-st eigenvalues form a complex
+              conjugate pair, then u(j) = VL(:,j) + i*VL(:,j+1) and
+              u(j+1) = VL(:,j) - i*VL(:,j+1).
+
+    */
+    M_Matrix<double> /* precision; dimension( ldvl; * ) */  	VL(N,N);
+
+    /**
+    [in]	LDVL
+
+              LDVL is INTEGER
+              The leading dimension of the array VL.  LDVL >= 1; if
+              JOBVL = 'V', LDVL >= N.
+
+    */
+    int  	LDVL=N;
+
+    /**
+    [out]	VR
+
+              VR is DOUBLE PRECISION array, dimension (LDVR,N)
+              If JOBVR = 'V', the right eigenvectors v(j) are stored one
+              after another in the columns of VR, in the same order
+              as their eigenvalues.
+              If JOBVR = 'N', VR is not referenced.
+              If the j-th eigenvalue is real, then v(j) = VR(:,j),
+              the j-th column of VR.
+              If the j-th and (j+1)-st eigenvalues form a complex
+              conjugate pair, then v(j) = VR(:,j) + i*VR(:,j+1) and
+              v(j+1) = VR(:,j) - i*VR(:,j+1).
+
+    */
+    M_Matrix<double> /* precision; dimension( ldvr; * ) */  	VR(N,N);
+
+    /**
+    [in]	LDVR
+
+              LDVR is INTEGER
+              The leading dimension of the array VR.  LDVR >= 1, and if
+              JOBVR = 'V', LDVR >= N.
+    */
+    int  	LDVR=N;
+
+    /**
+
+    [out]	ILO
+
+              ILO is INTEGER
+
+    */
+    int  	ILO;
+
+    /**
+    [out]	IHI
+
+              IHI is INTEGER
+              ILO and IHI are integer values determined when A was
+              balanced.  The balanced A(i,j) = 0 if I > J and
+              J = 1,...,ILO-1 or I = IHI+1,...,N.
+
+    */
+    int  	IHI;
+
+    /**
+    [out]	SCALE
+
+              SCALE is DOUBLE PRECISION array, dimension (N)
+              Details of the permutations and scaling factors applied
+              when balancing A.  If P(j) is the index of the row and column
+              interchanged with row and column j, and D(j) is the scaling
+              factor applied to row and column j, then
+              SCALE(J) = P(J),    for J = 1,...,ILO-1
+                       = D(J),    for J = ILO,...,IHI
+                       = P(J)     for J = IHI+1,...,N.
+              The order in which the interchanges are made is N to IHI+1,
+              then 1 to ILO-1.
+    */
+    M_Matrix<double>  /* precision; dimension( * ) */  	SCALE(N,N,M_Matrix<double>::DIAGONAL);
+
+    /**
+
+    [out]	ABNRM
+
+              ABNRM is DOUBLE PRECISION
+              The one-norm of the balanced matrix (the maximum
+              of the sum of absolute values of elements of any column).
+
+    */
+    double   	ABNRM;
+
+    /**
+    [out]	RCONDE
+
+              RCONDE is DOUBLE PRECISION array, dimension (N)
+              RCONDE(j) is the reciprocal condition number of the j-th
+              eigenvalue.
+
+    */
+    M_Matrix<double> /* precision; dimension( * ) */  	RCONDE(N,N,M_Matrix<double>::DIAGONAL);
+
+    /**
+    [out]	RCONDV
+
+              RCONDV is DOUBLE PRECISION array, dimension (N)
+              RCONDV(j) is the reciprocal condition number of the j-th
+              right eigenvector.
+    */
+    M_Matrix<double> /* precision; dimension( * ) */  	RCONDV(N,N,M_Matrix<double>::DIAGONAL);
+
+    /**
+
+    [out]	WORK
+
+              WORK is DOUBLE PRECISION array, dimension (MAX(1,LWORK))
+              On exit, if INFO = 0, WORK(1) returns the optimal LWORK.
+
+    */
+    M_Matrix<double> /* precision; dimension( * ) */  	WORK(1,1,0.0);
+
+    /**
+    [in]	LWORK
+
+              LWORK is INTEGER
+              The dimension of the array WORK.   If SENSE = 'N' or 'E',
+              LWORK >= max(1,2*N), and if JOBVL = 'V' or JOBVR = 'V',
+              LWORK >= 3*N.  If SENSE = 'V' or 'B', LWORK >= N*(N+6).
+              For good performance, LWORK must generally be larger.
+
+              If LWORK = -1, then a workspace query is assumed; the routine
+              only calculates the optimal size of the WORK array, returns
+              this value as the first entry of the WORK array, and no error
+              message related to LWORK is issued by XERBLA.
+
+    */
+    int  	LWORK=-1;
+
+    /**
+    [out]	IWORK
+
+              IWORK is INTEGER array, dimension (2*N-2)
+              If SENSE = 'N' or 'E', not referenced.
+
+    */
+    M_Matrix<int> /*dimension( * ) */  	IWORK(2,N-2);
+
+    /**
+    [out]	INFO
+
+              INFO is INTEGER
+              = 0:  successful exit
+              < 0:  if INFO = -i, the i-th argument had an illegal value.
+              > 0:  if INFO = i, the QR algorithm failed to compute all the
+                    eigenvalues, and no eigenvectors or condition numbers
+                    have been computed; elements 1:ILO-1 and i+1:N of WR
+                    and WI contain eigenvalues which have converged.
+
+         */
+
+    int  	INFO;
+    dgeevx_ 	(&BALANC,&JOBVL,	&JOBVR,&SENSE,&N,&A(0,0),&LDA,&WR(0,0),&WI(0,0),&VL[0],&LDVL,&VR[0],&LDVR,&ILO,&IHI,
+            &SCALE[0],&ABNRM,&RCONDE[0],&RCONDV[0],&WORK[0],&LWORK,&IWORK[0],&INFO);
+
+    M_Matrix<double> WORK_OPT(1,WORK[0]);
+    LWORK=WORK[0];
+    dgeevx_ 	(&BALANC,&JOBVL,	&JOBVR,&SENSE,&N,&A(0,0),&LDA,&WR(0,0),&WI(0,0),&VL[0],&LDVL,&VR[0],&LDVR,&ILO,&IHI,
+            &SCALE[0],&ABNRM,&RCONDE[0],&RCONDV[0],&WORK_OPT[0],&LWORK,&IWORK[0],&INFO);
+
+    auto invVR=inv(VR);
+    if (INFO!=0)
+        assert(false);
+
+    return std::make_tuple(VR,WR,invVR.first, invVR.second.first); // in reality VL, L, VR because of transposition
+}
+
+
 } // namespace Matrix_Decompositions
+
+
+
+
+
+
 
 
 namespace Matrix_Generators
@@ -1874,6 +2298,32 @@ double Trace(const M_Matrix<T>& x)
     auto d=diag(x);
     return fullSum(d);
 }
+
+
+double norm_1(const double x) {return std::abs(x);}
+
+
+/**
+    Maximum Value of the Sum of the absolute values in each row
+   */
+template<typename T>
+double norm_1(const M_Matrix<T>& x)
+{
+    double  n=0;
+    for (size_t i=0; i<ncols(x); ++i)
+    {
+        double sum=0;
+        for (size_t j=0; j<nrows(x); ++j)
+            sum+=norm_1(x(j,i));
+        n=std::max(n,sum);
+    }
+    return n;
+}
+
+
+
+
+
 
 
 /**
@@ -2495,7 +2945,7 @@ namespace matrix_inverse
 {
 using namespace partition;
 inline
-std::pair<M_Matrix<double>, std::string>
+std::pair<M_Matrix<double>, std::pair<double,std::string>>
 full_inv(const M_Matrix<double>& a)
 
 {
@@ -2506,7 +2956,7 @@ full_inv(const M_Matrix<double>& a)
     using lapack::dgetri_;
     using lapack::dgecon_;
     if (a.size()==0)
-        return {a,"EMPTY MATRIX"};
+        return {a,{0,"EMPTY MATRIX"}};
     else
     {
         assert(a.ncols()==a.nrows());
@@ -2547,18 +2997,18 @@ full_inv(const M_Matrix<double>& a)
         dgetri_(&N,A,&LDA,IPIV.get(),WORK,&LWORK,&INFO);
 
         if (RCOND<min_inv_condition_number)
-            return {B,"bad condition number RCOND="+my_to_string(RCOND)};
+            return {B,{RCOND,"bad condition number RCOND="+my_to_string(RCOND)}};
         if (INFO==0)
-            return {B,""};
+            return {B,{RCOND,""}};
         else
-            return {B,"Singular Matrix on i="+std::to_string(INFO)};
+            return {B,{RCOND,"Singular Matrix on i="+std::to_string(INFO)}};
         ;
     }
 }
 
 
 template<typename T>
-std::pair<M_Matrix<T>, std::string>
+std::pair<M_Matrix<double>, std::pair<double,std::string>>
 full_inv(const M_Matrix<T>& x)
 {
     auto p=FullPartition<T>(x,x.nrows()/2);
@@ -2571,16 +3021,17 @@ full_inv(const M_Matrix<T>& x)
 }
 
 inline
-std::pair<M_Matrix<double>
-,std::string>
+std::pair<M_Matrix<double>, std::pair<double,std::string>>
 symmetric_inv(const M_Matrix<double>& a,const std::string& kind="lower")
 
 {
     using lapack::dsytrf_;
     using lapack::dsytri_;
+    using lapack::dsycon_;
+    using lapack::dlange_;
 
     if (a.size()==0)
-        return {a,"EMPTY MATRIX"};
+        return {a,{0,"EMPTY MATRIX"}};
     else
     {
         assert(a.nrows()==a.ncols());
@@ -2698,14 +3149,105 @@ symmetric_inv(const M_Matrix<double>& a,const std::string& kind="lower")
         M_Matrix<double> W(N,N);
         double *WORK = &W[0];
         dsytrf_(&UPLO,&N,A,&LDA,IPIV.get(),WORK,&LWORK,&INFO);
+        double   RCOND;
+        auto   WORK_cond=std::make_unique<double[]>(N*4);
+        auto   IWORK=std::make_unique<int[]>(N);
+        int   INFO_con;
+
+        /**
+DSYCON
+
+Download DSYCON + dependencies [TGZ] [ZIP] [TXT]
+
+Purpose:
+
+ DSYCON estimates the reciprocal of the condition number (in the
+ 1-norm) of a real symmetric matrix A using the factorization
+ A = U*D*U**T or A = L*D*L**T computed by DSYTRF.
+
+ An estimate is obtained for norm(inv(A)), and the reciprocal of the
+ condition number is computed as RCOND = 1 / (ANORM * norm(inv(A))).
+
+Parameters
+[in]	UPLO
+
+          UPLO is CHARACTER*1
+          Specifies whether the details of the factorization are stored
+          as an upper or lower triangular matrix.
+          = 'U':  Upper triangular, form is A = U*D*U**T;
+          = 'L':  Lower triangular, form is A = L*D*L**T.
+
+[in]	N
+
+          N is INTEGER
+          The order of the matrix A.  N >= 0.
+
+[in]	A
+
+          A is DOUBLE PRECISION array, dimension (LDA,N)
+          The block diagonal matrix D and the multipliers used to
+          obtain the factor U or L as computed by DSYTRF.
+
+[in]	LDA
+
+          LDA is INTEGER
+          The leading dimension of the array A.  LDA >= max(1,N).
+
+[in]	IPIV
+
+          IPIV is INTEGER array, dimension (N)
+          Details of the interchanges and the block structure of D
+          as determined by DSYTRF.
+
+[in]	ANORM
+
+          ANORM is DOUBLE PRECISION
+          The 1-norm of the original matrix A.
+
+[out]	RCOND
+
+          RCOND is DOUBLE PRECISION
+          The reciprocal of the condition number of the matrix A,
+          computed as RCOND = 1/(ANORM * AINVNM), where AINVNM is an
+          estimate of the 1-norm of inv(A) computed in this routine.
+
+[out]	WORK
+
+          WORK is DOUBLE PRECISION array, dimension (2*N)
+
+[out]	IWORK
+
+          IWORK is INTEGER array, dimension (N)
+
+[out]	INFO
+
+          INFO is INTEGER
+          = 0:  successful exit
+          < 0:  if INFO = -i, the i-th argument had an illegal value*/
+
+
+        char   NORM='1';
+        int M=N;
+
+        auto   WORK_lange=std::make_unique<double[]>(N);
+
+        double   ANORM=dlange_(&NORM,&M,&N,A,&LDA,WORK_lange.get() );
+
+        //        dsycon_( 	char*  	UPLO, int *  	N,double */* precision, dimension( lda, * ) */  	A,
+        //                                    int *  	LDA,double *  	ANORM,                                    double *   	RCOND,
+        //                                    double */* dimension( * )  */	WORK,
+        //                                    int */* dimension( * ) */ 	IWORK,
+        //                                    int *  	INFO);
+
+        dsycon_(&UPLO,&N,A,&LDA,IPIV.get(),&ANORM,&RCOND,WORK_cond.get(),IWORK.get(),&INFO_con );
 
         if (INFO<0)
         {
-            return {{},"INVALID ARGUMENT"};
+            return {{},{0,"INVALID ARGUMENT "+std::to_string(INFO)}};
         }
         else if (INFO>0)
         {
-            return {{},"SINGULAR MATRIX ON "+std::to_string(INFO)};
+            return {{},{0.0,"SINGULAR MATRIX ON "+std::to_string(INFO)}};
         }
         else
         {
@@ -2781,9 +3323,12 @@ symmetric_inv(const M_Matrix<double>& a,const std::string& kind="lower")
                      inverse could not be computed.
              */
             dsytri_(&UPLO,&N,A,&LDA,IPIV.get(),WORK,&INFO);
+
+
+
             if (INFO!=0)
             {
-                return {B,"cannot invert a singular matrix"};
+                return {B,{0.0,"cannot invert a singular matrix "+std::to_string(INFO)}};
             }
             else
             {
@@ -2811,7 +3356,7 @@ symmetric_inv(const M_Matrix<double>& a,const std::string& kind="lower")
                  auto test_a=aa*out;
                  auto invv=invtest*test;
              */
-                return {out,""};
+                return {out,{RCOND,""}};
             }
         }
     }
@@ -2832,67 +3377,80 @@ symmetric_inv(const M_Matrix<T>& x)
 }
 
 inline
-std::pair<M_Matrix<double>
-,std::string>
+std::pair<M_Matrix<double>,
+std::pair<double,std::string>>
 diagonal_inv(const M_Matrix<double>& a)
 {
     M_Matrix<double> out(a.nrows(),a.ncols(),M_Matrix<double>::DIAGONAL);
+    double amax=0; double imax=0;
     for (std::size_t i=0; i<a.nrows(); ++i)
         if (a(i,i)==0)
-            return {{},"Singular Matrix, Diagonal zero at "+std::to_string(i)};
+            return {{},{0,"Singular Matrix, Diagonal zero at "+std::to_string(i)}};
         else
+        {
             out(i,i)=1.0/a(i,i);
-    return {out,""};
+            if (std::abs(a(i,i))>amax) amax=std::abs(a(i,i));
+            if (std::abs(out(i,i))>imax) imax=std::abs(out(i,i));
+        }
+    return {out,{1.0/(amax*imax),""}};
 
 }
 
 
 template<typename T>
-std::pair<M_Matrix<T>, std::string>
+std::pair<M_Matrix<T>, std::pair<double, std::string>>
 diagonal_inv(const M_Matrix<T>& a)
 {
+    double amax=0; double imax=0;
     M_Matrix<T> out(a.nrows(),a.ncols(),M_Matrix<T>::DIAGONAL);
     for (std::size_t i=0; i<a.nrows(); ++i)
     {
+        double anorm=norm_1(a(i,i));
         auto e=inv(a(i,i));
         if (!e.second.empty())
         {
             return {{},"Singular block="+std::to_string(i)+e.second};
         }
         else
+        {
             out(i,i)=std::move(e.first);
+            double inorm=1.0/(anorm*e.second.first);
+            if (anorm>amax) amax=anorm;
+            if (inorm>imax) imax=inorm;
+
+        }
     }
-    return {out,""};
+    return {out,{1.0/(amax*imax),""}};
 
 }
 
 inline
-std::pair<M_Matrix<double>
-,std::string>
+std::pair<M_Matrix<double>,
+std::pair<double,std::string>>
 scalar_diagonal_inv(const M_Matrix<double>& a)
 {
     if (a(0,0)==0)
-        return {{},"Singular Matrix, Diagonal is zero"};
+        return {{},{0,"Singular Matrix, Diagonal is zero"}};
     else
         return {
             M_Matrix<double>
                     (a.nrows(),a.ncols(),
                      M_Matrix<double>::SCALAR_DIAGONAL,
                      1.0/a(0,0))
-                    ,""
+                    ,{1.0,""}
         };
 
 }
 
 
 template<typename T>
-std::pair<M_Matrix<T>, std::string>
+std::pair<M_Matrix<T>, std::pair<double,std::string>>
 scalar_diagonal_inv(const M_Matrix<T>& a)
 {
     auto e=inv(a(0,0));
     if (!e.second.empty())
     {
-        return {{},"Singular SCALAR DIAGONAL block: "+e.second};
+        return {{},{0,"Singular SCALAR DIAGONAL block: "+e.second}};
     }
     else
         return {
@@ -2900,12 +3458,13 @@ scalar_diagonal_inv(const M_Matrix<T>& a)
                     (a.nrows(),a.ncols(),
                      M_Matrix<T>::SCALAR_DIAGONAL,
                      std::move(e.first))
-                    ,""
+                    ,{e.second,""}
         };
 }
 
 template<typename E>
-std::pair<M_Matrix<E>, std::string>
+
+std::pair<M_Matrix<E>, std::pair<double,std::string>>
 Matrix_inverse(const M_Matrix<E>& x)
 {
     assert(x.nrows()==x.ncols());
@@ -2929,12 +3488,12 @@ Matrix_inverse(const M_Matrix<E>& x)
     }
     case M_Matrix<E>::SCALAR_FULL:
     {
-        return {{},"SCALAR FULL is Singular"};
+        return {{},{0,"SCALAR FULL is Singular"}};
     }
     case M_Matrix<E>::ZERO:
     default:
     {
-        return {{},"ZERO Matrix is Singular"};
+        return {{},{0,"ZERO Matrix is Singular"}};
     }
 
 
@@ -3127,7 +3686,7 @@ Matrix_cholesky(const M_Matrix<E>& x, const std::string& kind)
 }
 
 template <class T>
-std::pair<M_Matrix<T>, std::string>
+std::pair<M_Matrix<T>, std::pair<double,std::string>>
 inv(const M_Matrix<T>& x)
 {
     return matrix_inverse::Matrix_inverse(x);
@@ -3648,6 +4207,23 @@ Size_of_Product(const M_Matrix<T>& one, const M_Matrix<S>& other, bool transpose
 
 namespace product
 {
+template<typename T, typename S>
+auto
+UnformattedProduct
+(const M_Matrix<T>& x,
+ const M_Matrix<S>& y
+ )
+->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
+{
+    assert(x.ncols()==y.nrows());
+    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out(x.nrows(), y.ncols(),0);
+    for (std::size_t i=0; i<x.nrows();++i)
+        for (std::size_t j=0; j<y.ncols();++j)
+            for (std::size_t k=0; k<x.ncols();++k)
+                out(i,j)+=x(i,k)*y(k,j);
+    return out;
+}
+
 inline M_Matrix<double> Lapack_Full_Product(const M_Matrix<double>& x,const M_Matrix<double>& y, bool transpose_x, bool transpose_y)
 {
     using lapack::dgemm_;
@@ -4600,7 +5176,10 @@ Matrix_Multiplication
  , bool transposeOther)
 ->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
 {
-    return All_Product(one,other,transposeOne,transposeOther);
+    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out=All_Product(one,other,transposeOne,transposeOther);
+    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out2=UnformattedProduct(one,other);
+    assert(are_Equal::test(out,out2));
+    return out;
 }
 
 
@@ -4616,7 +5195,11 @@ operator *
  const M_Matrix<S>& other)
 ->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
 {
-    return product::Matrix_Multiplication(one,other,false,false);
+    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out= product::Matrix_Multiplication(one,other,false,false);
+    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> alt=product::UnformattedProduct(one,other);
+    assert(are_Equal::test(out,alt));
+    return out;
+
 }
 
 template<typename T, typename S>
@@ -5265,6 +5848,67 @@ M_Matrix<T> elemMult(M_Matrix<T>&& x,M_Matrix<S>&& y)
 }
 
 
+template<typename T, typename S>
+M_Matrix<T> elemDiv(const M_Matrix<T>& x,const M_Matrix<S>& y)
+{
+    auto out(x);
+    return Element_Wise_Multiplicative_Assigment_Operator([](T& a, const S& b){a/=b; return a;},out,y);
+}
+
+template<typename T, typename S>
+M_Matrix<T> elemDiv(M_Matrix<T>&& x,M_Matrix<S>&& y)
+{
+    return Element_Wise_Multiplicative_Assigment_Operator([](T& a, const S& b){a/=b; return a;},x,y);
+}
+
+
+double elemDivSafe(double x, double y,  double eps=std::numeric_limits<double>::epsilon())
+{
+    if (std::abs(y)>eps)
+        return x/y;
+    else return 0;
+}
+
+
+template<typename T, typename S>
+auto
+UnformatedelemDivSafe
+(const M_Matrix<T>& x,
+ const M_Matrix<S>& y
+ , double eps=std::numeric_limits<double>::epsilon())
+->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
+{
+    assert(x.nrows()==y.nrows());
+    assert(x.ncols()==y.ncols());
+    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out(x.nrows(), x.ncols(),0);
+    for (std::size_t i=0; i<x.nrows();++i)
+        for (std::size_t j=0; j<x.ncols();++j)
+            out(i,j)=elemDivSafe(x(i,j),y(i,j),eps);
+    return out;
+}
+
+
+
+
+template<typename T, typename S>
+M_Matrix<T> elemDivSafe(const M_Matrix<T>& x,const M_Matrix<S>& y, double eps=std::numeric_limits<double>::epsilon())
+{
+    double norm=Matrix_Unary_Functions::norm_1(y);
+    auto out(x);
+    out= Element_Wise_Multiplicative_Assigment_Operator([eps,norm](T& a, const S& b){return a=elemDivSafe(a,b,eps);return a;},out,y);
+    assert(are_Equal::test(out,UnformatedelemDivSafe(x,y,eps)));
+    return out;
+
+}
+
+template<typename T, typename S>
+M_Matrix<T> elemDivSafe(M_Matrix<T>&& x,M_Matrix<S>&& y, double eps=std::numeric_limits<double>::epsilon())
+{
+    double norm=Matrix_Unary_Functions::norm_1(y);
+    return Element_Wise_Multiplicative_Assigment_Operator([eps,norm](T& a, const S& b){return elemDivSafe(a,b,eps*norm);},x,y);
+}
+
+
 
 
 
@@ -5284,27 +5928,6 @@ M_Matrix<double> elemDiv(const M_Matrix<T>& x,const M_Matrix<S>& y)
             z(i,j)/=double(y(i,j));
     return z;
 }
-
-/**
- Safe Division of the elements of two matrices.
-  @pre \p x.nrows()==ncols(y) x.ncols()==ncols(y)
-  @return z, where z.nrows()=rows(x), z.ncols()=ncols(y)
- and z(i,j)= sum on k of x(i,k)*y(k,j)
-  @warning it \c assert the preconditions
- */
-template<typename T,typename S>
-M_Matrix<double> elemDivSafe(const M_Matrix<T>& x,const M_Matrix<S>& y)
-{
-    M_Matrix<double> z(x);
-    for (size_t i=0; i<z.nrows(); i++)
-        for (size_t j=0; j<z.ncols(); j++)
-            if (y(i,j)!=0)
-                z(i,j)/=double(y(i,j));
-            else
-                z(i,j)=0;
-    return z;
-}
-// @}
 
 
 template<typename T>
@@ -5420,6 +6043,25 @@ sum(const std::vector<T>& x)
 }
 
 
+template<typename T>
+double Frobenius_norm(const M_Matrix<T>& x)
+{
+    return std::sqrt(fullSum(elemMult(x,x)));
+}
+
+struct Frobenius_test:public invariant
+{
+    template<typename T>
+    static bool test(const M_Matrix<T> & one, const M_Matrix<T>& other, double conditionNumber,double eps=std::numeric_limits<double>::epsilon() )
+    {
+        double norm=Frobenius_norm(one);
+        double normtest=Frobenius_norm(one-other)/norm*conditionNumber;
+        if (normtest<eps)
+            return true;
+        else
+            return false;
+    }
+};
 
 
 

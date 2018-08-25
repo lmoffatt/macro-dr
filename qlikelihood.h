@@ -14,7 +14,7 @@ public:
     std::vector<Normal_Distribution<double>> getDistribution(const Experiment& e, const M_Matrix<double>& parameters) const
     {
         auto p=p_.tr_to_Parameter(parameters);
-        SingleLigandModel SM(m.Qs(p),m.g(p), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
+        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
         Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e);
         if(algorithm_=="MacroDR")
         {

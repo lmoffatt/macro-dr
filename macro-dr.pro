@@ -8,8 +8,8 @@ QMAKE_CXXFLAGS_RELEASE += -lpthread
 QMAKE_CXXFLAGS_DEBUG += -lpthread
 
 
-QMAKE_CXXFLAGS += -fopenmp
-QMAKE_LFLAGS +=  -fopenmp
+#QMAKE_CXXFLAGS += -fopenmp
+#QMAKE_LFLAGS +=  -fopenmp
 LIBS += -lpthread
 LIBS +=  -lblas  -llapack
 
@@ -43,7 +43,8 @@ HEADERS += \
     likelihood_markov_process.h \
     mydata.h \
     myevidence.h \
-    qlikelihood.h
+    qlikelihood.h \
+    mytests.h
 
 DISTFILES += \
     simulation.txt

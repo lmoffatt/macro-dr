@@ -33,6 +33,8 @@ public:
                          double eplogL__):
         P_mean_{std::move(P_mean__)},P_cov_{std::move( P_cov__)}, y_mean_{y_mean__}, y_var_{y_var__},plogL_{plogL__},eplogL_{eplogL__}{
         assert(P_cov__.isSymmetric());
+        //assert(Probability_distribution::test(P_mean_));
+        //assert(Probability_distribution_covariance::test(P_cov_));
     }
     
     const M_Matrix<double>& P_mean()const{return P_mean_;}
@@ -52,7 +54,6 @@ public:
 template<bool zero_guard>
 struct MacroDR
 {
-    inline constexpr static auto const className=my_static_string("MacroDR");
     template< class Model, class Step>
     mp_state_information run(const mp_state_information& prior,  Model& m,const Step& p )const
     {
@@ -60,13 +61,34 @@ struct MacroDR
         //  double x=Y.x();
         // double y=Y.y();
         
-        
-        Markov_Transition_step_double Q_dt=m.get_P(p);
+       double eps=std::numeric_limits<double>::epsilon();
+       Markov_Transition_step_double Q_dt=m.get_P(p,0,eps);
+        Markov_Transition_step_double Q_dt2=m.get_P(p,10,eps);
+        Markov_Transition_step_double Q_dt3=m.get_P(p,20,eps);
+
+        bool test, test2, test3;
+        if (class_Invariants<Markov_Transition_step_double>::test(Q_dt))
+            test=true;
+        else
+            test=false;
+        if (class_Invariants<Markov_Transition_step_double>::test(Q_dt2))
+            test2=true;
+        else
+            test2=false;
+
+        if (class_Invariants<Markov_Transition_step_double>::test(Q_dt3))
+            test3=true;
+        else
+            test3=false;
+
         M_Matrix<double> Sm=prior.P_cov()-diag(prior.P_mean());
         
-        M_Matrix<double> sSm=TranspMult(Q_dt.gtotal_var_i(),Sm);
+        M_Matrix<double> sSm=TranspMult(Q_dt.gvar_i(),Sm);
         M_Matrix<double> gSm=TranspMult(Q_dt.gmean_i(),Sm);
         
+
+
+
         double sms=0;
         double smg=0;
         double gmg=0;
@@ -81,25 +103,36 @@ struct MacroDR
         
         double gSg=(gSm*Q_dt.gmean_i())[0]+gmg;
         double sSg=(sSm*Q_dt.gmean_i())[0]+smg;
-        double sSs=(sSm*Q_dt.gtotal_var_i())[0]+sms;
+        double sSs=(sSm*Q_dt.gvar_i())[0]+sms;
         
         
         M_Matrix<double> gS=gSm*Q_dt.P()+prior.P_mean()*Q_dt.gtotal_ij();
         M_Matrix<double> sS=sSm*Q_dt.P()+prior.P_mean()*Q_dt.gtotal_var_ij();
         double N=m.AverageNumberOfChannels();
-        double sA2=N*(prior.P_mean()*Q_dt.gtotal_var_i())[0]+m.noise_variance(p.nsamples());
+        double smean=N*(prior.P_mean()*Q_dt.gvar_i())[0];
+        double e=m.noise_variance(p.nsamples());
+
+        double sA2=N*(prior.P_mean()*Q_dt.gvar_i())[0]+m.noise_variance(p.nsamples());
+
         double sB4=2*sA2*sA2-N*sSs;
-        
-        double y_var=sA2+N*gSg+(N*N*sSg*sSg)/std::abs(sB4);
+
+
+
+        double y_var=sA2+N*gSg+(N*N*sSg*sSg)/sB4;
         //sometimes sB4 might be negative, when P_cov_M is greter than one.
         
         if (y_var<0)
         {
-            //        std::cerr<<" \n******** y_var_d negative!!!!!***********\n";
-            //        std::cerr<<"\n sA2+N*gSg+(N*N*sSg*sSg)/sB4 \n";
-            //        std::cerr<<"\n sA2=  "<<sA2;
-            //        std::cerr<<"\n gSg ="<<gSg;
-            //        std::cerr<<"\n sB4=2*sA2*sA2-N*sSs  sB4 = "<<sB4<<"\n";
+                    std::cerr<<" \n******** y_var_d negative!!!!!***********\n";
+                    std::cerr<<"\n sA2+N*gSg+(N*N*sSg*sSg)/sB4 \n";
+                    std::cerr<<"\t smean="<<smean<<"\t e="<<e;
+                    std::cerr<<"\n sA2=  "<<sA2;
+                    std::cerr<<"\n sB4=  "<<sB4;
+
+                   std::cerr<<"\n gSg ="<<gSg;
+                   std::cerr<<"\n sSs ="<<sSs;
+
+                 std::cerr<<"\n sB4=2*sA2*sA2-N*sSs  sB4 = "<<sB4<<"\n";
             
             //        std::cerr<<*this;
             //        std::cerr<<this->model();
@@ -158,10 +191,10 @@ struct MacroDR
             
             double eplogL=-0.5*(1.0+log(2*PI*y_var));
             
-          /*  auto P_cov=TranspMult(Q_dt.P(),Sm)*Q_dt.P()+diag(prior.P_mean()*Q_dt.P())-
+            auto P_cov_=TranspMult(Q_dt.P(),Sm)*Q_dt.P()+diag(prior.P_mean()*Q_dt.P())-
                     TranspMult(gS,gS)*(N/y_var)-
                     (TranspMult(sS,gS)+TranspMult(gS,sS))*(N*N*sSg/y_var/sB4)+
-                    TranspMult(sS,sS)*(N/sB4-N/y_var*N*N*sSg*sSg/sB4/sB4);*/
+                    TranspMult(sS,sS)*(N/sB4-N/y_var*N*N*sSg*sSg/sB4/sB4);
             
             auto P_cov=quadraticForm_BT_A_B(Sm,Q_dt.P())+
                     diag(prior.P_mean()*Q_dt.P())-
@@ -169,6 +202,7 @@ struct MacroDR
                     TransposeSum(TranspMult(sS,gS))*(N*N*sSg/y_var/sB4)+
                     quadraticForm_XTX(sS)*(N/sB4-N/y_var*N*N*sSg*sSg/sB4/sB4);
 
+            assert(are_Equal::test(P_cov_,P_cov));
 
             if constexpr (zero_guard)
             if (!(diag(P_cov)>=0.0)||!(diag(P_cov)<=1.0))
@@ -199,6 +233,23 @@ struct MacroDR
     
     
 };
+};
+template<>
+struct my_trait<markov::MacroDR<true>>
+{
+    inline constexpr static auto const className=my_static_string("MacroDR_z");
+
+};
+template<>
+struct my_trait<markov::MacroDR<false>>
+{
+    inline constexpr static auto const className=my_static_string("MacroDR");
+
+};
+
+
+namespace markov {
+
 
 struct logLikelihood_function
 {

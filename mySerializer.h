@@ -510,13 +510,12 @@ std::istream& operator>>(std::istream& is, size_of_container& n)
 template<typename T>
 std::ostream& output_operator_on_element(std::ostream& os, const T& e)
 {
-    return os<<separator{}<<e;
+    return os<<e;
 }
 
 template<typename T>
 std::ostream& write_on_element(std::ostream& os, const T& e)
 {
-    os<<io::separator{};
     write(os,e);
     return os;
 }
@@ -524,13 +523,12 @@ std::ostream& write_on_element(std::ostream& os, const T& e)
 template<typename T>
 std::ostream& output_operator_on_element(std::ostream& os, const T * & e)
 {
-    return os<<separator{}<<*e;
+    return os<<*e;
 }
 
 template<typename T>
 std::ostream& write_on_element(std::ostream& os, const T*& e)
 {
-    os<<io::separator{};
     write(os,*e);
     return os;
 }
@@ -538,7 +536,6 @@ std::ostream& write_on_element(std::ostream& os, const T*& e)
 template<typename T>
 std::istream& input_operator_on_element(std::istream& is, T& e)
 {
-    is>>io::separator{};
     return  is>>e;
 }
 
@@ -546,7 +543,7 @@ template<typename T>
 std::istream& input_operator_on_element(std::istream& is, T*& e)
 {
     e=new T;
-    return is>>io::separator{}>>*e;
+    return is>>*e;
 }
 
 
@@ -554,7 +551,6 @@ std::istream& input_operator_on_element(std::istream& is, T*& e)
 template<typename T>
 std::istream& read_on_element(std::istream& is, T& e)
 {
-    is>>io::separator{};
     read(is,e);
     return is;
 }
@@ -562,7 +558,6 @@ std::istream& read_on_element(std::istream& is, T& e)
 template<typename T>
 std::istream& read_on_element(std::istream& is, T*& e)
 {
-    is>>io::separator{};
     e=new T;
     read(is,*e);
     return is;
@@ -572,7 +567,6 @@ std::istream& read_on_element(std::istream& is, T*& e)
 template<typename T>
 std::istream& read_one_element_on_vector(std::istream& is, std::vector<T>& v)
 {
-    is>>io::separator{};
     T e;
     if (!read(is,e))
         return is;
@@ -586,7 +580,6 @@ std::istream& read_one_element_on_vector(std::istream& is, std::vector<T>& v)
 template<typename T>
 std::istream& read_one_element_on_vector(std::istream& is, std::vector<T*>& v)
 {
-    is>>io::separator{};
     T* e=new T;
     if (!read(is,*e))
         return is;
@@ -602,7 +595,6 @@ std::istream& read_one_element_on_vector(std::istream& is, std::vector<T*>& v)
 template<typename Token,typename T>
 std::istream& read_on_element(std::istream& is, std::variant<Token,T>& e)
 {
-    is>>io::separator{};
     Token t;
     T x;
     if (!read(is,t))
@@ -730,13 +722,11 @@ std::istream& extract_double(std::istream& ss, double& val)
 
 std::istream& input_operator_on_element(std::istream& is, double& e)
 {
-    is>>separator{};
     return extract_double(is,e);
 }
 
 std::istream& input_operator_on_element(std::istream& is, double*& e)
 {
-    is>>separator{};
     e=new double;
     return extract_double(is,*e);
 }
@@ -1053,6 +1043,7 @@ template<typename T1, typename T2> std::ostream& write_pair(std::ostream& os,con
 template<typename T1, typename T2> std::istream& read_pair(std::istream& is, std::pair<T1,T2>& other)
 {
     io::read_on_element(is,other.first);
+    is>>separator{};
     io::read_on_element(is,other.second);
     is>>io::end_of_line{};
     return is;
@@ -1078,9 +1069,11 @@ std::ostream& output_operator_on_container(std::ostream& os,const Container& myC
 
     os<<io::start_of_Container{};
     os<<io::size_of_container{myContainer.size()};
-    for (auto e:myContainer)
+    for (auto it=myContainer.begin(); it!=myContainer.end();)
     {
-        io::output_operator_on_element(os,e);
+        io::output_operator_on_element(os,*it);
+        if (++it!=myContainer.end())
+            os<<io::separator{};
     }
     os<<io::end_of_Container{};
     return os;
@@ -1093,9 +1086,11 @@ template<class Container>
 std::ostream& write_on_container(std::ostream& os,const Container& myContainer){
 
     os<<io::size_of_container{myContainer.size()}<<io::end_of_line{};
-    for (auto e:myContainer)
+    for (auto it=myContainer.begin(); it!=myContainer.end();)
     {
-        io::write_on_element(os,e);
+        io::write_on_element(os,*it);
+        if (++it!=myContainer.end())
+            os<<io::separator{};
     }
     os<<io::end_of_line{};
     return os;
@@ -1113,6 +1108,8 @@ std::istream& input_operator_on_container(std::istream& is, Container<T,Allocato
     {
         T e{};
         input_operator_on_element(is,e);
+        if (i+1<s.size)
+            is>>io::separator{};
         myContainer.push_back(std::move(e));
     }
     is>>io::end_of_Container{};
@@ -1131,6 +1128,8 @@ std::istream& read_on_container(std::istream& is, Container<T,Allocator> & myCon
         {
             T e{};
             read_on_element(is,e);
+            if (i+1<s->size)
+                is>>io::separator{};
             myContainer.push_back(std::move(e));
         }
         is>>io::end_of_line{};
@@ -1161,10 +1160,13 @@ std::istream& input_operator_on_Map(std::istream& is, Map<K,T,Os...> & myMap)
     for (std::size_t i=0; i<s.size; ++i)
     {
         std::pair<K,T> p{};
-        if (!(is>>io::separator{}>>p))
+        if (!(is>>p))
             std::cerr<<"input error for std::vector of ";
+        if (i+1<s.size)
+            is>>io::separator{};
         myMap.insert(std::move(p));
     }
+
     is>>io::end_of_Container{};
     return is;
 }
@@ -1180,6 +1182,8 @@ std::istream& read_on_Map(std::istream& is, Map<K,T,Os...> & myMap)
         {
             std::pair<K,T> p{};
             read(is,p);
+            if (i+1<s.value().size)
+                is>>io::separator{};
             myMap.insert(std::move(p));
         }
         is>>io::end_of_line{};
@@ -1207,6 +1211,8 @@ std::istream& input_operator_on_set(std::istream& is, Set<K,Os...> & mySet)
         K p{};
         if (!(input_operator_on_element(is,p)))
             std::cerr<<"input error for std::vector of ";
+        if (i+1<s.size)
+            is>>io::separator{};
         mySet.insert(std::move(p));
     }
     is>>io::end_of_Container{};
@@ -1226,6 +1232,8 @@ std::istream& read_on_set(std::istream& is, Set<K,Os...> & mySet)
             K p{};
             read(is,p);
             mySet.insert(std::move(p));
+            if (i+1<s.value().size)
+                is>>io::separator{};
         }
         is>>io::end_of_line{};
         return is;
