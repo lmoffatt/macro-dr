@@ -21,7 +21,7 @@ experiment = to_experiment (data_frame = data  colname_time = "t"  colname_nsamp
 
 paramInit = Allosteric_Model_Parameters (values = { { "LR"  300 }	    { "LR_L"  0 }	  { "LR_R"  1 }	  { "RL"  30 }	  { "RLR"  300 }	  { "RLR_1"  1 }	  { "RLR_3"  1 }	  { "RLR_L"  0 }	  { "RL_L"  0 }	  { "RL_R"  1 }	  { "RR"  3 }	  { "RRR"  1 }	  { "RRR_R"  0.5 }	  { "RR_1"  0.5 }	  { "RR_2"  0.5 }	  { "alpha"  1e7 }	  { "beta"  10 }	  { "g_0"  1e-5 } { "g_1" 1e-4 }	  { "g_2"  1e-3 }	    { "g_3"  16e-3 }	  { "koff"  1e7 }	  { "kon"  500 }   {"Number_of_Channels"  1000}  {"gaussian_noise"  1.0 }})
 
-mySimulation = simulate (initseed = 0  singleLigandExperiment = experiment  Allosteric_Model = Model_1   model_parameters = paramInit   number_of_sub_intervals = 10)
+mySimulation = simulate (initseed = 0  singleLigandExperiment = experiment  Allosteric_Model = Model_1   model_parameters = paramInit   number_of_sub_intervals = 10   min_probability = 1E-9  tolerance_error = 1E-7)
 
 de = to_dataframe ( experiment = experiment colname_trace = "trace"  colname_time = "t"  colname_nsample = "ns"  colname_x = "xATP"  colname_y = "yCurrent")
 
@@ -32,9 +32,9 @@ d = to_dataframe ( experiment = mySimulation colname_trace = "trace"   colname_t
 
 result = write (variable = d  filename = "mySimulation.txt" )
 
-logLik = likelihood ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1   model_parameters = paramInit   algorithm = "MacroDR" )
+logLik = likelihood ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1   model_parameters = paramInit   algorithm = "MacroDR" min_probability = 1E-9  tolerance_error = 1E-7)
 
-logLik_det = likelihood_detail ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1   model_parameters = paramInit   algorithm = "MacroDR" )
+logLik_det = likelihood_detail ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1   model_parameters = paramInit   algorithm = "MacroDR" min_probability = 1E-9  tolerance_error = 1E-7)
 
 dd = to_dataframe ( experiment = logLik_det colname_time = "t"  colname_nsample = "ns"  colname_y = "yCurrent")
 
@@ -43,5 +43,5 @@ result2 = write (variable = dd  filename = "mylogSimulation.txt" )
 //paramPrior = Allosteric_Model_Parameters_Distribution ( values = { {   "LR"  Logarithm_Transformation()  Normal_Distribution( mean = 2.5  variance = 1 )  }	    { "LR_L"  Logit_Transformation ()  Normal_Distribution ( mean = 0  variance = 4) }	  { "LR_R"  Logit_Transformation ()  Normal_Distribution ( mean = 0  variance = 4 ) }	  { "RL"   Logarithm_Transformation ()  Normal_Distribution ( mean = 1.5  variance = 1 ) }	  { "RLR"   Logarithm_Transformation ()  Normal_Distribution ( mean = 2.5  variance = 1) }	  { "RLR_1"   Logit_Transformation ()  Normal_Distribution ( mean = 0  variance = 4) }	  { "RLR_3"   Logit_Transformation ()  Normal_Distribution ( mean = 0  variance = 4) }	  { "RLR_L"   Logit_Transformation ()  Normal_Distribution ( mean = 0  variance = 4) }	  { "RL_L"   Logit_Transformation ()  Normal_Distribution ( mean = 0  variance = 4) }	  { "RL_R"   Logit_Transformation ()  Normal_Distribution ( mean = 0  variance = 4) }	  { "RR"   Logarithm_Transformation ()  Normal_Distribution ( mean = 0.5  variance = 1) }	  { "RRR"   Logarithm_Transformation ()  Normal_Distribution ( mean = 0.5  variance = 1) }	  { "RRR_R"  Logit_Transformation ()  Normal_Distribution ( mean = 0  variance = 4) }	  { "RR_1"  Logit_Transformation ()  Normal_Distribution ( mean = 0  variance = 4) }	  { "RR_2"  Logit_Transformation ()  Normal_Distribution ( mean = 0  variance = 4) }	  { "alpha"   Logarithm_Transformation ()  Normal_Distribution ( mean = 7  variance = 4 ) }	  { "beta"   Logarithm_Transformation ()  Normal_Distribution ( mean = 2  variance = 4) }	  { "g_0"  Logarithm_Transformation ()  Normal_Distribution ( mean = -5  variance = 1) } { "g_1"  Logarithm_Transformation ()  Normal_Distribution ( mean = -4  variance = 4) } { "g_2" Logarithm_Transformation ()  Normal_Distribution ( mean = -3  variance = 4) }	    { "g_3"  Logarithm_Transformation ()  Normal_Distribution ( mean = -1.78  variance = 1) }	  { "koff"   Logarithm_Transformation ()  Normal_Distribution ( mean = 6  variance = 4 ) }	  { "kon"   Logarithm_Transformation ()  Normal_Distribution ( mean = 2  variance = 4 ) }   {"Number_of_Channels"   Logarithm_Transformation ()  Normal_Distribution ( mean = 3  variance = 1 ) }  { "gaussian_noise"   Logarithm_Transformation ()  Normal_Distribution ( mean = 0  variance = 1 ) } } )
 
 
-//evidence_works = evidence ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1   model_parameters_distribution = paramPrior   algorithm = "MacroDR"  eps = 1e-6  initseed = 0   betas = { 1.0 0.5 0.3 0.1 1e-2 1e-3 1e-4 0}  landas = {0 1 2 5 10 20 50 100 200 500 1000 2e3 5e3 1e4 2e4 2e5} landa_50_hill = {{1 2 5 10 20 50 100 200 500 1000 2000 5000 1e4 2e4 1e5 } { 0.2 0.5 0.8 1.0 1.2 1.5 1.8 2.0 2.5 3.0}} gain_moment = 2 nSamples = 1000  parameters_output = 0  gradient_output = 0)
+//evidence_works = evidence ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1   model_parameters_distribution = paramPrior   algorithm = "MacroDR"  min_probability = 1E-9  tolerance_error = 1E-7 initseed = 0   betas = { 1.0 0.5 0.3 0.1 1e-2 1e-3 1e-4 0}  landas = {0 1 2 5 10 20 50 100 200 500 1000 2e3 5e3 1e4 2e4 2e5} landa_50_hill = {{1 2 5 10 20 50 100 200 500 1000 2000 5000 1e4 2e4 1e5 } { 0.2 0.5 0.8 1.0 1.2 1.5 1.8 2.0 2.5 3.0}} gain_moment = 2 nSamples = 1000  parameters_output = 0  gradient_output = 0)
 

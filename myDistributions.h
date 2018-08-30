@@ -586,6 +586,20 @@ private:
 };
 
 
+class white_noise
+{
+public:
+    double operator()(std::mt19937_64& mt, double dt)const
+    {
+        return std::normal_distribution<double>(0,std::sqrt(noise_at_1_Hz_/dt))(mt);
+    }
+
+    white_noise(double noise_at_1Hz):noise_at_1_Hz_{noise_at_1Hz}{}
+private:
+    double noise_at_1_Hz_;
+};
+
+
 
 M_Matrix<double> normalize_to_prob(M_Matrix<double>&& P)
 {
@@ -1124,8 +1138,8 @@ struct Probability: public invariant{};
 struct Probability_value: public Probability
 {
     template <class C>
-    static bool test(const C& e, double ,double eps=std::sqrt(std::numeric_limits<double>::epsilon())*10)
-    {return (e+eps>0)&&(e-eps<1);}
+    static bool test(const C& e, double tolerance)
+    {return (e+tolerance>0)&&(e-tolerance<1);}
 };
 
 
@@ -1133,37 +1147,209 @@ struct Probability_value: public Probability
 struct Probability_distribution: public Probability
 {
     template<class P>
-    static bool test(const P& p,double eps=std::sqrt(std::numeric_limits<double>::epsilon())*10)
+    static bool test(const P& p,double tolerance)
     {
         double sum=0;
         for (std::size_t i=0; i<p.size(); ++i)
-            if (!Probability_value::test(p[i],eps))
+            if (!Probability_value::test(p[i],tolerance))
+            {
+                std::cerr<<" p=\n"<<p<<" value test on p[i] i="<<i<<"p[i]="<<p[i]<<"\n";
                 return false;
+            }
             else sum+=p[i];
-        return std::abs(sum-1.0)<eps;
+        if  (std::abs(sum-1.0)<tolerance)
+            return true;
+        else
+        {
+            std::cerr<<" p=\n"<<p<<" sum test sum="<<sum<<"\n";
+            return false;
+        }
 
     }
+
+    template<class P>
+    P static normalize(P&& p, double min_p,double tolerance)
+    {
+        assert(test(p,tolerance));
+        double sum=0;
+        for (std::size_t i=0; i<p.size(); ++i)
+        {
+            if (p[i]<min_p)
+            {
+                p[i]=0;
+            }
+            else
+            {
+                if (p[i]+min_p>1)
+                {
+                    p[i]=1;
+                }
+                sum+=p[i];
+            }
+        }
+        for (std::size_t i=0; i<p.size(); ++i)
+            p[i]=p[i]/sum;
+        return p;
+    }
+};
+
+
+
+struct Probability_transition: public Probability
+{
+
+    static bool test(const M_Matrix<double>& p,double tolerance)
+    {
+        for (std::size_t i=0; i<p.nrows(); ++i)
+        {
+            double sum=0;
+            for (std::size_t j=0; j<p.ncols(); ++j)
+                if (!Probability_value::test(p(i,j),tolerance))
+                {
+                    std::cerr<<" p=\n"<<p<<"\n i="<<i<<"j="<<j<<" p(i,j)="<<p(i,j);
+                    return false;
+
+                }
+                else sum+=p(i,j);
+            if (std::abs(sum-1.0)>tolerance)
+            {
+                std::cerr<<" p=\n"<<p<<"\n i="<<i<<"sum ="<<sum;
+                return false;
+            }
+        }
+        return true;
+
+    }
+
+    M_Matrix<double> static normalize(M_Matrix<double>&& p, double min_p,double tolerance)
+    {
+        assert(test(p,tolerance));
+
+        for (std::size_t i=0; i<p.nrows(); ++i)
+        {
+            if (p(i,i)>1-min_p)
+            {
+                for (std::size_t j=0; j<p.ncols(); ++j)
+                    p(i,j)=0;
+                p(i,i)=1;
+            }
+            else
+            {
+                double sum=0;
+                for (std::size_t j=0; j<p.ncols(); ++j)
+                {
+                    if (p(i,j)<min_p)
+                        p(i,j)=0;
+                    else
+                        sum+=p(i,j);
+                }
+                if (sum!=1)
+                    for (std::size_t j=0; j<p.ncols(); ++j) p(i,j)=p(i,j)/sum;
+            }
+        }
+        return p;
+    }
+
 };
 
 struct Probability_distribution_covariance: public Probability
 {
-    template<class P>
-    static bool test(const P& p,double eps=std::sqrt(std::numeric_limits<double>::epsilon())*10)
+
+    static bool test_correlation(const M_Matrix<double>& p, std::size_t i, std::size_t j, double eps=std::sqrt(std::numeric_limits<double>::epsilon())*1000)
     {
+        double corr=sqr(p(i,j))/p(i,i)/p(j,j);
+        if ((corr+eps<0)||(corr-eps>1))
+        {
+            std::cerr<<"p: \n"<<p<<"\n p(ij)"<<p(i,j)<<"\n p(ii)"<<p(i,i)<<"\n p(jj)"<<p(j,j)<<"\n corr"<<corr<<" i="<<i<<" j="<<j;
+            return false;
+
+        }
+        else
+            return true;
+
+    }
+
+    static M_Matrix<double> normalize(M_Matrix<double>&& p,double min_p,double tolerance)
+    {
+        assert(test(p,tolerance));
+        std::set<std::size_t> non_zero_i;
+
+        for (std::size_t i=0; i<p.nrows(); ++i) {
+            if(p(i,i)<min_p)
+            {
+                for (std::size_t j=0; j<p.ncols(); ++j)
+                    p(i,j)=0;
+            }
+            else if(p(i,i)+min_p>1.0)
+            {
+                for (std::size_t n=0; n<p.size(); ++n) p[n]=0;
+                p(i,i)=1;
+                return p;
+            }
+            else
+                non_zero_i.insert(i);
+        }
+        for (auto i:non_zero_i)
+        {
+
+            double sum=0;
+            for (auto j: non_zero_i)
+                if (j!=i)
+                    sum+=p(i,j);
+
+            if (-sum!=p(i,i))
+            {
+                auto sum_new=(sum-p(i,i))*0.5;
+                double f=sum_new/sum;
+                p(i,i)=-sum_new;
+                for (auto j: non_zero_i)
+                    if (i!=j)
+                        p(i,j)*=f;
+
+            }
+        }
+
+        return p;
+    }
+
+
+    template<class P>
+    static bool test(const P& p,double tolerance)
+    {
+
         for (std::size_t i=0; i<p.nrows(); ++i)
         {
-            if (!Probability_value::test(p(i,i),eps))
+            if (!Probability_value::test(p(i,i),tolerance))
+            {
+                std::cerr<<"\ntolerance="<<tolerance<<"\n";
+                std::cerr<<" pcov=\n"<<p<<"\n i="<<i<<" pcov(i,i)="<<p(i,i)<<"\n";
                 return false;
-            double sum=0;
+
+            }double sum=0;
             for (std::size_t j=0; j<p.ncols(); ++j)
             {
-                if ((p(i,j)+eps<-1)||(p(i,j)-eps>1))
-                    return false;
-                else
-                    sum+=p(i,j);
+
+                if (i!=j)
+                {
+                    double corr=sqr(p(i,j))/p(i,i)/p(j,j);
+                    if ((corr-tolerance>1)&&(p(i,i)>tolerance*tolerance)&&(p(j,j)>tolerance*tolerance))
+                    {
+                        std::cerr<<"tolerance="<<tolerance<<"\n";
+                        std::cerr<<" pcov=\n"<<p<<"\n i="<<i<<"j="<<j<<" pcov(i,j)="<<p(i,j)<<" corr="<<corr<<" pcov(i,i)"<<p(i,i)<<" pcov(j,j)"<<p(j,j)<<"\n";
+
+                        return false;
+                    }
+                    else
+                        sum+=p(i,j);
+                }
             }
-            if (std::abs(sum)>eps)
+            if (std::abs(p(i,i)+sum)>tolerance)
+            {
+                std::cerr<<"tolerance="<<tolerance<<"\n";
+                std::cerr<<" p=\n"<<p<<"\n i="<<i<<" p(i,j)="<<p(i,i)<<" sum="<<sum<<"\n";
+
                 return false;
+            }
         }
         return true;
     }

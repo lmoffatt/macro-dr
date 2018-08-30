@@ -73,19 +73,21 @@ template <typename X>
 struct measure_algorithm_state
 {
     X x;
-    std::size_t nsubsamples;
-    std::size_t sum_samples;
+    std::size_t samples;
+    std::size_t n_subsamples;
+    std::size_t sum_n_sub_samples;
 };
 
 
 template<class Model,  class measure_algorithm_state,typename X>
-void actualize_mp(measure_algorithm_state& current,markov_process<std::size_t>& mp, Model& m,X new_x,std::size_t actual_nsubsamples)
+void actualize_mp(measure_algorithm_state& current,markov_process<std::size_t>& mp, Model& m,X new_x,std::size_t samples, std::size_t n_subsamples)
 {
-if ((current.nsubsamples!=actual_nsubsamples)||(current.x!=new_x))
+if ((current.samples!=samples)||(current.n_subsamples!=n_subsamples)||(current.x!=new_x))
 {
     current.x=new_x;
-    current.nsubsamples=actual_nsubsamples;
-    auto P=m.calc_P(current.x,current.nsubsamples).P();
+    current.samples=samples;
+    current.n_subsamples=n_subsamples;
+    auto P=m.calc_sub_P(current.x,current.samples, current.n_subsamples).P();
 //    auto P=m.get_P(current.x,current.nsubsamples).P();
     mp.set_P(std::move(P));
 }
@@ -93,7 +95,7 @@ if ((current.nsubsamples!=actual_nsubsamples)||(current.x!=new_x))
 
 
 template<class Model,  typename X>
-auto init_mp(std::mt19937_64& mt, Model& m, X x, std::size_t nsamples)
+auto init_mp(std::mt19937_64& mt, Model& m, X x, std::size_t nsamples, std::size_t n_sub_samples)
 {
     measure_algorithm_state<X> current;
     auto Peq=m.Peq(x);
@@ -101,9 +103,9 @@ auto init_mp(std::mt19937_64& mt, Model& m, X x, std::size_t nsamples)
     auto M=multinomial_distribution<M_Matrix,std::size_t>(N,Peq);
     auto Nini=M(mt);
     current.x=x;
-    current.sum_samples=nsamples;
-    current.sum_samples=0;
-    auto P=m.calc_P(x,nsamples);
+    current.samples=nsamples;
+    current.n_subsamples=n_sub_samples;
+    auto P=m.calc_sub_P(x,nsamples, n_sub_samples);
 //    auto P=m.get_P(x,nsamples);
     return std::make_tuple(markov_process<std::size_t>(Nini, P.P()),current);
 }
@@ -111,30 +113,23 @@ auto init_mp(std::mt19937_64& mt, Model& m, X x, std::size_t nsamples)
 
 
 template<class F,class Model, template <typename, typename>class Point, class measure_algorithm_state,typename X, typename Y>
-auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp, Model& m, const Point<X,Y>& in_point,  std::size_t desired_nsubsamples)
+auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp, const white_noise& noise,Model& m, const Point<X,Y>& in_point, double fs, std::size_t n_sub_steps)
 {
 
-    auto n_samples=in_point.nsamples();
+    auto samples=in_point.nsamples();
+    double dt=samples/fs;
     auto new_x=in_point.x();
-    auto actual_nsubsamples=std::min(desired_nsubsamples,n_samples);
-    auto n_times=n_samples/actual_nsubsamples;
-    auto remainder_samples=n_samples-n_times*actual_nsubsamples;
-    actualize_mp(current,mp,m,new_x,actual_nsubsamples);
+    actualize_mp(current,mp,m,new_x,samples,n_sub_steps);
     mp.set_N(mp(mt));
     auto y=f(mp, m,new_x);
-    for (auto i=1u; i<n_times; ++i)
+    for (auto i=1u; i<n_sub_steps; ++i)
     {
         mp.set_N(mp(mt));
-        y+=f(mp,m,new_x)*actual_nsubsamples;
+        y+=f(mp,m,new_x);
     }
-    if (remainder_samples>0)
-    {
-        actualize_mp(current,mp,m,current.x,remainder_samples);
-        mp.set_N(mp(mt));
-        y+=f(mp, m,new_x)*remainder_samples;
-    }
-    y=y/n_samples;
-    current.nsubsamples+=n_samples;
+    y=y/n_sub_steps;
+    y+=noise(mt,dt);
+
     return Point<X,decltype (y)> (in_point,y);
 }
 
@@ -144,14 +139,12 @@ auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& 
 
 
 template<class F,class Model, class measure_algorithm_state, class Step, class Point>
-void measure_step(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp, const Step& step,   Model& m,std::size_t n_substeps, double /*fs*/)
+void measure_step(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp, const white_noise& noise,const Step& step,   Model& m,std::size_t n_substeps, double fs)
 {
     auto nsamples=step.nsamples();
-    auto desired_subsamples=std::max(nsamples/n_substeps,1ul);
-    current.sum_samples=0;
     for (auto it=step.begin(); it!=step.end(); ++it)
     {
-        auto y=measure_point(current,f,mt,mp,m,*it,desired_subsamples);
+        auto y=measure_point(current,f,mt,mp,noise,m,*it,fs,n_substeps);
         out.push_back(y);
     }
 }
@@ -160,10 +153,9 @@ void skip_step(std::vector<Point>& out,measure_algorithm_state& current,const F&
                Model& m, double/* fs*/)
 {
 
-    current.sum_samples=0;
     for (auto it=step.begin(); it!=step.end(); ++it)
     {
-        actualize_mp(current,mp,m,it->x(),it->nsamples());
+        actualize_mp(current,mp,m,it->x(),it->nsamples(),1);
         mp.set_N(mp(mt));
         out.push_back(Point(*it,std::numeric_limits<double>::quiet_NaN()));
     }
@@ -172,12 +164,12 @@ void skip_step(std::vector<Point>& out,measure_algorithm_state& current,const F&
 
 
 template<class F, class Model,class measure_algorithm_state, class trace, class Point>
-void meansure_trace(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp, Model& m,const trace& t, std::size_t n_substeps,double fs)
+void meansure_trace(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp,const white_noise& noise,Model& m,const trace& t, std::size_t n_substeps,double fs)
 {
 
     for (auto it=t.begin();it!=t.end(); ++it)
     {
-        measure_step(out,current,f,mt,mp,*it,m,n_substeps,fs);
+        measure_step(out,current,f,mt,mp,noise,*it,m,n_substeps,fs);
     }
     skip_step(out,current,f,mt,mp,*t.end(),m,fs);
 }
@@ -189,16 +181,17 @@ auto measure_experiment(const F& f, std::mt19937_64& mt, Model& m,const Experime
     double fs=e.frequency_of_sampling();
     auto first_point=*e.begin_begin_begin();
     auto x=first_point.x();
-    std::size_t n_sub_samples=first_point.nsamples()/n_substeps;
-    auto [mp, current]=init_mp(mt,m,x,n_sub_samples);
+    auto samples=first_point.nsamples();
+    auto [mp, current]=init_mp(mt,m,x,samples,n_substeps);
+    auto noise=white_noise(m.Model().noise_variance(1,1));
 
-    auto y=measure_point(current,f,mt,mp,m,first_point,n_sub_samples);
+    auto y=measure_point(current,f,mt,mp,noise,m,first_point,fs,n_substeps);
 
     std::vector<decltype (y)> points;
 
     for (auto it=e.begin();it!=e.end(); ++it)
     {
-       meansure_trace(points,current,f,mt,mp,m,*it,n_substeps,fs);
+       meansure_trace(points,current,f,mt,mp,noise,m,*it,n_substeps,fs);
     }
     return Experiment<Point, measure>(std::move(points),e.Vm(),fs);
  }

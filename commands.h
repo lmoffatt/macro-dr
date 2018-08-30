@@ -25,6 +25,8 @@ struct get_current
     {
         return (mp.N()*m.g(x)).getvalue();
     }
+
+
 };
 
 
@@ -202,11 +204,12 @@ struct simulate{
 
 
     static constexpr auto className=my_static_string("simulate");
-    static auto run(std::mt19937_64::result_type initseed,const Experiment& e,  const Model& m , const Parameters_values<Model>& p,std::size_t n)
+    static auto run(std::mt19937_64::result_type initseed,const Experiment& e,  const Model& m , const Parameters_values<Model>& p,std::size_t n_sub_intervals
+                    ,double min_P,double tolerance)
     {
-        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()));
+        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()), min_P, tolerance);
 
-        Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,Experiment,double> MC(SM,e);
+        Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,Experiment,double> MC(SM,e,n_sub_intervals);
 
         if (initseed==0)
         {
@@ -214,7 +217,7 @@ struct simulate{
             initseed=rd();
         }
         std::mt19937_64 mt(initseed);
-        return markov::measure_experiment(get_current{},mt,MC,e,n);
+        return markov::measure_experiment(get_current{},mt,MC,e,n_sub_intervals);
     }
 
     static auto get_arguments()
@@ -224,7 +227,9 @@ struct simulate{
                     grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
                     grammar::argument(C<const Model&>{},my_trait<Model>::className.c_str()),
                     grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
-                    grammar::argument(C<std::size_t>{},"number_of_sub_intervals",10ul));
+                    grammar::argument(C<std::size_t>{},"number_of_sub_intervals",10ul),
+                    grammar::argument(C<double>{},"min_probability",1e-9),
+                    grammar::argument(C<double>{},"tolerance_error",1e-7));
     }
 };
 
@@ -237,12 +242,12 @@ struct likelihood{
 
     static constexpr auto className=my_static_string("likelihood");
 
-    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm)
+    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance)
     {
-        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
+        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P,tolerance);
 
 
-        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e);
+        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1);
 
         if (algorithm==my_trait<markov::MacroDR<true>>::className.str())
         {
@@ -268,7 +273,9 @@ struct likelihood{
                     grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
                     grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
                     grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
-                    grammar::argument(C<std::string>{},"algorithm"));
+                    grammar::argument(C<std::string>{},"algorithm"),
+                    grammar::argument(C<double>{},"min_probability",1e-9),
+                    grammar::argument(C<double>{},"tolerance_error",1e-7));
     }
 };
 
@@ -280,12 +287,12 @@ struct likelihood_detail{
 
     static constexpr auto className=my_static_string("likelihood_detail");
 
-    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm)
+    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance)
     {
-        SingleLigandModel SM(m.Qs(p),m.g(p), e.Vm(),p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()));
+        SingleLigandModel SM(m.Qs(p),m.g(p), e.Vm(),p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P,tolerance);
 
 
-        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e);
+        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1);
 
         if (algorithm==my_trait<markov::MacroDR<true>>::className.str())
         {
@@ -308,7 +315,9 @@ struct likelihood_detail{
                     grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
                     grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
                     grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
-                    grammar::argument(C<std::string>{},"algorithm"));
+                    grammar::argument(C<std::string>{},"algorithm"),
+                    grammar::argument(C<double>{},"min_probability",1e-9),
+                    grammar::argument(C<double>{},"tolerance_error",1e-7));
     }
 };
 
@@ -341,7 +350,8 @@ struct Evidence{
                     const Model& m ,
                     const Parameters_distribution<Model>& p,
                     std::string algorithm,
-                    double eps,
+                    double min_P,
+                    double tolerance,
                     std::mt19937_64::result_type initseed,
                     std::vector<double> betas,
                     std::vector<double>landa,
@@ -352,7 +362,7 @@ struct Evidence{
                     bool gradient)
     {
 
-        Markov_Model_DLikelihood<Model,Experiment> lik(m,p,e,algorithm,eps);
+        Markov_Model_DLikelihood<Model,Experiment> lik(m,p,e,algorithm,min_P, tolerance);
         if (initseed==0)
         {
             std::random_device rd;
@@ -371,7 +381,8 @@ struct Evidence{
                     grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
                     grammar::argument(C<const Parameters_distribution<Model>&>{},"model_parameters_distribution"),
                     grammar::argument(C<std::string>{},"algorithm"),
-                    grammar::argument(C<double>{},"eps"),
+                    grammar::argument(C<double>{},"min_probability"),
+                    grammar::argument(C<double>{},"tolerance_error"),
                     grammar::argument(C<std::mt19937_64::result_type>{},"initseed"),
                     grammar::argument(C<std::vector<double>>{},"betas"),
                     grammar::argument(C<std::vector<double>>{},"landas"),

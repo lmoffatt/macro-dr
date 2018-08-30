@@ -471,6 +471,11 @@ private:
 }; // namespace experiment
 
 
+std::ostream& operator<<(std::ostream& os, const typename basic_Experiment<point<double,double>,measure_just_y<double>>::step& x)
+{
+    os<<" x="<<x.x()<<"\n y="<<x.y()<<"\n";
+    return os;
+ }
 
 
 

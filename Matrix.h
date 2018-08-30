@@ -2079,8 +2079,6 @@ M_Matrix<T>  Rand(const M_Matrix<T>& x,D d, std::mt19937_64& sto)
 }
 }
 
-namespace Matrix_Stream_Operators
-{
 
 template<typename T>
 std::ostream& operator<<(std::ostream& os,const M_Matrix<T>& x)
@@ -2124,7 +2122,6 @@ std::istream& operator>>(std::istream& is,M_Matrix<T>& x)
     x=M_Matrix<T>(nrows,ncols,o);
     return is;
 
-}
 }
 
 
@@ -2224,6 +2221,38 @@ fullSum(const M_Matrix<T>& x)
     {return a+fullSum(b);},0.0);
 }
 
+
+inline
+double
+colSum(const double& x)
+{
+    return x;
+}
+template <class T>
+double
+colSum(const M_Matrix<T>& x)
+{
+    return accumulate_by_Cols
+            (x,[](double a, const T& b)
+    {return a+b;},0.0);
+}
+
+inline
+double
+rowSum(const double& x)
+{
+    return x;
+}
+template <class T>
+auto
+rowSum(const M_Matrix<T>& x)
+{
+    return accumulate_by_Rows
+            (x,[](double a, const T& b)
+    {return a+b;},0.0);
+}
+
+
 inline
 double
 logProduct(double x)
@@ -2259,13 +2288,20 @@ double max(const M_Matrix<T>& x)
     return accumulate(x,[](double a, const T& b)
     {return max(a,max(b));},-std::numeric_limits<T>::infinity());
 }
+inline double min(const M_Matrix<double>& x)
+{
+    using std::min;
+    return accumulate(x,[](double a, double b)
+    {return min(a,b);},std::numeric_limits<double>::infinity());
+}
+
 
 template<typename T>
 double min(const M_Matrix<T>& x)
 {
     using std::min;
     return accumulate(x,[](double a, const T& b)
-    {return min(a,min(b));},std::numeric_limits<T>::infinity());
+    {return min(a,min(b));},std::numeric_limits<double>::infinity());
 }
 
 
@@ -2382,7 +2418,7 @@ accumulate_by_Rows(const M_Matrix<E>& me,const F& f, const T& start)
 {
     M_Matrix<T> out(me.nrows(),1);
     switch(me.type())
-    {
+    {//ZERO,FULL,SYMMETRIC,DIAGONAL,SCALAR_FULL,SCALAR_DIAGONAL
     case M_Matrix<T>::FULL:
     case M_Matrix<T>::SYMMETRIC:
     case M_Matrix<T>::SCALAR_FULL:
@@ -2392,7 +2428,7 @@ accumulate_by_Rows(const M_Matrix<E>& me,const F& f, const T& start)
             T s=start;
             for (std::size_t j=0; j<me.ncols(); ++j)
                 s=f(s,me(i,j));
-            out(i,1)=s;
+            out(i,0)=s;
         }
         return out;
     }
@@ -2405,6 +2441,7 @@ accumulate_by_Rows(const M_Matrix<E>& me,const F& f, const T& start)
         return out;
     }
     case M_Matrix<T>::ZERO:
+    default:
     {
         return M_Matrix<T>(me.nrows(),1,f(start,me[0]));
     }
@@ -2427,7 +2464,7 @@ accumulate_by_Cols(const M_Matrix<E> &me, const F& f, const T& start)
             T s(start);
             for (std::size_t i=0; i<me.nrows(); ++i)
                 s=f(s,me(i,j));
-            out(1,j)=s;
+            out(0,j)=s;
         }
         return out;
     }
@@ -5514,7 +5551,7 @@ auto substraction_Operator( M_Matrix<T>&& itself,
 ->M_Matrix<decltype(std::declval<T>()+std::declval<S>())>
 {
     typedef decltype(std::declval<T>()+std::declval<S>()) R;
-    M_Matrix<R> out(itself);
+    M_Matrix<R> out(std::move(itself));
     substraction_assigment(out,other);
     return out;
 }
@@ -6018,7 +6055,7 @@ using namespace Vector_Binary_Transformations;
 using namespace Container_Unary_Functions;
 using namespace Container_Binary_Transformations;
 using namespace Matrix_Generators;
-using namespace Matrix_Stream_Operators;
+//using namespace Matrix_Stream_Operators;
 using namespace Matrix_Unary_Predicates;
 using namespace Matrix_Unary_Size_Functions;
 using namespace Matrix_Unary_Functions;
@@ -6031,11 +6068,11 @@ using namespace Matrix_Binary_Transformations;
 
 
 
-template<class T>
-T
-sum(const std::vector<T>& x)
+template<class C>
+double
+sum(const C& x)
 {
-    T o{};
+    double o=0;
     for (unsigned i=0; i<x.size(); ++i)
         o+=x[i];
 

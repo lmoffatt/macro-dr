@@ -21,7 +21,8 @@ class mp_state_information
     double y_var_;
     double plogL_;
     double eplogL_;
-    
+    double min_p_;
+    double tolerance_;
     
     
 public:
@@ -30,11 +31,17 @@ public:
                          double y_mean__,
                          double y_var__,
                          double plogL__,
-                         double eplogL__):
-        P_mean_{std::move(P_mean__)},P_cov_{std::move( P_cov__)}, y_mean_{y_mean__}, y_var_{y_var__},plogL_{plogL__},eplogL_{eplogL__}{
+                         double eplogL__,
+                         double min_p,
+                         double tolerance):
+        P_mean_{Probability_distribution::normalize(std::move(P_mean__),min_p, tolerance)},
+        P_cov_{Probability_distribution_covariance::normalize(std::move( P_cov__),min_p,tolerance)},
+        y_mean_{y_mean__},
+        y_var_{y_var__},
+        plogL_{plogL__},eplogL_{eplogL__}, min_p_{min_p}, tolerance_{tolerance}{
         assert(P_cov__.isSymmetric());
-        //assert(Probability_distribution::test(P_mean_));
-        //assert(Probability_distribution_covariance::test(P_cov_));
+        assert(Probability_distribution::test(P_mean_,min_p*10));
+        assert(Probability_distribution_covariance::test(P_cov_,min_p*100));
     }
     
     const M_Matrix<double>& P_mean()const{return P_mean_;}
@@ -45,7 +52,24 @@ public:
     double plogL()const {return plogL_;}
     double eplogL()const{return eplogL_;}
     
-    
+    double min_P()const {return min_p_;}
+    double tolerance()const { return tolerance_;}
+
+    typedef  mp_state_information self_type;
+    constexpr static auto  className=my_static_string("mp_state_information");
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+                    grammar::field(C<self_type>{},"P_mean",&self_type::P_mean),
+                    grammar::field(C<self_type>{},"P_cov",&self_type::P_cov),
+                    grammar::field(C<self_type>{},"y_mean",&self_type::y_mean),
+                    grammar::field(C<self_type>{},"y_var",&self_type::y_var),
+                    grammar::field(C<self_type>{},"plogL",&self_type::plogL),
+                    grammar::field(C<self_type>{},"eplogL",&self_type::eplogL),
+                    grammar::field(C<self_type>{},"min_p",&self_type::min_P),
+                    grammar::field(C<self_type>{},"tolerance",&self_type::tolerance)
+                    );
+    }
 };
 
 
@@ -54,15 +78,119 @@ public:
 template<bool zero_guard>
 struct MacroDR
 {
+
     template< class Model, class Step>
     mp_state_information run(const mp_state_information& prior,  Model& m,const Step& p )const
+    {
+        double eps=std::numeric_limits<double>::epsilon();
+        Markov_Transition_step_double Q_dt=m.get_P(p,0,eps);
+        double e=m.noise_variance(p.nsamples());
+        double N=m.AverageNumberOfChannels();
+        M_Matrix<double> u(prior.P_mean().size(),1,1.0);
+
+        auto SmD=prior.P_cov()-diag(prior.P_mean());
+
+        double gSg=(TranspMult(Q_dt.gmean_i(),SmD)*Q_dt.gmean_i()).getvalue()+(prior.P_mean()*(elemMult(Q_dt.gtotal_ij(),Q_dt.gmean_ij())*u)).getvalue();
+
+        double sSg=(TranspMult(Q_dt.gvar_i(),SmD)*Q_dt.gmean_i()).getvalue()+(prior.P_mean()*(elemMult(Q_dt.gtotal_var_ij(),Q_dt.gmean_ij())*u)).getvalue();
+        double sSs=(TranspMult(Q_dt.gvar_i(),SmD)*Q_dt.gvar_i()).getvalue()+(prior.P_mean()*(elemMult(Q_dt.gtotal_var_ij(),Q_dt.gvar_ij())*u)).getvalue();
+        //   auto mu_n=;
+        auto sS=TranspMult(Q_dt.gvar_i(),SmD)*Q_dt.P()+prior.P_mean()*Q_dt.gtotal_var_ij();
+        auto gS=TranspMult(Q_dt.gmean_i(),SmD)*Q_dt.P()+prior.P_mean()*Q_dt.gtotal_ij();
+
+
+        std::size_t rep=3;
+        double ms=(prior.P_mean()*Q_dt.gvar_i()).getvalue();
+        double m0s=ms;
+        double e_mu=e+N*m0s;
+        for (std::size_t i=0; i<rep; ++i)
+        {
+            m0s=ms-0.5/e_mu*sSs;
+            e_mu=e+N*m0s;
+        }
+        auto y_mean=N*(prior.P_mean()*Q_dt.gmean_i()).getvalue()-N*0.5/e_mu*sSg;
+        auto zeta=N/(2*sqr(e_mu)+N*sSs);
+        if (zeta<0)
+        {
+            std::cerr<<"\n****************************************   negative e_4!!!!****\n";
+            std::cerr<<"\n t= "<<p.x().t()<<" x="<<p.x().x()<<" y="<<p.y();
+            std::cerr<<"\t N*gSg= "<<N*gSg;
+            std::cerr<<"\t e_4= 2*sqr(e_mu)- N*sSs="<<zeta<<"\t";
+            std::cerr<<"\t N*sSs=\t"<<N*sSs;
+            std::cerr<<"\t 2*sqr(e_mu)="<<2*sqr(e_mu);
+            zeta=-zeta;
+            std::cerr<<"\n****************************************   negative e_4!!!!****\n";
+
+        }
+        auto y_var=e_mu+N*gSg-N*zeta*sqr(sSg);
+
+        auto y=p.y();
+        if (std::isnan(y))
+        {
+            double plogL=std::numeric_limits<double>::quiet_NaN();
+            double eplogL=std::numeric_limits<double>::quiet_NaN();
+            auto P_cov=quadraticForm_BT_A_B(SmD,Q_dt.P());
+            auto P_mean = prior.P_mean()*Q_dt.P();
+            P_cov+=diag(prior.P_mean());
+            return mp_state_information(std::move(P_mean),std::move(P_cov),y_mean,y_var,plogL,eplogL, prior.min_P(), prior.tolerance());
+
+        }
+        else
+        {
+            auto dy=y-y_mean;
+            auto chi=dy/y_var;
+            auto P_mean=prior.P_mean()*Q_dt.P()+chi*gS
+                    -(chi*zeta*sSg+0.5/sqr(e_mu))*sS;
+
+            auto P_cov=quadraticForm_BT_A_B(SmD,Q_dt.P())+diag(prior.P_mean()*Q_dt.P())
+                    -(zeta+N/y_var*sqr(zeta*sSg))*quadraticForm_XTX(sS)
+                    +(2.0*N/y_var*zeta*sSg)*TransposeSum(TranspMult(sS,gS))
+                    -(N/y_var)*quadraticForm_XTX(gS);
+
+            auto chi2=dy*chi;
+
+            double plogL;
+            if (y_var>0)
+                plogL=-0.5*log(2*PI*y_var)-0.5*chi2;
+            else
+                plogL=std::numeric_limits<double>::infinity();
+
+            double eplogL=-0.5*log(2*PI*y_var)-0.5;
+            std::cerr<<"\n t= "<<p.x().t()<<" x="<<p.x().x()<<" y="<<p.y()<< " plogL="<<plogL<< " eplogL="<<eplogL<<"dif="<<plogL-eplogL;
+            std::cerr<<"\nPcov \n"<<P_cov<<"\nP_mean \n"<<P_mean;
+
+            if (!Probability_distribution_covariance::test(P_cov,prior.min_P())
+                    || !Probability_distribution::test(P_mean,prior.min_P())
+                    || !are_non_negative::test(y_var))
+            {
+                std::cerr<<"\nPcov fail\n"<<P_cov<<"\nP_mean fail\n"<<P_mean;
+
+                P_cov=quadraticForm_BT_A_B(SmD,Q_dt.P());
+                P_mean = prior.P_mean()*Q_dt.P();
+                P_cov+=diag(P_mean);
+                std::cerr<<"\nPcov corr\n"<<P_cov<<"\nP_mean corr\n"<<P_mean;
+
+
+
+            }
+
+            return mp_state_information(std::move(P_mean),std::move(P_cov),y_mean,y_var,plogL,eplogL, prior.min_P(), prior.tolerance());
+
+
+        }
+
+    }
+
+
+    template< class Model, class Step>
+    mp_state_information run_old(const mp_state_information& prior,  Model& m,const Step& p )const
     {
         //double dt=Y.dt();
         //  double x=Y.x();
         // double y=Y.y();
         
-       double eps=std::numeric_limits<double>::epsilon();
-       Markov_Transition_step_double Q_dt=m.get_P(p,0,eps);
+        double eps=std::numeric_limits<double>::epsilon();
+        Markov_Transition_step_double Q_dt=m.get_P(p,0,eps);
         Markov_Transition_step_double Q_dt2=m.get_P(p,10,eps);
         Markov_Transition_step_double Q_dt3=m.get_P(p,20,eps);
 
@@ -123,16 +251,16 @@ struct MacroDR
         
         if (y_var<0)
         {
-                    std::cerr<<" \n******** y_var_d negative!!!!!***********\n";
-                    std::cerr<<"\n sA2+N*gSg+(N*N*sSg*sSg)/sB4 \n";
-                    std::cerr<<"\t smean="<<smean<<"\t e="<<e;
-                    std::cerr<<"\n sA2=  "<<sA2;
-                    std::cerr<<"\n sB4=  "<<sB4;
+            std::cerr<<" \n******** y_var_d negative!!!!!***********\n";
+            std::cerr<<"\n sA2+N*gSg+(N*N*sSg*sSg)/sB4 \n";
+            std::cerr<<"\t smean="<<smean<<"\t e="<<e;
+            std::cerr<<"\n sA2=  "<<sA2;
+            std::cerr<<"\n sB4=  "<<sB4;
 
-                   std::cerr<<"\n gSg ="<<gSg;
-                   std::cerr<<"\n sSs ="<<sSs;
+            std::cerr<<"\n gSg ="<<gSg;
+            std::cerr<<"\n sSs ="<<sSs;
 
-                 std::cerr<<"\n sB4=2*sA2*sA2-N*sSs  sB4 = "<<sB4<<"\n";
+            std::cerr<<"\n sB4=2*sA2*sA2-N*sSs  sB4 = "<<sB4<<"\n";
             
             //        std::cerr<<*this;
             //        std::cerr<<this->model();
@@ -153,7 +281,7 @@ struct MacroDR
             double plogL=std::numeric_limits<double>::quiet_NaN();
             double eplogL=std::numeric_limits<double>::quiet_NaN();
             //auto chi2=std::numeric_limits<double>::quiet_NaN();
-           /* auto P_cov=TranspMult(Q_dt.P(),(prior.P_cov()-diag(prior.P_mean()))*Q_dt.P());*/
+            /* auto P_cov=TranspMult(Q_dt.P(),(prior.P_cov()-diag(prior.P_mean()))*Q_dt.P());*/
             auto P_cov=quadraticForm_BT_A_B((prior.P_cov()-diag(prior.P_mean())),Q_dt.P());
 
             auto P_mean = prior.P_mean()*Q_dt.P();
@@ -205,7 +333,7 @@ struct MacroDR
             assert(are_Equal::test(P_cov_,P_cov));
 
             if constexpr (zero_guard)
-            if (!(diag(P_cov)>=0.0)||!(diag(P_cov)<=1.0))
+                    if (!(diag(P_cov)>=0.0)||!(diag(P_cov)<=1.0))
             {
                 for (std::size_t i=0;i<ncols(P_cov);i++)
                 {
@@ -223,11 +351,11 @@ struct MacroDR
     }
     
     template< class Model, class Step>
-    mp_state_information start(Model& m,const Step& p )const {
+    mp_state_information start(Model& m,const Step& p, double min_p, double tolerance )const {
         auto P_mean=m.Peq(p.begin()->x());
         auto P_cov=diag(P_mean)-quadraticForm_XTX(P_mean);
         double nan=std::numeric_limits<double>::quiet_NaN();
-       return mp_state_information(std::move(P_mean),std::move(P_cov),nan,nan,nan,nan);
+        return mp_state_information(std::move(P_mean),std::move(P_cov),nan,nan,nan,nan, min_p,tolerance);
     }
     
     
@@ -263,8 +391,8 @@ struct logLikelihood_function
     {
         if (std::isfinite(mp.plogL()))
         {
-           logLsum+=mp.plogL();
-           ++i;
+            logLsum+=mp.plogL();
+            ++i;
         }
     }
 
@@ -302,7 +430,7 @@ struct partialDistribution_function
         return std::vector<Normal_Distribution<double>>(n);
     }
 
-   // template<class mp_state_information>
+    // template<class mp_state_information>
     void operator()(const mp_state_information& mp,std::vector<Normal_Distribution<double>>& v, std::size_t& i)const
     {
         if (std::isfinite(mp.plogL()))
@@ -327,15 +455,15 @@ auto logLikelihood_experiment_calculation(const F& f,const MacroDR& a,  Model& m
 {
     
     auto first_step=*e.begin_begin();
-    auto prior=a.start(m,first_step);
+    auto prior=a.start(m,first_step, m.min_P(), m.tolerance());
 
     auto out=f(e);
     std::size_t i=0;
     for (auto it=e.begin_begin(); it!=e.end_end(); ++it)
     {
         auto post=a.run(prior,m,*it);
-         f(post,out,i);
-         prior=std::move(post);
+        f(post,out,i);
+        prior=std::move(post);
     }
     return out;
     
@@ -400,8 +528,8 @@ struct partialLogLikelihood_monitor_function
     template<class mp_state_information>
     void operator()(const mp_state_information& mp,std::vector<measure_likelihood>& v, std::size_t& i)const
     {
-            v[i]=measure_likelihood(mp);
-            ++i;
+        v[i]=measure_likelihood(mp);
+        ++i;
     }
 
 };
