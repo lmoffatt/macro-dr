@@ -65,8 +65,6 @@ struct are_zero: public invariant
 };
 
 
-
-
 struct are_non_negative: public invariant
 {
     static bool test(double x, double eps=std::numeric_limits<double>::epsilon())
@@ -88,30 +86,6 @@ struct are_non_negative: public invariant
     }
 
 };
-
-struct are_in_range: public invariant
-{
-    static bool test(double x, double min, double max, double eps=std::numeric_limits<double>::epsilon())
-    {
-        if ((x+eps>min)&&(x-eps<max))
-            return true;
-        else
-            return false;
-
-   }
-
-    template<class C>
-    static auto test(const C& x, double min, double max,double eps=std::numeric_limits<double>::epsilon())->decltype (x.size(),std::declval<C>()[0],true)
-    {
-        for (std::size_t i=0; i<x.size(); ++i)
-            if (!test(x[i],min,max,eps))
-                return false;
-        return true;
-    }
-
-};
-
-
 
 
 #endif // MYTESTS_H
