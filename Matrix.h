@@ -1273,6 +1273,258 @@ private:
 
 
 
+template<bool output, template <bool, typename>class test, typename T, class M>
+bool apply_test(const test<output,T> & t,const M_Matrix<T>& one, const M& other)
+{
+    bool out=true;
+    if constexpr (std::is_same_v<M,M_Matrix<T> >)
+    {
+        if ((one.ncols()!=other.ncols())||(one.nrows()!=other.nrows()))
+        {
+            if constexpr (output)
+            {
+                std::cerr<<"\n different size!!!"<<" one.nrows="<<one.nrows()<<" other.nrows="<<other.nrows();
+                std::cerr<<" one.ncols="<<one.ncols()<<" other.ncols="<<other.ncols();
+            }
+            return false;
+        }
+    }
+    for (std::size_t i=0; i<one.nrows(); ++i)
+    {
+        for (std::size_t j=0; j<one.ncols(); ++j)
+        {
+            bool mytest;
+            if constexpr (std::is_same_v<M,M_Matrix<T> >)
+                    mytest=t.test(one(i,j),other(i,j));
+            else
+            mytest=t.test(one(i,j),other);
+
+            if (!mytest)
+            {
+                if constexpr (output)
+                {
+                    std::cerr<< "  on i="<<i<<" j="<<j;
+
+                    out= false;
+                }
+                else
+                return false;
+            }
+        }
+    }
+    if (out)
+        return true;
+    else
+    {
+        if constexpr (output)
+        {
+            std::cerr<< "\n one=\n"<<one;
+            std::cerr<< "\n other=\n"<<other;
+        }
+        return  false;
+
+    }
+}
+
+
+template<bool output, template <bool,typename>class test, typename T>
+bool apply_test(const test<output,T> & t,const M_Matrix<T>& one)
+{
+    bool out=true;
+    for (std::size_t i=0; i<one.nrows(); ++i)
+    {
+        for (std::size_t j=0; j<one.ncols(); ++j)
+            if (!t.test(one(i,j)))
+            {
+                if constexpr (output)
+                {
+                    std::cerr<< "  on i="<<i<<", j="<<j;
+                    out= false;
+                }
+                else
+                return false;
+            }
+    }
+    if (out)
+        return true;
+    else
+    {
+        if constexpr (output)
+        {
+            std::cerr<< "\n one=\n"<<one;
+        }
+        return  false;
+
+    }
+}
+
+
+namespace Matrix_Unary_Functions {
+template<typename T>
+double norm_1(const M_Matrix<T>& x);
+}
+
+
+template<bool output, typename T>
+class are_Equal<output,M_Matrix<T>>
+{
+public:
+
+    bool test_sum(const M_Matrix<T> & one,const M_Matrix<T> & two)const
+    {
+        return apply_test(are_Equal<output,T>(absolute_,relative_),one,two);
+    }
+    bool test_prod(const M_Matrix<T> &one, const M_Matrix<T> & two)
+    {
+        double N=Matrix_Unary_Functions::norm_1(one);
+        auto n=one.size();
+        return apply_test(are_Equal<output,T>(std::sqrt(absolute_)*n*N,std::sqrt(relative_)*n),one,two);
+    }
+
+    are_Equal(double absoluteError, double relativeError):absolute_{absoluteError},relative_{relativeError}{}
+    are_Equal():absolute_{std::numeric_limits<T>::epsilon()},relative_{std::numeric_limits<T>::epsilon()}{}
+
+
+private:
+    double absolute_;
+    double relative_;
+
+};
+
+
+template<bool output, typename T>
+class are_non_negative<output,M_Matrix<T>>
+{
+public:
+
+    bool test_sum(const M_Matrix<T> & one)const
+    {
+        return apply_test(are_non_negative<output,T>(absolute_),one);
+    }
+    bool test_prod(const M_Matrix<T> &one)const
+    {
+        double N=norm_1(one);
+        auto n=one.size();
+        return apply_test(are_non_negative<output,T>(std::sqrt(absolute_)*n*N),one);
+    }
+
+    are_non_negative(double absoluteError):absolute_{absoluteError}{}
+    are_non_negative():absolute_{std::numeric_limits<T>::epsilon()}{}
+private:
+    double absolute_;
+
+};
+template<bool output, typename T>
+class are_not_less<output, M_Matrix<T>>
+{
+public:
+
+
+    bool test(const M_Matrix<T> & one)const
+    {
+        bool out=true;
+        if (m_min_.size()==one.size())
+            return apply_test(are_not_less<output,T>(absolute_error()),one,m_min_);
+        else
+           return apply_test(are_not_less<output,T>(absolute_error()),one,min_);
+     }
+
+    double min()const {return min_;}
+    M_Matrix<double>const & Min()const {return m_min_;}
+    double absolute_error()const { return absolute_;}
+    are_not_less(bool missing,double min,double absoluteError):missing_{missing},min_{min}, absolute_{absoluteError}, m_min_{}{}
+    are_not_less(bool missing,M_Matrix<double>&& min, double absoluteError):missing_{missing},min_{std::numeric_limits<double>::quiet_NaN()},absolute_{absoluteError}, m_min_{std::move(min)}{}
+private:
+    bool missing_;
+    double min_;
+    double absolute_=std::numeric_limits<double>::epsilon();
+    M_Matrix<double> m_min_;
+
+};
+
+template<bool output, typename T>
+class are_not_more<output, M_Matrix<T>>
+{
+public:
+
+
+    bool test(const M_Matrix<T> & one)const
+    {
+        bool out=true;
+        if (m_max_.size()==one.size())
+            return apply_test(are_not_more<output,T>(absolute_error()),one,m_max_);
+        else
+           return apply_test(are_not_more<output,T>(absolute_error()),one,max_);
+     }
+
+    double max()const {return max_;}
+    M_Matrix<double>const & Max()const {return m_max_;}
+    double absolute_error()const { return absolute_;}
+    are_not_more(bool missing,double max,double absoluteError):missing_{missing},max_{max}, absolute_{absoluteError}, m_max_{}{}
+    are_not_more(bool missing,M_Matrix<double>&& max, double absoluteError):missing_{missing},max_{std::numeric_limits<double>::quiet_NaN()},absolute_{absoluteError}, m_max_{std::move(max)}{}
+private:
+    bool missing_;
+    double max_;
+    double absolute_=std::numeric_limits<double>::epsilon();
+    M_Matrix<double> m_max_;
+
+};
+
+
+
+template<bool output, typename T>
+class are_in_range<output, M_Matrix<T>>
+{
+public:
+
+
+    bool test(const M_Matrix<T> & one)const
+    {
+        bool out=true;
+        if (m_min_.size()==one.size())
+        {
+            if (!apply_test(are_not_less<output,T>(absolute_error()),one,m_min_))
+                out=false;
+
+        }
+        else
+        {
+            if (!apply_test(are_not_less<output,T>(absolute_error()),one,min_))
+                out=false;
+        }
+        if (m_max_.size()==one.size())
+        {
+            if (!apply_test(are_not_more<output,T>(absolute_error()),one,m_max_))
+                out=false;
+
+        }
+        else
+        {
+            if (!apply_test(are_not_more<output,T>(absolute_error()),one,max_))
+                out=false;
+        }
+        return out;
+    }
+
+    double min()const {return min_;}
+    double max()const {return max_;}
+    M_Matrix<double>const & Min()const {return m_min_;}
+    M_Matrix<double>const & Max()const {return m_max_;}
+
+
+    double absolute_error()const { return absolute_;}
+    are_in_range(bool missing,double min, double max,double absoluteError):missing_{missing},min_{min}, max_{max},absolute_{absoluteError}, m_min_{},m_max_{}{}
+    are_in_range(bool missing,M_Matrix<double>&& min, M_Matrix<double>&& max,double absoluteError):missing_{missing},min_{std::numeric_limits<double>::quiet_NaN()}, max_{std::numeric_limits<double>::quiet_NaN()},absolute_{absoluteError}, m_min_{std::move(min)},m_max_{std::move(max)}{}
+private:
+    bool missing_;
+    double min_;
+    double max_;
+    double absolute_=std::numeric_limits<double>::epsilon();
+    M_Matrix<double> m_min_;
+    M_Matrix<double> m_max_;
+
+};
+
 
 
 template<typename T>
@@ -1641,7 +1893,9 @@ auto EigenSystem_full_real_eigenvalue_dgeev(const M_Matrix<double>& x)
     if (info!=0)
         assert(false);
 
-    assert(are_zero::test(L_imag,1));
+    are_zero<true,double> not_zero(std::sqrt(std::numeric_limits<double>::epsilon()));
+
+    assert((apply_test(not_zero,L_imag)));
 
     return std::make_tuple(VR,L,invVR.first, invVR.second.first); // in reality VL, L, VR because of transposition
 }
@@ -2281,12 +2535,11 @@ double maxAbs(const M_Matrix<T>& x)
     {return std::max(a,maxAbs(b));},0.0);
 }
 
-template<typename T>
-double max(const M_Matrix<T>& x)
+double max(const M_Matrix<double>& x)
 {
     using std::max;
-    return accumulate(x,[](double a, const T& b)
-    {return max(a,max(b));},-std::numeric_limits<T>::infinity());
+    return accumulate(x,[](double a, double b)
+    {return max(a,b);},-std::numeric_limits<double>::infinity());
 }
 inline double min(const M_Matrix<double>& x)
 {
@@ -5213,9 +5466,9 @@ Matrix_Multiplication
  , bool transposeOther)
 ->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
 {
-    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out=All_Product(one,other,transposeOne,transposeOther);
-    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out2=UnformattedProduct(one,other);
-    assert(are_Equal::test(out,out2));
+    typedef decltype(std::declval<T>()*std::declval<S>()) R;
+    M_Matrix<R> out=All_Product(one,other,transposeOne,transposeOther);
+    assert((are_Equal<true,M_Matrix<R>>().test_sum(out,UnformattedProduct(one,other))));
     return out;
 }
 
@@ -5232,9 +5485,10 @@ operator *
  const M_Matrix<S>& other)
 ->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
 {
+    typedef decltype(std::declval<T>()*std::declval<S>()) R;
+
     M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out= product::Matrix_Multiplication(one,other,false,false);
-    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> alt=product::UnformattedProduct(one,other);
-    assert(are_Equal::test(out,alt));
+    assert(apply_test(are_Equal<true,R>(std::numeric_limits<R>::epsilon(),std::sqrt(std::numeric_limits<R>::epsilon()) ),out,product::UnformattedProduct(one,other)));
     return out;
 
 }
@@ -5581,7 +5835,7 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
         itself=other;
         return itself;
     }
-    else if (itself.type()==other.type())
+    else if (itself.type()==static_cast<typename M_Matrix<T>::TYPE>(other.type()))
     {
         assert(itself.size()==other.size());
         for (size_t i=0; i<itself.size(); i++)
@@ -5610,8 +5864,8 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
         }
     }
 
-    else if ((other.type()==M_Matrix<T>::DIAGONAL)
-             ||(other.type()==M_Matrix<T>::SCALAR_DIAGONAL))
+    else if ((other.type()==M_Matrix<S>::DIAGONAL)
+             ||(other.type()==M_Matrix<S>::SCALAR_DIAGONAL))
     {
         assert(itself.nrows()==other.nrows());
         assert(itself.ncols()==other.ncols());
@@ -5643,7 +5897,7 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
 
         }
     }
-    else if(other.type()==M_Matrix<T>::FULL)
+    else if(other.type()==M_Matrix<S>::FULL)
     {
         assert(itself.nrows()==other.nrows());
         assert(itself.ncols()==other.ncols());
@@ -5915,6 +6169,7 @@ UnformatedelemDivSafe
  , double eps=std::numeric_limits<double>::epsilon())
 ->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
 {
+    typedef decltype(std::declval<T>()*std::declval<S>()) R;
     assert(x.nrows()==y.nrows());
     assert(x.ncols()==y.ncols());
     M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out(x.nrows(), x.ncols(),0);
@@ -5930,10 +6185,11 @@ UnformatedelemDivSafe
 template<typename T, typename S>
 M_Matrix<T> elemDivSafe(const M_Matrix<T>& x,const M_Matrix<S>& y, double eps=std::numeric_limits<double>::epsilon())
 {
+    typedef decltype(std::declval<T>()*std::declval<S>()) R;
     double norm=Matrix_Unary_Functions::norm_1(y);
     auto out(x);
     out= Element_Wise_Multiplicative_Assigment_Operator([eps,norm](T& a, const S& b){return a=elemDivSafe(a,b,eps);return a;},out,y);
-    assert(are_Equal::test(out,UnformatedelemDivSafe(x,y,eps)));
+    assert((are_Equal<true, M_Matrix<R>>().test_sum(out,UnformatedelemDivSafe(x,y,eps))));
     return out;
 
 }
@@ -5948,7 +6204,6 @@ M_Matrix<T> elemDivSafe(M_Matrix<T>&& x,M_Matrix<S>&& y, double eps=std::numeric
 
 
 
-
 /**
  Division of the elements of two matrices.
   @pre \p x.nrows()==ncols(y) x.ncols()==ncols(y)
@@ -5956,8 +6211,8 @@ M_Matrix<T> elemDivSafe(M_Matrix<T>&& x,M_Matrix<S>&& y, double eps=std::numeric
  and z(i,j)= sum on k of x(i,k)*y(k,j)
   @warning it \c assert the preconditions
  */
-template<typename T,typename S>
-M_Matrix<double> elemDiv(const M_Matrix<T>& x,const M_Matrix<S>& y)
+/*template<typename T,typename S>
+M_Matrix<double> elemDiv(const M_Matrix<double>& x,const M_Matrix<S>& y)
 {
     M_Matrix<double> z(x);
     for (size_t i=0; i<z.nrows(); i++)
@@ -5965,8 +6220,7 @@ M_Matrix<double> elemDiv(const M_Matrix<T>& x,const M_Matrix<S>& y)
             z(i,j)/=double(y(i,j));
     return z;
 }
-
-
+*/
 template<typename T>
 M_Matrix<double> operator<<(const M_Matrix<double>& A, const M_Matrix<T>& B)
 {

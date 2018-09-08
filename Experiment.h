@@ -475,7 +475,7 @@ std::ostream& operator<<(std::ostream& os, const typename basic_Experiment<point
 {
     os<<" x="<<x.x()<<"\n y="<<x.y()<<"\n";
     return os;
- }
+}
 
 
 
@@ -524,11 +524,17 @@ auto Experiment_to_DataFrame(basic_Experiment<point<double,double>,measure_just_
     for (auto it=e.begin(); it!=e.end(); ++it)
     {
         for (auto it2=it->begin(); it2!=it->end(); ++it2)
+        {
             for (auto it3=it2->begin(); it3!=it2->end(); ++it3)
             {
                 auto n=ntrace;
                 d.push_back(n,it3->t(), it3->nsamples(), it3->x(), it3->y());
+
             }
+            auto n=ntrace;
+            auto it3=it2->end();
+            d.push_back(n,it3->t(), it3->nsamples(), it3->x(), it3->y());
+        }
         ++ntrace;
     }
     return d;
@@ -545,23 +551,23 @@ auto Experiment_Steps_to_DataFrame(basic_Experiment<point<double,double>,measure
                                    const std::string& colname_y="y")
 {
     io::myDataFrame<double,std::size_t> d(std::pair(colname_trace,C<std::size_t>{}),
-                                           std::pair(colname_time,C<double>{}),
-                                           std::pair(colname_nsample,C<std::size_t>{}),
-                                           std::pair(colname_x,C<double>{}),
-                                           std::pair(colname_y,C<double>{}));
+                                          std::pair(colname_time,C<double>{}),
+                                          std::pair(colname_nsample,C<std::size_t>{}),
+                                          std::pair(colname_x,C<double>{}),
+                                          std::pair(colname_y,C<double>{}));
 
 
     measure::insert_col(d);
     std::size_t itrace=0;
     for (auto itr=e.begin(); itr!=e.end(); ++itr)
     {
-    for (auto it=itr->begin(); it!=itr->end(); ++it)
-    {
-        auto m=it->data().data();
+        for (auto it=itr->begin(); it!=itr->end(); ++it)
+        {
+            auto m=it->data().data();
 
-        std::apply([&d,&it,itrace](auto...x){d.push_back(itrace,it->x().t(),it->x().nsamples(),it->x().x(),it->x().y(), x... );},m);
-    }
-    ++itrace;
+            std::apply([&d,&it,itrace](auto...x){d.push_back(itrace,it->x().t(),it->x().nsamples(),it->x().x(),it->x().y(), x... );},m);
+        }
+        ++itrace;
     }
     return d;
 }

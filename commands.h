@@ -21,7 +21,7 @@ using namespace experiment;
 struct get_current
 {
     template <class Model, class X>
-    double operator()(markov_process<std::size_t> mp, const Model& m, const X& x)const
+    double operator()(markov_process<M_Matrix<std::size_t>> mp, const Model& m, const X& x)const
     {
         return (mp.N()*m.g(x)).getvalue();
     }

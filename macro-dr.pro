@@ -15,6 +15,12 @@ LIBS +=  -lblas  -llapack
 
 #QMAKE_CC = /usr/bin/clang-6.0
 #QMAKE_CXX = /usr/bin/clang++-6.0
+
+CONFIG(debug, debug|release) {
+
+} else {
+  DEFINES += NDEBUG
+}
 SOURCES += \
     main.cpp
 
@@ -44,7 +50,8 @@ HEADERS += \
     mydata.h \
     myevidence.h \
     qlikelihood.h \
-    mytests.h
+    mytests.h \
+    myoptimization.h
 
 DISTFILES += \
     simulation.txt

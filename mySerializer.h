@@ -1018,6 +1018,7 @@ template<typename T1, typename T2> std::ostream& operator<<(std::ostream& os,con
 {
     os<<io::start_of_tuple{};
     io::output_operator_on_element(os,other.first);
+    os<<io::separator{};
     io::output_operator_on_element(os,other.second);
     os<<io::end_of_tuple{};
     return os;
@@ -1035,6 +1036,7 @@ template<typename T1, typename T2> std::istream& operator>>(std::istream& is,con
 template<typename T1, typename T2> std::ostream& write_pair(std::ostream& os,const std::pair<T1,T2>& other)
 {
     io::write_on_element(os,other.first);
+    os<<io::separator{};
     io::write_on_element(os,other.second);
     os<<io::end_of_line{};
     return os;
