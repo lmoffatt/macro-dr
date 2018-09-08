@@ -599,6 +599,9 @@ public:
             double logP_backward=candidate.g().logP(current.x());
             double logA=(logL_candidate+logP_forward)-(logL_current+logP_backward);
             double A=std::min(1.0,exp(logA));
+            std::cerr<<"\n logA=(logL_candidate+logP_forward)-(logL_current+logP_backward)="<<logA<<"\tlogP_foward="<<logP_forward;
+            std::cerr<<"\tlogP_backward="<<logP_backward<<"\tlogL_current"<<logL_current;
+            std::cerr<<"\tlogL_candidate"<<logL_candidate<<"\n";
             return A;
         }
         else
@@ -1438,8 +1441,8 @@ struct OutputGenerator
             os<<isample<<sep<<m.beta(i)<<sep<<"Prior"<<sep<<""<<sep<<state.Scout(i).prior().logL()<<end_of_line{};
             os<<isample<<sep<<m.beta(i)<<sep<<"LogLik"<<sep<<""<<sep<<state.Scout(i).likelihood().logL()<<end_of_line{};
             if (parameter_)
-            for (std::size_t k=0; k<state.Scout(i).x().size(); ++k)
-                os<<isample<<sep<<m.beta(i)<<sep<<"X"<<sep<<k<<sep<<state.Scout(i).x()[k]<<end_of_line{};
+                for (std::size_t k=0; k<state.Scout(i).x().size(); ++k)
+                    os<<isample<<sep<<m.beta(i)<<sep<<"X"<<sep<<k<<sep<<state.Scout(i).x()[k]<<end_of_line{};
             if (gradient_)
             {
                 for (std::size_t k=0; k<state.Scout(i).x().size(); ++k)

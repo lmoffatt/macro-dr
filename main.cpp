@@ -92,7 +92,6 @@ int main(int argc, char **argv)
     da.write(std::cout);
 
 
-    std::size_t n_sub_samples=10;
     auto e=experiment::DataFrame_to_Experiment(da,"t","ns","xATP","yCurrent", -60,50E3);
     Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,experiment::basic_Experiment<experiment::point<double,double>,measure_just_y<double>>,double> MC(SM,e,10);
 

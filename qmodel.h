@@ -115,8 +115,8 @@ public:
                           Conformational_change_label _label,
                           rate_Parameter_label _par_on,
                           rate_Parameter_label _par_off /*,
-                                                                                                                                                                                                                                                      Equilibrium_Parameter_label&& _par_Eq,
-                                                                                                                                                                                                                                                      Time_Constant_Parameter_label&& _par_tc*/):
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    Equilibrium_Parameter_label&& _par_Eq,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    Time_Constant_Parameter_label&& _par_tc*/):
         change_in_agonist_{_change_in_agonist},change_in_conductance_{_change_in_conductance},
         label_{std::move(_label)},par_on_{std::move(_par_on)},par_off_{std::move(_par_off)}/*,par_Eq_{std::move(_par_Eq)},par_tc_{std::move(_par_tc)}*/{}
 
@@ -131,8 +131,8 @@ public:
                                grammar::field(C<self_type>{},"par_on", &self_type::par_on),
                                grammar::field(C<self_type>{},"par_off", &self_type::par_off)
                                /*,
-                                                                                                                                                                                                                                                                     grammar::field(C<self_type>{},"par_Eq", &self_type::par_Eq),
-                                                                                                                                                                                                                                                                     grammar::field(C<self_type>{},"par_tc", &self_type::par_tc)*/);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                grammar::field(C<self_type>{},"par_Eq", &self_type::par_Eq),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                grammar::field(C<self_type>{},"par_tc", &self_type::par_tc)*/);
     }
 };
 class Conformational_interaction;
@@ -717,8 +717,8 @@ struct Markov_Transition_step_single_minimum
     M_Matrix<double> PG_n;
     M_Matrix<double> PGG_n;
     std::size_t n;
-    Markov_Transition_step_single_minimum(const Markov_Transition_step_single& x);
-    Markov_Transition_step_single_minimum& operator*=(const Markov_Transition_step_single& x);
+    Markov_Transition_step_single_minimum(const Markov_Transition_step_single& x_);
+    Markov_Transition_step_single_minimum& operator*=(const Markov_Transition_step_single& x_);
 };
 
 
@@ -762,7 +762,7 @@ public:
     }
 
     Markov_Transition_step(const Markov_Transition_rate& Qx, std::size_t nsamples, std::size_t n_sub_samples,double fs,double min_p, double tolerance)
-        :P_{},/*ladt_{},exp_ladt_{},*/g_{Qx.g()},nsamples_{nsamples},dt_{1.0/fs*nsamples/n_sub_samples}, min_p_{min_p},tolerance_{tolerance}{
+        :P_{},/*ladt_{},exp_ladt_{},*/g_{Qx.g()},nsamples_{nsamples},dt_{1.0/(fs*n_sub_samples)*nsamples}, min_p_{min_p},tolerance_{tolerance}{
         init(Qx);
     }
 
@@ -796,7 +796,7 @@ public:
                     grammar::field(C<self_type>{},"min_p",&self_type::min_P),
                     grammar::field(C<self_type>{},"tolerance",&self_type::tolerance)
                     );
-     }
+    }
 
 private:
     void init(const Markov_Transition_rate& Qx)
@@ -915,8 +915,8 @@ struct Markov_Transition_step_double_minimum
     M_Matrix<double> PGG_n;
     double min_p;
     double tolerance;
-    Markov_Transition_step_double_minimum(const Markov_Transition_step_double&x);
-    Markov_Transition_step_double_minimum operator*=(const Markov_Transition_step_double& x);
+    Markov_Transition_step_double_minimum(const Markov_Transition_step_double&x_);
+    Markov_Transition_step_double_minimum operator*=(const Markov_Transition_step_double& x_);
 };
 
 
@@ -939,7 +939,7 @@ class Markov_Transition_step_double: public Markov_Transition_step
 
 public:
     Markov_Transition_step_double(M_Matrix<double>&&  P,
-                                M_Matrix<double>&& g, std::size_t nsamples, double fs,double min_p, double tolerance,
+                                  M_Matrix<double>&& g, std::size_t nsamples, double fs,double min_p, double tolerance,
                                   M_Matrix<double>&& gmean_i,
                                   M_Matrix<double>&& gtotal_ij,
                                   M_Matrix<double>&& gmean_ij,
@@ -950,9 +950,9 @@ public:
 
                                   M_Matrix<double>&& gvar_i,
                                   M_Matrix<double>&& gtotal_var_ij,
-                              M_Matrix<double>&& gvar_ij)
+                                  M_Matrix<double>&& gvar_ij)
         :Markov_Transition_step(std::move(P),std::move(g),nsamples,fs,min_p,tolerance),
-          gmean_i_{gmean_i}, gtotal_ij_{gtotal_ij},gmean_ij_{gtotal_sqr_ij}, gtotal_sqr_ij_{gtotal_sqr_ij},gsqr_i_{gsqr_i},gvar_i_{gvar_i},gtotal_var_ij_{gtotal_var_ij},gvar_ij_{gvar_ij}{}
+          gmean_i_{gmean_i}, gtotal_ij_{gtotal_ij},gmean_ij_{gmean_ij}, gtotal_sqr_ij_{gtotal_sqr_ij},gsqr_i_{gsqr_i},gvar_i_{gvar_i},gtotal_var_ij_{gtotal_var_ij},gvar_ij_{gvar_ij}{}
 
 
     Markov_Transition_step_double_minimum getMinimum()const { return Markov_Transition_step_double_minimum(*this);}
@@ -991,13 +991,21 @@ public:
         init_by_step(Qx,recursion_number,fs);
     }
 
+    Markov_Transition_step_double(std::mt19937_64& mt,const Markov_Transition_rate& Qx,std::size_t nsamples, double fs,
+                                  double min_p, double tolerance, std::size_t numsteps, std::size_t numreplicates)
+        :Markov_Transition_step(Qx,nsamples,fs,min_p,tolerance)
+    {
+        measure(Qx,mt,numsteps, numreplicates);
+    }
+
     Markov_Transition_step_double(Markov_Transition_step&& step):Markov_Transition_step (step){
         init_by_step_init();
 
     }
 
 
-    Markov_Transition_step_double(Markov_Transition_step_double_minimum&& x, double fs)
+    Markov_Transition_step_double(Markov_Transition_step_double_minimum&& x,  M_Matrix<double> g,double fs, double min_p, double tolerance)
+        :Markov_Transition_step(std::move(x.PPn), std::move(g),x.n,fs,min_p, tolerance)
     {
         init(std::move(x),fs);
     }
@@ -1022,7 +1030,7 @@ public:
                     grammar::field(C<self_type>{},"gvar_i",&self_type::gvar_i),
                     grammar::field(C<self_type>{},"gtotal_var_ij",&self_type::gtotal_var_ij),
                     grammar::field(C<self_type>{},"gvar_ij",&self_type::gvar_ij)
-                              );
+                    );
     }
 
 private:
@@ -1092,25 +1100,19 @@ private:
         else return E111(x,y,z,exp_x,exp_y,exp_z); // x!=y!=z!=x
     }
 
-    void init(Markov_Transition_step_double_minimum&& x, double fs)
+    void init(Markov_Transition_step_double_minimum&& x, double )
     {
-        M_Matrix<double> u=ones<double>(x.PPn.ncols(),1);
-        Markov_Transition_step::P_=std::move(x.PPn);
-        Markov_Transition_step::nsamples_=x.n;
-        Markov_Transition_step::dt_=Markov_Transition_step::nsamples_/fs;
+        M_Matrix<double> u=ones<double>(P().ncols(),1);
 
         gtotal_sqr_ij_=x.PGG_n/(x.n*x.n*0.5);
         gtotal_ij_=x.PG_n/x.n;
+        gmean_ij_=elemDivSafe(gtotal_ij_,P_,min_P());
 
-        gtotal_var_ij_=gtotal_sqr_ij_-elemMult(gtotal_ij_,gtotal_ij_);
+        gtotal_var_ij_=gtotal_sqr_ij_-elemMult(gtotal_ij_,gmean_ij_);
 
         gmean_i_=gtotal_ij_*u;
 
         gsqr_i_=gtotal_sqr_ij_*u;
-        gmean_ij_=elemDivSafe(gtotal_ij_,P_,min_P());
-
-        gtotal_var_ij_=gtotal_sqr_ij_-elemMult(gtotal_ij_,gtotal_ij_);
-
         gvar_ij_=elemDivSafe(gtotal_var_ij_,P_,min_P());
         gmean_i_=gtotal_ij_*u;
         gsqr_i_=gtotal_sqr_ij_*u;
@@ -1155,11 +1157,20 @@ private:
                 }
 
         gtotal_sqr_ij_=Qx.V()*WgV_E3*Qx.W()*2.0;
+        for (std::size_t i=0; i<N; ++i)
+            for (std::size_t j=0; j<N; ++j)
+                if (P()(i,j)==0) { gtotal_ij_(i,j)=0;gtotal_sqr_ij_(i,j)=0;}
 
+        M_Matrix<double> U=Matrix_Generators::ones<double>(1,g().size());
+        M_Matrix<double> UU=M_Matrix<double>(g().size(),g().size(),1);
+        auto gmean_ij_p=TransposeSum(g()*U)*(0.5);
+        auto gvar_ij_p=(g()*U-Transpose(g()*U)).apply([](double x){return std::abs(x);})*(0.5);
 
-        gmean_ij_=elemDivSafe(gtotal_ij_,P_);
+        //std::cerr<<"\ngmean_ij_p=\n"<<gmean_ij_p<<"\ngvar_ij_p=\n"<<gvar_ij_p<<"\n";
+        //std::cerr<<"\n UU=ņ"<<UU<<"\n";
+        gmean_ij_=elemDivSafe(gtotal_ij_,P(), min_P());
 
-        gtotal_var_ij_=gtotal_sqr_ij_-elemMult(gtotal_ij_,gtotal_ij_);
+        gtotal_var_ij_=gtotal_sqr_ij_-elemMult(gtotal_ij_,gmean_ij_);
 
         gvar_ij_=elemDivSafe(gtotal_var_ij_,P_);
 
@@ -1174,6 +1185,64 @@ private:
 
     }
 
+
+
+
+    void measure(const Markov_Transition_rate& Qx, std::mt19937_64& mt,std::size_t numsteps, std::size_t nrep)
+
+    {
+        //const double eps=std::numeric_limits<double>::epsilon();
+        double dt=Markov_Transition_step::dt()/numsteps;
+
+        std::size_t N=P().ncols();
+
+        auto ladt=Qx.landa()*dt;
+
+        auto exp_ladt=ladt.apply([](double x){return std::exp(x);});
+
+        auto P=Probability_transition::normalize(Qx.V()*exp_ladt*Qx.W(),min_P(), tolerance());
+
+        M_Matrix<double> gmean_ij_sum(N,N,0.0);
+        M_Matrix<double> gsqr_ij_sum (N,N,0.0);
+        M_Matrix<std::size_t> Ns(N,N,0);
+        for (std::size_t i=0; i<N; ++i)
+        {
+            for (std::size_t r=0; r<nrep; ++r)
+            {
+                double y=0;
+                markov_process<std::size_t> mp(i,P);
+                for (std::size_t t=0; t<numsteps; ++t)
+                {
+                    auto y0=g()[mp.N()];
+                    auto Nr=mp(mt);
+                    auto y1=g()[Nr];
+                    y+=(y0+y1)/2;
+                    mp.set_N(Nr);
+                }
+                y/=numsteps;
+                gmean_ij_sum(i,mp.N())+=y;
+                gsqr_ij_sum(i,mp.N())+=sqr(y);
+                Ns(i,mp.N())+=1;
+            }
+        }
+        P_=Ns*(1.0/nrep);
+        gtotal_sqr_ij_=gsqr_ij_sum*(1.0/nrep);
+        gtotal_ij_=gmean_ij_sum*(1.0/nrep);
+        gmean_ij_=elemDivSafe(gmean_ij_sum,Ns);
+        gtotal_var_ij_=gtotal_ij_-elemMult(gmean_ij_,gtotal_ij_);
+        gvar_ij_=elemDivSafe(gsqr_ij_sum,Ns)-elemMult(gmean_ij_,gmean_ij_);
+        M_Matrix<double> U=Matrix_Generators::ones<double>(1,g().size());
+        M_Matrix<double> u(N,1,1.0);
+        gmean_i_=gtotal_ij_*u;
+        gsqr_i_=gtotal_sqr_ij_*u;
+        gvar_i_=gtotal_var_ij_*u;
+    }
+
+
+
+
+
+
     void init_by_step_init()
     {
 
@@ -1181,8 +1250,8 @@ private:
         std::size_t N=P().nrows();
         gtotal_ij_=(G*P()+P()*G)*0.5;
         gtotal_var_ij_=(G*P()-P()*G).apply([](double x){return std::abs(x);})*0.5;
-        gtotal_sqr_ij_=gtotal_var_ij_+elemMult(gtotal_ij_,gtotal_ij_);
         gmean_ij_=elemDivSafe(gtotal_ij_,P_);
+        gtotal_sqr_ij_=gtotal_var_ij_+elemMult(gtotal_ij_,gmean_ij_);
         gvar_ij_=elemDivSafe(gtotal_var_ij_,P_);
         M_Matrix<double> u(N,1,1.0);
         gmean_i_=gtotal_ij_*u;
@@ -1202,7 +1271,7 @@ private:
         {
             Markov_Transition_step_double_minimum step(step_ini);
             step*=step_ini;
-            step_ini=Markov_Transition_step_double(std::move(step),fs);
+            step_ini=Markov_Transition_step_double(std::move(step),step_ini.g(),fs,min_P(),tolerance());
         }
         *this=step_ini;
 
@@ -1211,62 +1280,130 @@ private:
     }
 
 };
-
-bool areEqual(const Markov_Transition_step_double& one , const Markov_Transition_step_double& other, double eps=std::sqrt(std::numeric_limits<double>::epsilon()) )
+template<bool output>
+class are_Equal<output,Markov_Transition_step_double>
 {
-    auto dtotal_ij=one.gtotal_ij()-other.gtotal_ij();
-    auto dgsqr_ij=one.gtotal_sqr_ij()-other.gtotal_sqr_ij();
-    return are_Equal::test(one.gtotal_ij(),other.gtotal_ij(),eps)
-            && are_Equal::test(one.gtotal_sqr_ij(),other.gtotal_sqr_ij(),eps);
-
+public:
+    bool test(const Markov_Transition_step_double& one, const Markov_Transition_step_double& other)const
+    {
+        are_Equal<output,M_Matrix<double>> mytest(one.min_P(),one.min_P());
+        bool P_equal= mytest.test_prod(one.P(),other.P());
+        if constexpr (output)
+                if (!P_equal) std::cerr<<"\n differ in  P_ij !!  \n";
+        bool gtotal_equal= mytest.test_prod(one.gtotal_ij(),other.gtotal_ij());
+        if constexpr (output)
+                if (!gtotal_equal) std::cerr<<"\n differ in  gtotal_ij !!\n";
+        bool gsqr_equal=mytest.test_prod(one.gtotal_sqr_ij(),other.gtotal_sqr_ij());
+        if constexpr (output)
+                if (!gsqr_equal)  std::cerr<<"\n differ in gtotal_sqr_ij!!\n";
+        return gtotal_equal&& gsqr_equal;
+    }
 };
 
 template<>
 struct class_Invariants<Markov_Transition_step_double>: public invariant
 {
+    template<bool output>
     static  bool test_variances(const Markov_Transition_step_double& x, double eps=std::sqrt(std::numeric_limits<double>::epsilon()))
     {
         M_Matrix<double> u(x.gmean_i().nrows(),1,1.0);
-        if(!are_non_negative::test(x.gtotal_sqr_ij(),eps))
+        are_non_negative<output,M_Matrix<double>> non_negative(eps);
+        are_Equal<output,M_Matrix<double>> areEqual(eps,eps);
+        if(!non_negative.test_sum(x.gtotal_sqr_ij()))
+        {
+            if constexpr(output)
+                    std::cerr<<"\n gtotal_sqr_ij is negative!!!! \n";
             return false;
-        else if (!are_non_negative::test(x.gtotal_var_ij(),eps))
+        }
+        else if (!non_negative.test_sum(x.gtotal_var_ij()))
+        {
+            if constexpr(output)
+                    std::cerr<<"\n gtotal_var_ij is negative!!!! \n";
             return false;
-        else if (!are_Equal::test(x.gvar_i(),x.gtotal_var_ij()*u,eps))
+        }
+        else if (!areEqual.test_sum(x.gvar_i(),x.gtotal_var_ij()*u))
+        {
+            if constexpr(output)
+                    std::cerr<<"\n gvar_i is not equalt to  gtotal_var_ij*u !!!! \n";
             return false;
-        else if (!are_Equal::test(elemMult(x.gvar_ij(),x.P()),x.gtotal_var_ij(),eps))
+
+        }
+        else if (!areEqual.test_sum(elemMult(x.gvar_ij(),x.P()),x.gtotal_var_ij()))
+        {
+            if constexpr(output)
+                    std::cerr<<"\n gvar_ij is not equalt to  gtotal_var_ij*u !!!! \n";
             return false;
-        else if (!are_Equal::test(x.gtotal_var_ij()+elemMult(x.gtotal_ij(),x.gtotal_ij()),x.gtotal_sqr_ij(),eps))
+        }
+        else if (!areEqual.test_sum(x.gtotal_var_ij()+elemMult(x.gmean_ij(),x.gtotal_ij()),x.gtotal_sqr_ij()))
+        {
+            if constexpr(output)
+                    std::cerr<<"\n gtotal_var_ij+   elemMult(x.gmean_ij(),x.gtotal_ij()) is not equalt to x.gtotal_sqr_ij() !!!! \n";
             return false;
+        }
         else
             return true;
     }
 
+
+    template<bool output>
     static  bool test_means(const Markov_Transition_step_double& x, double eps=std::sqrt(std::numeric_limits<double>::epsilon()))
     {
         double gmin=min(x.g());
-        double gmax=min(x.g());
+        double gmax=max(x.g());
+        are_in_range<output,M_Matrix<double>> in_range(true,gmin,gmax,eps);
+        bool out=true;
+        are_Equal<output,M_Matrix<double>> equal(eps,eps);
+        if (!are_not_more<output,M_Matrix<double>>(true, x.P()*gmax,eps).test(x.gtotal_ij()))
+        {
+            if constexpr (output)
+                    std::cerr<<"\n gtotal_ij is more than gmax="<<gmax<<"!!! \n";
+            out=false;
+        }
+        if (!are_not_less<output,M_Matrix<double>>(true,x.P()*gmin,eps).test(x.gtotal_ij()))
+        {
+            if constexpr (output)
+                    std::cerr<<"\n gtotal_ij is less than gmin="<<gmin<<"!!! \n";
+            out= false;
+        }
+        if (!in_range.test(x.gmean_i()))
+        {
+            if constexpr (output)
+                    std::cerr<<"\n gmean_i is not in range!! \n";
+            out= false;
+        }
+        if (!equal.test_prod(elemMult(x.gmean_ij(),x.P()),x.gtotal_ij()))
+        {
+            if constexpr (output)
 
-        if (!are_in_range::test(x.gtotal_ij(),gmin,gmax,eps))
-            return false;
-        else      if (!are_in_range::test(x.gmean_ij(),gmin,gmax,eps))
-            return false;
-        else      if (!are_in_range::test(x.gmean_i(),gmin,gmax,eps))
-            return false;
-        else if (!are_Equal::test(elemMult(x.gmean_ij(),x.P()),x.gtotal_ij(),eps))
-            return false;
-        else
-            return true;
+                    std::cerr<<"\n gtotal_ij is not equal to  elemMult(x.gmean_ij(),x.P())!! \n";
+            out= false;
+        }
+         return out;
 
     }
 
+
+    template <bool output>
     static  bool test(const Markov_Transition_step_double& x, double eps=std::sqrt(std::numeric_limits<double>::epsilon()))
     {
-        if (! test_variances(x,eps))
-            return false;
-        if (! test_means(x,eps))
-            return false;
-        else
+        bool out=true;
+        if (! test_variances<output>(x,eps))
+        {
+            out=false;
+        }
+        if (! test_means<output>(x,eps))
+        {
+            out=false;
+
+        }
+        if (out)
             return true;
+        else
+        {
+            if constexpr (output)
+                    std::cerr<<"<\n Markov_Transition_step_double=\n"<<x;
+            return false;
+        }
     }
 };
 
@@ -1343,15 +1480,26 @@ public:
     }
     Markov_Transition_step calc_sub_P(X x,std::size_t nsamples,std::size_t n_sub_samples)
     {
-         return Markov_Transition_step(calc_Qx(x),nsamples,n_sub_samples,fs(),Model().min_P(), Model().tolerance());
+        return Markov_Transition_step(calc_Qx(x),nsamples,n_sub_samples,fs(),Model().min_P(), Model().tolerance());
     }
 
-    Markov_Transition_step calc_P(X x,std::size_t nsamples,std::size_t num_recursion=0,double eps=std::numeric_limits<double>::epsilon())
+    Markov_Transition_step calc_P(X x,std::size_t nsamples,std::size_t num_recursion=0)
     {
         if constexpr (std::is_same_v<Markov_Transition_step,Markov_Transition_step_double >)
         {
             if (num_recursion==0)
-                return Markov_Transition_step(calc_Qx(x),nsamples,fs(),Model().min_P(), Model().tolerance());
+            {
+                Markov_Transition_step out(calc_Qx(x),nsamples,fs(),Model().min_P(), Model().tolerance());
+                if (0){
+                    std::random_device rd;
+                    auto initseed=rd();
+                    std::mt19937_64 mt(initseed);
+                    Markov_Transition_step out2(mt,calc_Qx(x),nsamples,fs(),Model().min_P(), Model().tolerance(), 2000, 40000);
+                    are_Equal<true,Markov_Transition_step_double>().test(out,out2);
+                }
+                return out;
+
+            }
             else
                 return Markov_Transition_step(num_recursion,calc_Qx(x),nsamples,fs(),Model().min_P(), Model().tolerance());
         }
@@ -1463,7 +1611,7 @@ public:
             return PP;
         }
         else
-            return calc_P(b->x(), b->nsamples(),num_recursion,eps);
+            return calc_P(b->x(), b->nsamples(),num_recursion);
         //        return get_P(b->x(), b->nsamples());
     }
     
@@ -1476,7 +1624,7 @@ public:
     double fs()const {return fs_;}
 
     Markov_Model_calculations(const M& m, const Experiment& e, std::size_t n_sub_samples)
-        :    m_{m},N_{std::size_t(m.AverageNumberOfChannels())},fs_{e.frequency_of_sampling()},e_{e},n_sub_samples_{n_sub_samples},rate_map_{}, map_{},step_map_{}{}
+        :    m_{m},N_{std::size_t(m.AverageNumberOfChannels())},fs_{e.frequency_of_sampling()},n_sub_samples_{n_sub_samples},e_{e},rate_map_{}, map_{},step_map_{}{}
 
 private:
     const M& m_;

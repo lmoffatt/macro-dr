@@ -376,11 +376,16 @@ private:
 
 };
 
+template <typename T,typename _UniformRandomNumberGenerator>
+T sample_rev_map(const std::map<double,T>& reverse_prior,_UniformRandomNumberGenerator& mt);
+
+template<typename T>
+class markov_process;
 
 
 
 template<typename T>
-class markov_process
+class markov_process<M_Matrix<T>>
 
 {
 
@@ -391,12 +396,12 @@ public:
 
     struct param_type
     {
-        typedef markov_process<T> distribution_type;
-        friend class markov_process<T>;
+        typedef markov_process<M_Matrix<T>> distribution_type;
+        friend class markov_process<M_Matrix<T>>;
 
         explicit
         param_type(const M_Matrix<T>& _N, const M_Matrix<double>& P )
-            : N_(_N), P_(P),rP_(M_Matrix<double>(nrows(P),ncols(P)))
+            : N_(_N), P_(P),cP_(M_Matrix<double>(nrows(P),ncols(P)))
 
         {
             _M_initialize();
@@ -442,8 +447,8 @@ public:
                 for (std::size_t j=0; j<ncols(P_); ++j)
                 {
                     if (s(i,j)>0)
-                        rP_(i,j)=P_(i,j)/s(i,j);
-                    else rP_(i,j)=0;
+                        cP_(i,j)=P_(i,j)/s(i,j);
+                    else cP_(i,j)=0;
                     P_(i,j)=P_(i,j)/s(i,0);
                 }
             }
@@ -451,7 +456,7 @@ public:
 
         M_Matrix<T> N_;
         M_Matrix<double> P_;
-        M_Matrix<double> rP_;
+        M_Matrix<double> cP_;
     };
 
 
@@ -536,15 +541,15 @@ public:
     {
         if (sumcols)
         {
-            std::size_t nc=ncols(_p.P_);
+            std::size_t nc=ncols(_p.P());
             M_Matrix<T> out(1,nc,0);
-            for (std::size_t i=0; i< nrows(_p.P_); ++i)
+            for (std::size_t i=0; i< nrows(_p.P()); ++i)
             {
                 T Nr=_p.N_[i];
 
                 for (std::size_t j=0; j< nc-1; ++j)
                 {
-                    double p=_p.rP_(i,j);
+                    double p=_p.cP_(i,j);
                     auto bi=std::binomial_distribution<T>(Nr,p);
                     T n=bi(__urng);
                     Nr-=n;
@@ -565,7 +570,7 @@ public:
 
                 for (std::size_t j=1; j< nc-1; ++j)
                 {
-                    double p=_p.rP_(i,j);
+                    double p=_p.cP_(i,j);
                     auto bi=std::binomial_distribution<T>(Nr,p);
                     T n=bi(__urng);
                     Nr-=n;
@@ -593,6 +598,10 @@ public:
     {
         return std::normal_distribution<double>(0,std::sqrt(noise_at_1_Hz_/dt))(mt);
     }
+    double variance(double dt)const
+    {
+        return noise_at_1_Hz_/dt;
+    };
 
     white_noise(double noise_at_1Hz):noise_at_1_Hz_{noise_at_1Hz}{}
 private:
@@ -839,7 +848,7 @@ public:
 
     void autoTest(std::mt19937_64& mt,std::size_t n)const
     {
-        std::cerr<<"chi test n="<<mean().size()<<" chis\n";
+        std::cerr<<"\n chi test n="<<mean().size()<<" chis\n";
         double chisum=0;
         double chisqr=0;
         for (std::size_t i=0; i<n; ++i)
@@ -853,7 +862,7 @@ public:
         chisum/=n;
         chisqr-=n*chisum*chisum;
         chisqr/=(n-1);
-        std::cerr<<"\n chimean="<<chisum<<" chisqr="<<chisqr;
+        std::cerr<<"\n chimean="<<chisum<<" chisqr="<<chisqr<<"\n";
     }
     bool isValid()const
     {
@@ -1019,9 +1028,11 @@ public:
     virtual double p(const double &x) const override{ return std::pow(x,-0.5)/Z_;}
     virtual double logP(const double &x) const override { return -0.5*std::log(x)-log(Z_);}
     virtual  M_Matrix<double> param() const override {return a_;}
-    virtual M_Matrix<double> Fisher_Information() const override { assert(false);}
-    virtual double mean() const override {assert(false);};
-    virtual double stddev() const override {assert(false);};
+    virtual M_Matrix<double> Fisher_Information() const override {
+        assert(false);
+        return {};}
+    virtual double mean() const override {assert(false); return{};};
+    virtual double stddev() const override {assert(false); return{};};
     stretch_move_Distribution(double a): a_{1,1,std::vector<double>{a}}, Z_(2*(std::sqrt(a)-std::pow(a,-0.5))) {}
     double alpha()const {return a_[0];}
 
@@ -1113,8 +1124,8 @@ logLik_to_p(const std::map<T,double>& logLikelihoods)
     return {out,Evidence};
 }
 
-template <typename T>
-T sample_rev_map(const std::map<double,T>& reverse_prior,std::mt19937_64& mt)
+template <typename T,typename _UniformRandomNumberGenerator>
+T sample_rev_map(const std::map<double,T>& reverse_prior,_UniformRandomNumberGenerator& mt)
 {
     std::uniform_real_distribution<> u;
     double r= u(mt);
@@ -1137,23 +1148,39 @@ struct Probability: public invariant{};
 
 struct Probability_value: public Probability
 {
-    template <class C>
+    template <bool output,class C>
     static bool test(const C& e, double tolerance)
-    {return (e+tolerance>0)&&(e-tolerance<1);}
+    {
+        if (e+tolerance<0)
+        {
+            if constexpr(output)
+                    std::cerr<<" negative prob="<<e<<"\n";
+            return false;
+        }
+        else if (e-tolerance>1)
+        {
+            if constexpr(output)
+                    std::cerr<<" prob greater than one" <<e<< " 1- prob="<<1-e<<"\n";
+            return false;
+
+        }
+        else return true;
+    }
 };
 
 
 
 struct Probability_distribution: public Probability
 {
-    template<class P>
+    template<bool output,class P>
     static bool test(const P& p,double tolerance)
     {
         double sum=0;
         for (std::size_t i=0; i<p.size(); ++i)
-            if (!Probability_value::test(p[i],tolerance))
+            if (!Probability_value::test<output>(p[i],tolerance))
             {
-                std::cerr<<" p=\n"<<p<<" value test on p[i] i="<<i<<"p[i]="<<p[i]<<"\n";
+                if constexpr(output)
+                        std::cerr<<" p=\n"<<p<<" value test on p[i] i="<<i<<"p[i]="<<p[i]<<"\n";
                 return false;
             }
             else sum+=p[i];
@@ -1161,7 +1188,8 @@ struct Probability_distribution: public Probability
             return true;
         else
         {
-            std::cerr<<" p=\n"<<p<<" sum test sum="<<sum<<"\n";
+            if constexpr(output)
+                    std::cerr<<" p=\n"<<p<<" sum test sum="<<sum<<"\n";
             return false;
         }
 
@@ -1170,7 +1198,7 @@ struct Probability_distribution: public Probability
     template<class P>
     P static normalize(P&& p, double min_p,double tolerance)
     {
-        assert(test(p,tolerance));
+        assert(test<true>(p,tolerance));
         double sum=0;
         for (std::size_t i=0; i<p.size(); ++i)
         {
@@ -1198,22 +1226,25 @@ struct Probability_distribution: public Probability
 struct Probability_transition: public Probability
 {
 
+    template<bool output>
     static bool test(const M_Matrix<double>& p,double tolerance)
     {
         for (std::size_t i=0; i<p.nrows(); ++i)
         {
             double sum=0;
             for (std::size_t j=0; j<p.ncols(); ++j)
-                if (!Probability_value::test(p(i,j),tolerance))
+                if (!Probability_value::test<output>(p(i,j),tolerance))
                 {
-                    std::cerr<<" p=\n"<<p<<"\n i="<<i<<"j="<<j<<" p(i,j)="<<p(i,j);
+                    if constexpr(output)
+                            std::cerr<<" p=\n"<<p<<"\n tolerance="<<tolerance<<" i="<<i<<"j="<<j<<" p(i,j)="<<p(i,j)<<" \n";
                     return false;
 
                 }
                 else sum+=p(i,j);
             if (std::abs(sum-1.0)>tolerance)
             {
-                std::cerr<<" p=\n"<<p<<"\n i="<<i<<"sum ="<<sum;
+                if constexpr(output)
+                        std::cerr<<" p=\n"<<p<<"\n i="<<i<<" sum ="<<sum<<" 1-sum"<<1-sum<<" tolerance="<<tolerance<<"\n";
                 return false;
             }
         }
@@ -1223,7 +1254,7 @@ struct Probability_transition: public Probability
 
     M_Matrix<double> static normalize(M_Matrix<double>&& p, double min_p,double tolerance)
     {
-        assert(test(p,tolerance));
+        assert(test<true>(p,tolerance));
 
         for (std::size_t i=0; i<p.nrows(); ++i)
         {
@@ -1269,9 +1300,10 @@ struct Probability_distribution_covariance: public Probability
 
     }
 
+    template<bool output>
     static M_Matrix<double> normalize(M_Matrix<double>&& p,double min_p,double tolerance)
     {
-        assert(test(p,tolerance));
+        assert(test<output>(p,tolerance));
         std::set<std::size_t> non_zero_i;
 
         for (std::size_t i=0; i<p.nrows(); ++i) {
@@ -1313,16 +1345,19 @@ struct Probability_distribution_covariance: public Probability
     }
 
 
-    template<class P>
+    template<bool output,class P>
     static bool test(const P& p,double tolerance)
     {
 
         for (std::size_t i=0; i<p.nrows(); ++i)
         {
-            if (!Probability_value::test(p(i,i),tolerance))
+            if (!Probability_value::test<output>(p(i,i),tolerance))
             {
-                std::cerr<<"\ntolerance="<<tolerance<<"\n";
-                std::cerr<<" pcov=\n"<<p<<"\n i="<<i<<" pcov(i,i)="<<p(i,i)<<"\n";
+                if constexpr(output)
+                {
+                    std::cerr<<"\ntolerance="<<tolerance<<"\n";
+                    std::cerr<<" pcov=\n"<<p<<"\n i="<<i<<" pcov(i,i)="<<p(i,i)<<"\n";
+                }
                 return false;
 
             }double sum=0;
@@ -1331,12 +1366,14 @@ struct Probability_distribution_covariance: public Probability
 
                 if (i!=j)
                 {
-                    double corr=sqr(p(i,j))/p(i,i)/p(j,j);
-                    if ((corr-tolerance>1)&&(p(i,i)>tolerance*tolerance)&&(p(j,j)>tolerance*tolerance))
+                    if ((p(i,i)*p(j,j)-sqr(p(i,j))+tolerance<0)
+                    &&(p(i,i)>tolerance*tolerance)&&(p(j,j)>tolerance*tolerance))
                     {
-                        std::cerr<<"tolerance="<<tolerance<<"\n";
-                        std::cerr<<" pcov=\n"<<p<<"\n i="<<i<<"j="<<j<<" pcov(i,j)="<<p(i,j)<<" corr="<<corr<<" pcov(i,i)"<<p(i,i)<<" pcov(j,j)"<<p(j,j)<<"\n";
-
+                        if constexpr(output){
+                            double corr=sqr(p(i,j))/p(i,i)/p(j,j);
+                            std::cerr<<"tolerance="<<tolerance<<"\n";
+                            std::cerr<<" pcov=\n"<<p<<"\n i="<<i<<"j="<<j<<" pcov(i,j)="<<p(i,j)<<" corr="<<corr<<" pcov(i,i)"<<p(i,i)<<" pcov(j,j)"<<p(j,j)<<"\n";
+                        }
                         return false;
                     }
                     else
@@ -1345,9 +1382,11 @@ struct Probability_distribution_covariance: public Probability
             }
             if (std::abs(p(i,i)+sum)>tolerance)
             {
-                std::cerr<<"tolerance="<<tolerance<<"\n";
-                std::cerr<<" p=\n"<<p<<"\n i="<<i<<" p(i,j)="<<p(i,i)<<" sum="<<sum<<"\n";
-
+                if constexpr(output)
+                {
+                    std::cerr<<"tolerance="<<tolerance<<"\n";
+                    std::cerr<<" p=\n"<<p<<"\n i="<<i<<" p(i,j)="<<p(i,i)<<" sum="<<sum<<"\n";
+                }
                 return false;
             }
         }
@@ -1357,11 +1396,6 @@ struct Probability_distribution_covariance: public Probability
 };
 
 
-
-struct Variance: public are_non_negative
-{
-
-};
 
 
 
@@ -1732,6 +1766,168 @@ struct One
 
 
 
+template<typename T>
+class markov_process
+
+{
+
+public:
+    /*  * The type of the range of the distribution. */
+    typedef T result_type;
+    /** Parameter type. */
+
+    struct param_type
+    {
+        typedef markov_process<T> distribution_type;
+        friend class markov_process<T>;
+
+        explicit
+        param_type(T _N, const M_Matrix<double>& P )
+            : N_(_N), P_(P),rm_(P.nrows())
+
+        {
+            _M_initialize();
+        }
+
+        T
+        N() const
+        { return N_; }
+
+        void set_P(M_Matrix<double>&&
+                   _P)
+        {
+            P_=std::move(_P);
+            _M_initialize();
+        }
+
+        void set_N(T _N)
+        {  N_=_N; }
+
+        const M_Matrix<double>&
+        P() const
+        { return P_; }
+
+        friend bool
+        operator==(const param_type& __p1, const param_type& __p2)
+        { return __p1.N_ == __p2.N_ && __p1.P_ == __p2.P_; }
+
+    private:
+        void
+        _M_initialize()
+        {
+
+            std::size_t n=P_.nrows();
+            for (std::size_t i=0; i<n; ++i)
+            {
+                double sum=0;
+                std::vector<std::pair<double, std::size_t>> o(n);
+                for (std::size_t j=0; j<n; ++j)
+                {o[j].second=j; o[j].first=P_(i,j);}
+                std::sort(o.begin(),o.end());
+                //  std::cerr<<" \n--- o---\n"<<o;
+                for (std::size_t j=0; j<n; ++j)
+                {
+                    sum+=o[j].first;
+                    rm_[i][sum]=o[j].second;
+                }
+            }
+            //     std::cerr<<"\n mapa inverso -----------------\n"<<rm_;
+        }
+
+        T N_;
+        M_Matrix<double> P_;
+        std::vector<std::map<double,T>> rm_;
+    };
+
+
+    // constructors and member function
+    explicit
+    markov_process(T __t,
+                   const M_Matrix<double>& __p)
+        : _M_param(__t, __p)
+    { }
+
+
+
+    /**
+       * @brief Returns the distribution @p t parameter.
+       */
+    T
+    N() const
+    { return _M_param.N(); }
+
+
+
+
+    /**
+       * @brief Returns the distribution @p p parameter.
+       */
+    const M_Matrix<double>&
+    P() const
+    { return _M_param.P(); }
+
+
+    void set_P(M_Matrix<double>&& _P)
+    { _M_param.set_P(std::move(_P));
+    }
+
+    void set_N(T _N)
+    {
+        _M_param.set_N(_N);
+    }
+
+
+    /**
+       * @brief Returns the parameter set of the distribution.
+       */
+    param_type
+    param() const
+    { return _M_param; }
+
+    /**
+       * @brief Sets the parameter set of the distribution.
+       * @param __param The new parameter set of the distribution.
+       */
+    void
+    param(const param_type& __param)
+    { _M_param = __param; }
+
+    /**
+       * @brief Returns the greatest lower bound value of the distribution.
+       */
+    T
+    min() const
+    { return 0; }
+
+    /**
+       * @brief Returns the least upper bound value of the distribution.
+       */
+    T
+    max() const
+    { return _M_param.P().nrows(); }
+
+    /**
+       * @brief Generating functions.
+       */
+    template<typename _UniformRandomNumberGenerator>
+    result_type
+    operator()(_UniformRandomNumberGenerator& __urng)
+    { return this->operator()(__urng, _M_param); }
+
+    template<typename _UniformRandomNumberGenerator>
+    result_type
+    operator()(_UniformRandomNumberGenerator& __urng,
+               const param_type& _p)const
+    {
+        return sample_rev_map(_p.rm_[_p.N()],__urng);
+    }
+
+
+private:
+
+    param_type _M_param;
+
+};
 
 
 

@@ -28,7 +28,7 @@ auto apply(std::mt19937_64& mt,const Operation& op,const State& s,const Model& m
 
 
 template<class Model>
-double getCurrent(const markov_process<std::size_t>& mp,const Model& m)
+double getCurrent(const markov_process<M_Matrix<std::size_t>>& mp,const Model& m)
 {
     return mp.N()*m.g();
 }
@@ -37,7 +37,7 @@ namespace old {
 
 
 template<class F,class State,class Model, class Input>
-auto measure_point(const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp,State& s,const Model& m, const Input& x, double ddt, std::size_t n)
+auto measure_point(const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp,State& s,const Model& m, const Input& x, double ddt, std::size_t n)
 {
     bool change=false;
     if(s.x!=x)
@@ -80,7 +80,7 @@ struct measure_algorithm_state
 
 
 template<class Model,  class measure_algorithm_state,typename X>
-void actualize_mp(measure_algorithm_state& current,markov_process<std::size_t>& mp, Model& m,X new_x,std::size_t samples, std::size_t n_subsamples)
+void actualize_mp(measure_algorithm_state& current,markov_process<M_Matrix<std::size_t>>& mp, Model& m,X new_x,std::size_t samples, std::size_t n_subsamples)
 {
 if ((current.samples!=samples)||(current.n_subsamples!=n_subsamples)||(current.x!=new_x))
 {
@@ -107,13 +107,13 @@ auto init_mp(std::mt19937_64& mt, Model& m, X x, std::size_t nsamples, std::size
     current.n_subsamples=n_sub_samples;
     auto P=m.calc_sub_P(x,nsamples, n_sub_samples);
 //    auto P=m.get_P(x,nsamples);
-    return std::make_tuple(markov_process<std::size_t>(Nini, P.P()),current);
+    return std::make_tuple(markov_process<M_Matrix<std::size_t>>(Nini, P.P()),current);
 }
 
 
 
 template<class F,class Model, template <typename, typename>class Point, class measure_algorithm_state,typename X, typename Y>
-auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp, const white_noise& noise,Model& m, const Point<X,Y>& in_point, double fs, std::size_t n_sub_steps)
+auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp, const white_noise& noise,Model& m, const Point<X,Y>& in_point, double fs, std::size_t n_sub_steps)
 {
 
     auto samples=in_point.nsamples();
@@ -125,10 +125,15 @@ auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& 
     for (auto i=1u; i<n_sub_steps; ++i)
     {
         mp.set_N(mp(mt));
-        y+=f(mp,m,new_x);
+        auto yr=f(mp,m,new_x);
+        y+=yr;
+   //     std::cerr<<"\n y="<<yr;
     }
     y=y/n_sub_steps;
+ //   std::cerr<<"\n ymean="<<y;
+
     y+=noise(mt,dt);
+//    std::cerr<<" dt="<<dt<<" variance="<<noise.variance(dt)<<"\t ymean and noise="<<y;
 
     return Point<X,decltype (y)> (in_point,y);
 }
@@ -139,9 +144,8 @@ auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& 
 
 
 template<class F,class Model, class measure_algorithm_state, class Step, class Point>
-void measure_step(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp, const white_noise& noise,const Step& step,   Model& m,std::size_t n_substeps, double fs)
+void measure_step(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp, const white_noise& noise,const Step& step,   Model& m,std::size_t n_substeps, double fs)
 {
-    auto nsamples=step.nsamples();
     for (auto it=step.begin(); it!=step.end(); ++it)
     {
         auto y=measure_point(current,f,mt,mp,noise,m,*it,fs,n_substeps);
@@ -149,7 +153,7 @@ void measure_step(std::vector<Point>& out,measure_algorithm_state& current,const
     }
 }
 template<class F,class Model, class measure_algorithm_state, class Step, class Point>
-void skip_step(std::vector<Point>& out,measure_algorithm_state& current,const F& /*f*/,std::mt19937_64& mt,markov_process<std::size_t>& mp, const Step& step,
+void skip_step(std::vector<Point>& out,measure_algorithm_state& current,const F& /*f*/,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp, const Step& step,
                Model& m, double/* fs*/)
 {
 
@@ -164,7 +168,7 @@ void skip_step(std::vector<Point>& out,measure_algorithm_state& current,const F&
 
 
 template<class F, class Model,class measure_algorithm_state, class trace, class Point>
-void meansure_trace(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<std::size_t>& mp,const white_noise& noise,Model& m,const trace& t, std::size_t n_substeps,double fs)
+void meansure_trace(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp,const white_noise& noise,Model& m,const trace& t, std::size_t n_substeps,double fs)
 {
 
     for (auto it=t.begin();it!=t.end(); ++it)

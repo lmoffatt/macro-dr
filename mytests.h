@@ -2,114 +2,189 @@
 #define MYTESTS_H
 #include <cmath>
 #include <limits>
-
+#include <iostream>
 struct invariant{};
 
 
 template<class... > struct class_Invariants;
 
-struct are_Equal
+template<bool, class > struct are_Equal;
+template<bool, class > struct are_zero;
+template<bool, class > struct are_non_negative;
+template<bool, class > struct are_in_range;
+template<bool, class > struct are_not_less;
+template<bool, class > struct are_not_more;
 
+
+template <bool output>
+class are_Equal<output,double>
 {
-
-    static bool test(double x, double y, double eps=std::sqrt(std::numeric_limits<double>::epsilon()*100))
+public:
+    bool test(double x, double y)const
     {
-       if  (std::abs(x-y)/std::max(std::abs(x), 1.0)<eps)
+        if  ((std::abs(x-y)<absolute_error())||(std::abs(x-y)/std::abs(x+y))<relative_error())
             return true;
         else
-            return false;
-    }
-
-    template<class Matrix>
-    static bool test(const Matrix& one, const Matrix& other, double eps=std::sqrt(std::numeric_limits<double>::epsilon())*100)
-    {
-        auto dif=one-other;
-        if ((one.ncols()!=other.ncols())||(one.nrows()!=other.nrows()))
-            return false;
-        for (std::size_t i=0; i<one.nrows(); ++i)
         {
-            for (std::size_t j=0; j<one.ncols(); ++j)
-            if (!test(one(i,j),other(i,j),eps))
+            {
+                if constexpr(output){
+                    std::cerr<<"\n not equal!! absolute="<<absolute_error()<<"x="<<x<<" y="<<y<<" abs(x-y)="<<std::abs(x-y);
+                    std::cerr<<" relative="<<relative_error()<<"  std::abs(x-y)/std::abs(x+y)"<<std::abs(x-y)/std::abs(x+y);
+                }
                 return false;
+
+            }
         }
-        return true;
     }
 
+    double relative_error()const {return relative_;}
+    double absolute_error()const { return absolute_;}
+    are_Equal(double absoluteError=std::numeric_limits<double>::epsilon(), double relativeError=std::numeric_limits<double>::epsilon()):absolute_{absoluteError},relative_{relativeError}{}
+private:
+    double absolute_=std::numeric_limits<double>::epsilon();
+    double relative_=std::numeric_limits<double>::epsilon();
 };
 
 
 
-struct are_zero: public invariant
+
+
+template <bool output>
+class are_zero<output,double>
 
 {
-
-    static bool test(double x, double conditionNumber=1,double eps=std::numeric_limits<double>::epsilon()*10)
+public:
+    bool test(double x)const
     {
-       if  (std::abs(x)*conditionNumber<eps)
+        if  (std::abs(x)<absolute_error())
             return true;
-        else
+        else {
+            if constexpr (output)
+                    std::cerr<<" not zero!!! absolute="<<absolute_error()<<" x="<<x;
             return false;
+        }
     }
 
-    template<class C>
-    static bool test(const C& one, double conditionNumber=1, double eps=std::numeric_limits<double>::epsilon()*10)
+    double absolute_error()const { return absolute_;}
+    are_zero(double absoluteError):absolute_{absoluteError}{}
+private:
+    double absolute_=std::numeric_limits<double>::epsilon();
+};
+
+
+template <bool output>
+struct are_not_less<output,double>
+{
+
+     bool test(double x, double y)const
     {
-        for (std::size_t i=0; i<one.size(); ++i)
+        if (x+absolute_error()>y)
         {
-            if (!test(one[i],conditionNumber,eps))
-                return false;
+            return true;
+
         }
-        return true;
+        else
+        {
+            if constexpr(output)
+                    std::cerr<<"\nfails are_not_less test  absolute="<<absolute_error()<<" x="<<x<<" y="<<y<<" x-y="<<x-y<<"\n";
+            return false;
+        }
     }
+
+    double absolute_error()const { return absolute_;}
+    are_not_less(double absoluteError):absolute_{absoluteError}{}
+private:
+    double absolute_=std::numeric_limits<double>::epsilon();
+
+};
+
+
+template <bool output>
+struct are_not_more<output,double>
+{
+
+     bool test(double x, double y)const
+    {
+        if (x-absolute_error()<y)
+        {
+            return true;
+
+        }
+        else
+        {
+            if constexpr(output)
+                    std::cerr<<"\nfails are_not_more test  absolute="<<absolute_error()<<" x="<<x<<" y="<<y<<" x-y="<<x-y<<"\n";
+            return false;
+        }
+    }
+
+    double absolute_error()const { return absolute_;}
+    are_not_more(double absoluteError):absolute_{absoluteError}{}
+private:
+    double absolute_=std::numeric_limits<double>::epsilon();
 
 };
 
 
 
 
-struct are_non_negative: public invariant
+template <bool output>
+struct are_non_negative<output,double>
 {
-    static bool test(double x, double eps=std::numeric_limits<double>::epsilon())
+
+     bool test(double x)const
     {
-        if (x+eps>0)
+        if (x+absolute_error()>0)
+        {
+            return true;
+
+        }
+        else
+        {
+            if constexpr(output)
+                    std::cerr<<"\nfails are_non_negative test  absolute="<<absolute_error()<<" x="<<x<<"\n";
+            return false;
+        }
+    }
+
+    double absolute_error()const { return absolute_;}
+    are_non_negative(double absoluteError):absolute_{absoluteError}{}
+private:
+    double absolute_=std::numeric_limits<double>::epsilon();
+
+};
+
+template <bool output>
+struct are_in_range<output,double>
+{
+     bool test(double x)const
+    {
+         if ((missing_) && (x==0)) return true;
+         if ((x+absolute_error()>min())&&(x-absolute_error()<max()))
             return true;
         else
+        {
+            if constexpr(output)
+                    std::cerr<<"\nfails are_in_range test  absolute_error="<<absolute_error()<<" min="<<min()<<" max="<<max()<<" x="<<x<<" x-min="<<x-min()<<" x-max="<<x-max()<<"\n";
             return false;
+        }
 
-   }
-
-    template<class C>
-    static auto test(const C& x, double eps=std::numeric_limits<double>::epsilon())->decltype (x.size(),std::declval<C>()[0],true)
-    {
-        for (std::size_t i=0; i<x.size(); ++i)
-            if (!test(x[i],eps))
-                return false;
-        return true;
     }
+    double min()const {return min_;}
+    double max()const {return max_;}
+
+    double absolute_error()const { return absolute_;}
+    are_in_range(bool missing,double min, double max,double absoluteError):missing_{missing},min_{min},max_{max},absolute_{absoluteError}{}
+private:
+    bool missing_;
+    double min_;
+    double max_;
+    double absolute_=std::numeric_limits<double>::epsilon();
+
 
 };
 
-struct are_in_range: public invariant
-{
-    static bool test(double x, double min, double max, double eps=std::numeric_limits<double>::epsilon())
-    {
-        if ((x+eps>min)&&(x-eps<max))
-            return true;
-        else
-            return false;
 
-   }
-
-    template<class C>
-    static auto test(const C& x, double min, double max,double eps=std::numeric_limits<double>::epsilon())->decltype (x.size(),std::declval<C>()[0],true)
-    {
-        for (std::size_t i=0; i<x.size(); ++i)
-            if (!test(x[i],min,max,eps))
-                return false;
-        return true;
-    }
-
-};
 
 
 
