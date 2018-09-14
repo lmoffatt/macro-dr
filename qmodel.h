@@ -115,8 +115,8 @@ public:
                           Conformational_change_label _label,
                           rate_Parameter_label _par_on,
                           rate_Parameter_label _par_off /*,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    Equilibrium_Parameter_label&& _par_Eq,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    Time_Constant_Parameter_label&& _par_tc*/):
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          Equilibrium_Parameter_label&& _par_Eq,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          Time_Constant_Parameter_label&& _par_tc*/):
         change_in_agonist_{_change_in_agonist},change_in_conductance_{_change_in_conductance},
         label_{std::move(_label)},par_on_{std::move(_par_on)},par_off_{std::move(_par_off)}/*,par_Eq_{std::move(_par_Eq)},par_tc_{std::move(_par_tc)}*/{}
 
@@ -131,8 +131,8 @@ public:
                                grammar::field(C<self_type>{},"par_on", &self_type::par_on),
                                grammar::field(C<self_type>{},"par_off", &self_type::par_off)
                                /*,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                grammar::field(C<self_type>{},"par_Eq", &self_type::par_Eq),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                grammar::field(C<self_type>{},"par_tc", &self_type::par_tc)*/);
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       grammar::field(C<self_type>{},"par_Eq", &self_type::par_Eq),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       grammar::field(C<self_type>{},"par_tc", &self_type::par_tc)*/);
     }
 };
 class Conformational_interaction;
@@ -655,30 +655,89 @@ class Markov_Transition_rate
     M_Matrix<double> Wg_;
     M_Matrix<double> WgV_;
 
-    void clean_landa(M_Matrix<double>& la)
+    static void clean_landa(M_Matrix<double>& la)
     {
+        double maxla=std::min(max(la),0.0);
         for (std::size_t i=1; i<la.size(); ++i)
-            if (la[i]>0) {la[i]=0; }
+            if (la[i]>=maxla) {la[i]=0; }
     }
 
-    void init()
+    void init(Matrix_Decompositions::eigensystem_type&& eig)
     {
-        double conditionNumber;
-        std::tie(W_,landa_,V_,conditionNumber)=Matrix_Decompositions::EigenSystem_full_real_eigenvalue(Qrun_);
-
+        std::tie(W_,landa_,V_)=std::move(eig);
         clean_landa(landa_);
         Wg_=W_*g_;
         WgV_=W_*Matrix_Unary_Transformations::diag(g_)*V_;
-        assert(Frobenius_test::test(Qrun(),V()*landa()*W(),conditionNumber, std::sqrt(std::numeric_limits<double>::epsilon())));
+        //assert(Frobenius_test::test(Qrun(),V()*landa()*W(),1, std::sqrt(std::numeric_limits<double>::epsilon())));
     }
 
 public:
+    struct landa:public invariant
+    {
+          static Op_void test(const M_Matrix<double> landa, double tol)
+          {
+              bool has_zero_value=false;
+              bool has_positive_value=false;
+              double lamax=maxAbs(landa);
+              double tolerance=tol*lamax;
+              std::stringstream ss;
+              are_zero<false,double> is_zero(tolerance);
+              are_non_positive<true,double> is_neg(tolerance);
+              for (std::size_t i=0; i<landa.size(); ++i)
+              {
+                  if (is_zero.test(landa[i],ss))
+                      has_zero_value=true;
+                  else if (!is_neg.test(landa[i],ss))
+                  {
+                      has_positive_value=true;
+                      ss<<" at i="<<i<<"\n";
+                  }
+              }
+
+              if (has_zero_value&&!has_positive_value)
+                  return Op_void(true,"");
+              else if (!has_zero_value&&!has_positive_value)
+                  return Op_void(false," landa lacks a zero value: "+ss.str());
+              else if (!has_zero_value&&has_positive_value)
+                  return Op_void(false," landa lacks a zero value and has positive value(s): "+ss.str());
+              else
+                  return Op_void(false," landa has positive value(s): "+ss.str());
+
+          }
+    };
+
+
+    static Op_void test(const Matrix_Decompositions::eigensystem_type& e,double tolerance)
+    {
+        return landa::test(std::get<1>(e),tolerance);
+
+    }
+
+    static myOptional_t<Markov_Transition_rate> evaluate(M_Matrix<double>&& _Qrun,
+                                                     const M_Matrix<double>& _g,
+                                                         double tolerance)
+    {
+        typedef myOptional_t<Markov_Transition_rate> Op;
+        auto eig=Matrix_Decompositions::EigenSystem_full_real_eigenvalue(_Qrun);
+        if (eig)
+        {
+            if (auto eigtest=test(eig.value(),tolerance); eigtest.has_value())
+              return Op(Markov_Transition_rate(std::move(_Qrun),_g,std::move(eig).value()));
+            else
+                return Op(false,"invalid eigenvalues "+eigtest.error());
+        }
+        else return Op(false,"eigenvalue decomposition fails:"+eig.error());
+    }
+
     Markov_Transition_rate()=default;
     ///virtual copy constructors
 
 
     Markov_Transition_rate(M_Matrix<double>&& _Qrun,
-                           const M_Matrix<double>& _g):Qrun_{std::move(_Qrun)},g_{_g}{ init();}
+                           const M_Matrix<double>& _g,
+                           Matrix_Decompositions::eigensystem_type&& eig)
+        :Qrun_{std::move(_Qrun)},g_{_g}
+    {init(std::move(eig));}
 
 
     const M_Matrix<double>&  Qrun()const { return Qrun_;}// transition rate matrix at time zero
@@ -690,20 +749,20 @@ public:
     const M_Matrix<double>&  Wg()const{ return Wg_;}
     const M_Matrix<double>&  WgV()const{ return WgV_;}
 
-    M_Matrix<double>  Peq()const
+    M_Matrix<double>  calc_Peq()const
     {
         M_Matrix<double> p0(1,Qrun().nrows(),1.0/Qrun().nrows());
-
-        auto OO=Matrix_Generators::ones<double>(Qrun_.nrows(),Qrun_.ncols());
-        auto SS=inv(Qrun()+OO);
-        if (!SS.second.second.empty())
-
+        M_Matrix<double> laexp(landa_.size(),landa_.size(),M_Matrix<double>::DIAGONAL);
+        for (std::size_t i=0; i<landa_.size(); ++i)
         {
-
-            return normalize_to_prob(p0*V()*exp(landa()*1e8)*W());
+            if (landa_(i,i)==0.0)
+                laexp(i,i)=1.0;
+            else
+                laexp(i,i)=0.0;
         }
-        else
-            return normalize_to_prob(p0*OO*SS.first);
+      //  std::cerr<<"\n ----calc_Peq-----\np0="<<p0<<"laexp="<<laexp<<"V()"<<V()<<"W"<<W();
+        return p0*V()*laexp*W();
+
 
     }
 };
@@ -733,19 +792,14 @@ protected:
     M_Matrix<double> P_;// transition matrix
 
     M_Matrix<double> g_; // conductance matrix
-
     std::size_t nsamples_;
     double dt_;
     double min_p_;
-    double tolerance_;
-
-
-public:
+ public:
     double min_P()const { return min_p_;}
-
-    double tolerance()const { return tolerance_;}
-
-    M_Matrix<double> const&  P() const {return P_;}// transition matrix
+    M_Matrix<double> const&  myP() const {return P_;}// transition matrix
+    M_Matrix<double> const&  P() const& {return P_;}// transition matrix
+    M_Matrix<double>&&  P()  &&{return std::move(P_);}// transition matrix
 
     double dt()const {return dt_;}
     double fs()const {return 1.0/dt();}
@@ -755,29 +809,32 @@ public:
     /// mean conductance for each starting state i
     M_Matrix<double> const&  g() const {return g_;} // conductance matrix
 
-    Markov_Transition_step(const Markov_Transition_rate& Qx, std::size_t nsamples, double fs,double min_p, double tolerance)
-        :P_{},/*ladt_{},exp_ladt_{},*/g_{Qx.g()},nsamples_{nsamples},dt_{1.0/fs*nsamples}, min_p_{min_p},tolerance_{tolerance}{
-        init(Qx);
 
-    }
 
-    Markov_Transition_step(const Markov_Transition_rate& Qx, std::size_t nsamples, std::size_t n_sub_samples,double fs,double min_p, double tolerance)
-        :P_{},/*ladt_{},exp_ladt_{},*/g_{Qx.g()},nsamples_{nsamples},dt_{1.0/(fs*n_sub_samples)*nsamples}, min_p_{min_p},tolerance_{tolerance}{
+
+    Markov_Transition_step(const Markov_Transition_rate& Qx, std::size_t nsamples, double fs,double min_p)
+        :P_{},/*ladt_{},exp_ladt_{},*/g_{Qx.g()},nsamples_{nsamples},dt_{1.0/fs*nsamples}, min_p_{min_p}{
+        init(Qx);}
+
+    Markov_Transition_step(std::size_t n_sub_samples,const Markov_Transition_rate& Qx, std::size_t nsamples, double fs,double min_p)
+        :P_{},/*ladt_{},exp_ladt_{},*/g_{Qx.g()},nsamples_{nsamples},dt_{1.0/(fs*n_sub_samples)*nsamples}, min_p_{min_p}{
         init(Qx);
     }
 
 
     Markov_Transition_step(M_Matrix<double>&&  P,
-                           M_Matrix<double>&& g, std::size_t nsamples, double fs,double min_p, double tolerance)
-        : P_{Probability_transition::normalize(std::move(P),min_p,tolerance)},g_{std::move(g)}, nsamples_{nsamples}, dt_{(1.0*nsamples)/fs}, min_p_{min_p},
-          tolerance_{tolerance}{}
+                           M_Matrix<double>&& g, std::size_t nsamples, double fs,double min_p)
+        :
+          P_{std::move(P)},
+//          P_{Probability_transition::normalize(std::move(P),min_p)},
+          g_{std::move(g)}, nsamples_{nsamples}, dt_{(1.0*nsamples)/fs}, min_p_{min_p}{}
 
 
     Markov_Transition_step getMinimum()const {return *this;}
 
     Markov_Transition_step& operator*=(const Markov_Transition_step& other)
     {
-        P_=Probability_transition::normalize((P_*other.P()),min_P(), tolerance());
+        P_=Probability_transition::normalize((P_*other.P()),min_P());
         g_=other.g();
         nsamples_+=other.nsamples();
         return *this;
@@ -789,12 +846,13 @@ public:
     constexpr static auto  className=my_static_string("Markov_Transition_step");
     static auto get_constructor_fields()
     {
+       // M_Matrix<double> const & (self_type::*myP) ()const& =&self_type::P;
+
         return std::make_tuple(
-                    grammar::field(C<self_type>{},"P",&self_type::P),
+                    grammar::field(C<self_type>{},"P",&self_type::myP),
                     grammar::field(C<self_type>{},"g",&self_type::g),
                     grammar::field(C<self_type>{},"y_mean",&self_type::nsamples),
-                    grammar::field(C<self_type>{},"min_p",&self_type::min_P),
-                    grammar::field(C<self_type>{},"tolerance",&self_type::tolerance)
+                    grammar::field(C<self_type>{},"min_p",&self_type::min_P)
                     );
     }
 
@@ -802,8 +860,8 @@ private:
     void init(const Markov_Transition_rate& Qx)
     {
         auto ladt=Qx.landa()*dt();
-        auto  exp_ladt=exp(ladt);
-        P_=Probability_transition::normalize(Qx.V()*exp_ladt*Qx.W(),min_P(), tolerance());
+        auto  exp_ladt=ladt.apply([](double x){return std::exp(x);});
+        P_=Probability_transition::normalize(Qx.V()*exp_ladt*Qx.W(),min_P());
         g_=Qx.g();
     }
 
@@ -939,7 +997,10 @@ class Markov_Transition_step_double: public Markov_Transition_step
 
 public:
     Markov_Transition_step_double(M_Matrix<double>&&  P,
-                                  M_Matrix<double>&& g, std::size_t nsamples, double fs,double min_p, double tolerance,
+                                  M_Matrix<double>&& g,
+                                  std::size_t nsamples,
+                                  double fs,
+                                  double min_p,
                                   M_Matrix<double>&& gmean_i,
                                   M_Matrix<double>&& gtotal_ij,
                                   M_Matrix<double>&& gmean_ij,
@@ -951,7 +1012,7 @@ public:
                                   M_Matrix<double>&& gvar_i,
                                   M_Matrix<double>&& gtotal_var_ij,
                                   M_Matrix<double>&& gvar_ij)
-        :Markov_Transition_step(std::move(P),std::move(g),nsamples,fs,min_p,tolerance),
+        :Markov_Transition_step(std::move(P),std::move(g),nsamples,fs,min_p),
           gmean_i_{gmean_i}, gtotal_ij_{gtotal_ij},gmean_ij_{gmean_ij}, gtotal_sqr_ij_{gtotal_sqr_ij},gsqr_i_{gsqr_i},gvar_i_{gvar_i},gtotal_var_ij_{gtotal_var_ij},gvar_ij_{gvar_ij}{}
 
 
@@ -979,21 +1040,21 @@ public:
     /// variance of the mean conductance for each starting state i and ending state j
     M_Matrix<double> const&  gvar_ij() const {return gvar_ij_;} //variance of the conductance matrix
 
-    Markov_Transition_step_double(const Markov_Transition_rate& Qx,std::size_t nsamples, double fs,double min_p, double tolerance)
-        :Markov_Transition_step(Qx,nsamples,fs,min_p,tolerance)
+    Markov_Transition_step_double(const Markov_Transition_rate& Qx,std::size_t nsamples, double fs,double min_p)
+        :Markov_Transition_step(Qx,nsamples,fs,min_p)
     {   init(Qx);
     }
 
     Markov_Transition_step_double(std::size_t recursion_number,const Markov_Transition_rate& Qx,std::size_t nsamples, double fs,
-                                  double min_p, double tolerance)
-        :Markov_Transition_step(Qx,nsamples,fs,min_p,tolerance)
+                                  double min_p)
+        :Markov_Transition_step(Qx,nsamples,fs,min_p)
     {
         init_by_step(Qx,recursion_number,fs);
     }
 
     Markov_Transition_step_double(std::mt19937_64& mt,const Markov_Transition_rate& Qx,std::size_t nsamples, double fs,
-                                  double min_p, double tolerance, std::size_t numsteps, std::size_t numreplicates)
-        :Markov_Transition_step(Qx,nsamples,fs,min_p,tolerance)
+                                  double min_p, std::size_t numsteps, std::size_t numreplicates)
+        :Markov_Transition_step(Qx,nsamples,fs,min_p)
     {
         measure(Qx,mt,numsteps, numreplicates);
     }
@@ -1004,8 +1065,8 @@ public:
     }
 
 
-    Markov_Transition_step_double(Markov_Transition_step_double_minimum&& x,  M_Matrix<double> g,double fs, double min_p, double tolerance)
-        :Markov_Transition_step(std::move(x.PPn), std::move(g),x.n,fs,min_p, tolerance)
+    Markov_Transition_step_double(Markov_Transition_step_double_minimum&& x,  M_Matrix<double> g,double fs, double min_p)
+        :Markov_Transition_step(std::move(x.PPn), std::move(g),x.n,fs,min_p)
     {
         init(std::move(x),fs);
     }
@@ -1013,15 +1074,17 @@ public:
     Markov_Transition_step_double()=default;
 
     typedef  Markov_Transition_step_double self_type;
+    typedef Markov_Transition_step base_type;
     constexpr static auto  className=my_static_string("Markov_Transition_step_double");
     static auto get_constructor_fields()
     {
+        //M_Matrix<double> const & (self_type::*myP) ()const& =&self_type::P;
+
         return   std::make_tuple(
-                    grammar::field(C<self_type>{},"P",&self_type::P),
+                    grammar::field(C<self_type>{},"P",&self_type::myP),
                     grammar::field(C<self_type>{},"g",&self_type::g),
                     grammar::field(C<self_type>{},"y_mean",&self_type::nsamples),
                     grammar::field(C<self_type>{},"min_p",&self_type::min_P),
-                    grammar::field(C<self_type>{},"tolerance",&self_type::tolerance),
                     grammar::field(C<self_type>{},"gmean_i",&self_type::gmean_i),
                     grammar::field(C<self_type>{},"gtotal_ij",&self_type::gtotal_ij),
                     grammar::field(C<self_type>{},"gmean_ij",&self_type::gmean_ij),
@@ -1161,26 +1224,19 @@ private:
             for (std::size_t j=0; j<N; ++j)
                 if (P()(i,j)==0) { gtotal_ij_(i,j)=0;gtotal_sqr_ij_(i,j)=0;}
 
-        M_Matrix<double> U=Matrix_Generators::ones<double>(1,g().size());
-        M_Matrix<double> UU=M_Matrix<double>(g().size(),g().size(),1);
-        auto gmean_ij_p=TransposeSum(g()*U)*(0.5);
-        auto gvar_ij_p=(g()*U-Transpose(g()*U)).apply([](double x){return std::abs(x);})*(0.5);
+       // M_Matrix<double> U=Matrix_Generators::ones<double>(1,g().size());
+       // M_Matrix<double> UU=M_Matrix<double>(g().size(),g().size(),1);
+        // auto gmean_ij_p=TransposeSum(g()*U)*(0.5);
+        // auto gvar_ij_p=(g()*U-Transpose(g()*U)).apply([](double x){return std::abs(x);})*(0.5);
 
         //std::cerr<<"\ngmean_ij_p=\n"<<gmean_ij_p<<"\ngvar_ij_p=\n"<<gvar_ij_p<<"\n";
         //std::cerr<<"\n UU=ņ"<<UU<<"\n";
         gmean_ij_=elemDivSafe(gtotal_ij_,P(), min_P());
-
         gtotal_var_ij_=gtotal_sqr_ij_-elemMult(gtotal_ij_,gmean_ij_);
-
-        gvar_ij_=elemDivSafe(gtotal_var_ij_,P_);
-
+        gvar_ij_=elemDivSafe(gtotal_var_ij_,P_,min_P());
         M_Matrix<double> u(N,1,1.0);
-
         gmean_i_=gtotal_ij_*u;
-
-
         gsqr_i_=gtotal_sqr_ij_*u;
-
         gvar_i_=gtotal_var_ij_*u;
 
     }
@@ -1200,7 +1256,7 @@ private:
 
         auto exp_ladt=ladt.apply([](double x){return std::exp(x);});
 
-        auto P=Probability_transition::normalize(Qx.V()*exp_ladt*Qx.W(),min_P(), tolerance());
+        auto P=Probability_transition::normalize(Qx.V()*exp_ladt*Qx.W(),min_P());
 
         M_Matrix<double> gmean_ij_sum(N,N,0.0);
         M_Matrix<double> gsqr_ij_sum (N,N,0.0);
@@ -1265,13 +1321,13 @@ private:
     {
         std::size_t times=std::pow(2,recursion_number);
         std::size_t n=nsamples();
-        Markov_Transition_step_double s(Qx,n,fs*times,min_P(),tolerance());
+        Markov_Transition_step_double s(Qx,n,fs*times,min_P());
         Markov_Transition_step_double step_ini(s);
         for (std::size_t i=0; i<recursion_number; ++i)
         {
             Markov_Transition_step_double_minimum step(step_ini);
             step*=step_ini;
-            step_ini=Markov_Transition_step_double(std::move(step),step_ini.g(),fs,min_P(),tolerance());
+            step_ini=Markov_Transition_step_double(std::move(step),step_ini.g(),fs,min_P());
         }
         *this=step_ini;
 
@@ -1284,18 +1340,19 @@ template<bool output>
 class are_Equal<output,Markov_Transition_step_double>
 {
 public:
-    bool test(const Markov_Transition_step_double& one, const Markov_Transition_step_double& other)const
+    template<class ostream>
+    bool test(const Markov_Transition_step_double& one, const Markov_Transition_step_double& other, ostream& os=std::cerr)const
     {
         are_Equal<output,M_Matrix<double>> mytest(one.min_P(),one.min_P());
-        bool P_equal= mytest.test_prod(one.P(),other.P());
+        bool P_equal= mytest.test_prod(one.P(),other.P(),os);
         if constexpr (output)
-                if (!P_equal) std::cerr<<"\n differ in  P_ij !!  \n";
-        bool gtotal_equal= mytest.test_prod(one.gtotal_ij(),other.gtotal_ij());
+                if (!P_equal) os<<"\n differ in  P_ij !!  \n";
+        bool gtotal_equal= mytest.test_prod(one.gtotal_ij(),other.gtotal_ij(),os);
         if constexpr (output)
-                if (!gtotal_equal) std::cerr<<"\n differ in  gtotal_ij !!\n";
-        bool gsqr_equal=mytest.test_prod(one.gtotal_sqr_ij(),other.gtotal_sqr_ij());
+                if (!gtotal_equal) os<<"\n differ in  gtotal_ij !!\n";
+        bool gsqr_equal=mytest.test_prod(one.gtotal_sqr_ij(),other.gtotal_sqr_ij(),os);
         if constexpr (output)
-                if (!gsqr_equal)  std::cerr<<"\n differ in gtotal_sqr_ij!!\n";
+                if (!gsqr_equal)  os<<"\n differ in gtotal_sqr_ij!!\n";
         return gtotal_equal&& gsqr_equal;
     }
 };
@@ -1378,7 +1435,7 @@ struct class_Invariants<Markov_Transition_step_double>: public invariant
                     std::cerr<<"\n gtotal_ij is not equal to  elemMult(x.gmean_ij(),x.P())!! \n";
             out= false;
         }
-         return out;
+        return out;
 
     }
 
@@ -1409,7 +1466,7 @@ struct class_Invariants<Markov_Transition_step_double>: public invariant
 
 
 Markov_Transition_step_double_minimum::Markov_Transition_step_double_minimum(const Markov_Transition_step_double &x):
-    n{x.nsamples()}, PPn{x.P()}, PG_n{x.gtotal_ij()*x.nsamples()}, PGG_n{x.gtotal_sqr_ij()*(x.nsamples()*x.nsamples()*0.5)}, min_p(x.min_P()), tolerance(x.tolerance()){}
+    n{x.nsamples()}, PPn{x.P()}, PG_n{x.gtotal_ij()*x.nsamples()}, PGG_n{x.gtotal_sqr_ij()*(x.nsamples()*x.nsamples()*0.5)}, min_p(x.min_P()){}
 
 
 Markov_Transition_step_double_minimum Markov_Transition_step_double_minimum::operator*=(const Markov_Transition_step_double &x)
@@ -1418,7 +1475,7 @@ Markov_Transition_step_double_minimum Markov_Transition_step_double_minimum::ope
     PGG_n=(PGG_n*x.P()) +(PG_n*x.gtotal_ij())*n1+
             (PPn*x.gtotal_sqr_ij())*(0.5*n1*n1);
     PG_n= (PG_n*x.P()) + (PPn*x.gtotal_ij())*n1;
-    PPn=Probability_transition::normalize(PPn*x.P(),min_p,tolerance);
+    PPn=Probability_transition::normalize(PPn*x.P(),min_p);
     n=n+n1;
     return *this;
 }
@@ -1435,11 +1492,11 @@ public:
     auto Q(double x)const { return Q0_+Qa_*x;}
 
     auto& g(double)const { return g_;}
-    auto Qx(double x) const { return Markov_Transition_rate(Q(x),g(x));}
+    auto Qx(double x, double tolerance) const { return Markov_Transition_rate::evaluate(Q(x),g(x),tolerance);}
 
-    auto P(const Markov_Transition_rate& aQx, std::size_t n, double fs) const {return Markov_Transition_step(aQx,n,fs,min_P_,tolerance_); }
+    auto P(const Markov_Transition_rate& aQx, std::size_t n, double fs) const {return Markov_Transition_step(aQx,n,fs,min_P_); }
 
-    auto Pdt(const Markov_Transition_rate& x, std::size_t n, double fs) const {return Markov_Transition_step_double(x,n,fs,min_P_,tolerance_); }
+    auto Pdt(const Markov_Transition_rate& x, std::size_t n, double fs) const {return Markov_Transition_step_double(x,n,fs,min_P_); }
 
     std::size_t nstates()const {return Q0_.nrows();}
 
@@ -1447,11 +1504,10 @@ public:
 
     double AverageNumberOfChannels()const { return N_channels_;}
 
-    SingleLigandModel(std::pair<M_Matrix<double>,M_Matrix<double>>&& Qs, M_Matrix<double>&& g, double Vm,double N, double noise, double min_P, double tolerance)
-        :Q0_{std::move(Qs.first)},Qa_{std::move(Qs.second)}, g_{g*Vm},N_channels_{N},noise_variance_{noise},min_P_{min_P},tolerance_{tolerance}{}
+    SingleLigandModel(std::pair<M_Matrix<double>,M_Matrix<double>>&& Qs, M_Matrix<double>&& g, double Vm,double N, double noise, double min_P)
+        :Q0_{std::move(Qs.first)},Qa_{std::move(Qs.second)}, g_{g*Vm},N_channels_{N},noise_variance_{noise},min_P_{min_P}{}
 
     double min_P()const {return min_P_;}
-    double tolerance()const {return tolerance_;}
 private:
     M_Matrix<double> Q0_;
     M_Matrix<double> Qa_;
@@ -1459,7 +1515,6 @@ private:
     double N_channels_;
     double noise_variance_;
     double min_P_;
-    double tolerance_;
 };
 
 
@@ -1474,44 +1529,59 @@ class Markov_Model_calculations
 {
 
 public:
-    Markov_Transition_rate calc_Qx(X x)const
+    myOptional_t<Markov_Transition_rate> calc_Qx(X x)const
     {
-        return m_.Qx(x);
+        return m_.Qx(x,tolerance());
     }
-    Markov_Transition_step calc_sub_P(X x,std::size_t nsamples,std::size_t n_sub_samples)
+    myOptional_t<Markov_Transition_step> calc_sub_P(X x,std::size_t nsamples,std::size_t n_sub_samples)
     {
-        return Markov_Transition_step(calc_Qx(x),nsamples,n_sub_samples,fs(),Model().min_P(), Model().tolerance());
+        typedef myOptional_t<Markov_Transition_step> Op;
+        auto Qx=calc_Qx(x);
+        if (!Qx) return Op(false,"fails to calculate Qx: "+Qx.error());
+        else
+            return Op(Markov_Transition_step(n_sub_samples,Qx.value(),nsamples,fs(),Model().min_P()));
     }
 
-    Markov_Transition_step calc_P(X x,std::size_t nsamples,std::size_t num_recursion=0)
+    myOptional_t<Markov_Transition_step> calc_P(X x,std::size_t nsamples,std::size_t num_recursion=0)
     {
-        if constexpr (std::is_same_v<Markov_Transition_step,Markov_Transition_step_double >)
+        typedef myOptional_t<Markov_Transition_step> Op;
+        auto Qx=calc_Qx(x);
+        if (!Qx) return Op(false,"fails to calculate Qx: "+Qx.error());
+        else
         {
-            if (num_recursion==0)
+            if constexpr (std::is_same_v<Markov_Transition_step,Markov_Transition_step_double >)
             {
-                Markov_Transition_step out(calc_Qx(x),nsamples,fs(),Model().min_P(), Model().tolerance());
-                if (0){
-                    std::random_device rd;
-                    auto initseed=rd();
-                    std::mt19937_64 mt(initseed);
-                    Markov_Transition_step out2(mt,calc_Qx(x),nsamples,fs(),Model().min_P(), Model().tolerance(), 2000, 40000);
-                    are_Equal<true,Markov_Transition_step_double>().test(out,out2);
-                }
-                return out;
+                if (num_recursion==0)
+                {
 
+                    Markov_Transition_step out(Qx.value(),nsamples,fs(),Model().min_P());
+                    if (0){
+                        std::random_device rd;
+                        auto initseed=rd();
+                        std::mt19937_64 mt(initseed);
+                        Markov_Transition_step out2(mt,Qx.value(),nsamples,fs(),Model().min_P(),  2000, 40000);
+                        are_Equal<true,Markov_Transition_step_double>().test(out,out2,std::cerr);
+                    }
+                    return out;
+
+                }
+                else
+                    return Markov_Transition_step(num_recursion,Qx.value(),nsamples,fs(),Model().min_P());
             }
-            else
-                return Markov_Transition_step(num_recursion,calc_Qx(x),nsamples,fs(),Model().min_P(), Model().tolerance());
+            else return Markov_Transition_step(Qx.value(),nsamples,fs(),Model().min_P(), Model().tolerance());
+            //     return Markov_Transition_step(get_Qx(x),nsamples,fs());
         }
-        else return Markov_Transition_step(calc_Qx(x),nsamples,fs(),Model().min_P(), Model().tolerance());
-        //     return Markov_Transition_step(get_Qx(x),nsamples,fs());
     }
     auto Peq(const X& x)
     {
+        typedef myOptional_t<M_Matrix<double>> Op;
         //  auto Qx=get_Qx(x);
         auto Qx=calc_Qx(x);
-
-        return Qx.Peq();
+       // std::cerr<<"calcQx"<<Qx.value().Qrun();
+        if (!Qx)
+            return Op(false,"cannot calculate Qx: "+Qx.error());
+        else
+           return Op(Qx.value().calc_Peq());
     };
 
     std::size_t N(const X&)const
@@ -1588,21 +1658,26 @@ public:
 
     template<typename step>
     //    Markov_Transition_step const& get_P(const step& s)
-    Markov_Transition_step  get_P(const step& s,std::size_t num_recursion=0,double eps=std::numeric_limits<double>::epsilon())
+    auto  get_P(const step& s,std::size_t num_recursion=0)
     {
-        
+       typedef myOptional_t<Markov_Transition_step> Op;
         auto b=s.begin();
         auto e=s.end();
         if ((e-b)>1)
         {
             auto PP=calc_P(b->x(),b->nsamples());
+            if (!PP.has_value()) return Op(false, "fails at start :"+PP.error());
             //auto& P=get_P(b->x(),b->nsamples());
             //   auto PP=P.getMinimum();
             ++b;
             for (auto it=b; it!=e; ++it)
             {
+                auto pc=calc_P(it->x(), it->nsamples());
+                if (!pc)
+                    return Op(false,"fails at interval :"+ToString(*it)+" : "+pc.error());
 
-                PP*=calc_P(it->x(), it->nsamples());
+                else
+                    PP.value() *= std::move(pc).value();
 
                 //    PP*=get_P(it->x(), it->nsamples());
             }
@@ -1618,22 +1693,21 @@ public:
     const M& Model() const {return m_;}
 
     double min_P() const { return Model().min_P();}
-    double tolerance() const { return Model().tolerance();}
+    double tolerance() const { return tolerance_;}
     double n_sub_samples()const {return n_sub_samples_;}
 
     double fs()const {return fs_;}
 
-    Markov_Model_calculations(const M& m, const Experiment& e, std::size_t n_sub_samples)
-        :    m_{m},N_{std::size_t(m.AverageNumberOfChannels())},fs_{e.frequency_of_sampling()},n_sub_samples_{n_sub_samples},e_{e},rate_map_{}, map_{},step_map_{}{}
+    Markov_Model_calculations(const M& m, const Experiment& e, std::size_t n_sub_samples, double tolerance)
+        :    m_{m},N_{std::size_t(m.AverageNumberOfChannels())},fs_{e.frequency_of_sampling()},n_sub_samples_{n_sub_samples},tolerance_{tolerance},e_{e},rate_map_{}, map_{},step_map_{}{}
 
 private:
     const M& m_;
     size_t N_;
     double fs_;
     std::size_t n_sub_samples_;
+    double tolerance_;
     const Experiment& e_;
-
-
     mutable X current_x_;
     mutable std::size_t current_nsamples_;
     Markov_Transition_step* current_P_;

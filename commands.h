@@ -207,9 +207,9 @@ struct simulate{
     static auto run(std::mt19937_64::result_type initseed,const Experiment& e,  const Model& m , const Parameters_values<Model>& p,std::size_t n_sub_intervals
                     ,double min_P,double tolerance)
     {
-        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()), min_P, tolerance);
+        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()), min_P);
 
-        Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,Experiment,double> MC(SM,e,n_sub_intervals);
+        Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,Experiment,double> MC(SM,e,n_sub_intervals,tolerance);
 
         if (initseed==0)
         {
@@ -244,27 +244,23 @@ struct likelihood{
 
     static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance)
     {
-        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P,tolerance);
+        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P);
 
 
-        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1);
+        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance);
 
-        if (algorithm==my_trait<markov::MacroDR<true>>::className.str())
+        if (algorithm==my_trait<markov::MacroDR>::className.str())
         {
-            auto out= markov::logLikelihood(markov::MacroDR<true>(),MC,e);
-            std::cerr<<"logLikelihodd = "<<out<<std::endl;
-            return out;
-
-        }
-        else if (algorithm==my_trait<markov::MacroDR<false>>::className.str())
-        {
-            auto out= markov::logLikelihood(markov::MacroDR<false>(),MC,e);
-            std::cerr<<"logLikelihodd = "<<out<<std::endl;
+            auto out= markov::logLikelihood(markov::MacroDR(tolerance),MC,e);
+            if (out.has_value())
+            std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
+            else std::cerr<<out.error();
             return out;
 
         }
 
-        else return mynan;
+
+        else return myOptional_t<double>(false," algorithm "+algorithm+ "not found");
     }
 
     static auto get_arguments()
@@ -289,24 +285,19 @@ struct likelihood_detail{
 
     static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance)
     {
-        SingleLigandModel SM(m.Qs(p),m.g(p), e.Vm(),p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P,tolerance);
+        typedef myOptional_t<experiment::basic_Experiment<experiment::point<double,double>,markov::measure_likelihood<double>>> Op;
+
+        SingleLigandModel SM(m.Qs(p),m.g(p), e.Vm(),p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P);
 
 
-        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1);
+        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance);
 
-        if (algorithm==my_trait<markov::MacroDR<true>>::className.str())
+        if (algorithm==my_trait<markov::MacroDR>::className.str())
         {
-            auto out= markov::monitorLikelihood(markov::MacroDR<true>(),MC,e);
-            return out;
-
+            return markov::monitorLikelihood(markov::MacroDR(tolerance),MC,e);
         }
-        else         if (algorithm==my_trait<markov::MacroDR<false>>::className.str())
-        {
-            auto out= markov::monitorLikelihood(markov::MacroDR<false>(),MC,e);
-            return out;
 
-        }
-        else return experiment::basic_Experiment<experiment::point<double,double>,markov::measure_likelihood<double>>{};
+        else return Op(false,"algorithm "+algorithm+" is not recognized");
     }
 
     static auto get_arguments()
@@ -367,11 +358,15 @@ struct Evidence{
         {
             std::random_device rd;
             initseed=rd();
+            std::cerr<<"\n ## init seed generated ## \n initseed="<<initseed<<"\n";
         }
+        else
+            std::cerr<<"\n ## provided seed  ## \n initseed="<<initseed<<"\n";
+
         std::mt19937_64 mt(initseed);
         evidence::OutputGenerator out(std::cerr,parameters,gradient);
 
-        return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model>(p),lik,mt,betas,landa,landa_50_hill,gain_moment,nSamples,out);
+        return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model>(p),lik,mt,betas,landa,landa_50_hill,gain_moment,nSamples,out).error();
     }
 
     static auto get_arguments()

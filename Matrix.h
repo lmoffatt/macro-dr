@@ -25,6 +25,7 @@
 
 #include "mySerializer.h"
 #include "mytests.h"
+#include "myoptional.h"
 
 
 template<typename T1, typename T2>
@@ -76,6 +77,28 @@ double stddev(const V& x)
     }
     return std::sqrt(sum2/x.size()-sqr(sum/x.size()));
 }
+
+
+
+}
+template<template <typename...> class V, class...Ts>
+bool all(const V<Ts...>& x)
+{
+    for (std::size_t i=0; i< x.size(); ++i)
+        if (!x[i])
+            return false;
+    return true;
+}
+
+
+
+template<template <typename...> class V, class...Ts>
+bool any(const V<bool,Ts...>&  x)
+{
+    for (std::size_t i=0; i< x.size(); ++i)
+        if (x[i])
+            return true;
+    return false;
 }
 
 
@@ -1273,8 +1296,8 @@ private:
 
 
 
-template<bool output, template <bool, typename>class test, typename T, class M>
-bool apply_test(const test<output,T> & t,const M_Matrix<T>& one, const M& other)
+template<bool output, template <bool, typename>class test, typename T, class M, class ostream>
+bool apply_test(const test<output,T> & t,const M_Matrix<T>& one, const M& other, ostream& os)
 {
     bool out=true;
     if constexpr (std::is_same_v<M,M_Matrix<T> >)
@@ -1283,8 +1306,8 @@ bool apply_test(const test<output,T> & t,const M_Matrix<T>& one, const M& other)
         {
             if constexpr (output)
             {
-                std::cerr<<"\n different size!!!"<<" one.nrows="<<one.nrows()<<" other.nrows="<<other.nrows();
-                std::cerr<<" one.ncols="<<one.ncols()<<" other.ncols="<<other.ncols();
+                os<<"\n different size!!!"<<" one.nrows="<<one.nrows()<<" other.nrows="<<other.nrows();
+                os<<" one.ncols="<<one.ncols()<<" other.ncols="<<other.ncols();
             }
             return false;
         }
@@ -1295,15 +1318,15 @@ bool apply_test(const test<output,T> & t,const M_Matrix<T>& one, const M& other)
         {
             bool mytest;
             if constexpr (std::is_same_v<M,M_Matrix<T> >)
-                    mytest=t.test(one(i,j),other(i,j));
+                    mytest=t.test(one(i,j),other(i,j),os);
             else
-            mytest=t.test(one(i,j),other);
+            mytest=t.test(one(i,j),other,os);
 
             if (!mytest)
             {
                 if constexpr (output)
                 {
-                    std::cerr<< "  on i="<<i<<" j="<<j;
+                    os<< "  on i="<<i<<" j="<<j;
 
                     out= false;
                 }
@@ -1318,8 +1341,8 @@ bool apply_test(const test<output,T> & t,const M_Matrix<T>& one, const M& other)
     {
         if constexpr (output)
         {
-            std::cerr<< "\n one=\n"<<one;
-            std::cerr<< "\n other=\n"<<other;
+            os<< "\n one=\n"<<one;
+            os<< "\n other=\n"<<other;
         }
         return  false;
 
@@ -1327,18 +1350,18 @@ bool apply_test(const test<output,T> & t,const M_Matrix<T>& one, const M& other)
 }
 
 
-template<bool output, template <bool,typename>class test, typename T>
-bool apply_test(const test<output,T> & t,const M_Matrix<T>& one)
+template<bool output, template <bool,typename>class test, typename T, class ostream>
+bool apply_test(const test<output,T> & t,const M_Matrix<T>& one, ostream& os)
 {
     bool out=true;
     for (std::size_t i=0; i<one.nrows(); ++i)
     {
         for (std::size_t j=0; j<one.ncols(); ++j)
-            if (!t.test(one(i,j)))
+            if (!t.test(one(i,j),os))
             {
                 if constexpr (output)
                 {
-                    std::cerr<< "  on i="<<i<<", j="<<j;
+                    os<< "  on i="<<i<<", j="<<j;
                     out= false;
                 }
                 else
@@ -1351,7 +1374,7 @@ bool apply_test(const test<output,T> & t,const M_Matrix<T>& one)
     {
         if constexpr (output)
         {
-            std::cerr<< "\n one=\n"<<one;
+            os<< "\n one=\n"<<one;
         }
         return  false;
 
@@ -1370,15 +1393,17 @@ class are_Equal<output,M_Matrix<T>>
 {
 public:
 
-    bool test_sum(const M_Matrix<T> & one,const M_Matrix<T> & two)const
+    template<class ostream>
+    bool test_sum(const M_Matrix<T> & one,const M_Matrix<T> & two, ostream& os=std::cerr)const
     {
-        return apply_test(are_Equal<output,T>(absolute_,relative_),one,two);
+        return apply_test(are_Equal<output,T>(absolute_,relative_),one,two,os);
     }
-    bool test_prod(const M_Matrix<T> &one, const M_Matrix<T> & two)
+    template<class ostream>
+    bool test_prod(const M_Matrix<T> &one, const M_Matrix<T> & two,ostream& os=std::cerr)const
     {
         double N=Matrix_Unary_Functions::norm_1(one);
         auto n=one.size();
-        return apply_test(are_Equal<output,T>(std::sqrt(absolute_)*n*N,std::sqrt(relative_)*n),one,two);
+        return apply_test(are_Equal<output,T>(std::sqrt(absolute_)*n*N,std::sqrt(relative_)*n),one,two,os);
     }
 
     are_Equal(double absoluteError, double relativeError):absolute_{absoluteError},relative_{relativeError}{}
@@ -1397,15 +1422,17 @@ class are_non_negative<output,M_Matrix<T>>
 {
 public:
 
-    bool test_sum(const M_Matrix<T> & one)const
+    template<class ostream>
+    bool test_sum(const M_Matrix<T> & one, ostream& os=std::cerr)const
     {
-        return apply_test(are_non_negative<output,T>(absolute_),one);
+        return apply_test(are_non_negative<output,T>(absolute_),one,os);
     }
-    bool test_prod(const M_Matrix<T> &one)const
+    template<class ostream>
+    bool test_prod(const M_Matrix<T> &one, ostream& os=std::cerr)const
     {
         double N=norm_1(one);
         auto n=one.size();
-        return apply_test(are_non_negative<output,T>(std::sqrt(absolute_)*n*N),one);
+        return apply_test(are_non_negative<output,T>(std::sqrt(absolute_)*n*N),one,os);
     }
 
     are_non_negative(double absoluteError):absolute_{absoluteError}{}
@@ -1414,20 +1441,60 @@ private:
     double absolute_;
 
 };
+
+template<bool output, typename T>
+class are_finite<output,M_Matrix<T>>
+{
+public:
+
+    template<class ostream>
+    bool test(const M_Matrix<T> & one, ostream& os=std::cerr)const
+    {
+        return apply_test(are_finite<output,T>(),one,os);
+    }
+};
+
+template<bool output, typename T>
+class are_non_positive<output,M_Matrix<T>>
+{
+public:
+
+    template<class ostream>
+    bool test_sum(const M_Matrix<T> & one, ostream& os=std::cerr)const
+    {
+        return apply_test(are_non_positive<output,T>(absolute_),one,os);
+    }
+    template<class ostream>
+    bool test_prod(const M_Matrix<T> &one, ostream& os=std::cerr)const
+    {
+        double N=norm_1(one);
+        auto n=one.size();
+        return apply_test(are_non_positive<output,T>(std::sqrt(absolute_)*n*N),one,os);
+    }
+
+    are_non_positive(double absoluteError):absolute_{absoluteError}{}
+    are_non_positive():absolute_{std::numeric_limits<T>::epsilon()}{}
+private:
+    double absolute_;
+
+};
+
+
 template<bool output, typename T>
 class are_not_less<output, M_Matrix<T>>
 {
 public:
 
 
-    bool test(const M_Matrix<T> & one)const
+    template<class ostream>
+    bool test(const M_Matrix<T> & one, ostream& os=std::cerr)const
     {
         bool out=true;
         if (m_min_.size()==one.size())
-            return apply_test(are_not_less<output,T>(absolute_error()),one,m_min_);
+            return apply_test(are_not_less<output,T>(absolute_error()),one,m_min_,os);
         else
-           return apply_test(are_not_less<output,T>(absolute_error()),one,min_);
-     }
+            return apply_test(are_not_less<output,T>(absolute_error()),one,min_,os);
+    }
 
     double min()const {return min_;}
     M_Matrix<double>const & Min()const {return m_min_;}
@@ -1448,14 +1515,15 @@ class are_not_more<output, M_Matrix<T>>
 public:
 
 
-    bool test(const M_Matrix<T> & one)const
+    template<class ostream>
+    bool test(const M_Matrix<T> & one,ostream& os=std::cerr)const
     {
         bool out=true;
         if (m_max_.size()==one.size())
-            return apply_test(are_not_more<output,T>(absolute_error()),one,m_max_);
+            return apply_test(are_not_more<output,T>(absolute_error()),one,m_max_,os);
         else
-           return apply_test(are_not_more<output,T>(absolute_error()),one,max_);
-     }
+            return apply_test(are_not_more<output,T>(absolute_error()),one,max_,os);
+    }
 
     double max()const {return max_;}
     M_Matrix<double>const & Max()const {return m_max_;}
@@ -1477,30 +1545,30 @@ class are_in_range<output, M_Matrix<T>>
 {
 public:
 
-
-    bool test(const M_Matrix<T> & one)const
+    template<class ostream>
+    bool test(const M_Matrix<T> & one,ostream& os=std::cerr)const
     {
         bool out=true;
         if (m_min_.size()==one.size())
         {
-            if (!apply_test(are_not_less<output,T>(absolute_error()),one,m_min_))
+            if (!apply_test(are_not_less<output,T>(absolute_error()),one,m_min_,os))
                 out=false;
 
         }
         else
         {
-            if (!apply_test(are_not_less<output,T>(absolute_error()),one,min_))
+            if (!apply_test(are_not_less<output,T>(absolute_error()),one,min_,os))
                 out=false;
         }
         if (m_max_.size()==one.size())
         {
-            if (!apply_test(are_not_more<output,T>(absolute_error()),one,m_max_))
+            if (!apply_test(are_not_more<output,T>(absolute_error()),one,m_max_,os))
                 out=false;
 
         }
         else
         {
-            if (!apply_test(are_not_more<output,T>(absolute_error()),one,max_))
+            if (!apply_test(are_not_more<output,T>(absolute_error()),one,max_,os))
                 out=false;
         }
         return out;
@@ -1666,11 +1734,11 @@ namespace Matrix_Unary_Transformations {
 
 
 template <class T>
-std::pair<M_Matrix<T>, std::pair<double,std::string>>
+myOptional_t<M_Matrix<T>>
 inv(const M_Matrix<T>& x);
 
 template <class T>
-std::pair<M_Matrix<T>, std::string>
+myOptional_t<M_Matrix<T>>
 chol(const M_Matrix<T>& x, const std::string& kind);
 
 
@@ -1865,6 +1933,8 @@ namespace Matrix_Decompositions {
 
 auto EigenSystem_full_real_eigenvalue_dgeev(const M_Matrix<double>& x)
 {
+    typedef myOptional_t<std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>>> Op;
+
     using lapack::dgeev_;
     M_Matrix<double> VL(x.ncols(),x.nrows());
     M_Matrix<double> VR(x.ncols(),x.nrows());
@@ -1895,15 +1965,24 @@ auto EigenSystem_full_real_eigenvalue_dgeev(const M_Matrix<double>& x)
 
     are_zero<true,double> not_zero(std::sqrt(std::numeric_limits<double>::epsilon()));
 
-    assert((apply_test(not_zero,L_imag)));
+    assert((apply_test(not_zero,L_imag, std::cerr)));
 
-    return std::make_tuple(VR,L,invVR.first, invVR.second.first); // in reality VL, L, VR because of transposition
+    return Op(std::make_tuple(VR,L,invVR.value())); // in reality VL, L, VR because of transposition
 }
+
+typedef std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>> eigensystem_type;
 
 auto EigenSystem_full_real_eigenvalue(const M_Matrix<double>& x)
 {
+    typedef myOptional_t<eigensystem_type> Op;
+
     using lapack::dgeevx_;
 
+    /**
+( 	char*  	BALANC,
+                                );
+
+*/
 
     /**
 dgeevx()
@@ -2256,16 +2335,40 @@ Parameters
     dgeevx_ 	(&BALANC,&JOBVL,	&JOBVR,&SENSE,&N,&A(0,0),&LDA,&WR(0,0),&WI(0,0),&VL[0],&LDVL,&VR[0],&LDVR,&ILO,&IHI,
             &SCALE[0],&ABNRM,&RCONDE[0],&RCONDV[0],&WORK[0],&LWORK,&IWORK[0],&INFO);
 
+
     M_Matrix<double> WORK_OPT(1,WORK[0]);
     LWORK=WORK[0];
     dgeevx_ 	(&BALANC,&JOBVL,	&JOBVR,&SENSE,&N,&A(0,0),&LDA,&WR(0,0),&WI(0,0),&VL[0],&LDVL,&VR[0],&LDVR,&ILO,&IHI,
             &SCALE[0],&ABNRM,&RCONDE[0],&RCONDV[0],&WORK_OPT[0],&LWORK,&IWORK[0],&INFO);
 
-    auto invVR=inv(VR);
     if (INFO!=0)
-        assert(false);
+    {
+        if (INFO>0)
+            return Op(false,std::string("the QR algorithm failed to compute all the  eigenvalues, and no eigenvectors or condition numbers "
+                                        "have been computed; elements 1:ILO-1 and i+1:N of WR "
+                                        "and WI contain eigenvalues which have converged ILO=")+std::to_string(ILO)+" i="+std::to_string(INFO));
+        else
+        {
+            auto args= std::make_tuple(&BALANC,&JOBVL,	&JOBVR,&SENSE,&N,&A(0,0),&LDA,&WR(0,0),&WI(0,0),&VL[0],&LDVL,&VR[0],&LDVR,&ILO,&IHI,
+                    &SCALE[0],&ABNRM,&RCONDE[0],&RCONDV[0],&WORK_OPT[0],&LWORK,&IWORK[0],&INFO);
+            std::string argumentsNames[]={"BALANC","JOBVL","JOBVR","SENSE","N","A","LDA","WR","WI","VL","LDVL","VR","LDVR",
+                                          "ILO","IHI","SCALE","ABNRM","RCONDE","RCONDV","WORK","LWORK","IWORK","INFO"};
 
-    return std::make_tuple(VR,WR,invVR.first, invVR.second.first); // in reality VL, L, VR because of transposition
+            std::stringstream ss;
+            std::size_t i=-INFO;
+            io::write_tuple_i(ss,args,i);
+            return Op(false,"the"+std::to_string(i)+"-th argument "+argumentsNames[i]+" had the illegal value ="+ss.str());
+
+
+        }
+
+    }
+    else
+    {
+        auto invVR=inv(VR);
+
+        return Op(std::make_tuple(VR,WR,invVR.value())); // in reality VL, L, VR because of transposition
+    }
 }
 
 
@@ -2398,6 +2501,17 @@ bool any(const M_Matrix<T>& x, const Predicate& p)
             return true;
     return false;
 }
+
+template<typename T, class Predicate>
+std::set<std::size_t> find(const M_Matrix<T>& x, const Predicate& p)
+{
+std::set<std::size_t> out;
+        for (std::size_t i=0; i< x.size(); ++i)
+        if (p(x[i]))
+            out.insert(i);
+    return out;
+}
+
 
 using std::isnan;
 
@@ -2789,8 +2903,9 @@ M_Matrix<T>  TransposeSum(const M_Matrix<T>& x)
 }
 
 template<typename T>
-M_Matrix<T>  expm_pade(const M_Matrix<T>& M)
+myOptional_t<M_Matrix<T>>  expm_pade(const M_Matrix<T>& M)
 {
+    typedef myOptional_t<M_Matrix<T>> Op;
 
     ///http://www2.humusoft.cz/www/papers/tcp08/017_brancik.pdf
     using namespace Matrix_Generators;
@@ -2817,9 +2932,15 @@ M_Matrix<T>  expm_pade(const M_Matrix<T>& M)
             D -= cX;
         p = !p;
     }
-    F = inv(D).first*F;
-    return F;
 
+    auto invD=inv(D);
+    if (!invD) return Op(false,"cannot invert D: "+invD.error());
+    else
+    {
+        F = invD.value()*F;
+
+        return Op(F);
+    }
     /*    % Pade approximation of exp(M) and diff[exp(M)]
     X=M; Y=dM;
     c=1/2;
@@ -2863,8 +2984,9 @@ M_Matrix<T>  expm_pade(const M_Matrix<T>& M)
   */
 
 template<typename T>
-M_Matrix<T>  full_exp(const M_Matrix<T>& x)
+myOptional_t<M_Matrix<T>>  full_exp(const M_Matrix<T>& x)
 {
+    typedef myOptional_t<M_Matrix<T>> Op;
     assert(ncols(x)==nrows(x));
     assert(size(x)>0);
     using namespace Matrix_Generators;
@@ -2875,23 +2997,39 @@ M_Matrix<T>  full_exp(const M_Matrix<T>& x)
     M_Matrix<T> A = x*(1.0/std::pow(2.0,int(s)));
 
     // Pade approximation for exp(A)
-    auto E = expm_pade(A);
+    auto eE = expm_pade(A);
 
-    // Undo scaling by repeated squaring
-    for (std::size_t k=0; k<s;k++)
-        E = E*E;
-    return E;
+    if (!eE)
+        return Op(false,eE.error());
+    else{
 
+        auto E=eE.value();
+        // Undo scaling by repeated squaring
+        for (std::size_t k=0; k<s;k++)
+            E = E*E;
+        return Op(E);
+    }
 }
 
 
 template<typename T>
-M_Matrix<T>  diagonal_exp(const M_Matrix<T>& a)
+myOptional_t<M_Matrix<T>>  diagonal_exp(const M_Matrix<T>& a)
 {
+    typedef myOptional_t<M_Matrix<T>> Op;
     using std::exp;
     M_Matrix<double> out(a.nrows(),a.ncols(),M_Matrix<double>::DIAGONAL);
-    for (std::size_t i=0; i<a.nrows(); ++i)
-        out(i,i)=exp(a(i,i));
+    if constexpr (std::is_arithmetic_v<T>)
+    {
+        for (std::size_t i=0; i<a.nrows(); ++i)
+            out(i,i)=exp(a(i,i));
+    }
+    else for (std::size_t i=0; i<a.nrows(); ++i)
+    {
+
+        auto o=exp(a(i,i));
+        if (!o) return Op(false, " invalid exponential of diagonal i"+std::to_string(i));
+        else out(i,i)=std::move(o.value());
+    }
     return out;
 }
 
@@ -2905,7 +3043,7 @@ M_Matrix<T>  scalar_diagonal_exp(const M_Matrix<T>& a)
 
 
 template<typename E>
-M_Matrix<E>  exp(const M_Matrix<E>& x)
+myOptional_t<M_Matrix<E>>  exp(const M_Matrix<E>& x)
 {
     assert(x.nrows()==x.ncols());
     switch(x.type())
@@ -3040,40 +3178,42 @@ public:
 
     }
 
-    std::pair<FullPartition, std::string>
+    auto
     inverse_by_A()const
     {
+        typedef myOptional_t<FullPartition> Op;
         auto invA=inv(A_);
-        if (!invA.second.empty())
+        if (!invA)
         {
-            return {FullPartition(), invA.second};
+            return Op(false,"cannot invert A :"+invA.error());
         }
-        auto AinvB=invA.first*B_;
+        auto AinvB=invA.value()*B_;
         auto Dinv=inv(D_-C_*AinvB);
-        if (!Dinv.second.empty())
+        if (!Dinv)
         {
-            return {FullPartition{}, Dinv.second};
+            return Op(false," cannot invert D"+Dinv.error());
         }
 
         auto CAinv=C_*invA.first;
         auto Binv=-AinvB*Dinv.first;
         auto Cinv=-Dinv.first*CAinv;
         auto Ainv=invA.first+AinvB*Dinv.first*CAinv;
-        return {FullPartition(Ainv,Binv,Cinv,Dinv.first),""};
+        return Op(FullPartition(Ainv,Binv,Cinv,Dinv.value()));
     }
     std::pair<FullPartition, std::string>
     inverse_by_D()const
     {
+        typedef myOptional_t<FullPartition> Op;
         auto invD=inv(D_);
-        if (!invD.second.empty())
+        if (!invD)
         {
-            return {FullPartition(), invD.second};
+            return Op(false," cannot invert D"+invD.second);
         }
         auto DinvC=invD.first*C_;
         auto Ainv=inv(A_-B_*DinvC);
-        if (!Ainv.second.empty())
+        if (!Ainv)
         {
-            return {FullPartition(), Ainv.second};
+            return Op(false,"cannot invert A :"+Ainv.error());
         }
 
 
@@ -3081,7 +3221,7 @@ public:
         auto Cinv=-DinvC*Ainv.first;
         auto Binv=-Ainv.first*BDinv;
         auto Dinv=invD.first+DinvC*Ainv.first*BDinv;
-        return {FullPartition(Ainv.first,Binv,Cinv,Dinv),""};
+        return Op(FullPartition(Ainv.value(),Binv,Cinv,Dinv));
     }
 
 
@@ -3144,35 +3284,37 @@ public:
 
     }
 
-    std::pair<SymmetricPartition, std::string>
+    myOptional_t<SymmetricPartition>
     inverse_by_A()const
     {
+        typedef myOptional_t<SymmetricPartition> Op;
         auto invA=inv(A_);
-        if (!invA.second.empty())
+        if (!invA)
         {
-            return{SymmetricPartition(), invA.second};
+            return Op(false,"cannot invert A :"+invA.error());
         }
         auto BTAinvB=quadraticForm_BT_A_B(invA.first,B_);
         auto Dinv=inv(D_-BTAinvB);
-        if (!Dinv.second.empty())
+        if (!Dinv)
         {
-            return{SymmetricPartition(), Dinv.second};
+            return Op(false,"cannot invert D :"+Dinv.error());
         }
 
         auto AinvB=invA.first*B_;
         auto Binv=-AinvB*Dinv.first;
-        auto Ainv=invA.first
-                +quadraticForm_BT_A_B(Dinv.first,Transpose(AinvB));
-        return {SymmetricPartition(Ainv,Binv,Dinv.first),""};
+        auto Ainv=invA.value()
+                +quadraticForm_BT_A_B(Dinv.value(),Transpose(AinvB));
+        return Op(SymmetricPartition(Ainv,Binv,Dinv.value()));
     }
 
-    std::pair<SymmetricPartition, std::string>
+    myOptional_t<SymmetricPartition>
     inverse_by_D()const
     {
+        typedef myOptional_t<SymmetricPartition> Op;
         auto invD=inv(D_);
-        if (!invD.second.empty())
+        if (!invD)
         {
-            return{SymmetricPartition(), invD.second};
+            return Op(false,"cannot invert D :"+invD.error());
         }
 
         auto BDinvBT=
@@ -3190,36 +3332,39 @@ public:
     }
 
 
-    std::pair<FullPartition<E>, std::string>
+    myOptional_t<SymmetricPartition>
     chol_by_A(const std::string& kind)const
     {
+        typedef myOptional_t<SymmetricPartition> Op;
+
         if (kind=="upper")
         {
             auto Ua=chol(A_,kind);
-            if (!Ua.second.empty()) return {{},"Cholesky block La: "+Ua.second};
+            if (!Ua)
+                return Op(false,"Cholesky block La: "+Ua.error());
             auto B_chol=Forward_Sustitution_Ly_b(Transpose(Ua.first),B_);
             auto Dschur=D_-quadraticForm_XTX(B_chol);
             auto D_chol=chol(Dschur,kind);
             if (!D_chol.second.empty())
-                return {{},"Cholesky block Dschur: "+D_chol.second};
+                return Op(false,"Cholesky block Dschur: "+D_chol.error());
             auto Czero=M_Matrix<E>
                     (B_chol.ncols(), B_chol.nrows(), M_Matrix<E>::ZERO);
-            return {
-                FullPartition<E>(Ua.first,B_chol,Czero,D_chol.first),""};
+            return Op(FullPartition<E>(Ua.value(),B_chol,Czero,D_chol.value()));
         }
         else
         {
             auto La=chol(A_,kind);
-            if (!La.second.empty()) return {{},"Cholesky block La: "+La.second};
+            if (!La.second.empty())
+                return Op(false,"Cholesky block La: "+La.error());
             auto C_chol=Transpose(Forward_Sustitution_Ly_b(La.first,B_));
             auto Dschur=D_-quadraticForm_XXT(C_chol);
             auto D_chol=chol(Dschur,kind);
             if (!D_chol.second.empty())
-                return {{},"Cholesky block Dschur: "+D_chol.second};
+                return Op(false,"Cholesky block Dschur: "+D_chol.error());
             auto B_zero=M_Matrix<E>
                     (C_chol.ncols(), C_chol.nrows(), M_Matrix<E>::ZERO);
-            return {
-                FullPartition<E>(La.first,B_zero,C_chol,D_chol.first),""};
+            return Op(
+                FullPartition<E>(La.value(),B_zero,C_chol,D_chol.value()));
         }
     }
 
@@ -3235,10 +3380,12 @@ namespace matrix_inverse
 {
 using namespace partition;
 inline
-std::pair<M_Matrix<double>, std::pair<double,std::string>>
+auto
 full_inv(const M_Matrix<double>& a)
 
 {
+    typedef  myOptional_t<M_Matrix<double>> Op;
+
     const double min_inv_condition_number=1e-12;
     // using Matrix_Unary_Transformations::Transpose;
     using lapack::dgetrf_;
@@ -3246,7 +3393,7 @@ full_inv(const M_Matrix<double>& a)
     using lapack::dgetri_;
     using lapack::dgecon_;
     if (a.size()==0)
-        return {a,{0,"EMPTY MATRIX"}};
+        return Op(false,"EMPTY MATRIX");
     else
     {
         assert(a.ncols()==a.nrows());
@@ -3287,41 +3434,45 @@ full_inv(const M_Matrix<double>& a)
         dgetri_(&N,A,&LDA,IPIV.get(),WORK,&LWORK,&INFO);
 
         if (RCOND<min_inv_condition_number)
-            return {B,{RCOND,"bad condition number RCOND="+my_to_string(RCOND)}};
+            return Op(false,"bad condition number RCOND="+my_to_string(RCOND));
         if (INFO==0)
-            return {B,{RCOND,""}};
+            return Op(B);
+        //  return Op({B,RCOND});
         else
-            return {B,{RCOND,"Singular Matrix on i="+std::to_string(INFO)}};
+            return Op(false,"Singular Matrix on i="+std::to_string(INFO));
         ;
     }
 }
 
 
 template<typename T>
-std::pair<M_Matrix<double>, std::pair<double,std::string>>
+myOptional_t<M_Matrix<T>>
 full_inv(const M_Matrix<T>& x)
 {
+    typedef  myOptional_t<M_Matrix<T>> Op;
+
     auto p=FullPartition<T>(x,x.nrows()/2);
     auto pinv=p.inverse_by_A();
-    if (!pinv.second.empty())
-        return {M_Matrix<T>(),pinv.second};
+    if (!pinv)
+        return Op(false,pinv.error());
     else
-        return {pinv.first.full(),""};
+        return Op(pinv.value().full());
 
 }
 
 inline
-std::pair<M_Matrix<double>, std::pair<double,std::string>>
+myOptional_t<M_Matrix<double>>
 symmetric_inv(const M_Matrix<double>& a,const std::string& kind="lower")
 
 {
+    typedef  myOptional_t<M_Matrix<double>> Op;
     using lapack::dsytrf_;
     using lapack::dsytri_;
     using lapack::dsycon_;
     using lapack::dlange_;
 
     if (a.size()==0)
-        return {a,{0,"EMPTY MATRIX"}};
+        return Op(false,"EMPTY MATRIX");
     else
     {
         assert(a.nrows()==a.ncols());
@@ -3533,11 +3684,12 @@ Parameters
 
         if (INFO<0)
         {
-            return {{},{0,"INVALID ARGUMENT "+std::to_string(INFO)}};
+            std::string argNames[]={"UPLO","N","A","LDA","IPIV","ANORM","RCOND","WORK_cond","IWORK","INFO"};
+            return Op(false,"INVALID ARGUMENT "+std::to_string(INFO)+argNames[-INFO]);
         }
         else if (INFO>0)
         {
-            return {{},{0.0,"SINGULAR MATRIX ON "+std::to_string(INFO)}};
+            return Op(false,"SINGULAR MATRIX ON "+std::to_string(INFO));
         }
         else
         {
@@ -3618,7 +3770,7 @@ Parameters
 
             if (INFO!=0)
             {
-                return {B,{0.0,"cannot invert a singular matrix "+std::to_string(INFO)}};
+                return Op(false,"cannot invert a singular matrix "+std::to_string(INFO));
             }
             else
             {
@@ -3646,7 +3798,7 @@ Parameters
                  auto test_a=aa*out;
                  auto invv=invtest*test;
              */
-                return {out,{RCOND,""}};
+                return Op(out);
             }
         }
     }
@@ -3654,52 +3806,54 @@ Parameters
 
 
 template<typename T>
-std::pair<M_Matrix<T>, std::string>
+myOptional_t<M_Matrix<T>>
 symmetric_inv(const M_Matrix<T>& x)
 {
+    typedef myOptional_t<M_Matrix<T>> Op;
     auto p=SymmetricPartition<T>(x,x.nrows()/2);
     auto pinv=p.inverse_by_A();
-    if (!pinv.second.empty())
-        return {M_Matrix<T>(),pinv.second};
+    if (!pinv)
+        return Op(false,pinv.error());
     else
-        return {pinv.first.full(),""};
+        return Op(pinv.value().full());
 
 }
 
 inline
-std::pair<M_Matrix<double>,
-std::pair<double,std::string>>
+auto
 diagonal_inv(const M_Matrix<double>& a)
 {
+    typedef myOptional_t<M_Matrix<double>> Op;
     M_Matrix<double> out(a.nrows(),a.ncols(),M_Matrix<double>::DIAGONAL);
     double amax=0; double imax=0;
     for (std::size_t i=0; i<a.nrows(); ++i)
         if (a(i,i)==0)
-            return {{},{0,"Singular Matrix, Diagonal zero at "+std::to_string(i)}};
+            return Op(false,"Singular Matrix, Diagonal zero at "+std::to_string(i));
         else
         {
             out(i,i)=1.0/a(i,i);
             if (std::abs(a(i,i))>amax) amax=std::abs(a(i,i));
             if (std::abs(out(i,i))>imax) imax=std::abs(out(i,i));
         }
-    return {out,{1.0/(amax*imax),""}};
+    return Op(out);
 
 }
 
 
 template<typename T>
-std::pair<M_Matrix<T>, std::pair<double, std::string>>
+auto
 diagonal_inv(const M_Matrix<T>& a)
 {
+    typedef myOptional_t<M_Matrix<T>> Op;
     double amax=0; double imax=0;
     M_Matrix<T> out(a.nrows(),a.ncols(),M_Matrix<T>::DIAGONAL);
     for (std::size_t i=0; i<a.nrows(); ++i)
     {
         double anorm=norm_1(a(i,i));
         auto e=inv(a(i,i));
-        if (!e.second.empty())
+        if (!e)
         {
-            return {{},"Singular block="+std::to_string(i)+e.second};
+            return Op(false,"Singular block="+std::to_string(i)+e.error());
         }
         else
         {
@@ -3710,53 +3864,52 @@ diagonal_inv(const M_Matrix<T>& a)
 
         }
     }
-    return {out,{1.0/(amax*imax),""}};
-
+    //   return {out,{1.0/(amax*imax),""}};
+    return Op(out);
 }
 
 inline
-std::pair<M_Matrix<double>,
-std::pair<double,std::string>>
+auto
 scalar_diagonal_inv(const M_Matrix<double>& a)
 {
+    typedef myOptional_t<M_Matrix<double>> Op;
+
     if (a(0,0)==0)
-        return {{},{0,"Singular Matrix, Diagonal is zero"}};
+        return Op(false,"Singular Matrix, Diagonal is zero");
     else
-        return {
-            M_Matrix<double>
+        return Op(
+                    M_Matrix<double>
                     (a.nrows(),a.ncols(),
                      M_Matrix<double>::SCALAR_DIAGONAL,
-                     1.0/a(0,0))
-                    ,{1.0,""}
-        };
+                     1.0/a(0,0)));
 
 }
 
 
 template<typename T>
-std::pair<M_Matrix<T>, std::pair<double,std::string>>
+auto
 scalar_diagonal_inv(const M_Matrix<T>& a)
 {
+    typedef myOptional_t<M_Matrix<T>> Op;
     auto e=inv(a(0,0));
     if (!e.second.empty())
     {
-        return {{},{0,"Singular SCALAR DIAGONAL block: "+e.second}};
+        return Op(false,"Singular SCALAR DIAGONAL block: "+e.error());
     }
     else
-        return {
-            M_Matrix<T>
+        return Op(
+                    M_Matrix<T>
                     (a.nrows(),a.ncols(),
                      M_Matrix<T>::SCALAR_DIAGONAL,
-                     std::move(e.first))
-                    ,{e.second,""}
-        };
+                     std::move(e.first)));
 }
 
 template<typename E>
 
-std::pair<M_Matrix<E>, std::pair<double,std::string>>
+auto
 Matrix_inverse(const M_Matrix<E>& x)
 {
+    typedef  myOptional_t<M_Matrix<E>> Op;
     assert(x.nrows()==x.ncols());
     switch(x.type())
     {
@@ -3778,12 +3931,12 @@ Matrix_inverse(const M_Matrix<E>& x)
     }
     case M_Matrix<E>::SCALAR_FULL:
     {
-        return {{},{0,"SCALAR FULL is Singular"}};
+        return Op(false,"SCALAR FULL is Singular");
     }
     case M_Matrix<E>::ZERO:
     default:
     {
-        return {{},{0,"ZERO Matrix is Singular"}};
+        return Op(false,"ZERO Matrix is is Singular");
     }
 
 
@@ -3796,9 +3949,10 @@ namespace cholesky
 using  Matrix_Unary_Transformations::Transpose;
 using namespace partition;
 inline
-std::pair<M_Matrix<double>, std::string>
+myOptional_t<M_Matrix<double>>
 symmetric_chol(const M_Matrix<double>& x,const std::string& kind)
 {
+    typedef myOptional_t<M_Matrix<double>> Op;
     assert(x.nrows()==x.ncols());
 
     if (x.size()==0)
@@ -3823,126 +3977,124 @@ symmetric_chol(const M_Matrix<double>& x,const std::string& kind)
 
     if (INFO!=0)
     {
-        return {{},"Cholesky fails, zero diagonal at"+std::to_string(INFO)};
+        return Op(false,"Cholesky fails, zero diagonal at"+std::to_string(INFO));
     }
     else
     {
-        if (kind=="lower")
-        {
-            auto test=res*Transpose(res)-x;
-        }
-        else
-        {
-            auto test=Transpose(res)*res-x;
-
-        }
-        return {res,""};
+        //assert((kind=="lower"? (are_Equal<true,M_Matrix<double>>().test_sum(res*Transpose(res),x, std::cerr)) :(are_Equal<true,M_Matrix<double>>().test_sum(Transpose(res)*res,x, std::cerr))));
+        return Op(res);
     }
 
 }
 
 
 template<typename T>
-std::pair<M_Matrix<T>, std::string>
+myOptional_t<M_Matrix<T>>
 symmetric_chol(const M_Matrix<T>& x,const std::string& kind)
 {
+    typedef myOptional_t<M_Matrix<T>> Op;
+
     auto p=SymmetricPartition<T>(x,x.nrows()/2);
     auto pchol=p.chol_by_A(kind);
     if (!pchol.second.empty())
-        return {M_Matrix<T>(),"Block Cholesky fails "+pchol.second};
+        return Op(false,"Block Cholesky fails "+pchol.second);
     else
-        return {pchol.first.full(),""};
+        return Op(pchol.value().full());
 }
 
 inline
-std::pair<M_Matrix<double>
-,std::string>
+myOptional_t<M_Matrix<double>>
 diagonal_chol(const M_Matrix<double>& a, const std::string& /*kind*/)
 {
+    typedef myOptional_t<M_Matrix<double>> Op;
+
     M_Matrix<double> out(a.nrows(),a.ncols(),M_Matrix<double>::DIAGONAL);
     for (std::size_t i=0; i<a.nrows(); ++i)
         if (a(i,i)<=0)
-            return {{},"Negative Diagonal zero at "+std::to_string(i)+"value "+std::to_string(a(i,i))};
+            return Op(false,"Negative Diagonal zero at "+std::to_string(i)+"value "+std::to_string(a(i,i)));
         else
             out(i,i)=std::sqrt(a(i,i));
-    return {out,""};
+    return Op(out);
 
 }
 
 
 template<typename T>
-std::pair<M_Matrix<T>, std::string>
+myOptional_t<M_Matrix<T>>
 diagonal_chol(const M_Matrix<T>& a, const std::string& kind)
 {
+    typedef myOptional_t<M_Matrix<T>> Op;
+
     M_Matrix<T> out(a.nrows(),a.ncols(),M_Matrix<T>::DIAGONAL);
     for (std::size_t i=0; i<a.nrows(); ++i)
     {
         auto e=chol(a(i,i), kind);
         if (!e.second.empty())
         {
-            return
-            {{},"Non positive definite  block="
-                +std::to_string(i)+"  "+e.second};
+            return Op(false,
+            "Non positive definite  block="
+                +std::to_string(i)+"  "+e.error());
         }
         else
             out(i,i)=std::move(e.first);
     }
-    return {out,""};
+    return Op(out);
 
 }
 
 
 inline
-std::pair<M_Matrix<double>
-,std::string>
+myOptional_t<M_Matrix<double>>
 scalar_diagonal_chol(const M_Matrix<double>& a, const std::string& /*kind*/)
 {
+    typedef myOptional_t<M_Matrix<double>> Op;
+
     if (a(0,0)<=0)
-        return {{},"Non Definite positive, Diagonal is non positive"};
+        return Op(false,"Non Definite positive, Diagonal is non positive");
     else
-        return {
+        return Op(
             M_Matrix<double>
                     (a.nrows(),a.ncols(),
                      M_Matrix<double>::SCALAR_DIAGONAL,
                      std::sqrt(a(0,0)))
-                    ,""
-        };
+                    );
 
 }
 
 
 template<typename T>
-std::pair<M_Matrix<T>, std::string>
+myOptional_t<M_Matrix<T>>
 scalar_diagonal_chol(const M_Matrix<T>& a, const std::string& kind)
 {
+    typedef myOptional_t<M_Matrix<T>> Op;
+
     auto e=chol(a(0,0), kind);
     if (!e.second.empty())
     {
-        return {{},"Not positive definite SCALAR DIAGONAL block: "+e.second};
+        return Op(false,"Not positive definite SCALAR DIAGONAL block: "+e.second);
     }
     else
-        return {
+        return Op(
             M_Matrix<T>
                     (a.nrows(),a.ncols(),
                      M_Matrix<T>::SCALAR_DIAGONAL,
-                     std::move(e.first))
-                    ,""
-        };
+                     std::move(e.first)));;
 }
 
 
 
 template<typename E>
-std::pair<M_Matrix<E>, std::string>
+myOptional_t<M_Matrix<E>>
 Matrix_cholesky(const M_Matrix<E>& x, const std::string& kind)
 
 {
+    typedef myOptional_t<M_Matrix<E>> Op;
     assert(x.nrows()==x.ncols());
     switch(x.type())
     {
     case M_Matrix<E>::FULL:
     {
-        return {{},"Error, Cholesky on a FULL MATRIX"};
+        return Op(false,"Error, Cholesky on a FULL MATRIX");
     }
     case M_Matrix<E>::SYMMETRIC:
     {
@@ -3976,15 +4128,14 @@ Matrix_cholesky(const M_Matrix<E>& x, const std::string& kind)
 }
 
 template <class T>
-std::pair<M_Matrix<T>, std::pair<double,std::string>>
-inv(const M_Matrix<T>& x)
+myOptional_t<M_Matrix<T>>
+ inv(const M_Matrix<T>& x)
 {
     return matrix_inverse::Matrix_inverse(x);
 }
 
 template <class T>
-std::pair<M_Matrix<T>, std::string>
-chol(const M_Matrix<T>& x, const std::string& kind)
+myOptional_t<M_Matrix<T> > chol(const M_Matrix<T>& x, const std::string& kind)
 {
     return cholesky::Matrix_cholesky(x, kind);
 }
@@ -4438,11 +4589,11 @@ template<typename T, typename S>
 std::pair<std::size_t, std::size_t>
 Size_of_Product(const M_Matrix<T>& one, const M_Matrix<S>& other, bool transposeOne,bool transposeOther)
 {
-    assert(
+  /*  assert(
                 (transposeOne ? one.nrows():one.ncols())
                 ==
                 (transposeOther ? other.ncols():other.nrows())
-                );
+                );*/
     return {
         transposeOne? one.ncols():one.nrows(),
                 transposeOther? other.nrows():other.ncols()};
@@ -4518,7 +4669,7 @@ inline M_Matrix<double> Lapack_Full_Product(const M_Matrix<double>& x,const M_Ma
 {
     using lapack::dgemm_;
 
-    std::size_t cols_i, rows_i, rows_e,cols_e;
+    std::size_t cols_i,rows_e,cols_e;
     if (transpose_x)
     {
         rows_e=x.ncols();
@@ -4532,17 +4683,17 @@ inline M_Matrix<double> Lapack_Full_Product(const M_Matrix<double>& x,const M_Ma
 
     if (transpose_y)
     {
-        rows_i=y.ncols();
+        //  rows_i=y.ncols();
         cols_e=y.nrows();
     }
     else
     {
-        rows_i=y.nrows();
+        //  rows_i=y.nrows();
         cols_e=y.ncols();
     }
 
-
-    assert(rows_i==cols_i);
+    //assert(rows_i==cols_i);
+    assert(((transpose_y? y.ncols(): y.nrows())==cols_i));
     // First it has to find out if the last dimension of x matches the
     //first of y
     // now we build the M_Matrix result
@@ -4741,26 +4892,27 @@ inline M_Matrix<double> Lapack_Symmetric_Regular_Product
 
 
     std::size_t rows_e;
-    std::size_t cols_i;
-    std::size_t rows_i;
+    // std::size_t cols_i;
+    // std::size_t rows_i;
     std::size_t cols_e;
 
     if (SymReg)  // calculo Sym * Reg
     {
         rows_e=Sym.nrows();
-        cols_i=Sym.ncols();
-        rows_i=Reg.nrows();
+        //    cols_i=Sym.ncols();
+        //    rows_i=Reg.nrows();
         cols_e=Reg.ncols();
 
     }
     else   // calculo  Reg^T * Sym
     {
         rows_e=Reg.nrows();
-        cols_i=Reg.ncols();
-        rows_i=Sym.nrows();
+        //    cols_i=Reg.ncols();
+        //    rows_i=Sym.nrows();
         cols_e=Sym.ncols();
     }
-    assert(rows_i==cols_i);
+    //  assert(rows_i==cols_i);
+    //assert((SymReg? Reg.nrows()==Sym.ncols(): Sym.nrows()==Reg.ncols() ));
     // First it has to find out if the last dimension of x matches the
     //first of y
     // now we build the M_Matrix result
@@ -5468,7 +5620,7 @@ Matrix_Multiplication
 {
     typedef decltype(std::declval<T>()*std::declval<S>()) R;
     M_Matrix<R> out=All_Product(one,other,transposeOne,transposeOther);
-    assert((are_Equal<true,M_Matrix<R>>().test_sum(out,UnformattedProduct(one,other))));
+    //assert((are_Equal<true,M_Matrix<R>>().test_sum(out,UnformattedProduct(one,other),std::cerr)));
     return out;
 }
 
@@ -5487,8 +5639,8 @@ operator *
 {
     typedef decltype(std::declval<T>()*std::declval<S>()) R;
 
-    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out= product::Matrix_Multiplication(one,other,false,false);
-    assert(apply_test(are_Equal<true,R>(std::numeric_limits<R>::epsilon(),std::sqrt(std::numeric_limits<R>::epsilon()) ),out,product::UnformattedProduct(one,other)));
+    M_Matrix<R> out= product::Matrix_Multiplication(one,other,false,false);
+    //assert(apply_test(are_Equal<true,R>(std::numeric_limits<R>::epsilon(),std::sqrt(std::numeric_limits<R>::epsilon()) ),out,product::UnformattedProduct(one,other),std::cerr));
     return out;
 
 }
@@ -6172,7 +6324,7 @@ UnformatedelemDivSafe
     typedef decltype(std::declval<T>()*std::declval<S>()) R;
     assert(x.nrows()==y.nrows());
     assert(x.ncols()==y.ncols());
-    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out(x.nrows(), x.ncols(),0);
+    M_Matrix<R> out(x.nrows(), x.ncols(),0);
     for (std::size_t i=0; i<x.nrows();++i)
         for (std::size_t j=0; j<x.ncols();++j)
             out(i,j)=elemDivSafe(x(i,j),y(i,j),eps);
@@ -6183,13 +6335,13 @@ UnformatedelemDivSafe
 
 
 template<typename T, typename S>
-M_Matrix<T> elemDivSafe(const M_Matrix<T>& x,const M_Matrix<S>& y, double eps=std::numeric_limits<double>::epsilon())
+auto elemDivSafe(const M_Matrix<T>& x,const M_Matrix<S>& y, double eps=std::numeric_limits<double>::epsilon())
 {
     typedef decltype(std::declval<T>()*std::declval<S>()) R;
     double norm=Matrix_Unary_Functions::norm_1(y);
-    auto out(x);
+    M_Matrix<R> out(x);
     out= Element_Wise_Multiplicative_Assigment_Operator([eps,norm](T& a, const S& b){return a=elemDivSafe(a,b,eps);return a;},out,y);
-    assert((are_Equal<true, M_Matrix<R>>().test_sum(out,UnformatedelemDivSafe(x,y,eps))));
+    //assert((are_Equal<true, M_Matrix<R>>().test_sum(out,UnformatedelemDivSafe(x,y,eps), std::cerr)));
     return out;
 
 }

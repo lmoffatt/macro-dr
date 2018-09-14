@@ -3,6 +3,9 @@
 #include <cmath>
 #include <limits>
 #include <iostream>
+
+#include "myoptional.h"
+
 struct invariant{};
 
 
@@ -10,7 +13,10 @@ template<class... > struct class_Invariants;
 
 template<bool, class > struct are_Equal;
 template<bool, class > struct are_zero;
+template<bool, class > struct are_finite;
 template<bool, class > struct are_non_negative;
+template<bool, class > struct are_non_positive;
+
 template<bool, class > struct are_in_range;
 template<bool, class > struct are_not_less;
 template<bool, class > struct are_not_more;
@@ -20,7 +26,8 @@ template <bool output>
 class are_Equal<output,double>
 {
 public:
-    bool test(double x, double y)const
+    template<class ostream=std::ostream>
+    bool test(double x, double y,ostream& s=std::cerr)const
     {
         if  ((std::abs(x-y)<absolute_error())||(std::abs(x-y)/std::abs(x+y))<relative_error())
             return true;
@@ -28,8 +35,12 @@ public:
         {
             {
                 if constexpr(output){
-                    std::cerr<<"\n not equal!! absolute="<<absolute_error()<<"x="<<x<<" y="<<y<<" abs(x-y)="<<std::abs(x-y);
-                    std::cerr<<" relative="<<relative_error()<<"  std::abs(x-y)/std::abs(x+y)"<<std::abs(x-y)/std::abs(x+y);
+                    s<<"\n not equal!!";
+                    if  ((std::abs(x-y)>=absolute_error()))
+                        s<<"\tabsolute="<<absolute_error()<<"  x="<<x<<"  y="<<y<<"  abs(x-y)="<<std::abs(x-y);
+                    if  ((std::abs(x-y)/std::abs(x+y))>=relative_error())
+
+                        s<<"\t relative="<<relative_error()<<"  std::abs(x-y)/std::abs(x+y)"<<std::abs(x-y)/std::abs(x+y);
                 }
                 return false;
 
@@ -37,9 +48,11 @@ public:
         }
     }
 
+
+
     double relative_error()const {return relative_;}
     double absolute_error()const { return absolute_;}
-    are_Equal(double absoluteError=std::numeric_limits<double>::epsilon(), double relativeError=std::numeric_limits<double>::epsilon()):absolute_{absoluteError},relative_{relativeError}{}
+    are_Equal(double absoluteError=std::numeric_limits<double>::epsilon()*10, double relativeError=std::numeric_limits<double>::epsilon()*10):absolute_{absoluteError},relative_{relativeError}{}
 private:
     double absolute_=std::numeric_limits<double>::epsilon();
     double relative_=std::numeric_limits<double>::epsilon();
@@ -47,6 +60,23 @@ private:
 
 
 
+template <bool output>
+class are_finite<output,double>
+
+{
+public:
+    template<class ostream>
+    bool test(double x,ostream& s=std::cerr)const
+    {
+        if  (std::isfinite(x))
+            return true;
+        else {
+            if constexpr (output)
+                    s<<" not finite!!!  x="<<x;
+            return false;
+        }
+    }
+};
 
 
 template <bool output>
@@ -54,16 +84,18 @@ class are_zero<output,double>
 
 {
 public:
-    bool test(double x)const
+    template<class ostream>
+    bool test(double x,ostream& s=std::cerr)const
     {
         if  (std::abs(x)<absolute_error())
             return true;
         else {
             if constexpr (output)
-                    std::cerr<<" not zero!!! absolute="<<absolute_error()<<" x="<<x;
+                    s<<" not zero!!! absolute="<<absolute_error()<<" x="<<x;
             return false;
         }
     }
+
 
     double absolute_error()const { return absolute_;}
     are_zero(double absoluteError):absolute_{absoluteError}{}
@@ -75,8 +107,8 @@ private:
 template <bool output>
 struct are_not_less<output,double>
 {
-
-     bool test(double x, double y)const
+    template<class ostream>
+    bool test(double x, double y,ostream& s=std::cerr)const
     {
         if (x+absolute_error()>y)
         {
@@ -86,10 +118,15 @@ struct are_not_less<output,double>
         else
         {
             if constexpr(output)
-                    std::cerr<<"\nfails are_not_less test  absolute="<<absolute_error()<<" x="<<x<<" y="<<y<<" x-y="<<x-y<<"\n";
+                    s<<"\nfails are_not_less test  absolute="<<absolute_error()<<" x="<<x<<" y="<<y<<" x-y="<<x-y<<"\n";
             return false;
         }
     }
+    bool test(double x, double y)const
+    {
+        return test(std::cerr,x,y);
+    }
+
 
     double absolute_error()const { return absolute_;}
     are_not_less(double absoluteError):absolute_{absoluteError}{}
@@ -102,8 +139,8 @@ private:
 template <bool output>
 struct are_not_more<output,double>
 {
-
-     bool test(double x, double y)const
+    template<class ostream>
+    bool test(double x, double y,ostream& os=std::cerr)const
     {
         if (x-absolute_error()<y)
         {
@@ -113,7 +150,7 @@ struct are_not_more<output,double>
         else
         {
             if constexpr(output)
-                    std::cerr<<"\nfails are_not_more test  absolute="<<absolute_error()<<" x="<<x<<" y="<<y<<" x-y="<<x-y<<"\n";
+                    os<<"\nfails are_not_more test  absolute="<<absolute_error()<<" x="<<x<<" y="<<y<<" x-y="<<x-y<<"\n";
             return false;
         }
     }
@@ -131,8 +168,8 @@ private:
 template <bool output>
 struct are_non_negative<output,double>
 {
-
-     bool test(double x)const
+    template<class ostream>
+    bool test(double x,ostream& s=std::cerr)const
     {
         if (x+absolute_error()>0)
         {
@@ -147,25 +184,56 @@ struct are_non_negative<output,double>
         }
     }
 
+
+
     double absolute_error()const { return absolute_;}
     are_non_negative(double absoluteError):absolute_{absoluteError}{}
 private:
     double absolute_=std::numeric_limits<double>::epsilon();
 
 };
+template <bool output>
+struct are_non_positive<output,double>
+{
+    template<class ostream>
+    bool test(double x,ostream& os)const
+    {
+        if (x-absolute_error()<0)
+        {
+            return true;
+
+        }
+        else
+        {
+            if constexpr(output)
+                    os<<"\nfails are_non_negative test  absolute="<<absolute_error()<<" x="<<x<<"\n";
+            return false;
+        }
+    }
+
+
+    double absolute_error()const { return absolute_;}
+    are_non_positive(double absoluteError):absolute_{absoluteError}{}
+private:
+    double absolute_=std::numeric_limits<double>::epsilon();
+
+};
+
+
 
 template <bool output>
 struct are_in_range<output,double>
 {
-     bool test(double x)const
+    template<class ostream>
+    bool test(double x, ostream& s=std::cerr)const
     {
-         if ((missing_) && (x==0)) return true;
-         if ((x+absolute_error()>min())&&(x-absolute_error()<max()))
+        if ((missing_) && (x==0)) return true;
+        if ((x+absolute_error()>min())&&(!(x-absolute_error()>=max())))
             return true;
         else
         {
             if constexpr(output)
-                    std::cerr<<"\nfails are_in_range test  absolute_error="<<absolute_error()<<" min="<<min()<<" max="<<max()<<" x="<<x<<" x-min="<<x-min()<<" x-max="<<x-max()<<"\n";
+                    s<<"\nfails are_in_range test  absolute_error="<<absolute_error()<<" min="<<min()<<" max="<<max()<<" x="<<x<<" x-min="<<x-min()<<" x-max="<<x-max()<<"\n";
             return false;
         }
 

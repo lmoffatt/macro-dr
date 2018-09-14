@@ -6,6 +6,7 @@
 #include <optional>
 #include <functional>
 #include <fstream>
+#include <sstream>
 
 struct reg_tag{};
 struct lref_tag{};
@@ -53,6 +54,8 @@ class myOptional<T, reg_tag>;
 template <typename T>
 using myOptional_t=myOptional<T,typename optional_tag<T>::type>;
 
+typedef myOptional_t<void> Op_void;
+
 template<typename T>
 class myOptional<T, reg_tag>
 {
@@ -62,8 +65,10 @@ class myOptional<T, reg_tag>
 
 public :
   //typename T::test test;
-  T& value(){return x_;}
-  T const & value()const {return x_;}
+  T& value()&{return x_;}
+  T const & value()const& {return x_;}
+  T&& value()&&{return std::move(x_);}
+//  T const && value()const&& {return std::move(x_);}
 
   bool has_value()const { return has_;}
   std::string error()const {return error_;}
@@ -277,15 +282,85 @@ public :
   myOptional(bool has,const std::string& msg):has_{has},error_{msg}{}
   myOptional(bool has, std::string&& msg):has_{has},error_{std::move(msg)}{}
 
-
+  myOptional()=default;
   operator bool() { return has_;}
+
+  template<class T>
+  myOptional& operator=(const myOptional_t<T>& other)
+  {
+      has_=other.has_value();
+      error_=other.error();
+      return *this;
+  }
+
+  template<class invariant, class... Ts>
+  static myOptional test(const invariant& inv,Ts...t)
+  {
+      std::stringstream ss;
+      if (inv.test(t...,ss))
+          return myOptional(true,ss.str());
+      else
+          return myOptional(false,ss.str());
+  }
 
 };
 
 
+template<typename T, typename K>
+myOptional_t<T>& operator<<(myOptional_t<T>& o,const K& x)
+{
+    std::stringstream ss;
+    ss<<x;
+    o.setError(o.error()+" "+ss.str());
+    return o;
+}
+
+template<typename T, typename K>
+myOptional_t<T>& operator<<(myOptional_t<T>& o,const myOptional_t<K>& x)
+{
+    o.setError(o.error()+x.error());
+    return o;
+}
+
+
+template<template<typename...>class V>
+Op_void consolidate(V<Op_void>&& v)
+{
+    bool res=true;
+    std::string error;
+    for (std::size_t i=0; i<v.size();++i)
+    {
+        if (!v[i].has_value())
+        {
+            res=false;
+            if (error.empty())
+               error+=std::to_string(i)+": "+v[i].error();
+            else
+                error+="; "+std::to_string(i)+": "+v[i].error();
+        }
+
+    }
+    return Op_void(res,error);
+}
 
 
 
+
+
+template<class T>
+struct remove_myOptional
+{
+    typedef T type;
+};
+
+template <class T, class tag>
+struct remove_myOptional<myOptional<T,tag>>
+{
+    typedef T type;
+};
+
+template<class T>
+using remove_myOptional_t=typename remove_myOptional<T>::type;
 
 
 
@@ -378,6 +453,8 @@ invoke_optional_functor(F&& f, Args&&... args)
         return invoke_optional_result_t<decltype(&object_type::operator()),F, Args...>{};
     }
 }
+
+
 
 
 

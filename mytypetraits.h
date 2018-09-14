@@ -608,6 +608,7 @@ struct insert_tag{};
 
 struct set_tag{};
 
+struct myOptional_tag{};
 
 
 template <class T>

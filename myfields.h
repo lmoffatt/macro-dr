@@ -146,7 +146,7 @@ struct result_of_command
 };
 
 template<class command>
-using result_of_command_t=typename result_of_command<command>::type;
+using result_of_command_t=remove_myOptional_t<typename result_of_command<command>::type>;
 
 
 

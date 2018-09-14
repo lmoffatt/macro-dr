@@ -394,11 +394,13 @@ public:
     typedef M_Matrix<T> result_type;
     /** Parameter type. */
 
+    markov_process()=default;
     struct param_type
     {
         typedef markov_process<M_Matrix<T>> distribution_type;
         friend class markov_process<M_Matrix<T>>;
 
+        param_type()=default;
         explicit
         param_type(const M_Matrix<T>& _N, const M_Matrix<double>& P )
             : N_(_N), P_(P),cP_(M_Matrix<double>(nrows(P),ncols(P)))
@@ -736,13 +738,10 @@ public:
     static auto get_constructor_fields()
     {
         return std::make_tuple(
-                    grammar::field(C<self_type>{},"alfa",&self_type::mean),
-                    grammar::field(C<self_type>{},"beta",&self_type::Cov)
+                    grammar::field(C<self_type>{},"mean",&self_type::mean),
+                    grammar::field(C<self_type>{},"Cov",&self_type::Cov)
                     );
     }
-
-
-
 
 
     M_Matrix<E> sample(std::mt19937_64& mt)const override
@@ -798,24 +797,41 @@ public:
     }
 
 
-    Normal_Distribution(const M_Matrix<E> &mean,
-                        const M_Matrix<E>& cov):
-        param_(M_Matrix<M_Matrix<E>>(1,2,std::vector<M_Matrix<E>>{mean,cov})),
-        covinv_(inv(cov).first),
-        cho_cov_(chol(cov,"lower").first),
-        logDetCov_(logDiagProduct(cho_cov_))
+static    myOptional_t<Normal_Distribution> make(const M_Matrix<E> &mean,
+                        const M_Matrix<E>& cov)
     {
-        assert(!cho_cov_.empty());
-        assert(Cov().isSymmetric());
-        assert(covinv_.isSymmetric());
-
+    typedef myOptional_t<Normal_Distribution> Op;
+        auto covinv=inv(cov);
+        auto cho_cov=chol(cov,"lower");
+        if (covinv.has_value()&&cho_cov.has_value())
+            return Op(Normal_Distribution(mean,cov,std::move(covinv).value(),std::move(cho_cov).value()));
+        else
+            return Op(false,"singular matrix: inverse error:"+covinv.error()+ " and cholesky error: "+cho_cov.error());
     }
 
     Normal_Distribution(const M_Matrix<E> &mean,
-                        const M_Matrix<E>& cov, const M_Matrix<E>& covInv):
+                        const M_Matrix<E>& cov,
+                        const M_Matrix<E>& covInv,
+                         const M_Matrix<E>& cho):
         param_(M_Matrix<M_Matrix<E>>(1,2,std::vector<M_Matrix<E>>{mean,cov})),
         covinv_(covInv),
-        cho_cov_(chol(cov,"lower").first),
+        cho_cov_(cho),
+        logDetCov_(logDiagProduct(cho_cov_))
+    {
+        assert(cov.isSymmetric());
+        assert(Cov().isSymmetric());
+        assert(covinv_.isSymmetric());
+
+        assert(!cho_cov_.empty());
+
+    }
+    Normal_Distribution(M_Matrix<E> &&mean,
+                        M_Matrix<E>&& cov,
+                        M_Matrix<E>&& covInv,
+                        M_Matrix<E>&& cho):
+        param_(M_Matrix<M_Matrix<E>>(1,2,std::vector<M_Matrix<E>>{std::move(mean),std::move(cov)})),
+        covinv_(std::move(covInv)),
+        cho_cov_(std::move(cho)),
         logDetCov_(logDiagProduct(cho_cov_))
     {
         assert(cov.isSymmetric());
@@ -884,7 +900,7 @@ protected:
     M_Matrix<M_Matrix<E>> param_;
     M_Matrix<E> covinv_;
     M_Matrix<E> cho_cov_;
-    double logDetCov_;
+    double logDetCov_=std::numeric_limits<double>::quiet_NaN();
 };
 
 
@@ -1146,25 +1162,81 @@ double Expectance(const F& f, const Likelihood& lik,const P_map& pm, const T& la
 }
 struct Probability: public invariant{};
 
+
+struct variable_value: public invariant
+{
+    template<bool output>
+    static Op_void test(double value)
+    {
+        if (std::isfinite(value))
+            return Op_void(true,"");
+        else if constexpr (output)
+            return Op_void(false," not finite value: "+std::to_string(value));
+        else
+            return Op_void(true,"");
+    }
+};
+struct variance_value: public invariant
+{
+    template<bool output>
+    static Op_void test(double value, double min_variance,double tolerance)
+    {
+        if (!std::isfinite(value))
+            return Op_void(false," not finite value: "+std::to_string(value));
+        else if (value+tolerance>min_variance)
+            return Op_void(true,"");
+        else if (value<0)
+            return Op_void(false,"negative variance!! value="+std::to_string(value));
+        else if (value==0)
+            return Op_void(false,"zero variance!! value="+std::to_string(value));
+       else    return Op_void(false,"variance too small!! value="+std::to_string(value)+ "min variance="+std::to_string(min_variance)+ "tolerance="+std::to_string(tolerance));
+
+    }
+
+
+    static double adjust(double value, double min_variance)
+    {
+        return std::max(value,min_variance);
+    }
+
+};
+
+struct logLikelihood_value: public invariant
+{
+    template<bool output>
+    static Op_void test(double value)
+    {
+        if (std::isfinite(value))
+            return Op_void(true,"");
+        else
+            return Op_void(false," not finite value: "+std::to_string(value));
+    }
+};
+
 struct Probability_value: public Probability
 {
     template <bool output,class C>
-    static bool test(const C& e, double tolerance)
+    static Op_void test(const C& e, double tolerance)
     {
-        if (e+tolerance<0)
+         if (!std::isfinite(e))
+         {    if constexpr(output)
+                   return  Op_void(false," not finite value="+ToString(e)+"\n");
+             else return Op_void(false,"");
+        }
+         else if (e+tolerance<0)
         {
             if constexpr(output)
-                    std::cerr<<" negative prob="<<e<<"\n";
-            return false;
+                   return  Op_void(false," negative prob="+ToString(e)+"\n");
+            else return Op_void(false,"");
         }
         else if (e-tolerance>1)
         {
             if constexpr(output)
-                    std::cerr<<" prob greater than one" <<e<< " 1- prob="<<1-e<<"\n";
-            return false;
+                   return  Op_void(false,"  prob greater than one" +ToString(e)+ " 1- prob="+ToString(1-e)+"\n");
+            else return Op_void(false,"");
 
         }
-        else return true;
+         else return Op_void(true,"");
     }
 };
 
@@ -1173,32 +1245,33 @@ struct Probability_value: public Probability
 struct Probability_distribution: public Probability
 {
     template<bool output,class P>
-    static bool test(const P& p,double tolerance)
+    static myOptional_t<void> test(const P& p,double tolerance)
     {
         double sum=0;
+        std::stringstream ss;
         for (std::size_t i=0; i<p.size(); ++i)
-            if (!Probability_value::test<output>(p[i],tolerance))
+            if (auto ch=Probability_value::test<output>(p[i],tolerance);!ch.has_value())
             {
                 if constexpr(output)
-                        std::cerr<<" p=\n"<<p<<" value test on p[i] i="<<i<<"p[i]="<<p[i]<<"\n";
-                return false;
+                        return Op_void(false,"p=\n"+ToString(p)+" value test on p[i] i="+std::to_string(i)+ch.error());
+                else
+                   return Op_void(false,"");
             }
             else sum+=p[i];
         if  (std::abs(sum-1.0)<tolerance)
-            return true;
+            return Op_void(true,"");
         else
         {
             if constexpr(output)
-                    std::cerr<<" p=\n"<<p<<" sum test sum="<<sum<<"\n";
-            return false;
+                    return Op_void(false," p=\n"+ToString(p)+" sum test sum="+ToString(sum)+"\n");
+            return Op_void(false,"");
         }
 
     }
 
     template<class P>
-    P static normalize(P&& p, double min_p,double tolerance)
+    P static normalize(P&& p, double min_p)
     {
-        assert(test<true>(p,tolerance));
         double sum=0;
         for (std::size_t i=0; i<p.size(); ++i)
         {
@@ -1252,10 +1325,8 @@ struct Probability_transition: public Probability
 
     }
 
-    M_Matrix<double> static normalize(M_Matrix<double>&& p, double min_p,double tolerance)
+    M_Matrix<double> static normalize(M_Matrix<double>&& p, double min_p)
     {
-        assert(test<true>(p,tolerance));
-
         for (std::size_t i=0; i<p.nrows(); ++i)
         {
             if (p(i,i)>1-min_p)
@@ -1286,24 +1357,22 @@ struct Probability_transition: public Probability
 struct Probability_distribution_covariance: public Probability
 {
 
-    static bool test_correlation(const M_Matrix<double>& p, std::size_t i, std::size_t j, double eps=std::sqrt(std::numeric_limits<double>::epsilon())*1000)
+    static Op_void test_correlation(const M_Matrix<double>& p, std::size_t i, std::size_t j, double eps=std::sqrt(std::numeric_limits<double>::epsilon())*1000)
     {
         double corr=sqr(p(i,j))/p(i,i)/p(j,j);
         if ((corr+eps<0)||(corr-eps>1))
         {
-            std::cerr<<"p: \n"<<p<<"\n p(ij)"<<p(i,j)<<"\n p(ii)"<<p(i,i)<<"\n p(jj)"<<p(j,j)<<"\n corr"<<corr<<" i="<<i<<" j="<<j;
-            return false;
-
+            std::stringstream ss;
+            ss<<"p: \n"<<p<<"\n p(ij)"<<p(i,j)<<"\n p(ii)"<<p(i,i)<<"\n p(jj)"<<p(j,j)<<"\n corr"<<corr<<" i="<<i<<" j="<<j;
+            return Op_void(false,ss.str());
         }
         else
-            return true;
+            return Op_void(true,"");
 
     }
 
-    template<bool output>
-    static M_Matrix<double> normalize(M_Matrix<double>&& p,double min_p,double tolerance)
+    static M_Matrix<double> normalize(M_Matrix<double>&& p,double min_p)
     {
-        assert(test<output>(p,tolerance));
         std::set<std::size_t> non_zero_i;
 
         for (std::size_t i=0; i<p.nrows(); ++i) {
@@ -1346,7 +1415,7 @@ struct Probability_distribution_covariance: public Probability
 
 
     template<bool output,class P>
-    static bool test(const P& p,double tolerance)
+    static Op_void test(const P& p,double tolerance)
     {
 
         for (std::size_t i=0; i<p.nrows(); ++i)
@@ -1355,10 +1424,12 @@ struct Probability_distribution_covariance: public Probability
             {
                 if constexpr(output)
                 {
-                    std::cerr<<"\ntolerance="<<tolerance<<"\n";
-                    std::cerr<<" pcov=\n"<<p<<"\n i="<<i<<" pcov(i,i)="<<p(i,i)<<"\n";
+                    std::stringstream ss;
+                    ss<<"\ntolerance="<<tolerance<<"\n";
+                    ss<<" pcov=\n"<<p<<"\n i="<<i<<" pcov(i,i)="<<p(i,i)<<"\n";
+                    return Op_void(false,ss.str());
                 }
-                return false;
+                return Op_void(false,"");
 
             }double sum=0;
             for (std::size_t j=0; j<p.ncols(); ++j)
@@ -1371,10 +1442,12 @@ struct Probability_distribution_covariance: public Probability
                     {
                         if constexpr(output){
                             double corr=sqr(p(i,j))/p(i,i)/p(j,j);
-                            std::cerr<<"tolerance="<<tolerance<<"\n";
-                            std::cerr<<" pcov=\n"<<p<<"\n i="<<i<<"j="<<j<<" pcov(i,j)="<<p(i,j)<<" corr="<<corr<<" pcov(i,i)"<<p(i,i)<<" pcov(j,j)"<<p(j,j)<<"\n";
+                            std::stringstream ss;
+                            ss<<"tolerance="<<tolerance<<"\n";
+                            ss<<" pcov=\n"<<p<<"\n i="<<i<<"j="<<j<<" pcov(i,j)="<<p(i,j)<<" corr="<<corr<<" pcov(i,i)"<<p(i,i)<<" pcov(j,j)"<<p(j,j)<<"\n";
+                            return  Op_void(false, ss.str());
                         }
-                        return false;
+                        return Op_void(false,"");
                     }
                     else
                         sum+=p(i,j);
@@ -1384,13 +1457,16 @@ struct Probability_distribution_covariance: public Probability
             {
                 if constexpr(output)
                 {
-                    std::cerr<<"tolerance="<<tolerance<<"\n";
-                    std::cerr<<" p=\n"<<p<<"\n i="<<i<<" p(i,j)="<<p(i,i)<<" sum="<<sum<<"\n";
+                    std::stringstream ss;
+                    ss<<"tolerance="<<tolerance<<"\n";
+                    ss<<" p=\n"<<p<<"\n i="<<i<<" p(i,j)="<<p(i,i)<<" sum="<<sum<<"\n";
+                    return  Op_void(false, ss.str());
+
                 }
-                return false;
+                return Op_void(false,"");
             }
         }
-        return true;
+        return Op_void(true,"");
     }
 
 };
@@ -1450,6 +1526,12 @@ template<typename T>
 class Probability_map: public Base_Probability_map<T>
 {
 public:
+    typedef  Probability_map self_type;
+    typedef  Cs<T> template_types;
+    constexpr static auto const className=my_static_string("Probability_map")+my_trait<template_types>::className;
+
+
+
     T sample(std::mt19937_64& mt)const
     {
         return sample_rev_map(rev_,mt);
@@ -1518,6 +1600,21 @@ public:
         return {Probability_map(out.first,nsamples),out.second};
     }
 
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+                    grammar::field(C<self_type>{},"probability_map",&self_type::p),
+                    grammar::field(C<self_type>{},"reverse_map",&self_type::reverse),
+                    grammar::field(C<self_type>{},"nsamples",&self_type::nsamples));
+    }
+    std::map<double,T> const & reverse()const {return rev_;}
+
+    Probability_map(const std::map<T,double>& myNormalized_map, const std::map<double,T>& reverseMap, double nsamples)
+        :
+          p_{myNormalized_map},rev_{reverseMap}, nsamples_(nsamples)
+    {
+
+    }
 
 
 private:
@@ -1531,6 +1628,11 @@ template<typename T>
 class logLikelihood_map: public Base_Probability_map<T>
 {
 public:
+    typedef  logLikelihood_map self_type;
+    typedef  Cs<T> template_types;
+    constexpr static auto const className=my_static_string("logLikelihood_map")+my_trait<template_types>::className;
+
+
     T sample(std::mt19937_64& mt) const override
     {
         return sample_rev_map(rev_,mt);
@@ -1571,6 +1673,26 @@ public:
 
 
     double nsamples()const override {return nsamples_;}
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+                    grammar::field(C<self_type>{},"log_probability_map",&self_type::logLik),
+                    grammar::field(C<self_type>{},"probability_map",&self_type::p),
+                    grammar::field(C<self_type>{},"reverse_map",&self_type::reverse),
+                    grammar::field(C<self_type>{},"evidence",&self_type::Evidence),
+                    grammar::field(C<self_type>{},"nsamples",&self_type::nsamples));
+    }
+    std::map<double,T> const & reverse()const {return rev_;}
+
+    double Evidence()const {return Evidence_;}
+
+    logLikelihood_map(const std::map<T,double>& mylogLikelihood_Map, const std::map<T,double>& myNormalized_map, const std::map<double,T>& reverseMap, double evidence, double nsamples)
+        : logLik_{myNormalized_map},
+          p_{myNormalized_map},rev_{reverseMap}, Evidence_{evidence},nsamples_(nsamples)
+    {
+
+    }
+
 
 private:
     std::map<T,double> logLik_;
@@ -1768,19 +1890,21 @@ struct One
 
 template<typename T>
 class markov_process
-
 {
 
 public:
+    markov_process(){};
+
     /*  * The type of the range of the distribution. */
     typedef T result_type;
-    /** Parameter type. */
 
+    /** Parameter type. */
     struct param_type
     {
         typedef markov_process<T> distribution_type;
         friend class markov_process<T>;
 
+        param_type()=default;
         explicit
         param_type(T _N, const M_Matrix<double>& P )
             : N_(_N), P_(P),rm_(P.nrows())
@@ -1806,6 +1930,7 @@ public:
         const M_Matrix<double>&
         P() const
         { return P_; }
+
 
         friend bool
         operator==(const param_type& __p1, const param_type& __p2)
@@ -1840,8 +1965,9 @@ public:
     };
 
 
+
     // constructors and member function
-    explicit
+
     markov_process(T __t,
                    const M_Matrix<double>& __p)
         : _M_param(__t, __p)

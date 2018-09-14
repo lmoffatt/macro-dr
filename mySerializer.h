@@ -74,6 +74,8 @@ std::istream& read(std::istream& is, double& e);
 
 template<typename ...Args> std::ostream& operator<<(std::ostream& os, const std::tuple<Args...>& tu);
 template<typename ...Args> std::ostream& write_tuple(std::ostream& os, const std::tuple<Args...>& tu);
+template<typename ...Args> std::ostream& write_tuple_i(std::ostream& os, const std::tuple<Args...>& tu, std::size_t i);
+
 template<typename ...Args> std::istream& operator>>(std::istream& is,  std::tuple<Args...>& tu);
 template<typename ...Args> std::istream& read_tuple(std::istream& is,  std::tuple<Args...>& tu);
 
@@ -753,6 +755,24 @@ template<typename ...Args> std::ostream& write_tuple(std::ostream& os, const std
     return os;
 }
 
+template<std::size_t I,typename ...Args >
+void write_tuple_i(std::ostream& os, const std::tuple<Args...>& tu, std::size_t i)
+{
+    if (i==I)
+       os<<std::get<I>(tu);
+}
+
+template<std::size_t...Is,typename ...Args>
+std::ostream& write_tuple_i(std::ostream& os, const std::tuple<Args...>& tu, std::size_t i, std::index_sequence<Is...>)
+{
+    (write_tuple_i<Is>(os,tu, i),...);
+    return os;
+}
+template<typename ...Args> std::ostream& write_tuple_i(std::ostream& os, const std::tuple<Args...>& tu, std::size_t i)
+{
+   return write_tuple_i(os,tu,i,std::index_sequence_for<Args...>());
+}
+
 
 template<typename ...Args> std::istream& read_tuple(std::istream& is,  std::tuple<Args...>& tu)
 {
@@ -781,6 +801,7 @@ std::ostream& output_operator_on_Field(std::ostream& os,const grammar::field<Obj
     os<<std::invoke(myField.access_method,myObject)<<io::end_of_line{};
     return os;
 }
+
 
 
 template<class FieldObject>
