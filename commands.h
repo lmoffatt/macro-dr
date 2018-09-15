@@ -244,6 +244,7 @@ struct likelihood{
 
     static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance)
     {
+        std::cerr<<"\nparameters\n"<<p;
         SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P);
 
 
@@ -353,6 +354,9 @@ struct Evidence{
                     bool gradient)
     {
 
+        std::cerr<<"\nPriorParameters\n";
+        std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean());
+
         Markov_Model_DLikelihood<Model,Experiment> lik(m,p,e,algorithm,min_P, tolerance);
         if (initseed==0)
         {
@@ -364,6 +368,7 @@ struct Evidence{
             std::cerr<<"\n ## provided seed  ## \n initseed="<<initseed<<"\n";
 
         std::mt19937_64 mt(initseed);
+        std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt));
         evidence::OutputGenerator out(std::cerr,parameters,gradient);
 
         return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model>(p),lik,mt,betas,landa,landa_50_hill,gain_moment,nSamples,out).error();

@@ -105,6 +105,15 @@ inline std::pair<double,double> logit(double x,double sd){
 
 
 inline double logistic(double x){return 1.0/(1.0+std::exp(-x));}
+inline double log10it(double x){return std::log10(x/(1.0-x));}
+
+
+
+inline std::pair<double,double> log10it(double x,double sd){
+    return {std::log10(x/(1.0-x)),sd/(x*(1.0-x))};}
+
+
+inline double log10istic(double x){return 1.0/(1.0+std::pow(10.0,-x));}
 
 
 template <class T> class Identity_Transformation;
@@ -191,8 +200,8 @@ public:
     constexpr static auto const className=my_static_string("Logit_Transformation");
 
     virtual Logit_Transformation* clone()const override{ return new Logit_Transformation(*this);};
-    virtual double apply(const double& x)const override  {return logit(x);}
-    virtual double apply_inv(const double& x)const override {return logistic(x);}
+    virtual double apply(const double& x)const override  {return log10it(x);}
+    virtual double apply_inv(const double& x)const override {return log10istic(x);}
 
     virtual ~Logit_Transformation(){}
 
