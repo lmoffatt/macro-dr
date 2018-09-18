@@ -676,17 +676,20 @@ public:
     {
           static Op_void test(const M_Matrix<double> landa, double tol)
           {
+              std::size_t num_zeros=0;
               bool has_zero_value=false;
               bool has_positive_value=false;
               double lamax=maxAbs(landa);
-              double tolerance=tol*lamax;
+              if (!std::isfinite(lamax))
+                  return Op_void(false," landa has a nonfinite maximum value: "+ToString(lamax));
+              double tolerance=tol;
               std::stringstream ss;
               are_zero<false,double> is_zero(tolerance);
               are_non_positive<true,double> is_neg(tolerance);
               for (std::size_t i=0; i<landa.size(); ++i)
               {
                   if (is_zero.test(landa[i],ss))
-                      has_zero_value=true;
+                      num_zeros++;
                   else if (!is_neg.test(landa[i],ss))
                   {
                       has_positive_value=true;
@@ -694,12 +697,15 @@ public:
                   }
               }
 
-              if (has_zero_value&&!has_positive_value)
+              if ((num_zeros==1)&&!has_positive_value)
+              {
+               //   std::cerr<<"\naccepted landa!!\n"<<landa;
                   return Op_void(true,"");
-              else if (!has_zero_value&&!has_positive_value)
-                  return Op_void(false," landa lacks a zero value: "+ss.str());
-              else if (!has_zero_value&&has_positive_value)
-                  return Op_void(false," landa lacks a zero value and has positive value(s): "+ss.str());
+              }
+              else if ((num_zeros!=1)&&!has_positive_value)
+                  return Op_void(false," landa has "+ToString(num_zeros) +" zero values");
+              else if ((num_zeros!=1)&&has_positive_value)
+                  return Op_void(false," landa has "+ToString(num_zeros) +" zero values and has positive value(s): "+ss.str());
               else
                   return Op_void(false," landa has positive value(s): "+ss.str());
 

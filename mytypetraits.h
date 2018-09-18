@@ -81,7 +81,7 @@ struct Derived_types{
 };
 
 template <class T>
-using Derived_types_t=typename Derived_types<T>::type;
+using Derived_types_t=typename Derived_types<std::decay_t<T>>::type;
 template <class T>
 constexpr bool static Derived_types_v=Derived_types<T>::value;
 
@@ -618,9 +618,9 @@ struct my_tag
     //    typedef typename T::_in_my_tag dff;
     typedef
     std::conditional_t<is_tuple<dT>::value, tuple_tag,
-    std::conditional_t<Derived_types_v<dT>, base_tag,
     std::conditional_t<is_field_Object<dT>::value, object_tag,
-    std::conditional_t<is_arg_Command<dT>::value, command_tag,
+    std::conditional_t<Derived_types_v<dT>, base_tag,
+   std::conditional_t<is_arg_Command<dT>::value, command_tag,
     std::conditional_t<is_pair<dT>::value, pair_tag,
     std::conditional_t<has_value_type_v<dT>,
     std::conditional_t<has_mapped_type_v<dT>,map_tag, value_tag>,

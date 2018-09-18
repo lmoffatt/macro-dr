@@ -242,6 +242,10 @@ public:
     ///
     // <T> get(C<T>,std::enable_if_t<std::is_const_v<T>||!std::is_lvalue_reference_v<T>,const std::string&> id)const
 
+
+
+
+
     template<typename T>
     bool has(C<T>,std::enable_if_t<!is_variable_ref_v<T>,const std::string&> id)const
     {
@@ -270,8 +274,7 @@ public:
         return  m.find(id)!=m.end();
     }
     
-    
-    
+
     
     
     ///----------------------
@@ -284,6 +287,7 @@ public:
             auto&  m=  std::get<typename Dm::template def_map<T>>(d_.fe_);
             m.emplace(id,c);
             d_.sta_.emplace(id,c);
+
         }
     }
     

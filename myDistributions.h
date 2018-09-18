@@ -774,7 +774,7 @@ public:
     double logP(const M_Matrix<E> &x) const override
     {
         if (param_.size()>0)
-            return -0.5*mean().size()*log(PI)-logDetCov()-chi2(x);
+            return -0.5*(mean().size()*log(PI)+logDetCov()+chi2(x));
         else
             return std::numeric_limits<double>::quiet_NaN();
     }
@@ -801,7 +801,7 @@ public:
     double chi2(const M_Matrix<E> &x) const
     {
         if (!param_.empty())
-            return 0.5*xTSigmaX(x-mean(),covinv_);
+            return xTSigmaX(x-mean(),covinv_);
         else return std::numeric_limits<double>::quiet_NaN();
     }
 
@@ -873,7 +873,7 @@ static    myOptional_t<Normal_Distribution> make(const M_Matrix<E> &mean,
 
     void autoTest(std::mt19937_64& mt,std::size_t n)const
     {
-        std::cerr<<"\n chi test n="<<mean().size()<<" chis\n";
+      //  std::cerr<<"\n chi test n="<<mean().size()<<" chis\n";
         double chisum=0;
         double chisqr=0;
         for (std::size_t i=0; i<n; ++i)
@@ -887,7 +887,7 @@ static    myOptional_t<Normal_Distribution> make(const M_Matrix<E> &mean,
         chisum/=n;
         chisqr-=n*chisum*chisum;
         chisqr/=(n-1);
-        std::cerr<<"\n chimean="<<chisum<<" chisqr="<<chisqr<<"\n";
+        std::cerr<<"\n chi test n="<<mean().size()<<" chimean="<<chisum<<" chisqr="<<chisqr<<"\n";
     }
     bool isValid()const
     {

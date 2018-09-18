@@ -26,7 +26,7 @@ class mp_state_information
     
 public:
     static Op_void close_to_zero_test(const M_Matrix<double>& P_mean__,
-                        double tolerance)
+                                      double tolerance)
     {
         std::stringstream ss;
         auto ck_mean=are_in_range<true,M_Matrix<double>>(false,0,1,tolerance).test(P_mean__,ss);
@@ -37,9 +37,24 @@ public:
             return Op_void(false,"a probability value crossed zero: "+ss.str());
         }
     }
+
+    static Op_void is_Binomial_Approximation_valid(double N, double p, double q, double Np_min)
+    {
+        std::stringstream ss;
+        if(!are_not_less<true,double>(std::numeric_limits<double>::epsilon()).test(N*p,Np_min,ss))
+            return Op_void(false,"Np failed: "+ss.str());
+        else if (!are_not_less<true,double>(std::numeric_limits<double>::epsilon()).test(N*q,Np_min,ss))
+            return Op_void(false,"Nq failed: "+ss.str());
+        else
+        {
+            return Op_void(true,"");
+        }
+    }
+
+
     static Op_void test(const M_Matrix<double>& P_mean__,
                         const M_Matrix<double>& P_cov__,
-                       double tolerance)
+                        double tolerance)
     {
         auto ck_mean=Probability_distribution::test<true>(P_mean__,tolerance);
         auto ck_cov=Probability_distribution_covariance::test<true>(P_cov__,tolerance);
@@ -141,11 +156,10 @@ class MacroDR
 public:
     inline constexpr static auto const className=my_static_string("MacroDR");
 
-    template< class Model, class Step>
-    myOptional_t<mp_state_information> run(const mp_state_information& prior,  Model& m,const Step& p )const
+    template< class Model, class Step, class...Aux>
+    myOptional_t<mp_state_information> run(const mp_state_information& prior,  Model& m,const Step& p,std::ostream& os,Aux&...aux )const
     {
         typedef   myOptional_t<mp_state_information> Op;
-        //double eps=std::numeric_limits<double>::epsilon();
         auto Q_dto=m.get_P(p,0);
         if (!Q_dto)
             return Op(false,"fails in auto Q_dt=m.get_P(p,0) :"+Q_dto.error());
@@ -157,7 +171,7 @@ public:
         //  areEqual(Q_dt,Q_dt2,1e-6);
 
         double e=m.noise_variance(p.nsamples());
-        //      double dt=p.nsamples()/m.fs();
+        //
         double N=m.AverageNumberOfChannels();
         M_Matrix<double> u(prior.P_mean().size(),1,1.0);
 
@@ -173,63 +187,16 @@ public:
 
 
         double ms=(prior.P_mean()*Q_dt.gvar_i()).getvalue();
-        double ms0;
-        double delta_emu=sqr(ms+e/N)-2.0/N*sSs;
-        if (delta_emu>0)
-        {
-            ms0=(ms-e/N)/2+std::sqrt(delta_emu)/2;
-           // std::cerr<<"(ms0==ms-sSs/(2*(e+N*ms0)))="<<(ms0==ms-sSs/(2*(e+N*ms0)))<< "ms0="<<ms0;
-            assert((are_Equal<true,double>(std::numeric_limits<double>::epsilon()*1000).test(ms0,ms-sSs/(2*(e+N*ms0)))));
-
-        }
-        else
-        {
-            ms0=ms;
-            //  assert(false);
-        }
-        if (false && (ms0<0))
-        {
-            std::stringstream ss;
-            ss<<"\n ms0 is negative!! \n ms0=(ms-e/N)/2+std::sqrt(delta_emu)/2;\nms0="<<ms0<<"\n ms="<<ms<<"\n e/N/2="<<e/N;
-            ss<<"\n N="<<N;
-            ss<<"\n std::sqrt(delta_emu)/2="<<std::sqrt(delta_emu)/2;
-            ss<<"\ndelta_emu=sqr(ms+e/N)-2.0/N*sSs \nsqr(ms+e/N)="<<sqr(ms+e/N)<<" 2.0/N*sSs="<<2.0/N*sSs<<" sSs="<<sSs;
-            ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
-            return Op(false,ss.str());
-        }
-
+        double delta_emu=std::max(sqr(ms+e/N)-2.0/N*sSs,0.0);
+        double  ms0=(ms-e/N)/2+std::sqrt(delta_emu)/2;
+        // std::cerr<<"(ms0==ms-sSs/(2*(e+N*ms0)))="<<(ms0==ms-sSs/(2*(e+N*ms0)))<< "ms0="<<ms0;
+        //assert((are_Equal<true,double>(std::numeric_limits<double>::epsilon()*1000).test(ms0,ms-sSs/(2*(e+N*ms0)))));
 
         auto e_mu=e+N*ms0;
         auto y_mean=N*(prior.P_mean()*Q_dt.gmean_i()).getvalue()-N*0.5/e_mu*sSg;
         auto zeta=N/(2*sqr(e_mu)+N*sSs);
-        if (zeta<0)
-        {
-            std::cerr<<"\n****************************************   negative e_4!!!!****\n";
-            std::cerr<<"\n t= "<<p.x().t()<<" x="<<p.x().x()<<" y="<<p.y();
-            std::cerr<<"\t N*gSg= "<<N*gSg;
-            std::cerr<<"\t e_4= 2*sqr(e_mu)- N*sSs="<<zeta<<"\t";
-            std::cerr<<"\t N*sSs=\t"<<N*sSs;
-            std::cerr<<"\t 2*sqr(e_mu)="<<2*sqr(e_mu);
-            zeta=-zeta;
-            std::cerr<<"\n****************************************   negative e_4!!!!****\n";
-
-        }
-        auto y_var=e_mu+N*gSg-N*zeta*sqr(sSg);
-        if (!variance_value::test<true>(y_var,e,Q_dt.min_P()))
-        {
-            y_var=e;
-        }
-            auto y=p.y();
-
-
-        if constexpr(true)
-        {
-          //  std::cerr<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
-        //    std::cerr<<"\n step="<<p<<" "<<" y="<<y<<" ymean="<<y_mean<<" yvar="<<y_var<<" e="<<e<<" e_mu"<<e_mu<<" N*gSg"<<N*gSg<<" -N*zeta*sSg="<<-N*zeta*sqr(sSg);
-
-           // std::cerr<<"delta_emu="<<delta_emu<<"  sqr(ms+e/N)="<<sqr(ms+e/N)<<" -2/N*sSs="<<-2/N*sSs<<" ms="<<ms<<" sSs="<<sSs<<" sSg="<<sSg<<" gSg="<<gSg<<"\n";
-        }
-
+        auto y_var=std::max(e_mu+N*gSg-N*zeta*sqr(sSg),e);
+        auto y=p.y();
         if (std::isnan(y))
         {
             double plogL=std::numeric_limits<double>::quiet_NaN();
@@ -240,7 +207,7 @@ public:
             // std::cerr<<"\nPcov nana corr\n"<<P__cov<<"\nP_mean nana corr\n"<<P_mean<<"\nQ.P \n"<<Q_dt.P();
             auto test=mp_state_information::test(P_mean,P__cov,tolerance_);
             if (test.has_value())
-               return Op(mp_state_information::adjust(std::move(P_mean),std::move(P__cov),y_mean,y_var,plogL,eplogL, Q_dt.min_P(),e));
+                return Op(mp_state_information::adjust(std::move(P_mean),std::move(P__cov),y_mean,y_var,plogL,eplogL, Q_dt.min_P(),e));
             else
                 return Op(false,"fails at intertrace prediction!!: "+test.error());
         }
@@ -265,12 +232,24 @@ public:
                 plogL=std::numeric_limits<double>::infinity();
 
             double eplogL=-0.5*log(2*PI*y_var)-0.5;  //e_mu+N*gSg"-N*zeta*sqr(sSg)"
-            //  std::cerr<<"\n t= "<<p.x().t()<<" nsamples="<<p.nsamples()<<" dt="<<dt<<" x="<<p.x().x()<<" y="<<p.y()<<" y_mean="<<y_mean<<" chi2="<<chi2<<" y_var"<<y_var;
-            //   std::cerr<<" e="<<e<<" ms="<<ms<<" ms0="<<ms0<<" e_mu="<<e_mu<<" N*gSg="<<N*gSg;
-            //   std::cerr<<" -N*zeta*sqr(sSg)="<<-N*zeta*sqr(sSg)<< " plogL="<<plogL<< " eplogL="<<eplogL<<"dif="<<plogL-eplogL<<" sSs="<<sSs;
-            //  std::cerr<<"\nPcov \n"<<P__cov;
-            //  std::cerr<<"\nP_mean \n"<<P_mean;
-            //  std::cerr<<"\n Qdt\n"<<Q_dt;
+               double dt=p.nsamples()/m.fs();
+           //   os<<"\n t= "<<p.x().t()<<" nsamples="<<p.nsamples()<<" dt="<<dt<<" x="<<p.x().x()<<" y="<<p.y()<<" y_mean="<<y_mean;
+              //os<<" chi2="<<chi2<<" y_var"<<y_var;
+              double mg=(prior.P_mean()*Q_dt.gmean_i()).getvalue();
+              double g_max=max(Q_dt.g());
+              double g_min=min(Q_dt.g());
+              double g_range=g_max-g_min;
+              auto p_bi=(g_max-mg)/g_range;
+              auto q_bi=(mg-g_min)/g_range;
+              double Neff=p_bi*q_bi/gSg*sqr(g_range);
+          //    os<<" mg="<<mg;
+         //     os<<" g_max="<<g_max<<" g_min="<<g_min;
+          //    os<<"\t p_bi="<<p_bi<<" q_bi="<<q_bi<<" min(Nq,Np)="<<std::min(N*q_bi,N*p_bi)<<" Neff="<<Neff<<" NeffNp="<<std::min(N*q_bi,N*p_bi)*Neff;
+            //   os<<" e="<<e<<" ms="<<ms<<" ms0="<<ms0<<" e_mu="<<e_mu<<" N*gSg="<<N*gSg;
+            //   os<<" -N*zeta*sqr(sSg)="<<-N*zeta*sqr(sSg)<< " plogL="<<plogL<< " eplogL="<<eplogL<<"dif="<<plogL-eplogL<<" sSs="<<sSs;
+            //  os<<"\nPcov \n"<<P__cov;
+            //  os<<"\nP_mean \n"<<P_mean;
+            //  os<<"\n Qdt\n"<<Q_dt;
             if (auto test=variance_value::test<true>(y_var,e,e*tolerance()); !test.has_value())
             {
                 std::stringstream ss;
@@ -287,10 +266,40 @@ public:
                 return Op(false,"error in variance!! "+test.error() +ss.str());
             }
 
-            auto testzero=mp_state_information::close_to_zero_test(P_mean,0);
-            if (!testzero.has_value())
+            Op_void test_Binomial;
+            if constexpr (sizeof... (Aux)>0)
             {
-          //      std::cerr<<" \n\n----test----\n"<<test.error()<<"\n";
+                if constexpr ((std::is_const_v<Aux>&&...))
+                   {
+                    (test_Binomial=...=aux);
+//                   if (test_Binomial.has_value())
+//                       os<<" use 1 \t";
+//                   else
+//                       os<<" use 0 \t"<<test_Binomial.error()<<"\t";
+                }
+                else
+                {
+                    test_Binomial=mp_state_information::is_Binomial_Approximation_valid(N,p_bi,q_bi,5);
+                    (aux=...=test_Binomial);
+//                    if (test_Binomial.has_value())
+//                        os<<" set 1\t";
+//                    else
+//                        os<<" set 0 \t"<<test_Binomial.error()<<"\t";
+                }
+            }
+            else
+            {
+                test_Binomial=mp_state_information::is_Binomial_Approximation_valid(N,p_bi,q_bi,5);
+//                if (test_Binomial.has_value())
+//                    os<<" tes 1 \t";
+//              else
+//                     os<<" tes 0 \t"<<test_Binomial.error()<<"\t";
+
+            }
+
+            if (!test_Binomial.has_value())
+            {
+                //      std::cerr<<" \n\n----test----\n"<<test.error()<<"\n";
                 P__cov=quadraticForm_BT_A_B(SmD,Q_dt.P());
                 P_mean = prior.P_mean()*Q_dt.P();
                 P__cov+=diag(P_mean);
@@ -318,7 +327,7 @@ public:
                 return Op(false,"\nfails in trace!!!; error="+test.error()+ss.str());
             }
             else
-            return Op(mp_state_information::adjust(std::move(P_mean),std::move(P__cov),y_mean,y_var,plogL,eplogL, Q_dt.min_P(),e));
+                return Op(mp_state_information::adjust(std::move(P_mean),std::move(P__cov),y_mean,y_var,plogL,eplogL, Q_dt.min_P(),e));
 
 
         }
@@ -475,7 +484,7 @@ public:
 
             //assert((are_Equal<true, M_Matrix<double>>(Q_dt.min_P(),Q_dt.min_P()).test_prod(P_cov_,P_cov,std::cerr)));
 
-           if (!(diag(P_cov)>=0.0)||!(diag(P_cov)<=1.0))
+            if (!(diag(P_cov)>=0.0)||!(diag(P_cov)<=1.0))
             {
                 for (std::size_t i=0;i<ncols(P_cov);i++)
                 {
@@ -498,13 +507,13 @@ public:
         typedef myOptional_t<mp_state_information> Op;
 
         auto P_mean=m.Peq(p.begin()->x());
-      //  std::cerr<<"gslreijgsorjgps INIT!!!"<<P_mean.value();
+        //  std::cerr<<"gslreijgsorjgps INIT!!!"<<P_mean.value();
         if (! P_mean)
             return Op(false,"fails to get Peq :"+P_mean.error());
         else
         {
             auto P_cov=diag(P_mean.value())-quadraticForm_XTX(P_mean.value());
-       //     std::cerr<<"gslreijgsorjgps INIT!!!"<<P_cov;
+            //     std::cerr<<"gslreijgsorjgps INIT!!!"<<P_cov;
             double nan=std::numeric_limits<double>::quiet_NaN();
             return Op(mp_state_information::adjust(std::move(P_mean).value(),std::move(P_cov),nan,nan,nan,nan, min_p,0));
         }
@@ -514,7 +523,7 @@ public:
     MacroDR(double tolerance):tolerance_{tolerance}{}
     MacroDR()=default;
 private:
-   double tolerance_=1e-5;
+    double tolerance_=1e-5;
     
 };
 
@@ -587,13 +596,74 @@ struct partialDistribution_function
 
 };
 
-
-
-
-template<class F, class MacroDR,class Model,template<class, class > class Experiment, class Point, class Measure>
-auto logLikelihood_experiment_calculation(const F& f,const MacroDR& a,  Model& m,const Experiment<Point,Measure>& e)
+template<bool calc,class aux=Op_void>
+struct partialDistribution_function_aux
 {
-    auto out=f(e);
+    template<class Experiment>
+    auto operator()(const Experiment& e,const std::vector<aux>& a)const
+    {
+        std::size_t n=e.num_measurements();
+
+        return std::vector<Normal_Distribution<double>>(n);
+
+    }
+
+    template<class Experiment>
+    auto operator()(const Experiment& e,std::vector<aux>& a)const
+    {
+        std::size_t n=e.num_measurements();
+
+
+        if constexpr(calc)
+        {
+            a.resize(n);
+        return std::pair(std::vector<Normal_Distribution<double>>(n),std::vector<aux>(n));
+        }
+        else
+
+        return std::vector<Normal_Distribution<double>>(n);
+
+    }
+
+
+    // template<class mp_state_information>
+    void operator()(const mp_state_information& mp,std::pair<std::vector<Normal_Distribution<double>>, std::vector<aux>>& v, std::size_t& i, aux& test)const
+    {
+        if (std::isfinite(mp.plogL()))
+        {
+            v.first[i]=Normal_Distribution<double>(mp.y_mean(),mp.y_var());
+            v.second[i]=test;
+            ++i;
+        }
+        else // hack to avoid including intervals in the Jacobian calculation
+        {
+            v.first[i]=Normal_Distribution<double>(0,1);
+            v.second[i]=test;
+            ++i;
+        }
+    }
+    void operator()(const mp_state_information& mp,std::vector<Normal_Distribution<double>>& v, std::size_t& i,const aux& )const
+    {
+        if (std::isfinite(mp.plogL()))
+        {
+            v[i]=Normal_Distribution<double>(mp.y_mean(),mp.y_var());
+            ++i;
+        }
+        else // hack to avoid including intervals in the Jacobian calculation
+        {
+            v[i]=Normal_Distribution<double>(0,1);
+            ++i;
+        }
+    }
+
+};
+
+
+
+template<class F, class MacroDR,class Model,template<class, class > class Experiment, class Point, class Measure, class... Aux>
+auto logLikelihood_experiment_calculation(const F& f,const MacroDR& a,  Model& m,const Experiment<Point,Measure>& e, std::ostream& os, Aux&... aux)
+{
+    auto out=f(e,aux...);
     typedef myOptional_t<std::decay_t<decltype (out)>> Op;
 
     auto first_step=*e.begin_begin();
@@ -603,22 +673,22 @@ auto logLikelihood_experiment_calculation(const F& f,const MacroDR& a,  Model& m
     std::size_t i=0;
     for (auto it=e.begin_begin(); it!=e.end_end(); ++it)
     {
-        auto post=a.run(prior.value(),m,*it);
+        auto post=a.run(prior.value(),m,*it, os,aux[i]...);
         if (!post.has_value())
             return Op(false,"calculation interrupted at "+ToString(*it)+"  :"+post.error());
         else
         {
-         f(post.value(),out,i);
-          prior.value()=std::move(post).value();
+            f(post.value(),out,i, aux[i]...);
+            prior.value()=std::move(post).value();
         }
     }
     return Op(out);
     
 }
 template<class MacroDR,class Model,class Experiment>
-myOptional_t<double> logLikelihood(const MacroDR& a, Model& m, const Experiment e )
+myOptional_t<double> logLikelihood(const MacroDR& a, Model& m, const Experiment e , std::ostream& os)
 {
-    return logLikelihood_experiment_calculation(logLikelihood_function(),a,m,e);
+    return logLikelihood_experiment_calculation(logLikelihood_function(),a,m,e,os);
 }
 
 template<class MacroDR,class Model,class Experiment>
@@ -631,6 +701,19 @@ template<class MacroDR,class Model,class Experiment>
 myOptional_t<std::vector<Normal_Distribution<double>>> partialDistribution(const MacroDR& a, Model& m, const Experiment e )
 {
     return logLikelihood_experiment_calculation(partialDistribution_function(),a,m,e);
+}
+
+template<class MacroDR,class Model,class Experiment>
+myOptional_t<std::pair<std::vector<Normal_Distribution<double>>,std::vector<Op_void>>> partialDistribution_aux(const MacroDR& a, Model& m, const Experiment e, std::ostream& os )
+{
+    std::vector<Op_void> aux;
+    return logLikelihood_experiment_calculation(partialDistribution_function_aux<true>(),a,m,e, os,aux);
+}
+
+template<class MacroDR,class Model,class Experiment>
+myOptional_t<std::vector<Normal_Distribution<double>>> partialDistribution_aux(const MacroDR& a, Model& m, const Experiment e , std::ostream& os,const std::vector<Op_void>& aux)
+{
+    return logLikelihood_experiment_calculation(partialDistribution_function_aux<false>(),a,m,e,os,aux);
 }
 
 
@@ -683,14 +766,14 @@ struct partialLogLikelihood_monitor_function
 
 
 template<class MacroDR,class Model,class Experiment>
-auto monitorLikelihood(const MacroDR& a, Model& m, const Experiment e )
+auto monitorLikelihood(const MacroDR& a, Model& m, const Experiment e , std::ostream& os)
 {
     typedef  myOptional_t< experiment::basic_Experiment<experiment::point<double,double>,measure_likelihood<double>>> Op;
-    auto v= logLikelihood_experiment_calculation(partialLogLikelihood_monitor_function<measure_likelihood<double>>(),a,m,e);
+    auto v= logLikelihood_experiment_calculation(partialLogLikelihood_monitor_function<measure_likelihood<double>>(),a,m,e,os);
     if (!v.has_value())
         return Op(false,"logLikelihood_experiment_calculation fails :"+v.error());
     else
-     return Op(experiment::basic_Experiment<experiment::point<double,double>,measure_likelihood<double>>(e,std::move(v).value()));
+        return Op(experiment::basic_Experiment<experiment::point<double,double>,measure_likelihood<double>>(e,std::move(v).value()));
 }
 
 

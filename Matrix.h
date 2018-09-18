@@ -3981,7 +3981,7 @@ symmetric_chol(const M_Matrix<double>& x,const std::string& kind)
     }
     else
     {
-        //assert((kind=="lower"? (are_Equal<true,M_Matrix<double>>().test_sum(res*Transpose(res),x, std::cerr)) :(are_Equal<true,M_Matrix<double>>().test_sum(Transpose(res)*res,x, std::cerr))));
+        assert((kind=="lower"? (are_Equal<true,M_Matrix<double>>().test_sum(res*Transpose(res),x, std::cerr)) :(are_Equal<true,M_Matrix<double>>().test_sum(Transpose(res)*res,x, std::cerr))));
         return Op(res);
     }
 
@@ -4912,7 +4912,7 @@ inline M_Matrix<double> Lapack_Symmetric_Regular_Product
         cols_e=Sym.ncols();
     }
     //  assert(rows_i==cols_i);
-    //assert((SymReg? Reg.nrows()==Sym.ncols(): Sym.nrows()==Reg.ncols() ));
+    assert((SymReg? Reg.nrows()==Sym.ncols(): Sym.nrows()==Reg.ncols() ));
     // First it has to find out if the last dimension of x matches the
     //first of y
     // now we build the M_Matrix result
@@ -5124,9 +5124,6 @@ M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
 
 
 
-
-
-
 template<typename T, typename S>
 auto
 quadraticForm_Symmetric (const M_Matrix<T>& A, const M_Matrix<S>& B)
@@ -5143,6 +5140,43 @@ quadraticForm_Symmetric (const M_Matrix<T>& A, const M_Matrix<S>& B)
     return out;
 
 }
+
+
+
+template<typename T, typename S>
+auto
+quadraticForm_Diagonal (const M_Matrix<T>& A, const M_Matrix<S>& B)
+->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
+{
+    typedef   decltype(std::declval<T>()*std::declval<S>()) R;
+
+    M_Matrix<R> out(B.ncols(),B.ncols(),M_Matrix<R>::SYMMETRIC, R{});
+    for (std::size_t i=0; i<out.nrows(); ++i)
+        for (std::size_t j=i; j<out.ncols(); ++j)
+            for (std::size_t k=0; k<B.nrows(); ++k)
+                out(i,j)+=B(k,i)*A(k,k)*B(k,j);
+    return out;
+
+}
+
+template<typename T, typename S>
+auto
+quadraticForm_Diagonal_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
+->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
+{
+    typedef   decltype(std::declval<T>()*std::declval<S>()) R;
+
+    M_Matrix<R> out(B.nrows(),B.nrows(),M_Matrix<R>::SYMMETRIC, R{});
+    for (std::size_t i=0; i<out.nrows(); ++i)
+        for (std::size_t j=i; j<out.ncols(); ++j)
+            for (std::size_t k=0; k<B.ncols(); ++k)
+                out(i,j)+=B(i,k)*A(k,k)*B(j,k);
+    return out;
+
+}
+
+
+
 
 template<typename T, typename S>
 auto
@@ -5620,7 +5654,7 @@ Matrix_Multiplication
 {
     typedef decltype(std::declval<T>()*std::declval<S>()) R;
     M_Matrix<R> out=All_Product(one,other,transposeOne,transposeOther);
-    //assert((are_Equal<true,M_Matrix<R>>().test_sum(out,UnformattedProduct(one,other),std::cerr)));
+    assert((are_Equal<true,M_Matrix<R>>().test_sum(out,UnformattedProduct(one,other),std::cerr)));
     return out;
 }
 
@@ -5790,6 +5824,8 @@ quadraticForm_BT_A_B (const M_Matrix<T>& A, const M_Matrix<S>& B)
     if ((A.type()==M_Matrix<T>::ZERO)||
             (B.type()==M_Matrix<S>::ZERO))
         return M_Matrix<R>(B.ncols(),B.ncols(),M_Matrix<R>::ZERO);
+    else if (A.isDiagonal())
+        return product::quadraticForm_Diagonal(A,B);
     else if (A.isSymmetric())
         return product::quadraticForm_Symmetric(A,B);
     else
@@ -5808,6 +5844,8 @@ quadraticForm_B_A_BT (const M_Matrix<T>& A, const M_Matrix<S>& B)
     if ((A.type()==M_Matrix<T>::ZERO)||
             (B.type()==M_Matrix<S>::ZERO))
         return M_Matrix<R>(B.nrows(),B.nrows(),M_Matrix<R>::ZERO);
+    else if (A.isDiagonal())
+        return product::quadraticForm_Diagonal_T(A,B);
     else if (A.isSymmetric())
         return product::quadraticForm_Symmetric_T(A,B);
     else

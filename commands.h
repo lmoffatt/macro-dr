@@ -252,7 +252,7 @@ struct likelihood{
 
         if (algorithm==my_trait<markov::MacroDR>::className.str())
         {
-            auto out= markov::logLikelihood(markov::MacroDR(tolerance),MC,e);
+            auto out= markov::logLikelihood(markov::MacroDR(tolerance),MC,e, std::cerr);
             if (out.has_value())
             std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
             else std::cerr<<out.error();
@@ -295,7 +295,7 @@ struct likelihood_detail{
 
         if (algorithm==my_trait<markov::MacroDR>::className.str())
         {
-            return markov::monitorLikelihood(markov::MacroDR(tolerance),MC,e);
+            return markov::monitorLikelihood(markov::MacroDR(tolerance),MC,e, std::cerr);
         }
 
         else return Op(false,"algorithm "+algorithm+" is not recognized");
@@ -332,7 +332,7 @@ struct my_trait < singleLigandLikelihood >
 
 
 
-template<class Experiment,class Model>
+template<class Experiment,class Model, class ParametersDistribution>
 struct Evidence{
 
 
@@ -340,8 +340,10 @@ struct Evidence{
 
     static auto run(const Experiment& e,
                     const Model& m ,
-                    const Parameters_distribution<Model>& p,
+                    const ParametersDistribution& p,
                     std::string algorithm,
+                    double pjump,
+                    double eps_Gradient,
                     double min_P,
                     double tolerance,
                     std::mt19937_64::result_type initseed,
@@ -357,7 +359,7 @@ struct Evidence{
         std::cerr<<"\nPriorParameters\n";
         std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean());
 
-        Markov_Model_DLikelihood<Model,Experiment> lik(m,p,e,algorithm,min_P, tolerance);
+        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance);
         if (initseed==0)
         {
             std::random_device rd;
@@ -371,7 +373,7 @@ struct Evidence{
         std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt));
         evidence::OutputGenerator out(std::cerr,parameters,gradient);
 
-        return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model>(p),lik,mt,betas,landa,landa_50_hill,gain_moment,nSamples,out).error();
+        return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,out).error();
     }
 
     static auto get_arguments()
@@ -379,8 +381,10 @@ struct Evidence{
         return std::make_tuple(
                     grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
                     grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
-                    grammar::argument(C<const Parameters_distribution<Model>&>{},"model_parameters_distribution"),
+                    grammar::argument(C<const ParametersDistribution&>{},"model_parameters_distribution"),
                     grammar::argument(C<std::string>{},"algorithm"),
+                    grammar::argument(C<double>{},"p_jump"),
+                    grammar::argument(C<double>{},"eps_G"),
                     grammar::argument(C<double>{},"min_probability"),
                     grammar::argument(C<double>{},"tolerance_error"),
                     grammar::argument(C<std::mt19937_64::result_type>{},"initseed"),
@@ -407,7 +411,8 @@ struct Objects
     function_log10,
     simulate<singleLigandExperiment,Allosteric_Model>, likelihood<singleLigandExperiment,Allosteric_Model>,
     likelihood_detail<singleLigandExperiment,Allosteric_Model>,
-    Evidence<singleLigandExperiment,Allosteric_Model>,
+    Evidence<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
+    Evidence<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
 
     to_experiment, to_DataFrame<measure_just_y<double>>, to_DataFrame<markov::measure_likelihood<double>>> commands;
     typedef CCs<save,write_variable> templateCommands;

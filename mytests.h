@@ -87,7 +87,7 @@ public:
     template<class ostream>
     bool test(double x,ostream& s=std::cerr)const
     {
-        if  (std::abs(x)<absolute_error())
+        if  (std::isfinite(x)&&std::abs(x)<absolute_error())
             return true;
         else {
             if constexpr (output)
@@ -110,7 +110,7 @@ struct are_not_less<output,double>
     template<class ostream>
     bool test(double x, double y,ostream& s=std::cerr)const
     {
-        if (x+absolute_error()>y)
+        if (x+absolute_error()>=y)
         {
             return true;
 
@@ -142,7 +142,7 @@ struct are_not_more<output,double>
     template<class ostream>
     bool test(double x, double y,ostream& os=std::cerr)const
     {
-        if (x-absolute_error()<y)
+        if (x-absolute_error()<=y)
         {
             return true;
 
@@ -171,7 +171,7 @@ struct are_non_negative<output,double>
     template<class ostream>
     bool test(double x,ostream& s=std::cerr)const
     {
-        if (x+absolute_error()>0)
+        if (x+absolute_error()>=0)
         {
             return true;
 
@@ -198,7 +198,7 @@ struct are_non_positive<output,double>
     template<class ostream>
     bool test(double x,ostream& os)const
     {
-        if (x-absolute_error()<0)
+        if (std::isfinite(x)&&(x-absolute_error()<=0))
         {
             return true;
 
@@ -228,7 +228,7 @@ struct are_in_range<output,double>
     bool test(double x, ostream& s=std::cerr)const
     {
         if ((missing_) && (x==0)) return true;
-        if ((x+absolute_error()>min())&&(!(x-absolute_error()>=max())))
+        if ((x+absolute_error()>=min())&&(!(x-absolute_error()>max())))
             return true;
         else
         {

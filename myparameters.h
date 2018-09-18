@@ -109,6 +109,17 @@ public:
                     grammar::field(C<self_type>{},"values",&self_type::getParameterMap));
     }
 
+    Parameters_values& operator<<(Parameters_values&& other)
+    {
+        d_.merge(std::move(other.getParameterMap()));
+        return *this;
+    }
+    Parameters_values& operator<<(const Parameters_values& other)
+    {
+        for (auto e:other.getParameterMap())
+            d_[e.first]=e.second;
+        return *this;
+    }
 
 };
 
@@ -118,6 +129,7 @@ template<typename Model>
 class Parameters_distribution: public Base_Distribution<M_Matrix<double>>
 {
 public:
+    typedef Base_Distribution<M_Matrix<double>> base_type;
     virtual Parameters_distribution* clone()const override{ return new Parameters_distribution(*this);};
     std::string myClass()const override { return className.str();}
 
@@ -205,7 +217,7 @@ public:
 
     }
 
-    Parameters_values<Model> tr_to_Parameter(const M_Matrix<double>& val)const
+    virtual Parameters_values<Model> tr_to_Parameter(const M_Matrix<double>& val)const
     {
         assert(val.size()==tu_.size());
         LabelMap_t<par_label> m;
@@ -295,8 +307,69 @@ private:
 
 
 
+template<class Model>
+class Parameters_partial_distribution: public Parameters_distribution<Model>
+{
+
+
+    // Base_Distribution interface
+public:
+    typedef  Parameters_partial_distribution<Model> self_type;
+
+    typedef Parameters_distribution<Model> base_type;
+    constexpr static auto  className=my_trait<Model>::className+my_static_string("_Parameters_partial_Distribution");
+
+    virtual Parameters_partial_distribution *clone() const override
+    {return new Parameters_partial_distribution(*this);}
+    virtual std::string myClass() const override
+    {
+        return className.str();
+    }
+
+    virtual Parameters_values<Model> tr_to_Parameter(const M_Matrix<double>& val)const override
+    {
+
+        assert(val.size()==base_type::size());
+
+        auto out=fixed_values_;
+        auto var=base_type::tr_to_Parameter(val);
+
+        return out<<var;
+    }
+
+    Parameters_distribution<Model> const & variable_parameters()const { return *this;}
+
+    Parameters_values<Model> const & fixed_parameters()const { return fixed_values_;}
+
+  Parameters_partial_distribution(Parameters_distribution<Model>&& variable,
+                                  Parameters_values<Model>&& fixed):
+      Parameters_distribution<Model>{std::move(variable)}, fixed_values_{std::move(fixed)}{}
+
+  Parameters_partial_distribution(const Parameters_distribution<Model>& variable,
+                                  const Parameters_values<Model>& fixed):
+      Parameters_distribution<Model>{std::move(variable)}, fixed_values_{std::move(fixed)}{}
+
+  static auto get_constructor_fields()
+  {
+      return std::make_tuple(
+                  grammar::field(C<self_type>{},"variable_parameters",&self_type::variable_parameters),
+                  grammar::field(C<self_type>{},"fixed_parameters",&self_type::fixed_parameters));
+  }
+
+   Parameters_partial_distribution()=default;
+
+private:
+
+      Parameters_values<Model> fixed_values_;
+};
 
 
 
+template<class Model>
+struct Derived_types<Parameters_distribution<Model>>{
+    typedef Cs<Parameters_partial_distribution<Model>> type;
+    constexpr bool static value=true;
+
+};
 
 #endif // MYPARAMETERS_H

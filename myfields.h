@@ -153,7 +153,7 @@ using result_of_command_t=remove_myOptional_t<typename result_of_command<command
 template<typename T>
 struct included_types<T,object_tag>
 {
-    typedef Cs<T,included_types_t<std::invoke_result_t<decltype(std::decay_t<T>::get_constructor_fields)> >> type;
+    typedef Cs<T,included_types_t<Derived_types_t<T>> ,included_types_t<std::invoke_result_t<decltype(std::decay_t<T>::get_constructor_fields)> >> type;
     static std::pair<std::string,std::map<std::string, std::string>> getIdArgs()
     {
         return {my_trait<T>::className.c_str(),grammar::getIdFields(std::decay_t<T>::get_constructor_fields())};
