@@ -359,7 +359,7 @@ struct Evidence{
         std::cerr<<"\nPriorParameters\n";
         std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean());
 
-        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance);
+        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,p,algorithm,eps_Gradient,min_P, tolerance);
         if (initseed==0)
         {
             std::random_device rd;
@@ -373,7 +373,8 @@ struct Evidence{
         std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt));
         evidence::OutputGenerator out(std::cerr,parameters,gradient);
 
-        return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,out).error();
+        evidence::Prior_Model<ParametersDistribution> prior(p);
+        return evidence::run_Thermo_Levenberg_ProbVel(mt,std::cerr,prior,lik,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,out,e).error();
     }
 
     static auto get_arguments()

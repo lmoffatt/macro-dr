@@ -129,6 +129,8 @@ template<typename Model>
 class Parameters_distribution: public Base_Distribution<M_Matrix<double>>
 {
 public:
+    typedef M_Matrix<double> Parameters;
+
     typedef Base_Distribution<M_Matrix<double>> base_type;
     virtual Parameters_distribution* clone()const override{ return new Parameters_distribution(*this);};
     std::string myClass()const override { return className.str();}

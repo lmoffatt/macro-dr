@@ -75,7 +75,7 @@ private:
 
 
 template<class Model, class Experiment, class Parameters_Distribution>
-class Markov_Model_DLikelihood: public evidence::FIM_Model<Markov_Model_Likelihood<Model, Parameters_Distribution>,Experiment>
+class Markov_Model_DLikelihood: public evidence::FIM_Model<Markov_Model_Likelihood<Model, Parameters_Distribution>>
 {
 public:
     typedef  Markov_Model_DLikelihood self_type;
@@ -83,11 +83,11 @@ public:
     constexpr static auto const className=my_static_string("Markov_Model_DLikelihood")+my_trait<template_types>::className;
 
 
-    Markov_Model_DLikelihood(const Model& m, const Parameters_Distribution& p, const Experiment& e, const std::string& algorithm, double eps_G,double min_P, double tolerance)
-        :evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>(Markov_Model_Likelihood<Model,Parameters_Distribution>(m,p,algorithm,min_P,tolerance),e, eps_G){}
+    Markov_Model_DLikelihood(const Model& m, const Parameters_Distribution& p, const std::string& algorithm, double eps_G,double min_P, double tolerance)
+        :evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>>(Markov_Model_Likelihood<Model,Parameters_Distribution>(m,p,algorithm,min_P,tolerance),eps_G){}
 
-    using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>::compute_DLikelihood;
-    using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>::compute_Likelihood;
+    using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>>::compute_DLikelihood;
+    using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>>::compute_Likelihood;
     //using evidence::FIM_Model<Markov_Model_Likelihood<Model>,Experiment>::getikelihood;
 
 };
