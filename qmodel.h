@@ -677,7 +677,7 @@ public:
           static Op_void test(const M_Matrix<double> landa, double tol)
           {
               std::size_t num_zeros=0;
-              bool has_zero_value=false;
+              //bool has_zero_value=false;
               bool has_positive_value=false;
               double lamax=maxAbs(landa);
               if (!std::isfinite(lamax))

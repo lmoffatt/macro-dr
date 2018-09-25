@@ -14,20 +14,11 @@
 #include "myparameters.h"
 //#include "myoptimization.h"
 #include "qlikelihood.h"
+#include "qsimulation.h"
 #include <type_traits>
 
 //using opt::Template_Tempering_mcmc;
 using namespace experiment;
-struct get_current
-{
-    template <class Model, class X>
-    double operator()(markov_process<M_Matrix<std::size_t>> mp, const Model& m, const X& x)const
-    {
-        return (mp.N()*m.g(x)).getvalue();
-    }
-
-
-};
 
 
 struct model_tag;
@@ -254,7 +245,7 @@ struct likelihood{
         {
             auto out= markov::logLikelihood(markov::MacroDR(tolerance),MC,e, std::cerr);
             if (out.has_value())
-            std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
+                std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
             else std::cerr<<out.error();
             return out;
 
@@ -276,6 +267,52 @@ struct likelihood{
     }
 };
 
+
+template<class Experiment,class Model, class ParametersDistribution>
+struct likelihoodtest{
+
+
+    static constexpr auto className=my_static_string("likelihoodtest");
+    static auto run(const Experiment& e,
+                    const Model& m ,
+                    const Parameters_values<Model>& p,
+                    const ParametersDistribution& prior,
+                    const std::string algorithm,
+                    double min_P,
+                    double tolerance,
+                    double eps_Gradient,
+                    std::size_t n_sub_intervals,
+                    std::mt19937_64::result_type initseed,
+                    std::size_t nsamples,
+                    double pvalue)
+    {
+        std::cerr<<"\nparameters\n"<<p;
+        std::mt19937_64 mt=init_mt(initseed, std::cerr);
+        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,prior,e,algorithm,eps_Gradient,min_P, tolerance);
+        Simulator<Model> sim(m,n_sub_intervals, min_P,tolerance);
+        return evidence::Likelihood_Test::compute_test(std::cerr,sim,lik,e,prior,p,mt,nsamples,pvalue);
+    }
+
+    static auto get_arguments()
+    {
+        return std::make_tuple(
+                    grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
+                    grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
+                    grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
+                    grammar::argument(C<const ParametersDistribution&>{},"model_parameters_distribution"),
+                    grammar::argument(C<std::string>{},"algorithm"),
+                    grammar::argument(C<double>{},"min_probability",1e-9),
+                    grammar::argument(C<double>{},"tolerance_error",1e-7),
+                    grammar::argument(C<double>{},"eps_G"),
+                    grammar::argument(C<std::size_t>{},"number_of_sub_intervals"),
+
+                    grammar::argument(C<std::mt19937_64::result_type>{},"initseed"),
+                    grammar::argument(C<std::size_t>{},"nsamples"),
+                    grammar::argument(C<double>{},"p_value")
+                    );
+    }
+
+};
 
 
 template<class Experiment,class Model>
@@ -360,16 +397,7 @@ struct Evidence{
         std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean());
 
         Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance);
-        if (initseed==0)
-        {
-            std::random_device rd;
-            initseed=rd();
-            std::cerr<<"\n ## init seed generated ## \n initseed="<<initseed<<"\n";
-        }
-        else
-            std::cerr<<"\n ## provided seed  ## \n initseed="<<initseed<<"\n";
-
-        std::mt19937_64 mt(initseed);
+        std::mt19937_64 mt=init_mt(initseed, std::cerr);
         std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt));
         evidence::OutputGenerator out(std::cerr,parameters,gradient);
 
@@ -413,6 +441,8 @@ struct Objects
     likelihood_detail<singleLigandExperiment,Allosteric_Model>,
     Evidence<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
     Evidence<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
+    likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
+    likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
 
     to_experiment, to_DataFrame<measure_just_y<double>>, to_DataFrame<markov::measure_likelihood<double>>> commands;
     typedef CCs<save,write_variable> templateCommands;

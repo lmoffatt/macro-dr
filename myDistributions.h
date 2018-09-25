@@ -38,8 +38,21 @@ M_Matrix<T> emptyCopy(const M_Matrix<S>& x, const T& e)
     return M_Matrix<T>(x.nrows(),x.ncols(),e);
 }
 
-
-
+std::mt19937_64
+init_mt(
+        std::mt19937_64::result_type initseed,
+        std::ostream& os)
+{
+    if (initseed==0)
+    {
+        std::random_device rd;
+        initseed=rd();
+        os<<"\n ## init seed generated ## \n initseed="<<initseed<<"\n";
+    }
+    else
+        os<<"\n ## provided seed  ## \n initseed="<<initseed<<"\n";
+    return std::mt19937_64(initseed);
+}
 
 
 template<typename T>
@@ -85,6 +98,10 @@ public:
     virtual T mean()const =0;
 
     virtual T stddev()const =0;
+
+    virtual double expected_logP()const { return 0;}
+    virtual double variance_logP()const { return 0.5;}
+
 
     virtual ~Base_Distribution(){}
 };
@@ -717,6 +734,17 @@ public:
         return -1.0/variance();
     }
 
+
+    virtual double expected_logP()const override
+    {
+        return -0.5*(1.0+log(2*PI*variance()));
+    }
+
+    virtual double variance_logP()const override
+    {
+        return 0.5;
+    }
+
     Normal_Distribution(const Normal_Distribution&)=default;
     Normal_Distribution(Normal_Distribution&&)=default;
     Normal_Distribution&operator=(const Normal_Distribution&)=default;
@@ -806,10 +834,10 @@ public:
     }
 
 
-static    myOptional_t<Normal_Distribution> make(const M_Matrix<E> &mean,
-                        const M_Matrix<E>& cov)
+    static    myOptional_t<Normal_Distribution> make(const M_Matrix<E> &mean,
+                                                     const M_Matrix<E>& cov)
     {
-    typedef myOptional_t<Normal_Distribution> Op;
+        typedef myOptional_t<Normal_Distribution> Op;
         auto covinv=inv(cov);
         auto cho_cov=chol(cov,"lower");
         if (covinv.has_value()&&cho_cov.has_value())
@@ -821,7 +849,7 @@ static    myOptional_t<Normal_Distribution> make(const M_Matrix<E> &mean,
     Normal_Distribution(const M_Matrix<E> &mean,
                         const M_Matrix<E>& cov,
                         const M_Matrix<E>& covInv,
-                         const M_Matrix<E>& cho):
+                        const M_Matrix<E>& cho):
         param_(M_Matrix<M_Matrix<E>>(1,2,std::vector<M_Matrix<E>>{mean,cov})),
         covinv_(covInv),
         cho_cov_(cho),
@@ -873,7 +901,7 @@ static    myOptional_t<Normal_Distribution> make(const M_Matrix<E> &mean,
 
     void autoTest(std::mt19937_64& mt,std::size_t n)const
     {
-      //  std::cerr<<"\n chi test n="<<mean().size()<<" chis\n";
+        //  std::cerr<<"\n chi test n="<<mean().size()<<" chis\n";
         double chisum=0;
         double chisqr=0;
         for (std::size_t i=0; i<n; ++i)
@@ -902,6 +930,15 @@ static    myOptional_t<Normal_Distribution> make(const M_Matrix<E> &mean,
     virtual M_Matrix<E> dlogL_dx2(const M_Matrix<E>& )const override
     {
         return -CovInv();
+    }
+    virtual double expected_logP()const override
+    {
+        return -0.5*(mean().size()*(log(PI)+1.0)+logDetCov());
+    }
+
+    virtual double variance_logP()const override
+    {
+        return 0.5*mean().size();
     }
 
 
@@ -1180,9 +1217,9 @@ struct variable_value: public invariant
         if (std::isfinite(value))
             return Op_void(true,"");
         else if constexpr (output)
-            return Op_void(false," not finite value: "+std::to_string(value));
+                return Op_void(false," not finite value: "+std::to_string(value));
         else
-            return Op_void(true,"");
+        return Op_void(true,"");
     }
 };
 struct variance_value: public invariant
@@ -1198,7 +1235,7 @@ struct variance_value: public invariant
             return Op_void(false,"negative variance!! value="+std::to_string(value));
         else if (value==0)
             return Op_void(false,"zero variance!! value="+std::to_string(value));
-       else    return Op_void(false,"variance too small!! value="+std::to_string(value)+ "min variance="+std::to_string(min_variance)+ "tolerance="+std::to_string(tolerance));
+        else    return Op_void(false,"variance too small!! value="+std::to_string(value)+ "min variance="+std::to_string(min_variance)+ "tolerance="+std::to_string(tolerance));
 
     }
 
@@ -1227,25 +1264,25 @@ struct Probability_value: public Probability
     template <bool output,class C>
     static Op_void test(const C& e, double tolerance)
     {
-         if (!std::isfinite(e))
-         {    if constexpr(output)
-                   return  Op_void(false," not finite value="+ToString(e)+"\n");
-             else return Op_void(false,"");
+        if (!std::isfinite(e))
+        {    if constexpr(output)
+                    return  Op_void(false," not finite value="+ToString(e)+"\n");
+            else return Op_void(false,"");
         }
-         else if (e+tolerance<0)
+        else if (e+tolerance<0)
         {
             if constexpr(output)
-                   return  Op_void(false," negative prob="+ToString(e)+"\n");
+                    return  Op_void(false," negative prob="+ToString(e)+"\n");
             else return Op_void(false,"");
         }
         else if (e-tolerance>1)
         {
             if constexpr(output)
-                   return  Op_void(false,"  prob greater than one" +ToString(e)+ " 1- prob="+ToString(1-e)+"\n");
+                    return  Op_void(false,"  prob greater than one" +ToString(e)+ " 1- prob="+ToString(1-e)+"\n");
             else return Op_void(false,"");
 
         }
-         else return Op_void(true,"");
+        else return Op_void(true,"");
     }
 };
 
@@ -1264,7 +1301,7 @@ struct Probability_distribution: public Probability
                 if constexpr(output)
                         return Op_void(false,"p=\n"+ToString(p)+" value test on p[i] i="+std::to_string(i)+ch.error());
                 else
-                   return Op_void(false,"");
+                return Op_void(false,"");
             }
             else sum+=p[i];
         if  (std::abs(sum-1.0)<tolerance)
@@ -1447,7 +1484,7 @@ struct Probability_distribution_covariance: public Probability
                 if (i!=j)
                 {
                     if ((p(i,i)*p(j,j)-sqr(p(i,j))+tolerance<0)
-                    &&(p(i,i)>tolerance*tolerance)&&(p(j,j)>tolerance*tolerance))
+                            &&(p(i,i)>tolerance*tolerance)&&(p(j,j)>tolerance*tolerance))
                     {
                         if constexpr(output){
                             double corr=sqr(p(i,j))/p(i,i)/p(j,j);

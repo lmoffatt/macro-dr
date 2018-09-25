@@ -159,6 +159,28 @@ public:
         }
         return sum;
     }
+
+    virtual double expected_logP()const override
+    {
+        double sum=0;
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            sum+=dist(i)->expected_logP();
+        }
+        return sum;
+    }
+
+    virtual double variance_logP()const override
+    {
+        double sum=0;
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            sum+=dist(i)->variance_logP();
+        }
+        return sum;
+    }
+
+
     virtual  M_Matrix<M_Matrix<double>> param() const override
     {
         M_Matrix<M_Matrix<double>> out(1,size());
@@ -216,6 +238,9 @@ public:
         return out;
 
     }
+
+
+
 
     virtual Parameters_values<Model> tr_to_Parameter(const M_Matrix<double>& val)const
     {

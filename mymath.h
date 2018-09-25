@@ -34,5 +34,33 @@ inline double digamma(double x){
 }
 
 
+inline double normal_cdf(double x)
+{
+     return    0.5*(1+std::erf(x/std::sqrt(2)));
+}
+
+inline double normal_cdf(double x, double mean, double stddev)
+{
+    return normal_cdf((x-mean)/stddev);
+}
+
+
+inline double chi2_cdf(double x, std::size_t k)
+{
+    //Chernoff bound
+    if constexpr(false)
+    {
+    double z=x/k;
+    if (z<1)
+    return std::pow(z*std::exp(1-z),0.5*k);
+    else return 1.0-std::pow(z*std::exp(1-z),0.5*k);
+
+    }
+    else
+        return normal_cdf(std::pow(x/k,1.0/3),1.0-2.0/9.0/k,std::sqrt(2.0/9.0/k));
+
+
+}
+
 
 #endif // MYMATH_H

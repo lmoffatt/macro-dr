@@ -88,9 +88,13 @@ public:
 
     using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>::compute_DLikelihood;
     using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>::compute_Likelihood;
+    using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>::set_Data;
     //using evidence::FIM_Model<Markov_Model_Likelihood<Model>,Experiment>::getikelihood;
 
 };
+
+
+
 
 
 

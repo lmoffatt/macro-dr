@@ -40,6 +40,9 @@ inline double average(double x, double y){return 0.5*(x+y);}
 
 inline double sqr(double x){return x*x;}
 
+template<typename T>
+inline T sqr(const T x)
+{return x*x;}
 
 namespace Vector_Unary_Index_Function
 {

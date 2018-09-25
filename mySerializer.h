@@ -1092,11 +1092,10 @@ std::ostream& output_operator_on_container(std::ostream& os,const Container& myC
 
     os<<io::start_of_Container{};
     os<<io::size_of_container{myContainer.size()};
-    for (auto it=myContainer.begin(); it!=myContainer.end();)
+    for (auto it=myContainer.begin(); it!=myContainer.end();++it)
     {
+        os<<io::separator{};
         io::output_operator_on_element(os,*it);
-        if (++it!=myContainer.end())
-            os<<io::separator{};
     }
     os<<io::end_of_Container{};
     return os;

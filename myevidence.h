@@ -4,243 +4,57 @@
 #include "myDistributions.h"
 #include "myparameters.h"
 #include <iomanip>
+#include "mylikelihood.h"
 
 namespace evidence {
-
-
-
-
-
-/*
- *
- *  supongamos en el medio que tenemos un Modelo que tira
- *
- *
- *   Modelo + vector de Parametros  +  vector de Datos -> vector de distribucion de los parametros  y de los datos.
- *
- *
- *
- *
- * Como obtengo lo de arriba a partir de esto?
- * Posibilidad 1, a partir de derivada por diferencia
- *
- * Posibilidad 2 a partir de derivada explicita. (esta posibilidad es una pesadilla para macrodr no tiene sentido en esta etapa)
- *
- *
- *
- * */
-
-template <class E, class D>
-double calculate_Likelihood(const Base_Distribution<E>& p, const D& data)
+template<class Model, class Parameters_distribution>
+class Prior_Model
 {
-    if (std::isfinite(data))
-        return p.logP(data);
-    else return 0;
-}
+public:
+    typedef  Prior_Model self_type;
+    typedef  Cs<Model> template_types;
+    constexpr static auto const className=my_static_string("Prior_Model")+my_trait<template_types>::className;
 
+    typedef M_Matrix<double> Parameters;
 
-
-template <template<class...>class V,template <class>class Distribution,class T, class D>
-double calculate_Likelihood(const V<Distribution<T>>& P, const D& data)
-{
-
-    assert(P.size()==data.num_measurements());
-    double logL=0;
-    for (std::size_t i=0; i<data.num_measurements(); ++i)
+    Parameters sample(std::mt19937_64& mt)const { return prior_.sample(mt);}
+    myOptional_t<logLikelihood> compute_Likelihood(const M_Matrix<double>& x)const
     {
-        double lik=calculate_Likelihood(P[i],data[i]);
-        logL+=lik;
-    }
-    return logL;
-}
-
-
-template <class E, class D>
-double calculate_Gradient(const Base_Distribution<E>& d,const Base_Distribution<E>& d0, const D& data)
-{
-    if (std::isfinite(data))
-        return d.logP(data)-d0.logP(data);
-    else return 0;
-}
-
-
-template <template <class...>class V,template <class...>class Distributions, typename T,class D>
-double calculate_Gradient(const V<Distributions<T>>& d,const V<Distributions<T>>& d0, const D& data)
-{
-    assert(d.size()==d0.size());
-    double out=0;
-    for (std::size_t i=0; i<d.size(); ++i)
-    {
-        out+=calculate_Gradient(d[i],d0[i],data[i]);
-    }
-    return out;
-}
-
-template <template <class>class Distributions, typename T,class D>
-double calculate_Gradient(const Distributions<T>& d,const Distributions<T>& d0, const D& data,double eps)
-{
-    return calculate_Gradient(d,d0,data)/eps;
-}
-
-template <template <class...>class Distributions, typename T,class D>
-M_Matrix<double> calculate_Gradient(const Distributions<T>& d0,const std::vector<Distributions<T>>& d, const D& data,double eps)
-{
-    //typedef myOptional_t<M_Matrix<double>> Op;
-    M_Matrix<double> out(1,d.size());
-    for (std::size_t i=0; i<d.size();++i)
-    {
-        out[i]= calculate_Gradient(d[i],d0,data)/eps;
-    }
-    return out;
-}
-
-template<class E>
-auto getParameter(const Base_Distribution<E>& d)
-{
-    return d.param();
-}
-
-template<class E>
-auto getParameter(const std::unique_ptr<Base_Distribution<E>>& d)
-{
-    return d->param();
-}
-
-template<class E>
-auto getParameter(const Base_Distribution<E>* d)
-{
-    return d->param();
-}
-
-template<class E>
-auto  getFIM(const Base_Distribution<E>& d)
-{
-    return d.Fisher_Information();
-}
-
-template<class E>
-auto getFIM(const std::unique_ptr<Base_Distribution<E>>& d)
-{
-    return d->Fisher_Information();
-}
-
-template<class E>
-auto getFIM(const Base_Distribution<E>* d)
-{
-    return d->Fisher_Information();
-}
-
-
-template <class Distributions, class D>
-auto calculate_Hessian(const std::vector<Distributions>& d0, const std::vector<std::vector<Distributions>>& d,const D& ,double eps, std::ostream& os)
-{
-    auto k=d.size();
-    auto n=d0.size();
-  //  assert(n==data.size());
-
-    M_Matrix<double> out(k,k,M_Matrix<double>::SYMMETRIC,0.0);
-    for (std::size_t i=0; i<n; ++i)
-    {
-        auto& d_i=d0[i];
-        auto param=getParameter(d_i);
-     //   os<<"\n -------------i="<<i<<"------------\n";
-     //   os<<"\nparam "<<param;
-        auto FIM=getFIM(d_i);
-    //    os<<"\nFIM\n"<<FIM;
-    //    os<<"eps="<<eps;
-        auto npar=param.size();
-        M_Matrix<double> J(npar,k);
-        for (std::size_t j=0; j<k; ++j)
+        typedef myOptional_t<logLikelihood> Op;
+        double logL=prior_.logP(x);
+        if (std::isfinite(logL))
         {
-            auto dpar=(getParameter(d.at(j).at(i))-param)*1.0/eps;
-            for(std::size_t jj=0; jj<npar; ++jj)
-                J(jj,j)=dpar[jj];
+            double elogL=prior_.expected_logP();
+            double vlogL=prior_.variance_logP();
+            return Op(logLikelihood(logL,elogL,vlogL));
         }
-      //  os<<"\nJ\n"<<J;
-
-        /*auto H_=TranspMult(J,FIM)*J;*/
-        auto H=quadraticForm_BT_A_B(FIM,J);
-//        are_Equal<true,M_Matrix<double>>().test_sum(H,Transpose(J)*FIM*J, std::cerr);
-     //   os<<"\nTranspose(J)*FIM*J-H\n"<<Transpose(J)*FIM*J-H;
-
-
-
-        out-=H;
-      //  os<<"\nout\n"<<out;
-
+        else return Op(false,"not a finite value="+ToString(logL));
     }
-   // os<<"\nout\n"<<out;
-    return out;
-
-}
-
-
-
-class logLikelihood{
-public:
-
-    constexpr static auto const className=my_static_string("logLikelihood");
-    //std::string myClass()const  { return className.str();}
-
-    typedef   logLikelihood self_type ;
-    static auto get_constructor_fields()
+    myOptional_t<DlogLikelihood> compute_DLikelihood(const M_Matrix<double>& x)const
     {
-        double (logLikelihood::*myLogL) () const=&self_type::logL;
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"logL",myLogL)
-                    );
+        typedef myOptional_t<DlogLikelihood> Op;
+        double logL=prior_.logP(x);
+        double elogL=prior_.expected_logP();
+        double vlogL=prior_.variance_logP();
+
+        auto G=prior_.dlogL_dx(x);
+        auto H=prior_.dlogL_dx2(x);
+        std::stringstream ss;
+        if (are_finite<true,double>().test(logL,ss)&&
+                are_finite<true,M_Matrix<double>>().test(G,ss)&&
+                are_finite<true,M_Matrix<double>>().test(H,ss)
+                )
+            return Op(DlogLikelihood(logL,elogL,vlogL,std::move(G),std::move(H)));
+        else
+            return Op(false, ss.str() );
     }
 
-    double logL()const { return logL_;}
-    logLikelihood(double value):logL_{value}{}
-    logLikelihood():logL_{std::numeric_limits<double>::quiet_NaN()}{}
-    operator bool()const { return std::isfinite(logL_);}
-    void set_logL(double logLik){ logL_=logLik;}
+
+
+    Prior_Model(const Parameters_distribution& prior): prior_{prior}{}
 private:
-    double logL_;
-};
+    Parameters_distribution prior_;
 
-class DlogLikelihood: public logLikelihood
-{
-public:
-    typedef  logLikelihood base_type;
-
-    constexpr static auto const className=my_static_string("DlogLikelihood_")+base_type::className;
-    //std::string myClass()const  { return className.str();}
-
-    typedef   DlogLikelihood self_type ;
-    static auto get_constructor_fields()
-    {
-        double (logLikelihood::*myLogL) () const=&base_type::logL;
-        M_Matrix<double> const & (self_type::*myG) () const=&self_type::G;
-        const M_Matrix<double>& (self_type::*myH) () const=&self_type::H;
-
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"logL",myLogL),
-                    grammar::field(C<self_type>{},"Gradient",myG),
-                    grammar::field(C<self_type>{},"Hessian",myH)
-                    );
-    }
-
-    const M_Matrix<double>& G()const {return G_;}
-    const M_Matrix<double>& H()const {return H_;}
-    operator bool()const { return (G_.size()>0)&&(H_.size()>0)&&logLikelihood::operator bool();}
-    void  set_G(M_Matrix<double>&& gradient) { G_=std::move(gradient);}
-    void  set_H(M_Matrix<double>&& hessian) {
-        assert(hessian.isSymmetric());
-        H_=std::move(hessian);}
-
-
-
-
-    DlogLikelihood(double logL, const M_Matrix<double>& Gradient, const M_Matrix<double>& Hessian)
-        :logLikelihood(logL), G_{Gradient},H_{Hessian}{assert(H_.isSymmetric());}
-    DlogLikelihood(double logL,  M_Matrix<double>&& Gradient,  M_Matrix<double>&& Hessian)
-        :logLikelihood(logL), G_{std::move(Gradient)},H_{std::move(Hessian)}{assert(H_.isSymmetric());}
-    DlogLikelihood()=default;
-private:
-    M_Matrix<double> G_;
-    M_Matrix<double> H_;
 };
 
 
@@ -254,11 +68,15 @@ public:
     logLikelihood prior()const { return prior_;}
     logLikelihood likelihood()const { return lik_;}
     ThlogLikelihood(logLikelihood prior, logLikelihood lik, double beta):
-        logLikelihood(prior.logL()+beta*lik.logL()),prior_{prior},lik_{lik}{}
+        logLikelihood(prior.logL()+beta*lik.logL(),prior.elogL()+beta*lik.elogL(),prior.vlogL()+beta*lik.vlogL())
+      ,prior_{prior},lik_{lik}{}
     ThlogLikelihood()=default;
-    void set_beta(double beta){ set_logL(prior().logL()+beta*likelihood().logL());
+    void set_beta(double beta)
+    { set_logL(prior().logL()+beta*likelihood().logL(),
+               prior().elogL()+beta*likelihood().elogL(),
+               prior().vlogL()+beta*likelihood().vlogL());
 
-                              }
+    }
 private:
     logLikelihood prior_;
     logLikelihood lik_;
@@ -287,13 +105,22 @@ public:
     DlogLikelihood likelihood()const { return lik_;}
     double beta()const {return beta_;}
     ThDlogLikelihood(const DlogLikelihood& prior,const  DlogLikelihood& lik, double beta):
-        DlogLikelihood(prior.logL()+beta*lik.logL(),prior.G()+lik.G()*beta,prior.H()+lik.H()*beta),prior_{prior},lik_{lik}, beta_{beta}{}
+        DlogLikelihood(prior.logL()+beta*lik.logL(),
+                       prior.elogL()+beta*lik.elogL(),
+                       prior.vlogL()+beta*lik.vlogL(),
+                       prior.G()+lik.G()*beta,prior.H()+lik.H()*beta),prior_{prior},lik_{lik}, beta_{beta}{}
     ThDlogLikelihood(DlogLikelihood&& prior,  DlogLikelihood&& lik, double beta):
-        DlogLikelihood(prior.logL()+beta*lik.logL(),prior.G()+lik.G()*beta,prior.H()+lik.H()*beta),prior_{std::move(prior)},lik_{std::move(lik)}, beta_{beta}{}
+        DlogLikelihood(prior.logL()+beta*lik.logL(),
+                       prior.elogL()+beta*lik.elogL(),
+                       prior.vlogL()+beta*lik.vlogL(),
+                       prior.G()+lik.G()*beta,
+                       prior.H()+lik.H()*beta),prior_{std::move(prior)},lik_{std::move(lik)}, beta_{beta}{}
     ThDlogLikelihood()=default;
     void set_beta(double beta){
         beta_=beta;
-        set_logL(prior().logL()+beta*likelihood().logL());
+        set_logL(prior().logL()+beta*likelihood().logL(),
+                 prior().elogL()+beta*likelihood().elogL(),
+                 prior().vlogL()+beta*likelihood().vlogL());
         set_G(prior().G()+likelihood().G()*beta);
         set_H(prior().H()+likelihood().H()*beta);
     }
@@ -305,158 +132,6 @@ private:
     double beta_;
 
 };
-
-
-
-
-
-/// Aproximacion por Fisher Information Matrix al Hessiano
-///
-///
-
-template<class Model, class Parameters_distribution>
-class Prior_Model
-{
-public:
-    typedef  Prior_Model self_type;
-    typedef  Cs<Model> template_types;
-    constexpr static auto const className=my_static_string("Prior_Model")+my_trait<template_types>::className;
-
-    typedef M_Matrix<double> Parameters;
-
-    Parameters sample(std::mt19937_64& mt)const { return prior_.sample(mt);}
-    myOptional_t<logLikelihood> compute_Likelihood(const M_Matrix<double>& x)const
-    {
-        typedef myOptional_t<logLikelihood> Op;
-        double logL=prior_.logP(x);
-        if (std::isfinite(logL))
-            return Op(logLikelihood(logL));
-        else return Op(false,"not a finite value="+ToString(logL));
-    }
-    myOptional_t<DlogLikelihood> compute_DLikelihood(const M_Matrix<double>& x)const
-    {
-        typedef myOptional_t<DlogLikelihood> Op;
-        double logL=prior_.logP(x);
-        auto G=prior_.dlogL_dx(x);
-        auto H=prior_.dlogL_dx2(x);
-        std::stringstream ss;
-        if (are_finite<true,double>().test(logL,ss)&&
-                are_finite<true,M_Matrix<double>>().test(G,ss)&&
-                are_finite<true,M_Matrix<double>>().test(H,ss)
-                )
-            return Op(DlogLikelihood(std::move(logL),std::move(G),std::move(H)));
-        else
-            return Op(false, ss.str() );
-    }
-    Prior_Model(const Parameters_distribution& prior): prior_{prior}{}
-private:
-    Parameters_distribution prior_;
-
-};
-
-
-
-
-
-template <class Distribution_Model, class Data>
-class Likelihood_Model
-{
-public:
-    typedef M_Matrix<double> Parameters;
-
-    typedef  Likelihood_Model self_type;
-    typedef  Cs<Distribution_Model, Data> template_types;
-    constexpr static auto const className=my_static_string("Likelihood_Model")+my_trait<template_types>::className;
-
-    myOptional_t<logLikelihood> compute_Likelihood(const Parameters& p) const
-    {
-        typedef myOptional_t<logLikelihood> Op;
-        auto D0=l_.compute_Distribution(d_,p);
-        if (D0.has_value())
-        {
-            double logL=calculate_Likelihood(D0,d_);
-            std::stringstream ss;
-            if (are_finite<true,double>().test(logL,ss))
-                return Op(logLikelihood(logL));
-            else
-                return Op(false,ss.str());
-        }
-        else return Op(false,"fails to compute model data"+D0.error());
-
-    }
-    Likelihood_Model(const Distribution_Model& l, const Data& d):l_{l},d_{d}{}
-
-    const Distribution_Model& model() const {return l_;}
-    const Data&  data() const {return d_;}
-
-
-protected:
-    Distribution_Model l_;
-    Data d_;
-};
-
-
-
-
-template <class Distribution_Model, class Data>
-class FIM_Model: public Likelihood_Model<Distribution_Model,Data>
-{
-public:
-    typedef  FIM_Model self_type;
-    typedef  Likelihood_Model<Distribution_Model,Data> base_type;
-    constexpr static auto const className=my_static_string("FIM_Model")+my_trait<base_type>::className;
-
-
-
-    typedef M_Matrix<double> Parameters;
-
-    typedef Likelihood_Model<Distribution_Model,Data> L;
-
-    auto compute_DLikelihood(const Parameters& p, std::ostream& os)const
-    {
-        typedef myOptional_t<DlogLikelihood> Op;
-        auto D0res=L::model().compute_Distribution_aux(L::data(),p,os);
-        if (!D0res.has_value())
-            return Op(false,"fails to compute the model :"+D0res.error());
-        else
-        {
-
-           auto [D0,aux]=std::move(D0res).value();
-
-            std::vector<std::decay_t<decltype (D0)>> D(p.size());
-            for (std::size_t i=0; i<p.size(); ++i)
-            {
-                Parameters x(p);
-                x[i]=x[i]+eps_;
-                auto OpD=L::model().compute_Distribution_aux(L::data(),x,os,aux);
-                if (OpD.has_value())
-                    D[i]=std::move(OpD).value();
-                else
-                    return Op(false," getDLikelihood error at i="+ToString(i)+"th parameter  :"+OpD.error());
-            }
-
-            auto logL=calculate_Likelihood(D0,L::d_);
-            std::stringstream ss;
-            if (!are_finite<true,double>().test(logL,ss)) return Op(false," getDLikelihood error for getLikelihood "+ ss.str());
-            auto G=calculate_Gradient(D0,D,L::data(), eps_);
-            if (!are_finite<true,M_Matrix<double>>().test(G,ss)) return Op(false," getDLikelihood error for gradient "+ ss.str());
-
-            auto H=calculate_Hessian(D0,D,L::data(), eps_,os);
-            if (!are_finite<true,M_Matrix<double>>().test(H,ss)) return Op(false," getDLikelihood error for Hessian "+ ss.str());
-            return Op(DlogLikelihood(logL,std::move(G), std::move(H)));
-        }
-    }
-    FIM_Model(const Distribution_Model& l, const Data& d, double eps):
-        Likelihood_Model<Distribution_Model, Data> (l,d), eps_{eps}{}
-
-private:
-    double eps_;
-};
-
-
-
-
-
 
 
 template<class PriorModel, class LikelihoodModel>
@@ -982,12 +657,12 @@ public:
         }
         else
         {
-           // auto gg=G.calculate_Distribution(M,candidate.value().x(), candidate.value());
-//            s<<"gg.mean()"<<gg.value().mean();
-//            s<<"\ncandidate.g().mean()\n"<<candidate.value().g().mean();
-//            s<<"gg.Cov()"<<gg.value();
-//            s<<"\ncandidate.g()\n"<<candidate.value().g();
-//            s<<"\ncandidate.g().Cov()- gg.value().Cov()\n"<<candidate.value().g().Cov()- gg.value().Cov();
+            // auto gg=G.calculate_Distribution(M,candidate.value().x(), candidate.value());
+            //            s<<"gg.mean()"<<gg.value().mean();
+            //            s<<"\ncandidate.g().mean()\n"<<candidate.value().g().mean();
+            //            s<<"gg.Cov()"<<gg.value();
+            //            s<<"\ncandidate.g()\n"<<candidate.value().g();
+            //            s<<"\ncandidate.g().Cov()- gg.value().Cov()\n"<<candidate.value().g().Cov()- gg.value().Cov();
             double A=Acceptance(current,candidate.value(),s);
             std::uniform_real_distribution<double> u(0,1);
             double r=u(mt);
@@ -1048,12 +723,12 @@ public:
         }
         else
         {
-        //    std::cerr<<"\nold current.g()\n"<<current.g();
+            //    std::cerr<<"\nold current.g()\n"<<current.g();
 
-          //  auto gold=gg.value();
+            //  auto gold=gg.value();
             current.set_g(std::move(gg).value());
-         //   s<<"\n new current.g().mean()-ggold.mean()\n"<<current.g().mean()-gold.mean();
-         //   s<<"\n new current.g().Cov()-ggold.COv()\n"<<current.g().Cov()-gold.Cov();
+            //   s<<"\n new current.g().mean()-ggold.mean()\n"<<current.g().mean()-gold.mean();
+            //   s<<"\n new current.g().Cov()-ggold.COv()\n"<<current.g().Cov()-gold.Cov();
 
             get_Metropolis().next(M,mt,G,current,s);
             adaptive.push_outcome(G,current, current.accept());
@@ -1641,7 +1316,7 @@ public:
                 //     std::cerr<<"\n"<<i <<" scouts\n";
             }
             for (auto& ss: os)
-            std::cerr<<ss.str();
+                std::cerr<<ss.str();
             auto ops=consolidate(std::move(res));
             if (ops.has_value())
                 return Op(samples(std::move(mymt),std::move(itoscout), std::move(myscouts)));
@@ -2027,6 +1702,7 @@ Op_void run_Thermo_Levenberg_ProbVel(const PriorModel& prior,const Likelihood_Mo
     return run_Montecarlo_Markov_Chain(PT,mt,model,ala,nSamples,output);
 
 }
+
 
 
 

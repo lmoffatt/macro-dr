@@ -157,7 +157,7 @@ public:
     inline constexpr static auto const className=my_static_string("MacroDR");
 
     template< class Model, class Step, class...Aux>
-    myOptional_t<mp_state_information> run(const mp_state_information& prior,  Model& m,const Step& p,std::ostream& os,Aux&...aux )const
+    myOptional_t<mp_state_information> run(const mp_state_information& prior,  Model& m,const Step& p,std::ostream& ,Aux&...aux )const
     {
         typedef   myOptional_t<mp_state_information> Op;
         auto Q_dto=m.get_P(p,0);
@@ -232,7 +232,7 @@ public:
                 plogL=std::numeric_limits<double>::infinity();
 
             double eplogL=-0.5*log(2*PI*y_var)-0.5;  //e_mu+N*gSg"-N*zeta*sqr(sSg)"
-               double dt=p.nsamples()/m.fs();
+               //double dt=p.nsamples()/m.fs();
            //   os<<"\n t= "<<p.x().t()<<" nsamples="<<p.nsamples()<<" dt="<<dt<<" x="<<p.x().x()<<" y="<<p.y()<<" y_mean="<<y_mean;
               //os<<" chi2="<<chi2<<" y_var"<<y_var;
               double mg=(prior.P_mean()*Q_dt.gmean_i()).getvalue();
@@ -241,7 +241,7 @@ public:
               double g_range=g_max-g_min;
               auto p_bi=(g_max-mg)/g_range;
               auto q_bi=(mg-g_min)/g_range;
-              double Neff=p_bi*q_bi/gSg*sqr(g_range);
+              //double Neff=p_bi*q_bi/gSg*sqr(g_range);
           //    os<<" mg="<<mg;
          //     os<<" g_max="<<g_max<<" g_min="<<g_min;
           //    os<<"\t p_bi="<<p_bi<<" q_bi="<<q_bi<<" min(Nq,Np)="<<std::min(N*q_bi,N*p_bi)<<" Neff="<<Neff<<" NeffNp="<<std::min(N*q_bi,N*p_bi)*Neff;
@@ -600,7 +600,7 @@ template<bool calc,class aux=Op_void>
 struct partialDistribution_function_aux
 {
     template<class Experiment>
-    auto operator()(const Experiment& e,const std::vector<aux>& a)const
+    auto operator()(const Experiment& e,const std::vector<aux>& )const
     {
         std::size_t n=e.num_measurements();
 
