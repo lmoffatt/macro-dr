@@ -239,8 +239,6 @@ public:
               double g_max=max(Q_dt.g());
               double g_min=min(Q_dt.g());
               double g_range=g_max-g_min;
-              auto p_bi=(g_max-mg)/g_range;
-              auto q_bi=(mg-g_min)/g_range;
               //double Neff=p_bi*q_bi/gSg*sqr(g_range);
           //    os<<" mg="<<mg;
          //     os<<" g_max="<<g_max<<" g_min="<<g_min;
@@ -278,7 +276,9 @@ public:
 //                       os<<" use 0 \t"<<test_Binomial.error()<<"\t";
                 }
                 else
-                {
+                {  auto p_bi=(g_max-mg)/g_range;
+                    auto q_bi=(mg-g_min)/g_range;
+
                     test_Binomial=mp_state_information::is_Binomial_Approximation_valid(N,p_bi,q_bi,5);
                     (aux=...=test_Binomial);
 //                    if (test_Binomial.has_value())
@@ -288,7 +288,10 @@ public:
                 }
             }
             else
+
             {
+                auto p_bi=(g_max-mg)/g_range;
+                auto q_bi=(mg-g_min)/g_range;
                 test_Binomial=mp_state_information::is_Binomial_Approximation_valid(N,p_bi,q_bi,5);
 //                if (test_Binomial.has_value())
 //                    os<<" tes 1 \t";
@@ -731,18 +734,21 @@ struct measure_likelihood:public experiment::measure_just_y<Y>
     measure_likelihood(const std::tuple<double,double,double,double>& data):
         y_mean{std::get<0>(data)},y_var{std::get<1>(data)},plogL{std::get<2>(data)},eplogL{std::get<3>(data)}{}
 
-    static void insert_col(io::myDataFrame<double,std::size_t>& d)
+    template<class DataFrame>
+    static void insert_col(DataFrame& d)
     {
         d.insert_column("ymean",C<double>{});
         d.insert_column("y_var",C<double>{});
         d.insert_column("plogL",C<double>{});
         d.insert_column("eplogL",C<double>{});
     }
-    std::tuple<double,double,double,double> data()const
+    std::tuple<double,double,double,double> data_row()const
     {
         return {y_mean,y_var,plogL,eplogL};
     }
 };
+
+
 
 
 template< class measure_likelihood>

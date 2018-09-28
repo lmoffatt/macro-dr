@@ -20,12 +20,36 @@ public:
     struct col
     {
         template<typename T>
+        col(std::pair<std::string,C<T>> x, std::size_t nrows)
+            :title{x.first}, data{std::vector<T>(nrows)}{}
+        template<typename T>
         col(std::pair<std::string,C<T>> x)
             :title{x.first}, data{std::vector<T>()}{}
+        template<typename T>
+        col(const std::string& name,std::vector<T>&& x)
+            :title{name}, data{std::move(x)}{}
         col()=default;
         std::string title;
         std::variant<std::vector<Ts>...> data;
         typedef  std::variant<std::vector<Ts>...> data_type;
+
+        friend bool compatible(const col& one, const col& two)
+        {
+            return ((one.title==two.title) && (one.data.index()==two.data.index()));
+        }
+        col emptyCopy()
+        {
+            auto type=std::visit([](auto& e){ typedef decltype(e) mtype;return  C<typename mtype::value_type>{};},data);
+            return col(std::pair(title,type));
+        }
+
+        col& concatenate(const col& other)
+        {
+            assert((title==other.title)&&(data.index()==other.data.index()));
+            std::visit([this](auto& v){std::get<decltype (v)>(data).insert(v.begin(),v.end());},other.data);
+            return this;
+        }
+
     };
 
     struct row
@@ -76,11 +100,21 @@ public:
 
 
     template<typename... Ks>
+    bool push_back_t(const std::tuple<Ks...>& data)
+    {
+        return std::apply([this](auto... x){return push_back(x...);},data);
+    }
+
+    template<typename... Ks>
     bool push_back(Ks&&... row_of_data)
     {
         assert (same_types(row_of_data...));
             return push_back_i(std::forward_as_tuple<Ks...>(std::forward<Ks>(row_of_data)...),Cs<>{},Cs<Ks...>{},std::index_sequence_for<Ks...>{});
     }
+
+
+
+
     template<typename... Ks>
     std::ostream& write_back(std::ostream& os,Ks&&... row_of_data)
     {
@@ -107,6 +141,54 @@ public:
             data_.push_back(col(std::pair(std::move(title),C<T>{})));
             return true;
         }
+    }
+
+    myDataFrame& concatenate(const myDataFrame& other )
+    {
+        assert(compatible(*this,other));
+        for (std::size_t j=0; j<ncols(); ++j)
+            data_[j].concatenate(other.data_[j]);
+        return *this;
+
+    }
+
+    static myDataFrame concatenate(const std::vector<myDataFrame>& v )
+    {
+        if (v.size()==0) return myDataFrame();
+        else
+        {
+            myDataFrame out=v[0].emptyCopy();
+            auto n=rows_size(v);
+            out.reserve(n);
+            for (auto &e: v)
+                out.concatenate(e);
+            return out;
+        }
+
+    }
+
+    static myDataFrame merge(myDataFrame&& one, myDataFrame&& other)
+    {
+        assert(one.nrows()==other.nrows());
+        std::vector<col> out(std::move(one.data_));
+        out.insert(std::make_move_iterator(other.data_.begin()), std::make_move_iterator(other.data_.end()));
+        return myDataFrame(out);
+    }
+
+
+
+
+    static std::size_t rows_size(const std::vector<myDataFrame>& v){ std::size_t n=0; for (auto& e:v) n+=e.nrows(); return n;}
+
+    static myDataFrame consolidate(const std::vector<myDataFrame>& v, const std::string& col_title)
+    {
+        std::vector<std::size_t> index(rows_size(v));
+        std::size_t n=0;
+        for (std::size_t i=0; i<v.size(); ++i)
+        {
+            for (std::size_t j=0; j<v[i].nrows(); ++j) {index[n]=i; ++n;}
+        }
+       return merge(myDataFrame(std::pair(col_title,index)),concatenate(v));
     }
 
 
@@ -216,8 +298,30 @@ public:
     myDataFrame(std::pair<std::string,C<Ks>>&&... titles):
         data_{{col(titles)...}},map_{getMap(data_)}{}
 
+    template<typename... Ks>
+    myDataFrame(std::pair<std::string,C<Ks>>&&... titles, std::size_t nrows):
+        data_{{col(titles,nrows)...}},map_{getMap(data_)}{}
+
+
     myDataFrame(std::vector<col>&& data):data_{std::move(data)}, map_{getMap(data_)}{}
     myDataFrame()=default;
+
+    friend bool compatible(const myDataFrame& one, const myDataFrame& two)
+    {
+        if (one.ncols()!=two.ncols()) return false;
+        else for (std::size_t j=0; j<one.ncols(); ++j)
+            if (!compatible(one.data_[j], two.data_[j])) return false;
+        return true;
+    }
+
+  myDataFrame emptyCopy()const
+  {
+     std::vector<col> d;
+     for (auto& e:data_)
+         d.push_back(e.emptyCopy());
+     return myDataFrame(std::move(d));
+  }
+
 
     constexpr static auto className=my_static_string("DataFrame")+my_trait<Cs<Ts...>>::className;
 
@@ -225,6 +329,12 @@ public:
 private:
     std::vector<col> data_;
     std::map<std::string, std::size_t> map_;
+
+    void reserve(std::size_t n)
+    {
+        for (auto& e:data_)
+            std::visit([n](auto& v){v.reserve(n);},e);
+    }
 
 };
 

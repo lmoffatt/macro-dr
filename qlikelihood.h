@@ -2,8 +2,9 @@
 #define QLIKELIHOOD_H
 #include "qmodel.h"
 #include "likelihood_markov_process.h"
+#include "measure_markov_process.h"
 #include "myevidence.h"
-
+#include "mytests.h"
 
 
 template<class Model, class Parameters_distribution>
@@ -92,6 +93,50 @@ public:
     //using evidence::FIM_Model<Markov_Model_Likelihood<Model>,Experiment>::getikelihood;
 
 };
+
+
+template<class Y, class Parameters_distribution>
+struct measure_Dlikelihood:public experiment::measure_just_y<Y>
+{
+    double y_mean;
+    double y_var;
+    double plogL;
+    double eplogL;
+    M_Matrix<double> Gradient;
+    Parameters_distribution const* prior;
+
+    measure_Dlikelihood()=default;
+    measure_Dlikelihood(const markov::mp_state_information& mp): y_mean{mp.y_mean()},y_var{mp.y_var()},plogL{mp.plogL()},eplogL{mp.eplogL()},Gradient{}{}
+    measure_Dlikelihood& setGradient(const evidence::DlogLikelihood& lik, Parameters_distribution const* _prior)
+
+    {
+        prior=_prior;
+        Gradient=lik.G();
+        assert(are_Equal<double>().test(mp.plogL(),lik.logL()));
+        assert(are_Equal<double>().test(mp.eplogL(), lik.elogL()));
+        return *this;
+    }
+
+    static void insert_col(io::myDataFrame<double,std::size_t>& d)
+    {
+        d.insert_column("trace",C<std::size_t>{});
+        d.insert_column("time",C<double>{});
+        d.insert_column("nsamples",C<std::size_t>{});
+        d.insert_column("x",C<double>{});
+        d.insert_column("y",C<double>{});
+
+    }
+    std::size_t size(){ return Gradient.size();}
+
+    std::tuple<double,double,double,double, std::string ,double > data(std::size_t i)const
+    {
+        return {y_mean,y_var,plogL,eplogL,prior->name(i),Gradient[i]};
+    }
+
+
+};
+
+
 
 
 

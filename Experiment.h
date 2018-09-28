@@ -44,6 +44,16 @@ struct point{
     X x_;
     Y y_;
 
+    auto data_row()const {return std::tuple(t(),nsamples(),x());}
+    template<class DataFrame>
+    static void insert_col(DataFrame& d, const std::string& pre)
+    {
+        d.insert_column(pre+"time",C<double>{});
+        d.insert_column(pre+"nsamples",C<std::size_t>{});
+        d.insert_column(pre+"x",C<X>{});
+
+    }
+
     double t()const {return t_;}
     std::size_t nsamples()const {return nsamples_;}
     X x()const {return x_;}
@@ -86,6 +96,16 @@ template<class Y=double>
 struct measure_just_y
 {
     Y y;
+    template<class DataFrame>
+    static void insert_col(DataFrame& d)
+    {
+        d.insert_column("y",C<Y>{});
+    }
+    std::tuple<double> data_row()const
+    {
+        return std::tuple(y);
+    }
+
 };
 
 template <class X, class Y>
@@ -178,7 +198,16 @@ public:
 
         Y y()const {return y_.y;}
         point<X,Y>const & x()const {return mean_point_;}
-        measure<Y>& data(){return y_;}
+        auto data_row()const {return std::tuple_cat(std::tuple(myIndex()),x().data_row());}
+
+        template<class DataFrame>
+        static void insert_col(DataFrame& d, const std::string& pre)
+        {
+            d.insert_column(pre+"index",C<std::size_t>{});
+            point<X,Y>::insert_col(d,pre);
+
+        }
+
         auto begin(){return e_->begin_begin_begin()+index_of_start_point_;}
         auto begin()const {return e_->begin_begin_begin()+index_of_start_point_;}
         auto cbegin()const {return e_->cbegin_begin_begin()+index_of_start_point_;}
@@ -210,25 +239,34 @@ public:
     {
 
         basic_Experiment* e_;
+        std::size_t myIndex_;
         std::size_t index_of_start_step_;
         std::size_t index_of_end_step_;
     public:
         std::size_t index_of_start_step() const {return index_of_start_step_;}
         std::size_t index_of_end_step() const { return index_of_end_step_;}
+        std::size_t myIndex()const {return myIndex_;}
+        auto data_row()const {return std::tuple(myIndex());}
+        template<class DataFrame>
+        static void insert_col(DataFrame& d)
+        {
+            d.insert_column("itrace",C<std::size_t>{});
+        }
+
         void setExperiment(basic_Experiment* e){e_=e;}
         auto begin(){return e_->begin_begin()+index_of_start_step_;}
         auto begin()const {return e_->begin_begin()+index_of_start_step_;}
         auto end()const{return e_->begin_begin()+index_of_end_step_;}
-        trace(basic_Experiment* e, std::size_t index_of_start_step, std::size_t index_of_end_step )
+        trace(basic_Experiment* e, std::size_t i_trace,std::size_t index_of_start_step, std::size_t index_of_end_step )
             :
-              e_{e},index_of_start_step_{index_of_start_step}, index_of_end_step_{index_of_end_step}
+              e_{e},myIndex_{i_trace},index_of_start_step_{index_of_start_step}, index_of_end_step_{index_of_end_step}
         {
         }
         trace(basic_Experiment* e,const trace& other):
-            e_{e},index_of_start_step_{other.index_of_start_step_}, index_of_end_step_{other.index_of_end_step_}{}
+            e_{e},myIndex_{other.myIndex_},index_of_start_step_{other.index_of_start_step_}, index_of_end_step_{other.index_of_end_step_}{}
 
         trace(basic_Experiment* e, trace&& other):
-            e_{e},index_of_start_step_{std::move(other.index_of_start_step_)}, index_of_end_step_{std::move(other.index_of_end_step_)}{}
+            e_{e},myIndex_{other.myIndex_},index_of_start_step_{std::move(other.index_of_start_step_)}, index_of_end_step_{std::move(other.index_of_end_step_)}{}
 
     };
 
@@ -270,7 +308,7 @@ public:
     {
         std::vector<trace> out;
         for (auto& x: s)
-            out.emplace_back(e,x.index_of_start_step(),x.index_of_end_step());
+            out.emplace_back(e,x.myIndex(),x.index_of_start_step(),x.index_of_end_step());
         return out;
     }
 
@@ -369,6 +407,21 @@ public:
 
     }
 
+    template<class othermeasure>
+    basic_Experiment& operator()(const std::vector<othermeasure>& meas)
+    {
+        std::size_t i=0;
+        for (auto &e:steps_)
+        {
+            e.y()(meas[i]);
+            ++i;
+        };
+
+    }
+
+
+
+
     basic_Experiment(basic_Experiment&& other):
         frequency_of_sampling_{std::move(other.frequency_of_sampling_)},Vm_{other.Vm()},points_{std::move(other.points_)},
         steps_{move(this,std::move(other.steps_))},traces_{move(this,std::move(other.traces_))}{
@@ -448,16 +501,28 @@ public:
 
     Y operator[](std::size_t i)const { return steps()[i].y();}
 
+    template<class DataFrame>
+    static void insert_col(DataFrame& d)
+    {
+        d.insert_column("ymean",C<double>{});
+        d.insert_column("y_var",C<double>{});
+        d.insert_column("plogL",C<double>{});
+        d.insert_column("eplogL",C<double>{});
+        d.insert_column("parameter",C<std::string>{});
+        d.insert_column("Gradient",C<double>{});
+    }
 private:
     void extract_traces_from_Nan()
     {
         std::size_t iStart=0;
+        std::size_t itrace=0;
         for (std::size_t i=0; i<steps_.size(); ++i)
             if (std::isnan(steps_[i].y()))
             {
                 if (i>iStart)
                 {
-                    traces_.emplace_back(this,iStart,i);
+                    traces_.emplace_back(this,itrace,iStart,i);
+                    ++itrace;
                 }
                 iStart=i+1;
             }
@@ -507,70 +572,77 @@ DataFrame_to_Experiment(const io::myDataFrame<Ts...>& d
 
 
 
-auto Experiment_to_DataFrame(basic_Experiment<point<double,double>,measure_just_y<double>> e,
-                             const std::string& colname_trace="trace",
-                             const std::string& colname_time="time",
-                             const std::string& colname_nsample="nsample",
-                             const std::string& colname_x="x",
-                             const std::string& colname_y="y")
+auto Experiment_points_to_DataFrame(basic_Experiment<point<double,double>,measure_just_y<double>> e)
 {
-    io::myDataFrame<double,std::size_t> d(std::pair(colname_trace,C<std::size_t>{}),
-                                          std::pair(colname_time,C<double>{}),
-                                          std::pair(colname_nsample,C<std::size_t>{}),
-                                          std::pair(colname_x,C<double>{}),
-                                          std::pair(colname_y,C<double>{}));
+    io::myDataFrame<double,std::size_t, std::string> d;
+    decltype(e)::trace::insert_col(d);
+    decltype(e)::step::insert_col(d, "step_");
+    point<double,double>::insert_col(d,"point_");
 
-    std::size_t ntrace=0;
+
     for (auto it=e.begin(); it!=e.end(); ++it)
     {
+        auto trace_data=it->data_row();
         for (auto it2=it->begin(); it2!=it->end(); ++it2)
         {
+            auto step_data=it2->data_row();
             for (auto it3=it2->begin(); it3!=it2->end(); ++it3)
             {
-                auto n=ntrace;
-                d.push_back(n,it3->t(), it3->nsamples(), it3->x(), it3->y());
-
+                auto point_data=it3->data_row();
+                d.push_back_t(std::tuple_cat(trace_data,step_data,point_data));
             }
-            auto n=ntrace;
-            auto it3=it2->end();
-            d.push_back(n,it3->t(), it3->nsamples(), it3->x(), it3->y());
         }
-        ++ntrace;
+        d.push_back_t(std::tuple_cat(trace_data,it->end()->data_row(),it->end()->begin()->data_row()));
     }
     return d;
-
 }
+
 
 
 template< class measure>
-auto Experiment_Steps_to_DataFrame(basic_Experiment<point<double,double>,measure> e,
-                                   const std::string& colname_trace="trace",
-                                   const std::string& colname_time="t",
-                                   const std::string& colname_nsample="nsample",
-                                   const std::string& colname_x="x",
-                                   const std::string& colname_y="y")
+auto Experiment_steps_to_DataFrame(basic_Experiment<point<double,double>,measure> e)
 {
-    io::myDataFrame<double,std::size_t> d(std::pair(colname_trace,C<std::size_t>{}),
-                                          std::pair(colname_time,C<double>{}),
-                                          std::pair(colname_nsample,C<std::size_t>{}),
-                                          std::pair(colname_x,C<double>{}),
-                                          std::pair(colname_y,C<double>{}));
-
-
-    measure::insert_col(d);
-    std::size_t itrace=0;
-    for (auto itr=e.begin(); itr!=e.end(); ++itr)
+    io::myDataFrame<double,std::size_t, std::string> d;
+    decltype(e)::trace::insert_col(d);
+    decltype(e)::step::insert_col(d,"");
+    for (auto it=e.begin(); it!=e.end(); ++it)
     {
-        for (auto it=itr->begin(); it!=itr->end(); ++it)
+        auto trace_data=it->data_row();
+        for (auto it2=it->begin(); it2!=it->end(); ++it2)
         {
-            auto m=it->data().data();
-
-            std::apply([&d,&it,itrace](auto...x){d.push_back(itrace,it->x().t(),it->x().nsamples(),it->x().x(),it->x().y(), x... );},m);
-        }
-        ++itrace;
+            d.push_back_t(std::tuple_cat(trace_data,it2->data_row()));
+         }
+        d.push_back_t(std::tuple_cat(trace_data,it->end()->data_row(),it->end()->begin()->data_row()));
     }
     return d;
 }
+
+template< class measure, class logL, class Parameters_Distribution>
+auto Experiment_steps_to_DataFrame(basic_Experiment<point<double,double>,measure> e, const std::vector<logL>& l, const Parameters_Distribution& prior)
+{
+    io::myDataFrame<double,std::size_t, std::string> d;
+    decltype(e)::trace::insert_col(d);
+    decltype(e)::step::insert_col(d,"");
+    measure::insert_col(d);
+    logL::insert_col(d,prior);
+    std::size_t nstep=0;
+    for (auto it=e.begin(); it!=e.end(); ++it)
+    {
+        auto trace_data=it->data_row();
+        for (auto it2=it->begin(); it2!=it->end(); ++it2)
+        {
+            for (std::size_t i=0; i<l[nstep].data_size(); ++i)
+               d.push_back_t(std::tuple_cat(trace_data,it2->data_row(),it2->data()->data_row()),l[nstep].data_row(i,prior));
+            ++nstep;
+        }
+        for (std::size_t i=0; i<l[nstep].data_size(); ++i)
+           d.push_back_t(std::tuple_cat(trace_data,it->end()->data_row(),it->end()->begin()->data_row(),it->end()->begin()->data()->data_row(),l[nstep].data_row(i)));
+        ++nstep;
+    }
+    return d;
+}
+
+
 
 
 

@@ -2,7 +2,7 @@
 
 
 
-data = DataFrame_real (filename = "/home/lmoffatt/Code/macro-dr/Data/Moffatt_Hume_2007_2.txt")
+data = DataFrame_real (filename = "/home/lmoffatt/Code/macro-dr/Data/Moffatt_Hume_2007_3.txt")
 
 
 binding = Conformational_change (change_in_agonist = 1   change_in_conductance = 0   label = "L"   par_on = "kon"   par_off = "koff")
@@ -47,27 +47,12 @@ result = write (variable = de  filename = "myExperiment.txt" )
 
 logLik = likelihood ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1   model_parameters = paramInit   algorithm = "MacroDR" min_probability = 1e-9 tolerance_error=1e-5)
 
-//logLik_det = likelihood_detail ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1   model_parameters = paramInit   algorithm = "MacroDR" min_probability = 1e-9 tolerance_error=1e-3)
+logLik_det = likelihood_detail ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1   model_parameters = paramInit   algorithm = "MacroDR" min_probability = 1e-9 tolerance_error=1e-3)
 
 dd = to_dataframe ( experiment = logLik_det colname_time = "t"  colname_nsample = "ns"  colname_y = "yCurrent")
 
 result2 = write (variable = dd  filename = "mylogSimulation.txt" )
 
-
-grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
-grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
-grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
-grammar::argument(C<const ParametersDistribution&>{},"model_parameters_distribution"),
-grammar::argument(C<std::string>{},"algorithm"),
-grammar::argument(C<double>{},"min_probability",1e-9),
-grammar::argument(C<double>{},"tolerance_error",1e-7),
-grammar::argument(C<double>{},"eps_G"),
-grammar::argument(C<std::size_t>{},"n_sub_intervals"),
-
-grammar::argument(C<std::mt19937_64::result_type>{},"initseed"),
-grammar::argument(C<std::size_t>{},"nsamples"),
-grammar::argument(C<double>{},"p_value")
-
-liktest = likelihoodtest ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1 model_parameters = paramInit  model_parameters_distribution = paramPrior   algorithm = "MacroDR"  min_probability = 1e-14 tolerance_error=1e-2 eps_G = 1e-4  number_of_sub_intervals = 100 initseed = 0   nsamples = 32  p_value = 0.05)
+liktest = likelihoodtest ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1 model_parameters = paramInit  model_parameters_distribution = paramPrior   algorithm = "MacroDR"  min_probability = 1e-14 tolerance_error=1e-2 eps_G = 1e-6  number_of_sub_intervals = 100 initseed = 0   nsamples = 128  p_value = 0.05)
 
 //evidence_works = evidence ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1   model_parameters_distribution = paramPrior   algorithm = "MacroDR"  p_jump = 0.5  eps_G = 1e-4 min_probability = 1e-14 tolerance_error=1e-2 initseed = 0   betas = { 1.0 0.5 0.3 0.1 1e-2 1e-3 1e-4 0}  landas = {0 1 2 5 10 20 50 100 200 500 1000 2000 5000 1e4 2e4 5e4 1e5 2e5 5e5 1e6 2e6 5e6 1e7} landa_50_hill = {{ 1 2 5 10 20 50 100 200 500 1000 2000 5000 1e4 2e4 5e4 1e5 2e5 5e5 1e6 2e6 5e6 } { 0.2 0.5 0.8 1.0 1.2 1.5 1.8 2.0 2.5 3.0}} gain_moment = 2 nSamples = 1000  parameters_output = 0  gradient_output = 0)

@@ -378,6 +378,20 @@ class M_Matrix
 public:
     constexpr static auto className=my_static_string("matrix_")+my_trait<T>::className;
 
+    static std::pair<std::size_t, std::size_t> pos_to_ij_Symmetric(std::size_t k)
+    {
+       std::size_t i = std::floor((std::sqrt(8*k+1)-1 )/2) ;
+       std::size_t j = k-(i*(i+1))/2 ;
+       return std::pair(i,j);
+    }
+
+    static std::pair<std::size_t, std::size_t> pos_to_ij_Symmetric(std::size_t k, std::size_t n)
+    {
+       std::size_t i,j ;
+       std::tie(i,j)=pos_to_ij_Symmetric(n*(n+1)-1-k);
+        return std::pair(n-1-i,n-1-j);
+    }
+
     class MyConstIterator;
     enum ITER_TYPE{FULL_IT,LT_IT,UT_IT,DIAG_IT,SCALAR_IT, ZERO_IT};
 
@@ -6546,7 +6560,6 @@ struct Frobenius_test:public invariant
             return false;
     }
 };
-
 
 
 

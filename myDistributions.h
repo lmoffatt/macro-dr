@@ -61,8 +61,6 @@ class Normal_Distribution;
 class Beta_Distribution;
 
 
-template<typename T>
-class Parameters_Distribution;
 
 class stretch_move_Distribution;
 

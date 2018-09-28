@@ -3,6 +3,7 @@
 #include "Matrix.h"
 #include "myDistributions.h"
 #include "myparameters.h"
+#include "mydataframe.h"
 #include <iomanip>
 
 namespace evidence {
@@ -158,7 +159,7 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
     auto calculate_Hessian(std::size_t i,const std::vector<Distributions>& d0, const std::vector<std::vector<Distributions>>& d ,double eps)
     {
         auto k=d.size();
-        auto n=d0.size();
+        //auto n=d0.size();
         //  assert(n==data.size());
 
         auto& d_i=d0[i];
@@ -203,9 +204,9 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
     class logLikelihood
     {
     public:
+        //std::string myClass()const  { return className.str();}
 
         constexpr static auto const className=my_static_string("logLikelihood");
-        //std::string myClass()const  { return className.str();}
 
         typedef   logLikelihood self_type ;
         static auto get_constructor_fields()
@@ -228,6 +229,20 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
         logLikelihood():logL_{std::numeric_limits<double>::quiet_NaN()}{}
         operator bool()const { return std::isfinite(logL_);}
         void set_logL(double logLik, double elogL, double vlogL){ logL_=logLik;elogL_=elogL; vlogL_=vlogL;}
+
+
+        template<class DataFrame>
+        static void insert_col(DataFrame& d, const std::string& pre)
+        {
+            d.insert_column(pre+"logL",C<double>{});
+            d.insert_column(pre+"elogL",C<double>{});
+            d.insert_column(pre+"vlogL",C<double>{});
+        }
+        auto data_row(std::size_t)const {return std::tuple(logL(),elogL(),vlogL());}
+        std::size_t data_size()const { return 1;}
+
+
+
     private:
         double logL_;
         double elogL_;
@@ -277,11 +292,33 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
         DlogLikelihood(double logL, double elogL, double vlogL, M_Matrix<double>&& Gradient,  M_Matrix<double>&& Hessian)
             :logLikelihood(logL,elogL,vlogL), G_{std::move(Gradient)},H_{std::move(Hessian)}{assert(H_.isSymmetric());}
         DlogLikelihood()=default;
+        template<class DataFrame>
+        static void insert_col(DataFrame& d, const std::string& pre)
+        {
+            base_type::insert_col(d,pre);
+            d.insert_column(pre+"parameters", C<std::string>());
+            d.insert_column(pre+"parameters_T", C<std::string>());
+
+            d.insert_column(pre+"Gradient",C<double>{});
+            d.insert_column(pre+"Hessian",C<double>{});
+
+        }
+        template<class Parameters_Distribution>
+        auto data_row(std::size_t k, const Parameters_Distribution& prior) const
+        {
+            std::size_t n=G_.size();
+            auto [i,j]=M_Matrix<double>::pos_to_ij_Symmetric(k,G_.size());
+            return std::tuple(prior.name(j),prior.name(i),G_[j],H_(j-i,i+j));
+        }
+        std::size_t data_size() const
+            { return G_.size();}
+        std::size_t data_big_size()const
+                { return H_.size();}
+
     private:
         M_Matrix<double> G_;
         M_Matrix<double> H_;
     };
-
 
 
 
@@ -326,6 +363,7 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
         PartialDLogLikelihood()=default;
     private:
         std::vector<DlogLikelihood> partial_;
+
     };
 
 
@@ -539,13 +577,13 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
                         t_test(const M_Matrix<double>&  mean,const M_Matrix<double>& Cov, std::size_t nsamples, std::ostream& os )
                 {
 
-                     std::vector<double> out(mean.size());
-                     for (std::size_t i=0; i<mean.size(); ++i)
-                         if (mean[i]==0) out[i]=0;
-                     else
-                        out[i]=mean[i]/std::sqrt(Cov(i,i)/nsamples);
-                     os<<"\nt test ="<<out<<" df="<<nsamples;
-                     return {out,nsamples};
+                    std::vector<double> out(mean.size());
+                    for (std::size_t i=0; i<mean.size(); ++i)
+                        if (mean[i]==0) out[i]=0;
+                        else
+                            out[i]=mean[i]/std::sqrt(Cov(i,i)/nsamples);
+                    os<<"\nt test ="<<out<<" df="<<nsamples;
+                    return {out,nsamples};
                 }
 
 
@@ -613,9 +651,21 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
                 }
 
 
+                template<class ExperimentSimulation>
                 class sample
                 {
                 public:
+                    constexpr static auto const className=my_static_string("Likelihood_Test_sample");
+
+                    typedef   sample self_type ;
+                    static auto get_constructor_fields()
+                    {
+                        return std::make_tuple(
+                                    grammar::field(C<self_type>{},"simulations",&self_type::getSimulations),
+                                    grammar::field(C<self_type>{},"likelihoods",&self_type::getLikelihoods)
+                                    );
+                    }
+
                     auto size()const {return s_.size();}
                     M_Matrix<double> mean_Gradient()const
                     {
@@ -685,13 +735,24 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
 
 
 
+                    std::vector<ExperimentSimulation> const & getSimulations()const {return  e_;}
+
+                  std::vector<PartialDLogLikelihood>const & getLikelihoods()const { return s_;}
 
 
+                    sample(std::vector<ExperimentSimulation>&& e,std::vector<PartialDLogLikelihood>&& s):
+                        e_{std::move(e)},
+                        s_{std::move(s)}{}
 
-                    sample(std::vector<PartialDLogLikelihood>&& s):s_{std::move(s)}{}
+                    sample(const std::vector<ExperimentSimulation>& e,const std::vector<PartialDLogLikelihood>& s):
+                        e_{e},
+                        s_{s}{}
+
+
                     sample()=default;
 
                 private:
+                    std::vector<ExperimentSimulation> e_;
                     std::vector<PartialDLogLikelihood> s_;
                 };
 
@@ -700,14 +761,19 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
                 static    auto compute_PartialDLikelihood
                         (std::ostream& os,const Simulation_Model& sim, const FIM_Model& fim, const Data& e, const ParametersDistribution& prior, const Parameters& p,std::mt19937_64& mt  )
                 {
-                    typedef myOptional_t<PartialDLogLikelihood> Op;
                     auto data=sim.compute_simulation(e,p,mt);
+                    typedef std::decay_t<decltype (data.value())> sim_type;
+                    typedef myOptional_t<std::pair<sim_type,PartialDLogLikelihood>> Op;
                     if (!data.has_value())
                         return Op(false,"Simulation failed "+data.error());
                     else
                     {
                         auto Par=prior.Parameter_to_tr(p);
-                        return fim.compute_PartialDLikelihood(Par,os,data.value());
+                        auto Dlik=fim.compute_PartialDLikelihood(Par,os,data.value());
+                        if (!Dlik)
+                            return Op(false,"Likelihood failed!!: "+Dlik.error());
+
+                        return Op(std::pair(std::move(data).value(),std::move(Dlik).value()));
                     }
                 }
 
@@ -717,8 +783,10 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
                         get_sample
                         (std::ostream& os,const Simulation_Model& sim, const FIM_Model& fim, const Data& e,  const ParametersDistribution& prior,const Parameters& p,std::mt19937_64& mt  , std::size_t nsamples)
                 {
-                    typedef myOptional_t<sample> Op;
+                    typedef std::decay_t<decltype (sim.compute_simulation(e,p,mt).value())>  sim_type;
+                    typedef myOptional_t<sample<sim_type>> Op;
                     std::stringstream ss;
+                    std::vector<sim_type> simuls(nsamples);
                     std::vector<PartialDLogLikelihood> s(nsamples);
 
                     bool succed=true;
@@ -730,7 +798,9 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
                             succed=false;
                         else
                         {
-                            s[i]=std::move(logL).value();
+                           auto pair=std::move(logL).value();
+                           s[i]=std::move(pair.second);
+                           simuls[i]=std::move(pair.first);
                             //             os<<"\n in sample\n"<<s[i];
                         }
                     }
@@ -742,7 +812,7 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
                         os<<"\n"<<s[i].logL()<<"\t"<<sqr(s[i].logL()-s[i].elogL())/s[i].vlogL()<<"\t"<<s[i].G();
                     }
 
-                    sample samples(std::move(s));
+                    auto samples=sample(std::move(simuls),std::move(s));
                     return Op(samples);
 
                 }
@@ -868,9 +938,7 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
                     os<<gradient_variance_information_test.error()<<"\n\n";;
 
                     Op_void all_tests=gradient_information_test<<gradient_variance_information_test<<gradient_variance_test;
-                    if (all_tests) return true;
-                    else return  false;
-
+                    return mysamples;
                 }
 
 
