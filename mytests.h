@@ -52,10 +52,10 @@ public:
 
     double relative_error()const {return relative_;}
     double absolute_error()const { return absolute_;}
-    are_Equal(double absoluteError=std::numeric_limits<double>::epsilon()*10, double relativeError=std::numeric_limits<double>::epsilon()*10):absolute_{absoluteError},relative_{relativeError}{}
+    are_Equal(double absoluteError=std::numeric_limits<double>::epsilon()*1000, double relativeError=std::numeric_limits<double>::epsilon()*1000):absolute_{absoluteError},relative_{relativeError}{}
 private:
-    double absolute_=std::numeric_limits<double>::epsilon();
-    double relative_=std::numeric_limits<double>::epsilon();
+    double absolute_=std::numeric_limits<double>::epsilon()*100;
+    double relative_=std::numeric_limits<double>::epsilon()*100;
 };
 
 

@@ -126,11 +126,11 @@ template<class, class>class basic_Experiment;
 using namespace std::string_view_literals;
 
 
-template<template<typename, typename>class point, template<class> class measure,typename X, typename Y>
-class basic_Experiment<point<X,Y>, measure<Y>>
+template<template<typename, typename>class point, template<class> class measure_type,typename X, typename Y>
+class basic_Experiment<point<X,Y>, measure_type<Y>>
 {
 public:
-    typedef basic_Experiment<point<X,Y>, measure<Y>>  self_type;
+    typedef basic_Experiment<point<X,Y>, measure_type<Y>>  self_type;
     typedef point<X,Y> point_type;
     auto cbegin_begin_begin()const {return points_.cbegin();}
     auto cbegin_begin()const {return steps_.cbegin();}
@@ -159,7 +159,7 @@ public:
         std::size_t index_of_start_point_;
         std::size_t nsamples_;
         point<X,Y> mean_point_;
-        measure<Y> y_; //invariant: average of point::y
+        measure_type<Y> y_; //invariant: average of point::y
 
 
     public:
@@ -197,14 +197,16 @@ public:
         }
 
         Y y()const {return y_.y;}
+        auto& measure()const {return y_;}
         point<X,Y>const & x()const {return mean_point_;}
-        auto data_row()const {return std::tuple_cat(std::tuple(myIndex()),x().data_row());}
+        auto data_row()const {return std::tuple_cat(std::tuple(myIndex()),x().data_row(),measure().data_row());}
 
         template<class DataFrame>
         static void insert_col(DataFrame& d, const std::string& pre)
         {
             d.insert_column(pre+"index",C<std::size_t>{});
             point<X,Y>::insert_col(d,pre);
+            measure_type<Y>::insert_col(d);
 
         }
 
@@ -222,12 +224,12 @@ public:
             :e_{e}, myIndex_{myIndex},index_of_start_point_{index_of_start_point},nsamples_{},y_{}
         {
         }
-        step(basic_Experiment* e,std::size_t myIndex, std::size_t index_of_start_point, measure<Y> y)
+        step(basic_Experiment* e,std::size_t myIndex, std::size_t index_of_start_point, measure_type<Y> y)
             :e_{e}, myIndex_{myIndex},index_of_start_point_{index_of_start_point},nsamples_{},y_{y}
         {
         }
         template< class otherStep>
-        step(basic_Experiment* e,const  otherStep& other, measure<Y>&& m):
+        step(basic_Experiment* e,const  otherStep& other, measure_type<Y>&& m):
             e_{e},myIndex_{other.myIndex()},index_of_start_point_{other.index_of_start_point()},nsamples_{other.nsamples()},y_{std::move(m)}{}
 
 
@@ -279,7 +281,7 @@ public:
     }
 
     template< class othersteps>
-    static std::vector<step> copy(basic_Experiment* e, const othersteps& s, std::vector<measure<Y>>&& m)
+    static std::vector<step> copy(basic_Experiment* e, const othersteps& s, std::vector<measure_type<Y>>&& m)
     {
         std::vector<step> out(s.size());
         for (std::size_t i=0; i<s.size(); ++i)
@@ -399,7 +401,7 @@ public:
         extract_traces_from_Nan();
     }
     template<template<class>class othermeasure>
-    basic_Experiment(const basic_Experiment<point<X,Y>,othermeasure<Y>>& other, std::vector<measure<Y>>&& meas):
+    basic_Experiment(const basic_Experiment<point<X,Y>,othermeasure<Y>>& other, std::vector<measure_type<Y>>&& meas):
         frequency_of_sampling_{other.frequency_of_sampling()},Vm_{other.Vm()},points_{other.points()},
         steps_{copy(this,other.steps(),std::move(meas))},traces_{copy_trace(this,other.traces())}
     {
@@ -466,7 +468,7 @@ public:
     }
 
     template<class Z>
-    static basic_Experiment set_Points(std::vector<point<X,Y>>& newPoints,const basic_Experiment<point<X,Z>,measure<Z>>& old)
+    static basic_Experiment set_Points(std::vector<point<X,Y>>& newPoints,const basic_Experiment<point<X,Z>,measure_type<Z>>& old)
     {
         return basic_Experiment(newPoints, old.get_step_start_points(),old.get_step_start_trace());
     }
@@ -623,8 +625,7 @@ auto Experiment_steps_to_DataFrame(basic_Experiment<point<double,double>,measure
     io::myDataFrame<double,std::size_t, std::string> d;
     decltype(e)::trace::insert_col(d);
     decltype(e)::step::insert_col(d,"");
-    measure::insert_col(d);
-    logL::insert_col(d,prior);
+    logL::insert_col(d,"");
     std::size_t nstep=0;
     for (auto it=e.begin(); it!=e.end(); ++it)
     {
@@ -632,11 +633,11 @@ auto Experiment_steps_to_DataFrame(basic_Experiment<point<double,double>,measure
         for (auto it2=it->begin(); it2!=it->end(); ++it2)
         {
             for (std::size_t i=0; i<l[nstep].data_size(); ++i)
-               d.push_back_t(std::tuple_cat(trace_data,it2->data_row(),it2->data()->data_row()),l[nstep].data_row(i,prior));
+               d.push_back_t(std::tuple_cat(trace_data,it2->data_row(),l[nstep].data_row(i,prior)));
             ++nstep;
         }
         for (std::size_t i=0; i<l[nstep].data_size(); ++i)
-           d.push_back_t(std::tuple_cat(trace_data,it->end()->data_row(),it->end()->begin()->data_row(),it->end()->begin()->data()->data_row(),l[nstep].data_row(i)));
+           d.push_back_t(std::tuple_cat(trace_data,it->end()->data_row(),l[nstep].data_row(i,prior)));
         ++nstep;
     }
     return d;

@@ -382,13 +382,15 @@ public:
     {
        std::size_t i = std::floor((std::sqrt(8*k+1)-1 )/2) ;
        std::size_t j = k-(i*(i+1))/2 ;
+       assert(k==i*(i+1)/2+j);
        return std::pair(i,j);
     }
 
     static std::pair<std::size_t, std::size_t> pos_to_ij_Symmetric(std::size_t k, std::size_t n)
     {
        std::size_t i,j ;
-       std::tie(i,j)=pos_to_ij_Symmetric(n*(n+1)-1-k);
+       std::tie(i,j)=pos_to_ij_Symmetric(n*(n+1)/2-1-k);
+
         return std::pair(n-1-i,n-1-j);
     }
 
@@ -1424,7 +1426,7 @@ public:
     }
 
     are_Equal(double absoluteError, double relativeError):absolute_{absoluteError},relative_{relativeError}{}
-    are_Equal():absolute_{std::numeric_limits<T>::epsilon()},relative_{std::numeric_limits<T>::epsilon()}{}
+    are_Equal():absolute_{std::numeric_limits<T>::epsilon()*100},relative_{std::numeric_limits<T>::epsilon()*100}{}
 
 
 private:
@@ -3998,7 +4000,8 @@ symmetric_chol(const M_Matrix<double>& x,const std::string& kind)
     }
     else
     {
-        assert((kind=="lower"? (are_Equal<true,M_Matrix<double>>().test_sum(res*Transpose(res),x, std::cerr)) :(are_Equal<true,M_Matrix<double>>().test_sum(Transpose(res)*res,x, std::cerr))));
+
+        assert((kind=="lower"? (are_Equal<true,M_Matrix<double>>(std::numeric_limits<double>::epsilon()*100,std::numeric_limits<double>::epsilon()*100).test_sum(res*Transpose(res),x, std::cerr)) :(are_Equal<true,M_Matrix<double>>(std::numeric_limits<double>::epsilon()*100,std::numeric_limits<double>::epsilon()*100).test_sum(Transpose(res)*res,x, std::cerr))));
         return Op(res);
     }
 

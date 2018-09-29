@@ -11,6 +11,12 @@
 
 namespace io {
 
+template <typename T>
+std::vector<T> create_empty_vector(const std::vector<T>& )
+{
+    return std::vector<T>();
+}
+
 
 template <typename ...Ts>
 class myDataFrame
@@ -37,17 +43,21 @@ public:
         {
             return ((one.title==two.title) && (one.data.index()==two.data.index()));
         }
-        col emptyCopy()
+        col emptyCopy()const
         {
-            auto type=std::visit([](auto& e){ typedef decltype(e) mtype;return  C<typename mtype::value_type>{};},data);
-            return col(std::pair(title,type));
+            col out;
+            out.title=title;
+             out.data=std::visit([](auto& e){ return data_type(create_empty_vector(e));},data);
+            return out;
         }
 
         col& concatenate(const col& other)
         {
             assert((title==other.title)&&(data.index()==other.data.index()));
-            std::visit([this](auto& v){std::get<decltype (v)>(data).insert(v.begin(),v.end());},other.data);
-            return this;
+            std::visit([&other](auto& me){
+                auto& next=std::get<std::decay_t<decltype(me)>>(other.data);
+                me.insert(me.begin(),next.begin(),next.end());},data);
+            return *this;
         }
 
     };
@@ -171,8 +181,8 @@ public:
     {
         assert(one.nrows()==other.nrows());
         std::vector<col> out(std::move(one.data_));
-        out.insert(std::make_move_iterator(other.data_.begin()), std::make_move_iterator(other.data_.end()));
-        return myDataFrame(out);
+        out.insert(out.end(),std::make_move_iterator(other.data_.begin()), std::make_move_iterator(other.data_.end()));
+        return myDataFrame(std::move(out));
     }
 
 
@@ -299,6 +309,12 @@ public:
         data_{{col(titles)...}},map_{getMap(data_)}{}
 
     template<typename... Ks>
+    myDataFrame(std::pair<std::string,std::vector<Ks>>&&... titles):
+        data_{{col(std::move(titles.first),std::move(titles.second))...}},map_{getMap(data_)}{}
+
+
+
+    template<typename... Ks>
     myDataFrame(std::pair<std::string,C<Ks>>&&... titles, std::size_t nrows):
         data_{{col(titles,nrows)...}},map_{getMap(data_)}{}
 
@@ -333,7 +349,7 @@ private:
     void reserve(std::size_t n)
     {
         for (auto& e:data_)
-            std::visit([n](auto& v){v.reserve(n);},e);
+            std::visit([n](auto& v){v.reserve(n);},e.data);
     }
 
 };

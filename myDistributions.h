@@ -8,8 +8,10 @@
 #include <cmath>
 
 
+
 template <typename T, typename S,template <typename> class C>
 C<T> emptyCopy(const C<S>& x);
+
 
 template <typename T, typename S,template <typename> class C>
 C<T> emptyCopy(const C<S>& x, const T& e);
@@ -19,6 +21,7 @@ std::vector<T> emptyCopy(const std::vector<S>& x)
 {
     return std::vector<T>(x.size());
 }
+
 
 template <typename T, typename S>
 M_Matrix<T> emptyCopy(const M_Matrix<S>& x)

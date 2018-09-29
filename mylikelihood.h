@@ -307,8 +307,8 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
         auto data_row(std::size_t k, const Parameters_Distribution& prior) const
         {
             std::size_t n=G_.size();
-            auto [i,j]=M_Matrix<double>::pos_to_ij_Symmetric(k,G_.size());
-            return std::tuple(prior.name(j),prior.name(i),G_[j],H_(j-i,i+j));
+            auto [i,j]=M_Matrix<double>::pos_to_ij_Symmetric(k,n);
+            return std::tuple_cat(base_type::data_row(k),std::tuple(prior.name(j),prior.name(i),G_[j],H_(j-i,i+j)));
         }
         std::size_t data_size() const
             { return G_.size();}

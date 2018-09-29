@@ -93,26 +93,30 @@ typedef typename experiment::basic_Experiment<point<double,double>, measure_just
 typedef typename experiment::basic_Experiment<point<double,double>, markov::measure_likelihood<double>> singleLigandLikelihood;
 
 
-template<class measure, class logL, class Parameters_Distribution>
+template<class Parameters_Distribution>
 struct to_DataFrame_index
 {
     static constexpr auto className=my_static_string("to_dataframe");
 
     static auto run(const evidence::Likelihood_Test::sample<singleLigandExperiment>& l, const Parameters_Distribution& prior)
     {
-        std::vector<io::myDataFrame<double,std::size_t>> d(l.getLikelihoods().size());
+        std::vector<io::myDataFrame<double,std::size_t,std::string>> d(l.getLikelihoods().size());
         for (auto i=0lu; i<l.getLikelihoods().size(); ++i )
         {
             d[i]=experiment::Experiment_steps_to_DataFrame(l.getSimulations()[i],l.getLikelihoods()[i].partial_DlogL(),prior);
         }
-        return myDataFrame<double,std::size_t>::consolidate(d,"i_simul");
+        return myDataFrame<double,std::size_t,std::string>::consolidate(d,"i_simul");
 
     }
 
 
     static auto get_arguments()
     {
-        return std::make_tuple(grammar::argument(C< const evidence::Likelihood_Test::sample<singleLigandExperiment>& >{},"samples"));
+        return std::make_tuple(
+                    grammar::argument(C< const evidence::Likelihood_Test::sample<singleLigandExperiment>& >{},"samples"),
+                    grammar::argument(C< const Parameters_Distribution& >{},"parameters")
+
+                    );
     }
 
 
@@ -370,7 +374,6 @@ struct likelihood_detail{
 
 typedef typename experiment::basic_Experiment<point<double,double>, measure_just_y<double>> singleLigandExperiment;
 typedef typename experiment::basic_Experiment<point<double,double>, markov::measure_likelihood<double>> singleLigandLikelihood;
-typedef typename experiment::basic_Experiment<point<double,double>, measure_Dlikelihood<double, Parameters_distribution<Allosteric_Model>>> singleLigandDLikelihood;
 
 template<>
 struct my_trait < singleLigandExperiment >
@@ -384,11 +387,6 @@ struct my_trait < singleLigandLikelihood >
     static constexpr  auto className=my_static_string("singleLigandLikelihood");
 };
 
-template<>
-struct my_trait < singleLigandDLikelihood >
-{
-    static constexpr  auto className=my_static_string("singleLigandDLikelihood");
-};
 
 
 template<class Experiment,class Model, class ParametersDistribution>
@@ -466,7 +464,13 @@ struct Objects
     likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
     likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
 
-    to_experiment, to_DataFrame<measure_just_y<double>>, to_DataFrame<markov::measure_likelihood<double>>> commands;
+    to_experiment,
+    to_DataFrame<measure_just_y<double>>,
+    to_DataFrame<markov::measure_likelihood<double>>,
+    to_DataFrame_index<Parameters_distribution<Allosteric_Model>>,
+    to_DataFrame_index<Parameters_partial_distribution<Allosteric_Model>>
+
+    > commands;
     typedef CCs<save,write_variable> templateCommands;
 };
 
