@@ -4,6 +4,7 @@
 #include "Matrix.h"
 #include "mymath.h"
 # include "mytests.h"
+#include "myoperators.h"
 #include <random>
 #include <cmath>
 
@@ -56,6 +57,86 @@ init_mt(
         os<<"\n ## provided seed  ## \n initseed="<<initseed<<"\n";
     return std::mt19937_64(initseed);
 }
+
+
+
+
+
+
+template<typename T>
+class moments;
+
+
+template<>
+class moments<double>
+{
+
+public:
+
+    moments(double amean, double avariance):mean_{amean},variance_{avariance}{}
+
+
+    moments(std::vector<double> data):moments(op::mean(data),op::variance(data)){}
+
+    template<class C,class F>
+    moments(const std::vector<C>& data, const F& f):
+        moments(op::mean(data,f),op::variance(data,f)){}
+
+
+    template<class DataFrame>
+    static void insert_col(DataFrame& d, const std::string& pre)
+    {
+        d.insert_column(pre+"_mean",C<double>{});
+        d.insert_column(pre+"_variance",C<double>{});
+    }
+    auto data_row(std::size_t)const {return std::tuple(mean(),variance());}
+    std::size_t data_size()const { return 1;}
+
+    double mean()const {return mean_;}
+    double variance()const { return variance_;}
+    moments()=default;
+private:
+    double mean_;
+    double variance_;
+};
+
+
+
+template<>
+class moments<M_Matrix<double>>
+{
+
+public:
+
+    moments(M_Matrix<double> amean, M_Matrix<double> avariance):mean_{amean},variance_{avariance}{}
+
+
+    moments(const std::vector<M_Matrix<double>>& data):mean_{op::mean(data)},variance_{op::variance(data)}{}
+
+    template<class C,class F>
+    moments(const std::vector<C>& data, const F& f):
+        mean_{op::mean(data,f)}
+    //  ,variance_{op::variance(data,f)}
+    {}
+
+
+    template<class DataFrame>
+    static void insert_col(DataFrame& d, const std::string& pre)
+    {
+        d.insert_column(pre+"_mean",C<double>{});
+        d.insert_column(pre+"_variance",C<double>{});
+    }
+    auto data_row(std::size_t i, std::size_t j)const {return std::tuple(mean()[i],variance()(i,j));}
+    std::size_t data_size()const { return mean().size();}
+
+    M_Matrix<double> const & mean()const {return mean_;}
+    M_Matrix<double> const & variance()const { return variance_;}
+    moments()=default;
+private:
+    M_Matrix<double> mean_;
+    M_Matrix<double> variance_;
+};
+
 
 
 template<typename T>

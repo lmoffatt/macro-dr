@@ -54,7 +54,8 @@ HEADERS += \
     myoptimization.h \
     qsimulation.h \
     mylikelihood.h \
-    myprobabilitytest.h
+    myprobabilitytest.h \
+    myoperators.h
 
 DISTFILES += \
     simulation.txt
