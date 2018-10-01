@@ -39,6 +39,13 @@ public:
         std::variant<std::vector<Ts>...> data;
         typedef  std::variant<std::vector<Ts>...> data_type;
 
+        static constexpr const char* classAlternatives[]={my_trait<Ts>::className.c_str()...};
+
+        std::string held_type()const
+        {
+            return classAlternatives[data.index()];
+        }
+
         friend bool compatible(const col& one, const col& two)
         {
             return ((one.title==two.title) && (one.data.index()==two.data.index()));
@@ -69,31 +76,43 @@ public:
 
 
     template<typename... Ks>
-    bool same_types_i(const std::tuple<Ks...>&,std::index_sequence<>)
+    Op_void same_types_i(const std::tuple<Ks...>&,std::index_sequence<>)
     {
-        return true;
+        return Op_void(true,"");
     }
 
     template<std::size_t I,std::size_t... Is,typename... Ks>
-    bool same_types_i(std::tuple<Ks...> t, std::index_sequence<I,Is...>)
+    Op_void same_types_i(std::tuple<Ks...> t, std::index_sequence<I,Is...>)
     {
 
-        if(!std::holds_alternative<std::vector<std::decay_t<std::tuple_element_t<I,std::tuple<Ks...>>>>>(data_[I].data))
-            return false;
+        typedef std::decay_t<std::tuple_element_t<I,std::tuple<Ks...>>> K;
+        if(!std::holds_alternative<std::vector<K>>(data_[I].data))
+            return Op_void(false,"the "+std::to_string(I)+"th parameter is different: expected "+data_[I].held_type()+
+                           " given: "+my_trait<K>::className.str());
+
         else return same_types_i(t, std::index_sequence<Is...>());
     }
 
 
 
     template<typename... Ks>
-    bool same_types(Ks&&... row_of_data)
+    Op_void same_types(Ks&&... row_of_data)
     {
         constexpr auto N=sizeof...(Ks);
         if (N!=data_.size())
-            return false;
+            return Op_void(false,"different number of parameters: expected: "+std::to_string(data_.size())+" given: "+std::to_string(N));
         else
             return same_types_i(std::forward_as_tuple(std::forward<Ks>(row_of_data)...), std::make_index_sequence<N>());
     }
+
+    template<typename... Ks>
+    bool same_types_m(Ks&&... row_of_data)
+    {
+        auto res=same_types(row_of_data...);
+        if (!res) std::cerr<<res.error();
+        return res.has_value();
+    }
+
 
     template<typename...K0>
     bool push_back_i(std::tuple<K0...> ,Cs<K0...>,Cs<>,std::index_sequence<>){
@@ -118,7 +137,7 @@ public:
     template<typename... Ks>
     bool push_back(Ks&&... row_of_data)
     {
-        assert (same_types(row_of_data...));
+        assert (same_types_m(row_of_data...));
             return push_back_i(std::forward_as_tuple<Ks...>(std::forward<Ks>(row_of_data)...),Cs<>{},Cs<Ks...>{},std::index_sequence_for<Ks...>{});
     }
 
@@ -128,7 +147,7 @@ public:
     template<typename... Ks>
     std::ostream& write_back(std::ostream& os,Ks&&... row_of_data)
     {
-        assert(same_types(row_of_data...));
+        assert(same_types_m(row_of_data...));
         bool sucess= ((io::write_on_element(os,row_of_data))&&...&&true);
         return os;
     }

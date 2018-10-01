@@ -155,6 +155,7 @@ public:
     class trace;
     class step{
         basic_Experiment* e_;
+        std::size_t myTraceIndex_;
         std::size_t myIndex_;
         std::size_t index_of_start_point_;
         std::size_t nsamples_;
@@ -165,17 +166,22 @@ public:
     public:
         static constexpr auto className=my_static_string("Experiment_on_")+point<X,Y>::className;
         std::size_t myIndex()const {return myIndex_;}
+        std::size_t myTraceIndex()const {return myTraceIndex_;}
+        void setTraceIndex(std::size_t itrace){ myTraceIndex_=itrace;}
+
         std::size_t index_of_start_point() const {return index_of_start_point_;}
         std::size_t nsamples()const {return nsamples_;}
+
+        trace const & myTrace()const { return e_->traces()[myTraceIndex_];}
 
 
         void setExperiment(basic_Experiment* e){e_=e;}
 
         step()=default;
         step(basic_Experiment* e,const step& other):
-            e_{e},myIndex_{other.myIndex_},index_of_start_point_{other.index_of_start_point_},nsamples_{other.nsamples_},mean_point_{other.mean_point_},y_{other.y_}{}
+            e_{e},myTraceIndex_{other.myTraceIndex_},myIndex_{other.myIndex_},index_of_start_point_{other.index_of_start_point_},nsamples_{other.nsamples_},mean_point_{other.mean_point_},y_{other.y_}{}
         step(basic_Experiment* e,step&& other):
-            e_{e},myIndex_{std::move(other.myIndex_)},index_of_start_point_{std::move(other.index_of_start_point_)},nsamples_{std::move(other.nsamples_)},
+            e_{e},myTraceIndex_{other.myTraceIndex_},myIndex_{std::move(other.myIndex_)},index_of_start_point_{std::move(other.index_of_start_point_)},nsamples_{std::move(other.nsamples_)},
             mean_point_{std::move(other.mean_point_)},y_{std::move(other.y_)}{other.e_=nullptr;}
 
         void calc()
@@ -199,11 +205,14 @@ public:
         Y y()const {return y_.y;}
         auto& measure()const {return y_;}
         point<X,Y>const & x()const {return mean_point_;}
-        auto data_row()const {return std::tuple_cat(std::tuple(myIndex()),x().data_row(),measure().data_row());}
+        auto data_row()const
+        {return std::tuple_cat(myTrace().data_row(),
+                        std::tuple(myIndex()),x().data_row(),measure().data_row());}
 
-        template<class DataFrame>
-        static void insert_col(DataFrame& d, const std::string& pre)
+        template<class... Ts>
+        static void insert_col(io::myDataFrame<Ts...>& d, const std::string& pre)
         {
+            trace::insert_col(d);
             d.insert_column(pre+"index",C<std::size_t>{});
             point<X,Y>::insert_col(d,pre);
             measure_type<Y>::insert_col(d);
@@ -220,17 +229,17 @@ public:
             else
                 return e_->cend_end_end();
         }
-        step(basic_Experiment* e,std::size_t myIndex, std::size_t index_of_start_point)
-            :e_{e}, myIndex_{myIndex},index_of_start_point_{index_of_start_point},nsamples_{},y_{}
+        step(basic_Experiment* e,std::size_t myTraceIndex,std::size_t myIndex, std::size_t index_of_start_point)
+            :e_{e}, myTraceIndex_{myTraceIndex},myIndex_{myIndex},index_of_start_point_{index_of_start_point},nsamples_{},y_{}
         {
         }
-        step(basic_Experiment* e,std::size_t myIndex, std::size_t index_of_start_point, measure_type<Y> y)
-            :e_{e}, myIndex_{myIndex},index_of_start_point_{index_of_start_point},nsamples_{},y_{y}
+        step(basic_Experiment* e,std::size_t myTraceIndex,std::size_t myIndex, std::size_t index_of_start_point, measure_type<Y> y)
+            :e_{e}, myTraceIndex_{myTraceIndex},myIndex_{myIndex},index_of_start_point_{index_of_start_point},nsamples_{},y_{y}
         {
         }
         template< class otherStep>
         step(basic_Experiment* e,const  otherStep& other, measure_type<Y>&& m):
-            e_{e},myIndex_{other.myIndex()},index_of_start_point_{other.index_of_start_point()},nsamples_{other.nsamples()},y_{std::move(m)}{}
+            e_{e},myTraceIndex_{other.myTraceIndex()},myIndex_{other.myIndex()},index_of_start_point_{other.index_of_start_point()},nsamples_{other.nsamples()},y_{std::move(m)}{}
 
 
 
@@ -383,7 +392,7 @@ public:
 
     {
         for (std::size_t i=0; i<points_.size(); ++i)
-            steps_.emplace_back(this,i,i);
+            steps_.emplace_back(this,0,i,i);
         for (auto &e:steps_) e.calc();
 
         extract_traces_from_Nan();
@@ -395,7 +404,7 @@ public:
 
     {
         for (std::size_t i=0; i<points_.size(); ++i)
-            steps_.emplace_back(this,i,i);
+            steps_.emplace_back(this,0,i,i);
         for (auto &e:steps_) e.calc();
 
         extract_traces_from_Nan();
@@ -503,22 +512,29 @@ public:
 
     Y operator[](std::size_t i)const { return steps()[i].y();}
 
-    template<class DataFrame>
-    static void insert_col(DataFrame& d)
+    template<class... Ts>
+    static void insert_col(io::myDataFrame<Ts...>& d)
     {
-        d.insert_column("ymean",C<double>{});
-        d.insert_column("y_var",C<double>{});
-        d.insert_column("plogL",C<double>{});
-        d.insert_column("eplogL",C<double>{});
-        d.insert_column("parameter",C<std::string>{});
-        d.insert_column("Gradient",C<double>{});
+        d.insert_column("frequency_of_sampling", C<double>());
+        d.insert_column("Vm", C<double>());
+        step::insert_col(d,"");
     }
+
+    auto data_row(std::size_t istep)const
+    {
+        auto exp_data=std::tuple(frequency_of_sampling(),Vm());
+        return std::tuple_cat(exp_data,steps()[istep].data_row());
+    }
+
+
+
 private:
     void extract_traces_from_Nan()
     {
         std::size_t iStart=0;
         std::size_t itrace=0;
         for (std::size_t i=0; i<steps_.size(); ++i)
+        {
             if (std::isnan(steps_[i].y()))
             {
                 if (i>iStart)
@@ -528,6 +544,8 @@ private:
                 }
                 iStart=i+1;
             }
+            steps_[i].setTraceIndex(itrace);
+        }
 
     }
     double frequency_of_sampling_;

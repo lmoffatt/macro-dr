@@ -4001,7 +4001,7 @@ symmetric_chol(const M_Matrix<double>& x,const std::string& kind)
     else
     {
 
-        assert((kind=="lower"? (are_Equal<true,M_Matrix<double>>(std::numeric_limits<double>::epsilon()*100,std::numeric_limits<double>::epsilon()*100).test_sum(res*Transpose(res),x, std::cerr)) :(are_Equal<true,M_Matrix<double>>(std::numeric_limits<double>::epsilon()*100,std::numeric_limits<double>::epsilon()*100).test_sum(Transpose(res)*res,x, std::cerr))));
+        assert((kind=="lower"? (are_Equal<true,M_Matrix<double>>(std::numeric_limits<double>::epsilon()*1000,std::numeric_limits<double>::epsilon()*1000).test_sum(res*Transpose(res),x, std::cerr)) :(are_Equal<true,M_Matrix<double>>(std::numeric_limits<double>::epsilon()*1000,std::numeric_limits<double>::epsilon()*1000).test_sum(Transpose(res)*res,x, std::cerr))));
         return Op(res);
     }
 

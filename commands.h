@@ -122,6 +122,27 @@ struct to_DataFrame_index
 
 };
 
+template<class Parameters_Distribution,class Parameters_Values,class ExperimentData, class logLikelihood>
+struct to_DataFrame<evidence::Likelihood_Analisis<Parameters_Distribution,Parameters_Values,ExperimentData,logLikelihood>>
+{
+    static constexpr auto className=my_static_string("to_dataframe");
+
+    static auto run(const evidence::Likelihood_Analisis<Parameters_Distribution,Parameters_Values,ExperimentData,logLikelihood>& l)
+    {
+                return l.make_Data_Frame();
+
+
+    }
+
+
+    static auto get_arguments()
+    {
+        return std::make_tuple(grammar::argument(C< const evidence::Likelihood_Analisis<Parameters_Distribution,Parameters_Values,ExperimentData,logLikelihood>&>{},"analysis"));
+    }
+
+
+};
+
 
 
 using namespace  io;
@@ -468,8 +489,8 @@ struct Objects
     to_DataFrame<measure_just_y<double>>,
     to_DataFrame<markov::measure_likelihood<double>>,
     to_DataFrame_index<Parameters_distribution<Allosteric_Model>>,
-    to_DataFrame_index<Parameters_partial_distribution<Allosteric_Model>>
-
+    to_DataFrame_index<Parameters_partial_distribution<Allosteric_Model>>,
+    to_DataFrame<evidence::Likelihood_Analisis<Parameters_distribution<Allosteric_Model>,M_Matrix<double>,singleLigandExperiment,evidence::PartialDLogLikelihood>>
     > commands;
     typedef CCs<save,write_variable> templateCommands;
 };

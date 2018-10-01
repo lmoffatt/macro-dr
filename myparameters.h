@@ -252,7 +252,15 @@ public:
         }
         return Parameters_values<Model>(m);
     }
-    
+    virtual double tr_to_Parameter(double val, std::size_t ipar)const
+    {
+        assert(ipar<size());
+        return tr(ipar)->apply_inv(val);
+    }
+
+
+
+
     M_Matrix<double> Parameter_to_tr(const Parameters_values<Model> & val) const
     {
         assert(val.size()==tu_.size());
