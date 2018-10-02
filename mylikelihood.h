@@ -361,9 +361,6 @@ public:
         assert(hessian.isSymmetric());
         H_=std::move(hessian);}
 
-
-
-
     DlogLikelihood(double logL, double elogL, double vlogL, const M_Matrix<double>& Gradient, const M_Matrix<double>& Hessian)
         :logLikelihood(logL,elogL,vlogL), G_{Gradient},H_{Hessian}{assert(H_.isSymmetric());}
     DlogLikelihood(std::tuple<double,double,double> logL, M_Matrix<double>&& Gradient,  M_Matrix<double>&& Hessian)
@@ -954,6 +951,7 @@ public:
                         assert(npar==l.G().size());
                         for(std::size_t i_par=0; i_par<npar; ++i_par)
                         {
+                            if constexpr (false)
                             for (std::size_t i_parT=0; i_parT<=i_par; ++i_parT)
                             {
                                 auto data_lik=l.data_row(i_step,i_par,i_parT);
@@ -966,6 +964,20 @@ public:
                                                    prior_.tr_to_Parameter(p[i_parT],i_parT));
                                 auto data_t=std::tuple_cat(data_sample,data_exp,data_par,data_lik);
                                 d.push_back_t(data_t);
+                            }
+                            else
+                            {
+                                auto data_lik=l.data_row(i_step,i_par,i_par);
+                                auto data_par=
+                                        std::tuple(prior_.name(i_par),
+                                                   p[i_par],
+                                                   prior_.tr_to_Parameter(p[i_par],i_par),
+                                                   prior_.name(i_par),
+                                                   p[i_par],
+                                                   prior_.tr_to_Parameter(p[i_par],i_par));
+                                auto data_t=std::tuple_cat(data_sample,data_exp,data_par,data_lik);
+                                d.push_back_t(data_t);
+
                             }
                         }
                     }
