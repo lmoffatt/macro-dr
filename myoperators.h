@@ -32,9 +32,9 @@ T sum(const std::vector<T>& v)
 }
 
 template<class T>
-T mean(const std::vector<T>& v)
+auto mean(const std::vector<T>& v)
 {
-     return sum(v)/v.size();
+     return sum(v)*(1.0/v.size());
 }
 
 
@@ -55,9 +55,9 @@ T sum_sqr(const std::vector<T>& v)
 }
 
 template<class C, class UnOp>
-auto sum_sqr(const std::vector<C>& v, const UnOp& u)->std::invoke_result_t<UnOp,C>
+auto sum_sqr(const std::vector<C>& v, const UnOp& u)->std::decay_t<std::invoke_result_t<UnOp,C>>
 {
-    typedef std::invoke_result_t<UnOp,C> T;
+    typedef std::decay_t<std::invoke_result_t<UnOp,C>> T;
     return std::accumulate(v.begin(),v.end(),T(),[&u](auto total,C next ){return total+sqr(std::invoke(u,next));});
 }
 
@@ -66,24 +66,24 @@ auto sum_sqr(const std::vector<C>& v, const UnOp& u)->std::invoke_result_t<UnOp,
 template<class C, class UnOp>
 auto mean(const std::vector<C>& v, const UnOp& u)->std::decay_t<std::invoke_result_t<UnOp,C>>
 {
-    return sum(v,u)/v.size();
+    return sum(v,u)*(1.0/v.size());
 }
 
 
 template<class T>
-T mean_sqr(const std::vector<T>& v)
+auto mean_sqr(const std::vector<T>& v)
 {
-    return sum_sqr(v)/v.size();
+    return sum_sqr(v)*(1.0/v.size());
 }
 
 template<class C, class UnOp>
 auto mean_sqr(const std::vector<C>& v, const UnOp& u)->std::invoke_result_t<UnOp,C>
 {
-    return sum_sqr(v,u)/v.size();
+    return sum_sqr(v,u)*(1.0/v.size());
 }
 
 template<class T>
-T variance(const std::vector<T>& v)
+auto variance(const std::vector<T>& v)
 {
     return mean_sqr(v)-op::sqr(mean(v));
 }

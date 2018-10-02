@@ -107,6 +107,19 @@ struct Base_type<T, std::void_t<typename T::base_type>>
 };
 
 
+template <class T,class =void >
+struct Enclosed_type{
+
+    constexpr static bool value=false;
+};
+
+template <class T>
+struct Enclosed_type<T, std::void_t<typename T::enclosed_type>>
+{
+    typedef typename T::enclosed_type type;
+    constexpr static bool value=true;
+};
+
 
 
 template<template<typename...>class... Ts>

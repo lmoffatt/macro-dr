@@ -52,6 +52,8 @@ struct LabelMap
 {
     typedef typename label::referred_type referred_type;
     typedef   std::map<std::string,referred_type > type;
+
+    typedef std::map<std::string,moments<referred_type> > moments_type;
 };
 
 template <class label>
@@ -122,6 +124,11 @@ public:
     }
 
 };
+
+
+
+
+
 
 
 
