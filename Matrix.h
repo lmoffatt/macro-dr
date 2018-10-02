@@ -380,16 +380,16 @@ public:
 
     static std::pair<std::size_t, std::size_t> pos_to_ij_Symmetric(std::size_t k)
     {
-       std::size_t i = std::floor((std::sqrt(8*k+1)-1 )/2) ;
-       std::size_t j = k-(i*(i+1))/2 ;
-       assert(k==i*(i+1)/2+j);
-       return std::pair(i,j);
+        std::size_t i = std::floor((std::sqrt(8*k+1)-1 )/2) ;
+        std::size_t j = k-(i*(i+1))/2 ;
+        assert(k==i*(i+1)/2+j);
+        return std::pair(i,j);
     }
 
     static std::pair<std::size_t, std::size_t> pos_to_ij_Symmetric(std::size_t k, std::size_t n)
     {
-       std::size_t i,j ;
-       std::tie(i,j)=pos_to_ij_Symmetric(n*(n+1)/2-1-k);
+        std::size_t i,j ;
+        std::tie(i,j)=pos_to_ij_Symmetric(n*(n+1)/2-1-k);
 
         return std::pair(n-1-i,n-1-j);
     }
@@ -1300,7 +1300,7 @@ public:
 
 
 private:
-    TYPE type_;
+    TYPE type_=ZERO;
     std::size_t          _nrows;    /**< number of rows */
     std::size_t          _ncols;    /**< number of columns */
 
@@ -2524,8 +2524,8 @@ bool any(const M_Matrix<T>& x, const Predicate& p)
 template<typename T, class Predicate>
 std::set<std::size_t> find(const M_Matrix<T>& x, const Predicate& p)
 {
-std::set<std::size_t> out;
-        for (std::size_t i=0; i< x.size(); ++i)
+    std::set<std::size_t> out;
+    for (std::size_t i=0; i< x.size(); ++i)
         if (p(x[i]))
             out.insert(i);
     return out;
@@ -3383,7 +3383,7 @@ public:
             auto B_zero=M_Matrix<E>
                     (C_chol.ncols(), C_chol.nrows(), M_Matrix<E>::ZERO);
             return Op(
-                FullPartition<E>(La.value(),B_zero,C_chol,D_chol.value()));
+                        FullPartition<E>(La.value(),B_zero,C_chol,D_chol.value()));
         }
     }
 
@@ -4052,8 +4052,8 @@ diagonal_chol(const M_Matrix<T>& a, const std::string& kind)
         if (!e.second.empty())
         {
             return Op(false,
-            "Non positive definite  block="
-                +std::to_string(i)+"  "+e.error());
+                      "Non positive definite  block="
+                      +std::to_string(i)+"  "+e.error());
         }
         else
             out(i,i)=std::move(e.first);
@@ -4073,7 +4073,7 @@ scalar_diagonal_chol(const M_Matrix<double>& a, const std::string& /*kind*/)
         return Op(false,"Non Definite positive, Diagonal is non positive");
     else
         return Op(
-            M_Matrix<double>
+                    M_Matrix<double>
                     (a.nrows(),a.ncols(),
                      M_Matrix<double>::SCALAR_DIAGONAL,
                      std::sqrt(a(0,0)))
@@ -4095,7 +4095,7 @@ scalar_diagonal_chol(const M_Matrix<T>& a, const std::string& kind)
     }
     else
         return Op(
-            M_Matrix<T>
+                    M_Matrix<T>
                     (a.nrows(),a.ncols(),
                      M_Matrix<T>::SCALAR_DIAGONAL,
                      std::move(e.first)));;
@@ -4149,7 +4149,7 @@ Matrix_cholesky(const M_Matrix<E>& x, const std::string& kind)
 
 template <class T>
 myOptional_t<M_Matrix<T>>
- inv(const M_Matrix<T>& x)
+inv(const M_Matrix<T>& x)
 {
     return matrix_inverse::Matrix_inverse(x);
 }
@@ -4609,7 +4609,7 @@ template<typename T, typename S>
 std::pair<std::size_t, std::size_t>
 Size_of_Product(const M_Matrix<T>& one, const M_Matrix<S>& other, bool transposeOne,bool transposeOther)
 {
-  /*  assert(
+    /*  assert(
                 (transposeOne ? one.nrows():one.ncols())
                 ==
                 (transposeOther ? other.ncols():other.nrows())
@@ -6165,19 +6165,43 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
 template<typename T>
 M_Matrix<T> operator+(const M_Matrix<T>& x,const M_Matrix<T>& y)
 {
-    auto out=additive::sum_Operator(x,y);
-    return out;
+    if (x.type()==M_Matrix<T>::ZERO) return y;
+    else
+        if (y.type()==M_Matrix<T>::ZERO) return x;
+        else
+        {
+            auto out=additive::sum_Operator(x,y);
+            return out;
+        }
 }
 
 template<typename T, typename S>
 M_Matrix<T>& operator+=(M_Matrix<T>& x,const M_Matrix<S>& y)
 {
-    return additive::sum_assigment(x,y);
+    if (x.type()==M_Matrix<T>::ZERO)
+    {
+        x=y;
+        return x;
+    }
+    else
+        if (y.type()==M_Matrix<T>::ZERO)
+            return x;
+        else
+            return additive::sum_assigment(x,y);
 }
 
 template<typename T, typename S>
 M_Matrix<T>& operator-=(M_Matrix<T>& x,const M_Matrix<S>& y)
 {
+    if (x.type()==M_Matrix<T>::ZERO)
+    {
+        x=-y;
+        return x;
+    }
+    else
+        if (y.type()==M_Matrix<T>::ZERO)
+            return x;
+        else
     return additive::substraction_assigment(x,y);
 }
 
@@ -6192,12 +6216,30 @@ M_Matrix<T>& operator-=(M_Matrix<T>& x,const M_Matrix<S>& y)
 template<typename T>
 M_Matrix<T> operator-(const M_Matrix<T>& x,const M_Matrix<T>& y)
 {
+    if (x.type()==M_Matrix<T>::ZERO)
+    {
+        return y;
+    }
+    else
+        if (y.type()==M_Matrix<T>::ZERO)
+            return x;
+        else
+
     return additive::substraction_Operator(x,y);
 }
 
 template<typename T>
 M_Matrix<T> operator-(M_Matrix<T>&& x,M_Matrix<T>&& y)
 {
+    if (x.type()==M_Matrix<T>::ZERO)
+    {
+        return -y;
+    }
+    else
+        if (y.type()==M_Matrix<T>::ZERO)
+            return x;
+        else
+
     return additive::substraction_Operator(std::move(x),std::move(y));
 }
 

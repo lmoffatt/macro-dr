@@ -179,7 +179,7 @@ public:
     auto& sum()const { return sum_;}
     auto& sum_sqr()const {return sum_sqr_;}
     auto mean()const {return sum()*(1.0/count());}
-    auto variance()const { return sum_sqr()*(1.0/count())-sqr(mean());}
+    auto variance()const { return sum_sqr()*(1.0/count())-op::sqr(mean());}
     moments()=default;
 
     std::size_t size()const {return sum_.size();}

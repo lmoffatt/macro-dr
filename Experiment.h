@@ -45,12 +45,12 @@ struct point{
     X x_;
     Y y_;
 
-    auto data_row()const {return std::tuple(t(),nsamples(),x());}
+    auto data_row()const {return std::tuple(t(),double(nsamples()),x());}
     template<class DataFrame>
     static void insert_col(DataFrame& d, const std::string& pre)
     {
         d.insert_column(pre+"time",C<double>{});
-        d.insert_column(pre+"nsamples",C<std::size_t>{});
+        d.insert_column(pre+"nsamples",C<double>{});
         d.insert_column(pre+"x",C<X>{});
 
     }
@@ -104,13 +104,6 @@ struct moments<experiment::point<X,Y>>
 
     auto data_row(MOMENTS m)const {return std::tuple_cat(t().data_row(m),nsamples().data_row(m),x().data_row(m));}
 
-    template<class DataFrame>
-    static void insert_col(DataFrame& d, const std::string& pre)
-    {
-        d.insert_column(pre+"time",C<double>{});
-        d.insert_column(pre+"nsamples",C<std::size_t>{});
-        d.insert_column(pre+"x",C<X>{});
-    }
 
     moments<double> t()const {return t_;}
     moments<double> nsamples()const {return nsamples_;}
@@ -774,8 +767,16 @@ public:
         {
         }
         template< class otherStep>
-        step(moments* e,const  otherStep& other, moments<measure_type<Y>>&& m):
-            e_{e},myTraceIndex_{other.myTraceIndex()},myIndex_{other.myIndex()},index_of_start_point_{other.index_of_start_point()},nsamples_{other.nsamples()},y_{std::move(m)}{}
+        step(moments* e,const  otherStep& other, moments<point<X,Y>> && newx, moments<measure_type<Y>>&& m):
+            e_{e},
+            myTraceIndex_{other.myTraceIndex()},
+            myIndex_{other.myIndex()},
+            index_of_start_point_{other.index_of_start_point()},
+            nsamples_{other.nsamples()},
+            mean_point_{std::move(newx)},
+            y_{std::move(m)}{
+
+        }
 
 
 
@@ -826,11 +827,11 @@ public:
     }
 
     template< class othersteps>
-    static std::vector<step> copy(moments* e, const othersteps& s, std::vector<moments<measure_type<Y>>>&& m)
+    static std::vector<step> copy(moments* e, const othersteps& s,std::vector<moments<point<X,Y>>>&& p, std::vector<moments<measure_type<Y>>>&& m)
     {
         std::vector<step> out(s.size());
         for (std::size_t i=0; i<s.size(); ++i)
-            out[i]=step(e,s[i],std::move(m[i]));
+            out[i]=step(e,s[i],std::move(p[i]),std::move(m[i]));
         return out;
     }
 
@@ -987,7 +988,9 @@ public:
         frequency_of_sampling_{e,&element_type::frequency_of_sampling},
       Vm_{e,&element_type::Vm},
       points_(moments_by_row(e,&element_type::points)),
-      steps_(copy(this,e[0].steps(),moments_by_row_2(e,&element_type::steps,&element_type::step::measure))),
+      steps_(copy(this,e[0].steps(),
+             moments_by_row_2(e,&element_type::steps,&element_type::step::x),
+             moments_by_row_2(e,&element_type::steps,&element_type::step::measure))),
       traces_(copy_trace(this,e[0].traces()))
     {
 
