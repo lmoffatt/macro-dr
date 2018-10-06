@@ -76,7 +76,7 @@ struct to_DataFrame
 
     static auto run(const basic_Experiment<point<double,double>,measure>& e)
     {
-                return experiment::Experiment_steps_to_DataFrame(e);
+        return experiment::Experiment_steps_to_DataFrame(e);
 
 
     }
@@ -129,7 +129,7 @@ struct to_DataFrame<evidence::Likelihood_Analisis<Parameters_Distribution,Parame
 
     static auto run(const evidence::Likelihood_Analisis<Parameters_Distribution,Parameters_Values,ExperimentData,logLikelihood>& l)
     {
-                return l.make_Data_Frame();
+        return l.make_Data_Frame();
 
 
     }
@@ -239,6 +239,8 @@ struct simulate{
     static auto run(std::mt19937_64::result_type initseed,const Experiment& e,  const Model& m , const Parameters_values<Model>& p,std::size_t n_sub_intervals
                     ,double min_P,double tolerance)
     {
+
+
         SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()), min_P);
 
         Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,Experiment,double> MC(SM,e,n_sub_intervals,tolerance);
@@ -274,7 +276,7 @@ struct likelihood{
 
     static constexpr auto className=my_static_string("likelihood");
 
-    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance)
+    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance, double biNumber,double Vanumber)
     {
         std::cerr<<"\nparameters\n"<<p;
         SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P);
@@ -282,9 +284,9 @@ struct likelihood{
 
         Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance);
 
-        if (algorithm==my_trait<markov::MacroDR>::className.str())
+        if (algorithm==my_trait<markov::MacroDVR>::className.str())
         {
-            auto out= markov::logLikelihood(markov::MacroDR(tolerance),MC,e, std::cerr);
+            auto out= markov::logLikelihood(markov::MacroDVR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
             if (out.has_value())
                 std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
             else std::cerr<<out.error();
@@ -292,6 +294,33 @@ struct likelihood{
 
         }
 
+        else  if (algorithm==my_trait<markov::MacroDMR>::className.str())
+        {
+            auto out= markov::logLikelihood(markov::MacroDMR(tolerance, biNumber),MC,e, std::cerr);
+            if (out.has_value())
+                std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
+            else std::cerr<<out.error();
+            return out;
+
+        }
+        else  if (algorithm==my_trait<markov::MacroDVNR>::className.str())
+        {
+            auto out= markov::logLikelihood(markov::MacroDVNR(tolerance,Vanumber),MC,e, std::cerr);
+            if (out.has_value())
+                std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
+            else std::cerr<<out.error();
+            return out;
+
+        }
+        else  if (algorithm==my_trait<markov::MacroDMNR>::className.str())
+        {
+            auto out= markov::logLikelihood(markov::MacroDMNR(tolerance),MC,e, std::cerr);
+            if (out.has_value())
+                std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
+            else std::cerr<<out.error();
+            return out;
+
+        }
 
         else return myOptional_t<double>(false," algorithm "+algorithm+ "not found");
     }
@@ -304,7 +333,10 @@ struct likelihood{
                     grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
                     grammar::argument(C<std::string>{},"algorithm"),
                     grammar::argument(C<double>{},"min_probability",1e-9),
-                    grammar::argument(C<double>{},"tolerance_error",1e-7));
+                    grammar::argument(C<double>{},"tolerance_error",1e-7),
+                    grammar::argument(C<double>{},"Binomial_threshold",5.0),
+                    grammar::argument(C<double>{},"Variance_threshold",1.0)
+                    );
     }
 };
 
@@ -314,40 +346,47 @@ struct likelihoodtest{
 
 
     static constexpr auto className=my_static_string("likelihoodtest");
-    static auto run(const Experiment& e,
+    static auto run(std::size_t initseed,
+                    const Experiment& e,
                     const Model& m ,
                     const Parameters_values<Model>& p,
                     const ParametersDistribution& prior,
                     const std::string algorithm,
+                    double BiNumber,
+                    double VaNumber,
                     double min_P,
                     double tolerance,
                     double eps_Gradient,
                     std::size_t n_sub_intervals,
-                    std::mt19937_64::result_type initseed,
                     std::size_t nsamples,
                     double pvalue)
     {
         std::cerr<<"\nparameters\n"<<p;
+        std::cerr<<"\n initseed="<<initseed<<"\n";
+        std::cerr<<"\n n_sub_intervals="<<n_sub_intervals<<"\n";
+        std::cerr<<"\n nsamples="<<nsamples<<"\n";
+
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
-        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,prior,e,algorithm,eps_Gradient,min_P, tolerance);
+        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,prior,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber);
         Simulator<Model> sim(m,n_sub_intervals, min_P,tolerance);
         return evidence::Likelihood_Test::compute_test(std::cerr,sim,lik,e,prior,p,mt,nsamples,pvalue);
     }
 
     static auto get_arguments()
-    {
-        return std::make_tuple(
+    {   return std::make_tuple(
+                    grammar::argument(C<std::size_t>{},"initseed"),
                     grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
                     grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
                     grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
                     grammar::argument(C<const ParametersDistribution&>{},"model_parameters_distribution"),
                     grammar::argument(C<std::string>{},"algorithm"),
+                    grammar::argument(C<double>{},"Binomial_threshold",5.0),
+                    grammar::argument(C<double>{},"Variance_threshold",1.0),
                     grammar::argument(C<double>{},"min_probability",1e-9),
                     grammar::argument(C<double>{},"tolerance_error",1e-7),
                     grammar::argument(C<double>{},"eps_G"),
                     grammar::argument(C<std::size_t>{},"number_of_sub_intervals"),
 
-                    grammar::argument(C<std::mt19937_64::result_type>{},"initseed"),
                     grammar::argument(C<std::size_t>{},"nsamples"),
                     grammar::argument(C<double>{},"p_value")
                     );
@@ -362,7 +401,7 @@ struct likelihood_detail{
 
     static constexpr auto className=my_static_string("likelihood_detail");
 
-    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance)
+    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance, double biNumber,double Vanumber)
     {
         typedef myOptional_t<experiment::basic_Experiment<experiment::point<double,double>,markov::measure_likelihood<double>>> Op;
 
@@ -371,11 +410,22 @@ struct likelihood_detail{
 
         Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance);
 
-        if (algorithm==my_trait<markov::MacroDR>::className.str())
+         if (algorithm==my_trait<markov::MacroDVR>::className.str())
         {
-            return markov::monitorLikelihood(markov::MacroDR(tolerance),MC,e, std::cerr);
+            return markov::monitorLikelihood(markov::MacroDVR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
         }
-
+        else if (algorithm==my_trait<markov::MacroDMR>::className.str())
+        {
+            return markov::monitorLikelihood(markov::MacroDMR(tolerance,biNumber),MC,e, std::cerr);
+        }
+        else if (algorithm==my_trait<markov::MacroDVNR>::className.str())
+        {
+            return markov::monitorLikelihood(markov::MacroDVNR(tolerance,Vanumber),MC,e, std::cerr);
+        }
+        else if (algorithm==my_trait<markov::MacroDMNR>::className.str())
+        {
+            return markov::monitorLikelihood(markov::MacroDMNR(tolerance),MC,e, std::cerr);
+        }
         else return Op(false,"algorithm "+algorithm+" is not recognized");
     }
 
@@ -387,7 +437,9 @@ struct likelihood_detail{
                     grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
                     grammar::argument(C<std::string>{},"algorithm"),
                     grammar::argument(C<double>{},"min_probability",1e-9),
-                    grammar::argument(C<double>{},"tolerance_error",1e-7));
+                    grammar::argument(C<double>{},"tolerance_error",1e-7),
+                    grammar::argument(C<double>{},"Binomial_threshold",5.0),
+                    grammar::argument(C<double>{},"Variance_threshold",1.0));
     }
 };
 
@@ -424,6 +476,8 @@ struct Evidence{
                     double eps_Gradient,
                     double min_P,
                     double tolerance,
+                    double BiNumber,
+                    double VaNumber,
                     std::mt19937_64::result_type initseed,
                     std::vector<double> betas,
                     std::vector<double>landa,
@@ -437,7 +491,7 @@ struct Evidence{
         std::cerr<<"\nPriorParameters\n";
         std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean());
 
-        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance);
+        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber);
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
         std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt));
         evidence::OutputGenerator out(std::cerr,parameters,gradient);
@@ -456,6 +510,8 @@ struct Evidence{
                     grammar::argument(C<double>{},"eps_G"),
                     grammar::argument(C<double>{},"min_probability"),
                     grammar::argument(C<double>{},"tolerance_error"),
+                    grammar::argument(C<double>{},"Binomial_threshold",5.0),
+                    grammar::argument(C<double>{},"Variance_threshold",1.0),
                     grammar::argument(C<std::mt19937_64::result_type>{},"initseed"),
                     grammar::argument(C<std::vector<double>>{},"betas"),
                     grammar::argument(C<std::vector<double>>{},"landas"),

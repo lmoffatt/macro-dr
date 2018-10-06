@@ -343,6 +343,34 @@ Op_void consolidate(V<Op_void>&& v)
     return Op_void(res,error);
 }
 
+template<template<typename...>class V>
+Op_void consolidate(V<std::pair<Op_void,Op_void>>&& v)
+{
+    bool res=true;
+    std::string error;
+    for (std::size_t i=0; i<v.size();++i)
+    {
+        if (!v[i].first.has_value())
+        {
+            res=false;
+            if (error.empty())
+               error+=std::to_string(i)+": "+v[i].error();
+            else
+                error+="; "+std::to_string(i)+": "+v[i].error();
+        }
+        if (!v[i].second.has_value())
+        {
+            res=false;
+            if (error.empty())
+               error+=std::to_string(i)+": "+v[i].error();
+            else
+                error+="; "+std::to_string(i)+": "+v[i].error();
+        }
+
+    }
+    return Op_void(res,error);
+}
+
 
 
 

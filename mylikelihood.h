@@ -422,11 +422,10 @@ public:
     }
 
     const moments<M_Matrix<double>>& G()const {return G_;}
-    const M_Matrix<double>& H()const {return H_;}
+    const moments_matrix<double>& H()const {return H_;}
     operator bool()const { return (G().mean().size()>0)&&(H_.size()>0)&&base_type::operator bool();}
     void  set_G(moments<M_Matrix<double>>&& gradient) { G_=std::move(gradient);}
-    void  set_H(M_Matrix<double>&& hessian) {
-        assert(hessian.isSymmetric());
+    void  set_H(moments_matrix<double>&& hessian) {
         H_=std::move(hessian);}
 
 
@@ -434,14 +433,14 @@ public:
 
     moments(moments<double> logL, moments<double> elogL, moments<double> vlogL,
             moments<double> chilogL,
-            const moments<M_Matrix<double>>& Gradient, const M_Matrix<double>& Hessian)
-        :base_type(logL,elogL,vlogL,chilogL), G_{Gradient},H_{Hessian}{assert(H_.isSymmetric());}
+            const moments<M_Matrix<double>>& Gradient, const moments_matrix<double>& Hessian)
+        :base_type(logL,elogL,vlogL,chilogL), G_{Gradient},H_{Hessian}{}
 
 
     moments(const std::vector<evidence::DlogLikelihood>& l):
         base_type(l),
         G_{l,&evidence::DlogLikelihood::G},
-        H_{op::mean(l,&evidence::DlogLikelihood::H)}{}
+        H_{l,&evidence::DlogLikelihood::H}{}
 
 
 
@@ -450,13 +449,14 @@ public:
     moments(const std::vector<DlogL>& l):
         base_type(l),
         G_{l,&DlogL::G},
-        H_{op::mean(l,&DlogL::H)}{}
+        H_{l,&DlogL::H}
+    {}
 
     template<class logL, class Op, typename...Ts>
     moments(const std::vector<logL>& l, const Op& u, Ts...t):
         base_type(l,u,t...),
         G_{l,[&u,&t...](const logL& d){return u(d,t...).G();}},
-        H_{op::mean(l,[&u,&t...](const logL& d){return u(d,t...).H();})}{}
+        H_{l,[&u,&t...](const logL& d){return u(d,t...).H();}}{}
 
 
 
@@ -465,17 +465,16 @@ public:
 
     auto data_row(MOMENTS m,std::size_t i, std::size_t j) const
     {
-        if (m==MEAN)
-            return std::tuple_cat( base_type::data_row(m),G().data_row(m,i,j),std::tuple(H()(i,j)));
-        else
-            return std::tuple_cat( base_type::data_row(m),G().data_row(m,i,j),std::tuple(std::numeric_limits<double>::quiet_NaN()));
-
+        return std::tuple_cat( base_type::data_row(m),G().data_row(m,i,j),H().data_row(m,i,j));
     }
+
+    std::size_t data_dim(MOMENTS m)const { return std::max(G().data_dim(m),H().data_dim(m));}
+    std::size_t data_size()const { return G().data_size();}
 
 
 private:
     moments<M_Matrix<double>> G_;
-    M_Matrix<double> H_;
+    moments_matrix<double> H_;
 };
 
 
@@ -509,6 +508,7 @@ public:
     template<class DataFrame>
     static void insert_col(DataFrame& d)
     {
+
         base_type::insert_col(d,"");
         DlogLikelihood::insert_col(d,"partial_");
     }
@@ -573,6 +573,7 @@ public:
     {
         return std::tuple_cat(base_type::data_row(m,i,j), partial_DlogL()[isample].data_row(m,i,j));
     }
+
 
 
 private:
@@ -952,7 +953,7 @@ public:
                         for(std::size_t i_par=0; i_par<npar; ++i_par)
                         {
                             if constexpr (false)
-                            for (std::size_t i_parT=0; i_parT<=i_par; ++i_parT)
+                                    for (std::size_t i_parT=0; i_parT<=i_par; ++i_parT)
                             {
                                 auto data_lik=l.data_row(i_step,i_par,i_parT);
                                 auto data_par=
@@ -1005,10 +1006,10 @@ public:
                                 auto data_lik=likmom.data_row(m,i_step,i_par,i_parT);
                                 auto data_par=
                                         std::tuple_cat(std::tuple(prior_.name(i_par)),
-                                                   parmom.data_row(m,i_par,i_parT),
-                                                   std::tuple(prior_.tr_to_Parameter(std::get<0>(parmom.data_row(m,i_par,i_par)),i_par),
-                                                   prior_.name(i_parT)),
-                                                    parmom.data_row(m,i_parT,i_par),
+                                                       parmom.data_row(m,i_par,i_parT),
+                                                       std::tuple(prior_.tr_to_Parameter(std::get<0>(parmom.data_row(m,i_par,i_par)),i_par),
+                                                                  prior_.name(i_parT)),
+                                                       parmom.data_row(m,i_parT,i_par),
                                                        std::tuple(prior_.tr_to_Parameter(std::get<0>(parmom.data_row(m,i_parT,i_parT)),i_parT)));
                                 auto data_t=std::tuple_cat(data_sample,data_exp,data_par,data_lik);
                                 d.push_back_t(data_t);
@@ -1272,20 +1273,27 @@ public:
                 std::vector<sim_type> simuls(nsamples);
                 std::vector<PartialDLogLikelihood> s(nsamples);
 
+                std::vector<std::stringstream>oss(8);
+
                 bool succed=true;
-#pragma omp parallel for
-                for (std::size_t i=0; i<nsamples; ++i)
+                for (std::size_t nc=0; nc<nsamples/8; ++nc)
                 {
-                    auto logL=compute_PartialDLikelihood(os,sim,fim,e,prior,p,mt);
-                    if (!logL.has_value())
-                        succed=false;
-                    else
+#pragma omp parallel for
+                    for (std::size_t ni=0; ni<8; ++ni)
                     {
-                        auto pair=std::move(logL).value();
-                        s[i]=std::move(pair.second);
-                        simuls[i]=std::move(pair.first);
-                        //             os<<"\n in sample\n"<<s[i];
+                        std::size_t i=nc*8+ni;
+                        auto logL=compute_PartialDLikelihood(oss[ni],sim,fim,e,prior,p,mt);
+                        if (!logL.has_value())
+                            succed=false;
+                        else
+                        {
+                            auto pair=std::move(logL).value();
+                            s[i]=std::move(pair.second);
+                            simuls[i]=std::move(pair.first);
+                            //             os<<"\n in sample\n"<<s[i];
+                        }
                     }
+                    for (auto& ess:oss) {os<<ess.str(); ess.str("");}
                 }
                 if (!succed)
                     return  Op(false,"failed in one of the samples");
@@ -1356,6 +1364,8 @@ public:
                     (std::ostream& os,const Simulation_Model& sim, const FIM_Model& fim, const Data& e, const ParametersDistribution& prior,const Parameters& p,std::mt19937_64& mt  , std::size_t nsamples, double pvalue)
             {
                 auto mysamples=get_sample(os,sim,fim,e,prior,p,mt,nsamples);
+                if constexpr (false)
+                {
                 auto Gmean=mysamples.value().mean_Gradient();
                 os<<"\n Gmean \n"<<Gmean;
 
@@ -1421,6 +1431,7 @@ public:
                 os<<gradient_variance_information_test.error()<<"\n\n";;
 
                 Op_void all_tests=gradient_information_test<<gradient_variance_information_test<<gradient_variance_test;
+                }
                 auto par=std::vector({prior.Parameter_to_tr(p)});
                 return Likelihood_Analisis(prior,par,mysamples.value().getSimulations(),mysamples.value().getLikelihoods());
             }

@@ -10,7 +10,7 @@
 
 #include <type_traits>
 #include <memory>
-
+#include <random>
 
 
 namespace grammar {
@@ -1418,7 +1418,7 @@ myOptional_t<BinaryOperator*> get(C<BinaryOperator*>,std::stringstream& ss)
 
 myOptional_t<LiteralGeneric*> get(C<LiteralGeneric*>,std::stringstream& ss)
 {
-    return get_Derived(Cs<LiteralGeneric,Literal<std::string>, Literal<double>, Literal<std::size_t>, Literal<int>, Literal<bool>>{},ss,"");
+    return get_Derived(Cs<LiteralGeneric,Literal<std::string>, Literal<double>, Literal<std::size_t>,Literal<std::mt19937_64::result_type>, Literal<int>, Literal<bool>>{},ss,"");
 }
 
 

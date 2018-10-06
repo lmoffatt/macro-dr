@@ -868,7 +868,7 @@ public:
     {
         M_Matrix<T> out(nrows(),ncols(),type());
         for (std::size_t i=0; i<size(); ++i)
-            out[i]=f((*this)[i]);
+            out[i]=std::invoke(f,(*this)[i]);
         return out;
     }
 

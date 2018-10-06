@@ -102,8 +102,8 @@ struct moments<experiment::point<X,Y>>
     moments<X> x_;
     moments<Y> y_;
 
-    auto data_row(MOMENTS m)const {return std::tuple_cat(t().data_row(m),nsamples().data_row(m),x().data_row(m));}
 
+    auto data_row(MOMENTS m)const {return std::tuple_cat(t().data_row(m),nsamples().data_row(m),x().data_row(m));}
 
     moments<double> t()const {return t_;}
     moments<double> nsamples()const {return nsamples_;}
