@@ -895,7 +895,7 @@ public:
     T getValue()const {return value_;}
     virtual std::string value() const override
     {
-        return my_to_string(value_);
+        return ToString(value_);
     }
     virtual std::size_t nArgin() const override
     {

@@ -47,9 +47,15 @@ template <typename T>
 auto  ToString(const T& x)->decltype ((std::declval<std::stringstream&>()<<x), std::string())
 {std::stringstream ss; ss<<x; return ss.str();}
 
+
+
 template <typename T>
 auto  ToString(const T& x)->decltype (x.put(std::declval<std::ostream&>()), std::string())
 {std::stringstream ss; x.put(ss); return ss.str();}
+
+template <>
+std::string  ToString(const double& x)
+{std::stringstream ss; ss<<std::fixed; ss<<x; return ss.str();}
 
 
 template<typename T> std::ostream& write(std::ostream& s, const T& v);
