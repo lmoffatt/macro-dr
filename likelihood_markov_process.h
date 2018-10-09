@@ -870,7 +870,7 @@ public:
         auto dy=y-y_mean;
         auto chi=dy/y_var;
         auto P_mean=prior.P_mean()*Q_dt.P()+chi*gS
-                -(chi*zeta*sSg+0.5/sqr(e_mu))*sS;
+                -(chi*zeta*sSg+0.5/e_mu)*sS;
 
         auto P__cov=quadraticForm_BT_A_B(SmD,Q_dt.P())+diag(prior.P_mean()*Q_dt.P())
                 -(zeta+N/y_var*sqr(zeta*sSg))*quadraticForm_XTX(sS)
