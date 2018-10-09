@@ -480,6 +480,8 @@ private:
 
 namespace evidence {
 
+
+template<class Aux>
 class PartialDLogLikelihood: public DlogLikelihood
 {
 public:
@@ -501,7 +503,8 @@ public:
                     grammar::field(C<self_type>{},"vlogL",&self_type::vlogL),
                     grammar::field(C<self_type>{},"Gradient",myG),
                     grammar::field(C<self_type>{},"Hessian",myH),
-                    grammar::field(C<self_type>{},"Partial_DlogL",&self_type::partial_DlogL)
+                    grammar::field(C<self_type>{},"Partial_DlogL",&self_type::partial_DlogL),
+                    grammar::field(C<self_type>{},my_trait<Aux>::className.c_str(),&self_type::getAuxiliar)
                     );
     }
 
@@ -509,42 +512,43 @@ public:
     static void insert_col(DataFrame& d)
     {
 
+        my_trait<Aux>::insert_col(d,"");
         base_type::insert_col(d,"");
         DlogLikelihood::insert_col(d,"partial_");
     }
     auto data_row(std::size_t isample,std::size_t i, std::size_t j) const
     {
-        return std::tuple_cat(base_type::data_row(i,j), partial_DlogL()[isample].data_row(i,j));
+        return std::tuple_cat(my_trait<Aux>::data_row(getAuxiliar()[isample]),base_type::data_row(i,j), partial_DlogL()[isample].data_row(i,j) );
     }
 
 
-
+    std::vector<Aux> const & getAuxiliar()const { return aux_;}
 
     std::vector<DlogLikelihood> const& partial_DlogL()const {return  partial_;}
 
-    PartialDLogLikelihood(DlogLikelihood&& dlogL, std::vector<DlogLikelihood>&& dist )
-        :DlogLikelihood(std::move(dlogL)),partial_{std::move(dist)}{}
+    PartialDLogLikelihood(DlogLikelihood&& dlogL, std::vector<DlogLikelihood>&& dist , std::vector<Aux>&& aux)
+        :DlogLikelihood(std::move(dlogL)),partial_{std::move(dist)}, aux_{std::move(aux)}{}
 
-    PartialDLogLikelihood(double logL, double elogL, double vlogL,const M_Matrix<double>& Gradient, const M_Matrix<double>& Hessian,const std::vector<DlogLikelihood>& dist )
-        :DlogLikelihood(logL,elogL,vlogL,Gradient,Hessian),partial_{dist}{}
-    PartialDLogLikelihood(double logL, double elogL, double vlogL, M_Matrix<double>&& Gradient,  M_Matrix<double>&& Hessian, std::vector<DlogLikelihood>&& dist )
-        :DlogLikelihood(logL,elogL,vlogL,std::move(Gradient),std::move(Hessian)),partial_{std::move(dist)}{}
+    PartialDLogLikelihood(double logL, double elogL, double vlogL,const M_Matrix<double>& Gradient, const M_Matrix<double>& Hessian,const std::vector<DlogLikelihood>& dist , const std::vector<Aux>& aux)
+        :DlogLikelihood(logL,elogL,vlogL,Gradient,Hessian),partial_{dist}, aux_{aux}{}
+    PartialDLogLikelihood(double logL, double elogL, double vlogL, M_Matrix<double>&& Gradient,  M_Matrix<double>&& Hessian, std::vector<DlogLikelihood>&& dist ,std::vector<Aux>&& aux)
+        :DlogLikelihood(logL,elogL,vlogL,std::move(Gradient),std::move(Hessian)),partial_{std::move(dist)}, aux_{std::move(aux)}{}
     PartialDLogLikelihood()=default;
 private:
     std::vector<DlogLikelihood> partial_;
-
+    std::vector<Aux> aux_;
 };
 
 
 
 }
 
-template <>
-class moments<evidence::PartialDLogLikelihood>: public moments<evidence::DlogLikelihood>
+template <typename Aux>
+class moments<evidence::PartialDLogLikelihood<Aux>>: public moments<evidence::DlogLikelihood>
 {
 public:
     typedef  moments<evidence::DlogLikelihood> base_type;
-    typedef evidence::PartialDLogLikelihood element_type;
+    typedef evidence::PartialDLogLikelihood<Aux> element_type;
 
     constexpr static auto const className=my_static_string("moments_DlogLikelihood_")+base_type::className;
     //std::string myClass()const  { return className.str();}
@@ -556,44 +560,63 @@ public:
         return std::tuple_cat(
                     base_type::get_constructor_fields(),
                     std::tuple(
-                        grammar::field(C<self_type>{},"Partial_DlogL",&self_type::partial_DlogL)
+                        grammar::field(C<self_type>{},"Partial_DlogL",&self_type::partial_DlogL),
+                        grammar::field(C<self_type>{},"Partial_Auxiliar",&self_type::partial_Auxiliar)
                         ));
     }
 
     std::vector<moments<evidence::DlogLikelihood>> const& partial_DlogL()const {return  partial_;}
+    std::vector<moments<Aux>> const& partial_Auxiliar()const {return  aux_;}
 
 
-    moments(const std::vector<evidence::PartialDLogLikelihood>& data):
+    moments(const std::vector<evidence::PartialDLogLikelihood<Aux>>& data):
         base_type(data),
-        partial_(calc_moments(data))
+        partial_(calc_moments(data)),
+        aux_(calc_aux_moments(data))
     {}
 
+    moments(const base_type& base,const std::vector<moments<evidence::DlogLikelihood>>& dlog,const std::vector<moments<Aux>>& newAux)
+        :base_type(base),partial_{dlog},aux_{newAux}{}
     moments()=default;
     auto data_row(MOMENTS m,std::size_t isample,std::size_t i, std::size_t j) const
     {
-        return std::tuple_cat(base_type::data_row(m,i,j), partial_DlogL()[isample].data_row(m,i,j));
+        return std::tuple_cat(partial_Auxiliar()[isample].data_row(m),base_type::data_row(m,i,j), partial_DlogL()[isample].data_row(m,i,j));
     }
 
 
 
 private:
     std::vector<moments<evidence::DlogLikelihood>> partial_;
+    std::vector<moments<Aux>> aux_;
 
     std::vector<moments<evidence::DlogLikelihood>>
-    calc_moments(const std::vector<evidence::PartialDLogLikelihood>& data)
+    calc_moments(const std::vector<evidence::PartialDLogLikelihood<Aux>>& data)
     {
         auto n=data[0].partial_DlogL().size();
         std::vector<moments<evidence::DlogLikelihood>> out(n);
         for (std::size_t i=0; i<n;++i)
         {
             out[i]=moments<evidence::DlogLikelihood>
-                    (data,[](const evidence::PartialDLogLikelihood& p,std::size_t ii)
+                    (data,[](const evidence::PartialDLogLikelihood<Aux>& p,std::size_t ii)
             {return p.partial_DlogL()[ii];},i);
         }
         return out;
 
     }
+    std::vector<moments<Aux>>
+    calc_aux_moments(const std::vector<evidence::PartialDLogLikelihood<Aux>>& data)
+    {
+        auto n=data[0].partial_DlogL().size();
+        std::vector<moments<Aux>> out(n);
+        for (std::size_t i=0; i<n;++i)
+        {
+            out[i]=moments<Aux>
+                    (data,[](const evidence::PartialDLogLikelihood<Aux>& p,std::size_t ii)
+            {return p.getAuxiliar()[ii];},i);
+        }
+        return out;
 
+    }
 };
 
 
@@ -656,12 +679,15 @@ public:
     typedef  FIM_Model self_type;
     typedef  Likelihood_Model<Distribution_Model,Data> base_type;
     constexpr static auto const className=my_static_string("FIM_Model")+my_trait<base_type>::className;
-
-
-
     typedef M_Matrix<double> Parameters;
+    typedef typename Distribution_Model::aux_type Aux;
+
+
 
     typedef Likelihood_Model<Distribution_Model,Data> L;
+
+
+
 
     auto compute_DLikelihood(const Parameters& p, std::ostream& os)const
     {
@@ -674,7 +700,9 @@ public:
         std::string error;
         auto D0res=L::model().compute_Distribution_aux(data,p,os);
         typedef decltype (D0res.value().first) myDistr;
-        typedef myOptional_t<std::pair<myDistr,std::vector<myDistr>>> Op;
+        typedef decltype (D0res.value().second) myAux;
+
+        typedef myOptional_t<std::tuple<myDistr,std::vector<myDistr>,myAux>> Op;
 
         if (!D0res.has_value())
             return Op(false,"fails to compute the model :"+D0res.error());
@@ -694,7 +722,7 @@ public:
                 else
                     return Op(false," getDLikelihood error at i="+ToString(i)+"th parameter  :"+OpD.error());
             }
-            return Op(std::pair(D0,D));
+            return Op(std::tuple(D0,D,aux));
 
         }
     }
@@ -708,7 +736,7 @@ public:
         else
         {
 
-            auto [D0,D]=std::move(res).value();
+            auto [D0,D,aux]=std::move(res).value();
                     return  compute_DLikelihood(D0,D,os,data);
 
         }
@@ -733,14 +761,17 @@ public:
 
 
 
+
             auto compute_PartialDLikelihood(const Parameters& p, std::ostream& os, const Data& data)const
             {
-                typedef myOptional_t<PartialDLogLikelihood> Op;
                 auto res=compute_Distributions(p,os,data);
+                typedef std::decay_t<decltype (res.value())> resType;
+                typedef typename std::tuple_element_t<2,resType>::value_type Aux;
+                typedef myOptional_t<PartialDLogLikelihood<Aux>> Op;
                 if (!res) return Op(false,res.error());
                 else
                 {
-                    auto [D0,D]=std::move(res).value();
+                    auto [D0,D,aux]=std::move(res).value();
 
                             auto Dlik=  compute_DLikelihood(D0,D,os,data);
                             if (!Dlik) return Op(false,Dlik.error());
@@ -765,7 +796,7 @@ public:
                         partials[n]=DlogLikelihood(logL,std::move(G), std::move(H));
                     }
 
-                    return Op(PartialDLogLikelihood(std::move(Dlik).value(),std::move(partials)));
+                    return Op(PartialDLogLikelihood(std::move(Dlik).value(),std::move(partials), std::move(aux)));
 
                 }
             }
@@ -935,7 +966,7 @@ public:
                 d.insert_column("Par_trValue_T", C<double>());
                 d.insert_column("Par_Value_T", C<double>());
 
-                PartialDLogLikelihood::insert_col(d);
+                logLikelihood::insert_col(d);
                 auto nsamples=s_.size();
                 for (std::size_t i=0; i<s_.size(); ++i)
                 {
@@ -1028,7 +1059,7 @@ public:
             Parameters_Distribution prior_;
             std::vector<Parameters_Values> p_;
             std::vector<ExperimentData> e_;
-            std::vector<PartialDLogLikelihood> s_;
+            std::vector<logLikelihood> s_;
         };
 
 
@@ -1135,7 +1166,7 @@ public:
             }
 
 
-            template<class ExperimentSimulation>
+            template<class ExperimentSimulation, class PartialDLogLikelihood>
             class sample
             {
             public:
@@ -1247,7 +1278,7 @@ public:
             {
                 auto data=sim.compute_simulation(e,p,mt);
                 typedef std::decay_t<decltype (data.value())> sim_type;
-                typedef myOptional_t<std::pair<sim_type,PartialDLogLikelihood>> Op;
+                typedef myOptional_t<std::pair<sim_type,PartialDLogLikelihood<typename FIM_Model::Aux>>> Op;
                 if (!data.has_value())
                     return Op(false,"Simulation failed "+data.error());
                 else
@@ -1268,10 +1299,11 @@ public:
                     (std::ostream& os,const Simulation_Model& sim, const FIM_Model& fim, const Data& e,  const ParametersDistribution& prior,const Parameters& p,std::mt19937_64& mt  , std::size_t nsamples)
             {
                 typedef std::decay_t<decltype (sim.compute_simulation(e,p,mt).value())>  sim_type;
-                typedef myOptional_t<sample<sim_type>> Op;
+
+                typedef myOptional_t<sample<sim_type, PartialDLogLikelihood<typename FIM_Model::Aux>>> Op;
                 std::stringstream ss;
                 std::vector<sim_type> simuls(nsamples);
-                std::vector<PartialDLogLikelihood> s(nsamples);
+                std::vector<PartialDLogLikelihood<typename FIM_Model::Aux>> s(nsamples);
 
                 std::vector<std::stringstream>oss(8);
 

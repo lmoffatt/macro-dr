@@ -163,6 +163,132 @@ constexpr MACROR MACROR_VALUES[]={MACRO_DMNR,MACRO_DVNR,MACRO_DMR,MACRO_DVR};;
 
 
 
+std::ostream& operator<<(std::ostream& s, const MACROR& m)
+{
+    s<<MACROR_string[m];
+    return s;
+}
+
+std::istream& operator>>(std::istream& is, MACROR& m)
+{
+    std::string s;
+    is>>s;
+    for (auto v:MACROR_VALUES)
+    {
+        if (s==MACROR_string[v])
+            m=v;
+        return is;
+    }
+    is.setstate(std::ios::failbit);
+    return is;
+}
+
+
+}
+template <>
+struct my_trait<markov::MACROR>
+{
+    constexpr static auto className=my_static_string("Macror_Algorithm");
+
+    template<class DataFrame>
+    static void insert_col(DataFrame& d, const std::string& pre)
+    {
+        for (auto e:markov::MACROR_VALUES)
+        d.insert_column(pre+markov::MACROR_string[e].c_str(),C<double>{});
+    }
+
+    static auto data_row(markov::MACROR d)
+    {
+        switch (d) {
+        case markov::MACRO_DMNR: return std::tuple(1.0,0.0,0.0,0.0);
+        case markov::MACRO_DVNR: return std::tuple(0.0,1.0,0.0,0.0);
+        case markov::MACRO_DMR: return std::tuple(0.0,0.0,1.0,0.0);
+        case markov::MACRO_DVR:default: return std::tuple(0.0,0.0,0.0,1.0);
+
+        }
+   }
+};
+
+template <>
+class  moments<markov::MACROR>
+{
+     static auto calc(const std::vector<markov::MACROR>& d)
+    {
+        std::vector<moments<double>> data(size);
+        for (auto e:d)
+            data[e].push_back(1.0);
+        return data;
+    }
+
+
+     template<class C, class F, class...Ts>
+     static auto calc(const std::vector<C>& d, const F& f, Ts...t)
+     {
+         std::vector<moments<double>> data(size);
+         for (auto e:d)
+         {
+             markov::MACROR m=std::invoke(f,e, t...);
+             for (auto mi:markov::MACROR_VALUES)
+                  if (mi==m)
+                      data[mi].push_back(1.0);
+             else data[mi].push_back(0.0);
+         }
+         return data;
+
+     }
+
+    template<std::size_t...Is>
+    auto
+    data_row(MOMENTS m, std::index_sequence<Is...>)const {
+
+        return std::tuple_cat(data_[Is].data_row(m)...);
+    }
+
+    public:
+        typedef  moments self_type;
+        constexpr static auto  className=my_static_string("moments_")+my_trait<markov::MACROR>::className;
+        static auto get_constructor_fields()
+        {
+            return std::tuple(grammar::field(C<self_type>{},"values",&self_type::getMoments));
+
+        }
+
+        template<class C, class F, class... Ts>
+        moments(const std::vector<C>& data, const F& f, const Ts...t):data_(calc(data,f,t...)){}
+        moments(const std::vector<markov::MACROR>& data):data_{calc(data)}{}
+
+        moments(const std::vector<moments<double>>& data):data_{data}{}
+
+
+        std::size_t data_size()const { return size;}
+
+
+
+        auto
+        data_row(MOMENTS m)const { return data_row(m,std::make_index_sequence<size>());
+        }
+
+        std::vector<moments<double>>const & getMoments()const {return data_;}
+
+        moments()=default;
+
+        moments& operator+=(const moments& other){
+            for (std::size_t i=0; i<data_.size(); ++i)
+                data_[i]+=other.getMoments()[i];
+           return *this;
+        }
+
+
+        constexpr static const std::size_t size=sizeof (markov::MACROR_VALUES)/sizeof(markov::MACROR_VALUES[0]);
+    private:
+      std::vector<moments<double>> data_;
+
+
+
+};
+
+namespace markov {
+
 class MacroDMNR
 {
 public:
@@ -270,7 +396,7 @@ public:
 
             ss<<"\nP_mean \n"<<P_mean;
             ss<<"\nPcov \n"<<P__cov;
-            ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
+           // ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
 
             return Op(false,"\nfails in trace!!!; error="+test.error()+ss.str());
         }
@@ -436,7 +562,7 @@ public:
             ss<<"\nP_mean \n"<<P_mean;
             ss<<" -N*zeta*sqr(sSg)="<<-N*zeta*sqr(sSg)<< " plogL="<<plogL<< " eplogL="<<eplogL<<"dif="<<plogL-eplogL<<" sSs="<<sSs;
             ss<<"\nPcov \n"<<P__cov;
-            ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
+            //ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
 
             return Op(false,"\nfails in trace!!!; error="+test.error()+ss.str());
         }
@@ -594,7 +720,7 @@ public:
 
             ss<<"\nP_mean \n"<<P_mean;
             ss<<"\nPcov \n"<<P__cov;
-            ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
+            //ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
 
             return Op(false,"\nfails in trace!!!; error="+test.error()+ss.str());
         }
@@ -773,7 +899,7 @@ public:
             ss<<"\nP_mean \n"<<P_mean;
             ss<<" -N*zeta*sqr(sSg)="<<-N*zeta*sqr(sSg)<< " plogL="<<plogL<< " eplogL="<<eplogL<<"dif="<<plogL-eplogL<<" sSs="<<sSs;
             ss<<"\nPcov \n"<<P__cov;
-            ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
+            //ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
 
             return Op(false,"\nfails in trace!!!; error="+test.error()+ss.str());
         }
@@ -954,7 +1080,7 @@ public:
                 ss<<"\nP_mean \n"<<P_mean;
                 ss<<" -N*zeta*sqr(sSg)="<<-N*zeta*sqr(sSg)<< " plogL="<<plogL<< " eplogL="<<eplogL<<"dif="<<plogL-eplogL<<" sSs="<<sSs;
                 ss<<"\nPcov \n"<<P__cov;
-                ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
+                //ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
 
                 return Op(false,"error in variance!! "+test.error() +ss.str());
             }
@@ -1020,7 +1146,7 @@ public:
                 ss<<"\nP_mean \n"<<P_mean;
                 ss<<" -N*zeta*sqr(sSg)="<<-N*zeta*sqr(sSg)<< " plogL="<<plogL<< " eplogL="<<eplogL<<"dif="<<plogL-eplogL<<" sSs="<<sSs;
                 ss<<"\nPcov \n"<<P__cov;
-                ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
+                //ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
 
                 return Op(false,"\nfails in trace!!!; error="+test.error()+ss.str());
             }

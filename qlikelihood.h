@@ -16,6 +16,7 @@ public:
     typedef Parameters_distribution Parameters_Distribution;
     constexpr static auto const className=my_static_string("Markov_Model_Likelihood")+my_trait<template_types>::className;
 
+    typedef markov::MACROR aux_type;
 
     template< class Experiment>
     auto compute_Distribution(const Experiment& e, const M_Matrix<double>& parameters) const

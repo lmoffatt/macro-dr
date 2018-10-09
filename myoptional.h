@@ -64,6 +64,7 @@ class myOptional<T, reg_tag>
   std::string error_;
 
 public :
+  typedef T value_type;
   //typename T::test test;
   T& value()&{return x_;}
   T const & value()const& {return x_;}
@@ -115,6 +116,8 @@ class myOptional<T&, lref_tag>
   std::string error_;
 
 public :
+  typedef T& value_type;
+
   //typename T::test test;
   T& value(){return x_;}
   T const & value()const {return x_;}
@@ -145,6 +148,8 @@ class myOptional<const T&, const_ref_tag>
   std::string error_;
 
 public :
+  typedef T const & value_type;
+
   //typename T::test test;
   T const & value()const {return x_;}
 
@@ -176,6 +181,8 @@ class myOptional<T*, base_ptr_tag>
   std::string error_;
 
 public :
+  typedef T* value_type;
+
   T* value()&{return x_.get();}
   const T *   value()const& {return x_.get();}
   T* value()&&{return release();}
@@ -228,6 +235,8 @@ class myOptional<T*, derived_ptr_tag> :public myOptional_t<typename T::base_type
 public :
   typedef myOptional_t<typename T::base_type*> base_type;
   typedef typename T::base_type base_element;
+  typedef T* value_type;
+
 
   T* value()&{return x_;}
   T * /*const*/  value()const& {return x_;}

@@ -137,6 +137,13 @@ public:
 
     moments& operator+=(const moments& other){count_+=other.count(); sum_+=other.sum(); sum_sqr_+=other.sum_sqr(); return *this;}
 
+
+    void push_back(double val)
+    {
+        count_++;
+        sum_+=val;
+        sum_sqr_+=sqr(val);
+    }
     moments<double> operator*(double t)
     {
         double newcount=count()*t;
