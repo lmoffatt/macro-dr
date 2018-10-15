@@ -236,8 +236,8 @@ struct simulate{
 
 
     static constexpr auto className=my_static_string("simulate");
-    static auto run(std::mt19937_64::result_type initseed,const Experiment& e,  const Model& m , const Parameters_values<Model>& p,std::size_t n_sub_intervals
-                    ,double min_P,double tolerance)
+    static auto run(std::mt19937_64::result_type initseed,const Experiment& e,  const Model& m , const Parameters_values<Model>& p,std::size_t n_sub_intervals,
+                    double max_dt,double min_P,double tolerance)
     {
 
 
@@ -251,7 +251,7 @@ struct simulate{
             initseed=rd();
         }
         std::mt19937_64 mt(initseed);
-        return markov::measure_experiment(get_current{},mt,MC,e,n_sub_intervals);
+        return markov::measure_experiment(get_current{},mt,MC,e,n_sub_intervals,max_dt);
     }
 
     static auto get_arguments()
@@ -262,6 +262,7 @@ struct simulate{
                     grammar::argument(C<const Model&>{},my_trait<Model>::className.c_str()),
                     grammar::argument(C<const Parameters_values<Model>&>{},"model_parameters"),
                     grammar::argument(C<std::size_t>{},"number_of_sub_intervals",10ul),
+                    grammar::argument(C<double>{},"max_dt",1e-4),
                     grammar::argument(C<double>{},"min_probability",1e-9),
                     grammar::argument(C<double>{},"tolerance_error",1e-7));
     }
@@ -357,7 +358,10 @@ struct likelihoodtest{
                     double min_P,
                     double tolerance,
                     double eps_Gradient,
+                    bool eps_adjust,
+                    bool center_Gradient,
                     std::size_t n_sub_intervals,
+                    double max_dt,
                     std::size_t nsamples,
                     double pvalue)
     {
@@ -365,11 +369,13 @@ struct likelihoodtest{
         std::cerr<<"\n initseed="<<initseed<<"\n";
         std::cerr<<"\n n_sub_intervals="<<n_sub_intervals<<"\n";
         std::cerr<<"\n nsamples="<<nsamples<<"\n";
+        std::cerr<<"\n center_Gradient="<<center_Gradient<<"\n";
+
 
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
         Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,prior,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber);
-        Simulator<Model> sim(m,n_sub_intervals, min_P,tolerance);
-        return evidence::Likelihood_Test::compute_test(std::cerr,sim,lik,e,prior,p,mt,nsamples,pvalue);
+        Simulator<Model> sim(m,n_sub_intervals, max_dt,min_P,tolerance);
+        return evidence::Likelihood_Test::compute_test(std::cerr,sim,lik,e,prior,p,mt,nsamples,pvalue,!eps_adjust,center_Gradient);
     }
 
     static auto get_arguments()
@@ -385,8 +391,10 @@ struct likelihoodtest{
                     grammar::argument(C<double>{},"min_probability",1e-9),
                     grammar::argument(C<double>{},"tolerance_error",1e-7),
                     grammar::argument(C<double>{},"eps_G"),
+                    grammar::argument(C<bool>{},"eps_G_adjust"),
+                    grammar::argument(C<bool>{},"Center_gradient"),
                     grammar::argument(C<std::size_t>{},"number_of_sub_intervals"),
-
+                    grammar::argument(C<double>{},"max_dt"),
                     grammar::argument(C<std::size_t>{},"nsamples"),
                     grammar::argument(C<double>{},"p_value")
                     );

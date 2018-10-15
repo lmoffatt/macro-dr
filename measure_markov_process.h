@@ -128,11 +128,13 @@ auto init_mp(std::mt19937_64& mt, Model& m, X x, std::size_t nsamples, std::size
 
 
 template<class F,class Model, template <typename, typename>class Point, class measure_algorithm_state,typename X, typename Y>
-auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp, const white_noise& noise,Model& m, const Point<X,Y>& in_point, double fs, std::size_t n_sub_steps)
+auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp, const white_noise& noise,Model& m, const Point<X,Y>& in_point, double fs, std::size_t n_sub_steps, double max_dt)
 {
 
     auto samples=in_point.nsamples();
     double dt=samples/fs;
+    std::size_t n_sub_steps_per_max_dt=dt/max_dt;
+    n_sub_steps=std::max(n_sub_steps_per_max_dt,n_sub_steps);
     auto new_x=in_point.x();
     actualize_mp(current,mp,m,new_x,samples,n_sub_steps);
     mp.set_N(mp(mt));
@@ -159,11 +161,11 @@ auto measure_point(measure_algorithm_state& current,const F& f,std::mt19937_64& 
 
 
 template<class F,class Model, class measure_algorithm_state, class Step, class Point>
-void measure_step(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp, const white_noise& noise,const Step& step,   Model& m,std::size_t n_substeps, double fs)
+void measure_step(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp, const white_noise& noise,const Step& step,   Model& m,std::size_t n_substeps,  double max_dt,double fs)
 {
     for (auto it=step.begin(); it!=step.end(); ++it)
     {
-        auto y=measure_point(current,f,mt,mp,noise,m,*it,fs,n_substeps);
+        auto y=measure_point(current,f,mt,mp,noise,m,*it,fs,n_substeps,max_dt);
         out.push_back(y);
     }
 }
@@ -183,19 +185,19 @@ void skip_step(std::vector<Point>& out,measure_algorithm_state& current,const F&
 
 
 template<class F, class Model,class measure_algorithm_state, class trace, class Point>
-void meansure_trace(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp,const white_noise& noise,Model& m,const trace& t, std::size_t n_substeps,double fs)
+void meansure_trace(std::vector<Point>& out,measure_algorithm_state& current,const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp,const white_noise& noise,Model& m,const trace& t, std::size_t n_substeps, double max_dt,double fs)
 {
 
     for (auto it=t.begin();it!=t.end(); ++it)
     {
-        measure_step(out,current,f,mt,mp,noise,*it,m,n_substeps,fs);
+        measure_step(out,current,f,mt,mp,noise,*it,m,n_substeps,max_dt,fs);
     }
     skip_step(out,current,f,mt,mp,*t.end(),m,fs);
 }
 
 
 template<class F,class Model,template<class, class > class Experiment, class Point, class measure>
-auto measure_experiment(const F& f, std::mt19937_64& mt, Model& m,const Experiment<Point,measure>& e, std::size_t n_substeps)
+auto measure_experiment(const F& f, std::mt19937_64& mt, Model& m,const Experiment<Point,measure>& e, std::size_t n_substeps,double max_dt)
 {
     typedef myOptional_t<Experiment<Point, measure>> Op;
     double fs=e.frequency_of_sampling();
@@ -209,13 +211,13 @@ auto measure_experiment(const F& f, std::mt19937_64& mt, Model& m,const Experime
         auto [mp, current]=std::move(init).value();
                 auto noise=white_noise(m.Model().noise_variance(1,1));
 
-                auto y=measure_point(current,f,mt,mp,noise,m,first_point,fs,n_substeps);
+                auto y=measure_point(current,f,mt,mp,noise,m,first_point,fs,n_substeps,max_dt);
 
                 std::vector<decltype (y)> points;
 
                 for (auto it=e.begin();it!=e.end(); ++it)
         {
-            meansure_trace(points,current,f,mt,mp,noise,m,*it,n_substeps,fs);
+            meansure_trace(points,current,f,mt,mp,noise,m,*it,n_substeps,max_dt,fs);
         }
         return Op( Experiment<Point, measure>(std::move(points),e.Vm(),fs));
     }

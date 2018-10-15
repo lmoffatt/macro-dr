@@ -1102,6 +1102,7 @@ std::ostream& output_operator_on_container(std::ostream& os,const Container& myC
     {
         os<<io::separator{};
         io::output_operator_on_element(os,*it);
+        os<<io::separator{};
     }
     os<<io::end_of_Container{};
     return os;

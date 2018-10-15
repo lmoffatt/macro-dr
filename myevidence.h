@@ -169,12 +169,25 @@ public:
     double beta()const {return beta_;}
 
     void set_beta(double _beta){beta_=_beta;}
-    auto   compute_DLikelihood(const Parameters& x, std::ostream& os) const
+
+    template<class mySample>
+    auto   compute_DLikelihood(const Parameters& x, const mySample& current,std::ostream& os) const
     {
         typedef myOptional_t<ThDlogLikelihood> Op;
         auto p=prior_.compute_DLikelihood(x);
         if (!p.has_value()) return Op(false, "invalid prior DlogLik :"+p.error());
-        auto l=lik_.compute_DLikelihood(x,os);
+        auto l=lik_.compute_DLikelihood(x,current,os);
+        if (!l.has_value())
+            return Op(false,"fails in likelihood :"+l.error());
+        else
+            return Op(ThDlogLikelihood (std::move(p).value(),std::move(l).value(), beta()));
+    }
+    auto   compute_DLikelihood_init(const Parameters& x, std::ostream& os) const
+    {
+        typedef myOptional_t<ThDlogLikelihood> Op;
+        auto p=prior_.compute_DLikelihood(x);
+        if (!p.has_value()) return Op(false, "invalid prior DlogLik :"+p.error());
+        auto l=lik_.compute_DLikelihood_init(x,os);
         if (!l.has_value())
             return Op(false,"fails in likelihood :"+l.error());
         else
@@ -372,9 +385,14 @@ public:
         else return Op(false,"cannot invert Hessian landa matrix "+ cov.error());
     }
 
-    auto compute_Likelihood(const Model& m, const Parameters& x, std::ostream& os) const
+    template< class mySample>
+    auto compute_Likelihood(const Model& m, const Parameters& x,const mySample& current, std::ostream& os) const
     {
-        return m.compute_DLikelihood(x,os);
+        return m.compute_DLikelihood(x,current,os);
+    }
+    auto compute_Likelihood_init(const Model& m, const Parameters& x, std::ostream& os) const
+    {
+        return m.compute_DLikelihood_init(x,os);
     }
 
     LevenbergMarquardt(double _landa):landa_{_landa}{}
@@ -487,14 +505,14 @@ template<class Model , class Distribution_Generator>
 using mcmc_sample_t=mcmc_sample<Model,typename Distribution_Generator::LikelihoodResult,typename Model::Parameters, typename Distribution_Generator::Distribution>;
 
 
-template<class Model,class Distribution_Generator, class Parameters=typename Model::Parameters>
+template<class Model,class Distribution_Generator, class mySample,class Parameters=typename Model::Parameters>
 static
 myOptional_t<mcmc_sample_t<Model,Distribution_Generator>>
-calculate(const Model& M, const Distribution_Generator& G, Parameters&& x, std::ostream& os)
+calculate(const Model& M, const Distribution_Generator& G, Parameters&& x, const mySample& current,std::ostream& os)
 {
     typedef myOptional_t<mcmc_sample_t<Model,Distribution_Generator>> Op;
 
-    auto logL=G.compute_Likelihood(M,x,os);
+    auto logL=G.compute_Likelihood(M,x,current,os);
     os<<"\nlogL.likelihood().H()\n"<<logL.value().likelihood().H();
     os<<"\nlogL.H()\n"<<logL.value().H();
     //   std::cerr<<" gets a logL!!----------="<<logL<<"\n";
@@ -505,6 +523,27 @@ calculate(const Model& M, const Distribution_Generator& G, Parameters&& x, std::
         return Op(false,"cannot compute distribution because "+g.error());
     return Op(mcmc_sample_t<Model,Distribution_Generator>(std::move(x),std::move(logL).value(),std::move(g).value()));
 }
+
+template<class Model,class Distribution_Generator,class Parameters=typename Model::Parameters>
+static
+myOptional_t<mcmc_sample_t<Model,Distribution_Generator>>
+calculate_init(const Model& M, const Distribution_Generator& G, Parameters&& x, std::ostream& os)
+{
+    typedef myOptional_t<mcmc_sample_t<Model,Distribution_Generator>> Op;
+
+    auto logL=G.compute_Likelihood_init(M,x,os);
+    os<<"\nlogL.likelihood().H()\n"<<logL.value().likelihood().H();
+    os<<"\nlogL.H()\n"<<logL.value().H();
+    //   std::cerr<<" gets a logL!!----------="<<logL<<"\n";
+    if (!logL.has_value())
+        return Op(false,"cannot compute logLikelihood because "+logL.error());
+    auto g=G.calculate_Distribution(M,x,logL.value());
+    if (!g)
+        return Op(false,"cannot compute distribution because "+g.error());
+    return Op(mcmc_sample_t<Model,Distribution_Generator>(std::move(x),std::move(logL).value(),std::move(g).value()));
+}
+
+
 
 template<bool Hastings>
 constexpr static auto str_Hastings(){
@@ -629,7 +668,7 @@ public:
 
             Parameters x=M.sample(mt);
             //    std::cerr<<"\n x="<<x;
-            auto out=calculate(M,G,x,os);
+            auto out=calculate_init(M,G,x,os);
             //  std::cerr<<" finishela!!";
             if (out.has_value())
             {
@@ -650,7 +689,7 @@ public:
     {
         auto candidate_point=current.g().sample(mt);
         // current.g().autoTest(mt,900);
-        myOptional_t<mySample> candidate=calculate(M,G,candidate_point,s);
+        myOptional_t<mySample> candidate=calculate(M,G,candidate_point,current,s);
         if (!candidate)
         {
             current.push_rejected();
