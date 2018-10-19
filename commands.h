@@ -363,7 +363,8 @@ struct likelihoodtest{
                     std::size_t n_sub_intervals,
                     double max_dt,
                     std::size_t nsamples,
-                    double pvalue)
+                    double pvalue,
+                    double epsf)
     {
         std::cerr<<"\nparameters\n"<<p;
         std::cerr<<"\n initseed="<<initseed<<"\n";
@@ -373,7 +374,7 @@ struct likelihoodtest{
 
 
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
-        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,prior,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber);
+        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,prior,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber, epsf);
         Simulator<Model> sim(m,n_sub_intervals, max_dt,min_P,tolerance);
         return evidence::Likelihood_Test::compute_test(std::cerr,sim,lik,e,prior,p,mt,nsamples,pvalue,!eps_adjust,center_Gradient);
     }
@@ -396,7 +397,8 @@ struct likelihoodtest{
                     grammar::argument(C<std::size_t>{},"number_of_sub_intervals"),
                     grammar::argument(C<double>{},"max_dt"),
                     grammar::argument(C<std::size_t>{},"nsamples"),
-                    grammar::argument(C<double>{},"p_value")
+                    grammar::argument(C<double>{},"p_value"),
+                    grammar::argument(C<double>{},"eps_factor")
                     );
     }
 
@@ -493,13 +495,14 @@ struct Evidence{
                     double gain_moment,
                     std::size_t nSamples,
                     bool parameters,
-                    bool gradient)
+                    bool gradient,
+                    double epsf)
     {
 
         std::cerr<<"\nPriorParameters\n";
         std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean());
 
-        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber);
+        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber, epsf);
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
         std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt));
         evidence::OutputGenerator out(std::cerr,parameters,gradient);
@@ -527,7 +530,8 @@ struct Evidence{
                     grammar::argument(C<double>{},"gain_moment"),
                     grammar::argument(C<std::size_t>{},"nSamples"),
                     grammar::argument(C<bool>{},"parameters_output"),
-                    grammar::argument(C<double>{},"gradient_output")
+                    grammar::argument(C<double>{},"gradient_output"),
+                    grammar::argument(C<double>{},"eps_factor")
 
                     );
     }

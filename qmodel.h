@@ -1230,16 +1230,19 @@ private:
             for (std::size_t j=0; j<N; ++j)
                 if (P()(i,j)==0) { gtotal_ij_(i,j)=0;gtotal_sqr_ij_(i,j)=0;}
 
-       // M_Matrix<double> U=Matrix_Generators::ones<double>(1,g().size());
-       // M_Matrix<double> UU=M_Matrix<double>(g().size(),g().size(),1);
-        // auto gmean_ij_p=TransposeSum(g()*U)*(0.5);
-        // auto gvar_ij_p=(g()*U-Transpose(g()*U)).apply([](double x){return std::abs(x);})*(0.5);
+       M_Matrix<double> U=Matrix_Generators::ones<double>(1,g().size());
+       M_Matrix<double> UU=M_Matrix<double>(g().size(),g().size(),1);
+        auto gmean_ij_p=TransposeSum(g()*U)*(0.5);
+        auto gvar_ij_p=(g()*U-Transpose(g()*U)).apply([](double x){return std::abs(x);})*(0.5);
 
         //std::cerr<<"\ngmean_ij_p=\n"<<gmean_ij_p<<"\ngvar_ij_p=\n"<<gvar_ij_p<<"\n";
         //std::cerr<<"\n UU=ņ"<<UU<<"\n";
-        gmean_ij_=elemDivSafe(gtotal_ij_,P(), min_P());
+        auto gmean_ij_tot=gtotal_ij_+gmean_ij_p*min_P();
+        auto P_p=P()+UU*min_P();
+        gmean_ij_=elemDiv(gmean_ij_tot,P_p);
         gtotal_var_ij_=gtotal_sqr_ij_-elemMult(gtotal_ij_,gmean_ij_);
-        gvar_ij_=elemDivSafe(gtotal_var_ij_,P_,min_P());
+        auto gvar_ij_tot=gtotal_var_ij_+gvar_ij_p*min_P();
+        gvar_ij_=elemDiv(gvar_ij_tot,P_p);
         M_Matrix<double> u(N,1,1.0);
         gmean_i_=gtotal_ij_*u;
         gsqr_i_=gtotal_sqr_ij_*u;

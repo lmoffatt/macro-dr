@@ -754,6 +754,8 @@ public:
     double Binomial_magic_number() const {return binomial_magic;}
     MacroDMR(double tolerance, double binomial_magical):tolerance_{tolerance}, binomial_magic(binomial_magical){}
     MacroDMR()=default;
+
+
 private:
     double tolerance_=1e-5;
     double binomial_magic=5;

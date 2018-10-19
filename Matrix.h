@@ -26,7 +26,7 @@
 #include "mySerializer.h"
 #include "mytests.h"
 #include "myoptional.h"
-
+#include "myderivatives.h"
 
 template<typename T1, typename T2>
 std::pair<T1,T2>& operator+=(std::pair<T1,T2>& x, const std::pair<T1,T2>& other)
@@ -188,15 +188,15 @@ extern "C" void dgecon_(char *  NORM,
                         int *  INFO );
 
 extern "C" void  dsycon_( 	char*  	UPLO,
-                            int *  	N,
-                            double */* precision, dimension( lda, * ) */  	A,
-                            int *  	LDA,
-                            int */*, dimension( * ) */ 	IPIV,
-                            double *  	ANORM,
-                            double *   	RCOND,
-                            double */* dimension( * )  */	WORK,
-                            int */* dimension( * ) */ 	IWORK,
-                            int *  	INFO);
+                                int *  	N,
+                                double */* precision, dimension( lda, * ) */  	A,
+                                int *  	LDA,
+                                int */*, dimension( * ) */ 	IPIV,
+                                double *  	ANORM,
+                                double *   	RCOND,
+                                double */* dimension( * )  */	WORK,
+                                int */* dimension( * ) */ 	IWORK,
+                                int *  	INFO);
 
 extern "C" void dsytrf_( char *UPLO,
                          int *N,
@@ -275,27 +275,44 @@ extern "C" void dgeev_(char *jobvl,
 
 
 extern "C" void  dgeevx_ 	( 	char*  	BALANC,
-                                char*  	JOBVL,
-                                char*  	JOBVR,
-                                char*  	SENSE,
+                                        char*  	JOBVL,
+                                        char*  	JOBVR,
+                                        char*  	SENSE,
+                                        int*  	N,
+                                        double * /* precision, dimension( lda, * ) */  	A,
+                                        int*  	LDA,
+                                        double * /* precision, dimension( * ) */  	WR,
+                                        double * /* precision, dimension( * ) */  	WI,
+                                        double * /* precision, dimension( ldvl, * ) */  	VL,
+                                        int*  	LDVL,
+                                        double * /* precision, dimension( ldvr, * ) */  	VR,
+                                        int*  	LDVR,
+                                        int*  	ILO,
+                                        int*  	IHI,
+                                        double * /* precision, dimension( * ) */  	SCALE,
+                                        double *  	ABNRM,
+                                        double * /* precision, dimension( * ) */  	RCONDE,
+                                        double * /* precision, dimension( * ) */  	RCONDV,
+                                        double * /* precision, dimension( * ) */  	WORK,
+                                        int*  	LWORK,
+                                        int* /*dimension( * ) */  	IWORK,
+                                        int*  	INFO
+                                        );
+
+
+extern "C" void  dgesdd_   ( 	char*  	JOBZ,
+                                int*  	M,
                                 int*  	N,
-                                double * /* precision, dimension( lda, * ) */  	A,
-                                int*  	LDA,
-                                double * /* precision, dimension( * ) */  	WR,
-                                double * /* precision, dimension( * ) */  	WI,
-                                double * /* precision, dimension( ldvl, * ) */  	VL,
-                                int*  	LDVL,
-                                double * /* precision, dimension( ldvr, * ) */  	VR,
-                                int*  	LDVR,
-                                int*  	ILO,
-                                int*  	IHI,
-                                double * /* precision, dimension( * ) */  	SCALE,
-                                double *  	ABNRM,
-                                double * /* precision, dimension( * ) */  	RCONDE,
-                                double * /* precision, dimension( * ) */  	RCONDV,
+                                double  * /* precision, dimension( lda, * ) */   	A,
+                                int *  	LDA,
+                                double * /*precision, dimension( * ) */  	S,
+                                double * /*precision, dimension( ldu, * ) */ 	U,
+                                int*  	LDU,
+                                double* /* precision, dimension( ldvt, * ) */ 	VT,
+                                int*  	LDVT,
                                 double * /* precision, dimension( * ) */  	WORK,
                                 int*  	LWORK,
-                                int* /*dimension( * ) */  	IWORK,
+                                int* /*, dimension( * ) */ 	IWORK,
                                 int*  	INFO
                                 );
 
@@ -1272,11 +1289,9 @@ public:
 
     */
 
-    template<typename S>
-    friend
-    auto
-    TranspMult(const M_Matrix<T>& x,const M_Matrix<S>& y)->
-    M_Matrix<decltype(operator*(std::declval<T>(),std::declval<S>()))>;
+
+
+
     M_Matrix(TYPE t, std::size_t nrows, std::size_t ncols, std::vector<T> data):
         type_(t),_nrows(nrows),_ncols(ncols),_data(data){}
 
@@ -1313,6 +1328,53 @@ private:
     T zero_=T{};
 };
 
+
+
+template <class> struct is_Matrix: public std::false_type{};
+
+template <typename T>
+struct is_Matrix<M_Matrix<T>>: public std::true_type{};
+
+template<class M>
+constexpr static bool is_Matrix_v=is_Matrix<M>::value;
+
+
+
+template<>
+class Derivative<double>
+{
+    double f_;
+    M_Matrix<double> x_;
+    M_Matrix<double> dfdx_;
+public:
+    double f()const { return f_;}
+    M_Matrix<double> const & x() const { return x_;}
+    M_Matrix<double> const& dfdx()const { return dfdx_;}
+    Derivative(double fx,  M_Matrix<double>&& myx, M_Matrix<double>&& der): f_{fx},x_{std::move(myx)}, dfdx_{std::move(der)}{}
+    Derivative()=default;
+};
+
+
+template<>
+class Derivative<M_Matrix<double>>
+{
+    M_Matrix<double> f_;
+    M_Matrix<double> x_;
+    M_Matrix<M_Matrix<double>> dfdx_;
+public:
+    M_Matrix<double> const & f()const { return f_;}
+    M_Matrix<double> const & x() const { return x_;}
+    M_Matrix<M_Matrix<double>> const& dfdx()const { return dfdx_;}
+    Derivative(M_Matrix<double>&& fx, const  M_Matrix<double>& myx, M_Matrix<M_Matrix<double>>&& der): f_{fx},x_{myx}, dfdx_{std::move(der)}{}
+    Derivative()=default;
+};
+
+template< class T>
+auto compose (const Derivative<T>& dfdx, const Derivative<M_Matrix<double>>& dxdy)
+{
+    assert(dfdx.x()==dxdy.f());
+    return Derivative<T>(dfdx.f(), dxdy.x(), dfdx.dfdx()*dxdy.dfdx());
+}
 
 
 template<bool output, template <bool, typename>class test, typename T, class M, class ostream>
@@ -1631,6 +1693,9 @@ M_Matrix<T> operator-(M_Matrix<T>&& x)
     return x;
 }
 
+
+
+
 namespace Vector_Binary_Transformations
 {
 
@@ -1757,6 +1822,19 @@ myOptional_t<M_Matrix<T>>
 inv(const M_Matrix<T>& x);
 
 template <class T>
+myOptional_t<Derivative<M_Matrix<T>>>
+inv(const Derivative<M_Matrix<T>>& x);
+
+
+
+template <class T>
+
+myOptional_t<M_Matrix<T>>
+pinv(const M_Matrix<T>& x);
+
+
+
+template <class T>
 myOptional_t<M_Matrix<T>>
 chol(const M_Matrix<T>& x, const std::string& kind);
 
@@ -1833,7 +1911,29 @@ auto
 operator *
 (const M_Matrix<T>& one,
  const M_Matrix<S>& other)
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<S>,decltype(std::declval<T>()*std::declval<S>())>>;
+
+template<typename T, typename S>
+auto
+multTransp
+(const M_Matrix<T>& one,
+ const M_Matrix<S>& other)
 ->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>;
+
+/**
+     Transpose the first and multiply by the second
+     @post transpMult(x,y)==Transpose(x)*y
+     @remarks It is faster, since we save copying matrices
+    */
+template<typename T, typename S>
+auto
+TranspMult
+(const M_Matrix<T>& one,
+ const M_Matrix<S>& other)
+->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>;
+
+
+
 
 template<typename T, typename S>
 auto
@@ -1862,7 +1962,8 @@ Forward_Sustitution_Ly_b(const M_Matrix<T>& L, const M_Matrix<T>& b);
      @post all the values of the matrix are multiplied by the value x
      */
 template<typename E, typename T>
-M_Matrix<E>& operator*=(M_Matrix<E>& itself, T x);
+auto operator*=(M_Matrix<E>& itself, T x)
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>&;
 
 
 /**
@@ -1871,7 +1972,9 @@ M_Matrix<E>& operator*=(M_Matrix<E>& itself, T x);
      @post all the values of the matrix are divided by the value x
      */
 template<typename E,typename T>
-M_Matrix<E>& operator/=(M_Matrix<E>& itself, T x);
+auto operator/=(M_Matrix<E>& itself, T x)
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>&;
+
 
 
 /**
@@ -1904,14 +2007,15 @@ M_Matrix<T> operator-(T t,const M_Matrix<T>& x);
      */
 template<typename E, typename T>
 auto operator*(const M_Matrix<E> & x,T t)
-->M_Matrix<decltype(std::declval<E>()*std::declval<T>())>;
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>;
 
 /**
      Scalar Multiplication reverse order.
      */
 
-template<typename T>
-M_Matrix<T> operator*(T t,const M_Matrix<T>& x);
+template<typename E, typename T>
+auto operator*(T t,const M_Matrix<E> & x)
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>;
 
 
 /**
@@ -1945,6 +2049,189 @@ M_Matrix<T> operator/(T t,const M_Matrix<T>& x);
 
 using namespace Matrix_Binary_Transformations;
 
+
+namespace Matrix_Generators
+{
+template<typename T>
+M_Matrix<T>  ones(size_t nrows, size_t ncols)
+{
+    return M_Matrix<T>(nrows,ncols,M_Matrix<T>::SCALAR_FULL,T(1));
+}
+
+template<typename T>
+M_Matrix<T>  zeros(size_t nrows, size_t ncols)
+{
+    return M_Matrix<T>(nrows,ncols,M_Matrix<T>::ZERO);
+}
+
+/**
+  Identity Matrix of the specified size
+ */
+template<typename T>
+M_Matrix<T> eye(std::size_t n)
+{
+    return M_Matrix<T>(n,n,M_Matrix<T>::SCALAR_DIAGONAL,T(1));
+}
+
+template<typename T>
+M_Matrix<T>  Rand(const M_Matrix<T>& x)
+{
+    std::normal_distribution<> normal;
+    std::random_device rd;
+    std::mt19937_64 sto(rd());
+    auto out=M_Matrix<T>(x);
+    for (std::size_t i=0; i<out.size(); ++i)
+        out[i]=normal(sto);
+    return out;
+}
+
+template<class D>
+M_Matrix<double>  Rand(const M_Matrix<double>& x,D d, std::mt19937_64& sto)
+{
+    auto out=M_Matrix<double>(x.nrows(),x.ncols(),x.type());
+    for (auto it=out.begin(); it!=out.end(); ++it)
+        *it=d(sto);
+    return out;
+}
+
+
+template<typename T, class D>
+M_Matrix<T>  Rand(const M_Matrix<T>& x,D d, std::mt19937_64& sto)
+{
+    auto out=M_Matrix<T>(x.nrows(),x.ncols(),x.type());;
+    for (auto it=out.begin(); it!=out.end(); ++it)
+        *it=Rand(*it,d,sto);
+    return out;
+}
+}
+
+
+template<typename T>
+std::ostream& operator<<(std::ostream& os,const M_Matrix<T>& x)
+{
+    os<<"[";
+    for (std::size_t i=0; i<x.nrows(); ++i)
+    {
+        for (std::size_t j=0; j<x.ncols(); ++j)
+            os<<x(i,j)<<" ";
+        os<<";";
+    }
+    os<<"]";
+    return os;
+}
+
+
+template<typename T>
+std::istream& operator>>(std::istream& is,M_Matrix<T>& x)
+{
+    std::vector<T> o;
+    std::size_t nrows=0;
+    char ch;
+    while ((is>>ch)&&(ch!='[')){}
+    if(ch!='[')
+        return is;
+    else
+        while (ch!=']')
+        {
+            std::string s;
+            while ((is.get(ch))&&((ch!=']')&&ch!=';'))
+            {
+                s.push_back(ch);
+            }
+            std::stringstream ss(s);
+            T e;
+            std::size_t i=o.size();
+            while (ss>>e) o.push_back(e);
+            if (o.size()>i) ++nrows;
+        }
+    std::size_t ncols=o.size()/nrows;
+    x=M_Matrix<T>(nrows,ncols,o);
+    return is;
+
+}
+
+
+namespace Matrix_Unary_Predicates
+{
+template<typename T, class Predicate>
+bool all(const M_Matrix<T>& x, const Predicate& p)
+{
+    for (std::size_t i=0; i< x.size(); ++i)
+        if (!p(x[i]))
+            return false;
+    return true;
+}
+
+template<typename T, class Predicate>
+bool any(const M_Matrix<T>& x, const Predicate& p)
+{
+    for (std::size_t i=0; i< x.size(); ++i)
+        if (p(x[i]))
+            return true;
+    return false;
+}
+
+template<typename T, class Predicate>
+std::set<std::size_t> find(const M_Matrix<T>& x, const Predicate& p)
+{
+    std::set<std::size_t> out;
+    for (std::size_t i=0; i< x.size(); ++i)
+        if (p(x[i]))
+            out.insert(i);
+    return out;
+}
+
+
+using std::isnan;
+
+template <typename T>
+bool isnan(const M_Matrix<T>& x)
+{
+    return any(x,[](const T& e){return isnan(e);});
+}
+}
+
+
+namespace Matrix_Unary_Size_Functions
+{
+
+template<typename T>
+
+std::size_t nrows(const M_Matrix<T>& x){return x.nrows();}
+
+template<typename T>
+std::size_t ncols(const M_Matrix<T>& x){return x.ncols();}
+
+template<typename T>
+std::size_t size(const M_Matrix<T>& x){return x.size();}
+
+}
+using namespace Matrix_Unary_Size_Functions;
+namespace Matrix_Unary_Transformations
+{
+template<class E,class F, typename T>
+M_Matrix<T>
+accumulate_by_Rows(const M_Matrix<E>& me,const F& f, const T& init);
+template<class E,class F,typename T>
+M_Matrix<T>
+accumulate_by_Cols(const M_Matrix<E>& me,const F& f, const T& start);
+template<typename T>
+M_Matrix<T> diag(const M_Matrix<T>& x);
+
+template<typename T>
+M_Matrix<T> Transpose(const M_Matrix<T>& x);
+
+template<typename T>
+M_Matrix<T> TransposeSum(const M_Matrix<T>& x);
+
+template<typename T, std::size_t I0,std::size_t I1,std::size_t I2,std::size_t I3>
+M_Matrix<M_Matrix<T>> Permute(const M_Matrix<M_Matrix<T>>& x);
+
+
+
+
+}
+using namespace Matrix_Unary_Transformations;
 
 
 namespace Matrix_Decompositions {
@@ -1990,6 +2277,11 @@ auto EigenSystem_full_real_eigenvalue_dgeev(const M_Matrix<double>& x)
 }
 
 typedef std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>> eigensystem_type;
+
+
+
+typedef std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>> SVD_type;
+
 
 auto EigenSystem_full_real_eigenvalue(const M_Matrix<double>& x)
 {
@@ -2390,6 +2682,360 @@ Parameters
     }
 }
 
+auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>>& Dx)
+{
+    typedef myOptional_t<std::tuple<Derivative<M_Matrix<double>>,Derivative<M_Matrix<double>>,Derivative<M_Matrix<double>>>>
+            Op;
+    auto res=EigenSystem_full_real_eigenvalue(Dx.f());
+    if (!res)
+        return Op(false,"Derivative error cannot calculete function value"+res.error());
+    else
+    {
+        auto [W, landa, V]=std::move(res).value();
+                auto fxxf=Permute<double,1,3,0,2>(Dx.dfdx());
+                M_Matrix<M_Matrix<double>> dlanda(landa.nrows(),Dx.x().nrows(),
+                M_Matrix<double>(landa.ncols(),Dx.x().ncols(),0));
+                M_Matrix<M_Matrix<double>> dV(V.nrows(),Dx.x().nrows(),
+                M_Matrix<double>(V.ncols(),Dx.x().ncols(),0));
+                for (std::size_t i=0; i<landa.nrows(); ++i)
+        {
+            auto v=V(i,":");
+            auto vT=Transpose(v);
+            for (std::size_t j1=0; j1<Dx.x().nrows(); ++j1)
+                for (std::size_t j2=0; j2<Dx.x().ncols(); ++j2)
+                    dlanda(i,j1)(i,j2)=(vT*fxxf(j1,j2)*v).getvalue();
+
+            auto vinv=pinv(landa(i,i)*Matrix_Generators::eye<double>(landa.nrows())-Dx.f());
+            if (!vinv) return Op(false, " Error calculating Derivative, problem with pseudoinverse "+vinv.error());
+            for (std::size_t j1=0; j1<Dx.x().nrows(); ++j1)
+                for (std::size_t j2=0; j2<Dx.x().ncols(); ++j2)
+                {
+                    auto dvi=vinv.value()*fxxf(j1,j2)*v;
+                    for (std::size_t i2=0; i2<V.ncols(); ++i2)
+                        dV(i,j1)(i2,j2)=dvi(i2,0);
+                }
+
+        }
+        Derivative<M_Matrix<double>> Dlanda(std::move(landa),Dx.x(),std::move(dlanda));
+        Derivative<M_Matrix<double>> DV(std::move(V),Dx.x(),std::move(dV));
+        auto DW=inv(DV);
+        if (!DW) return Op(false, " fails to invert the left eigenvector");
+
+        return Op(std::tuple(std::move(DW).value(),Dlanda,DV));
+    }
+
+
+}
+
+auto Singular_Value_decomposition(const M_Matrix<double>& A)
+{
+
+
+
+
+
+
+    /***
+     *
+     * dgesdd()
+subroutine dgesdd 	( 	character  	JOBZ,
+        integer  	M,
+        integer  	N,
+        double precision, dimension( lda, * )  	A,
+        integer  	LDA,
+        double precision, dimension( * )  	S,
+        double precision, dimension( ldu, * )  	U,
+        integer  	LDU,
+        double precision, dimension( ldvt, * )  	VT,
+        integer  	LDVT,
+        double precision, dimension( * )  	WORK,
+        integer  	LWORK,
+        integer, dimension( * )  	IWORK,
+        integer  	INFO
+    )
+
+DGESDD
+
+Download DGESDD + dependencies [TGZ] [ZIP] [TXT]
+
+Purpose:
+
+     DGESDD computes the singular value decomposition (SVD) of a real
+     M-by-N matrix A, optionally computing the left and right singular
+     vectors.  If singular vectors are desired, it uses a
+     divide-and-conquer algorithm.
+
+     The SVD is written
+
+          A = U * SIGMA * transpose(V)
+
+     where SIGMA is an M-by-N matrix which is zero except for its
+     min(m,n) diagonal elements, U is an M-by-M orthogonal matrix, and
+     V is an N-by-N orthogonal matrix.  The diagonal elements of SIGMA
+     are the singular values of A; they are real and non-negative, and
+     are returned in descending order.  The first min(m,n) columns of
+     U and V are the left and right singular vectors of A.
+
+     Note that the routine returns VT = V**T, not V.
+
+     The divide and conquer algorithm makes very mild assumptions about
+     floating point arithmetic. It will work on machines with a guard
+     digit in add/subtract, or on those binary machines without guard
+     digits which subtract like the Cray X-MP, Cray Y-MP, Cray C-90, or
+     Cray-2. It could conceivably fail on hexadecimal or decimal machines
+     without guard digits, but we know of none.
+
+Parameters
+
+    [in]	JOBZ
+
+              JOBZ is CHARACTER*1
+              Specifies options for computing all or part of the matrix U:
+              = 'A':  all M columns of U and all N rows of V**T are
+                      returned in the arrays U and VT;
+              = 'S':  the first min(M,N) columns of U and the first
+                      min(M,N) rows of V**T are returned in the arrays U
+                      and VT;
+              = 'O':  If M >= N, the first N columns of U are overwritten
+                      on the array A and all rows of V**T are returned in
+                      the array VT;
+                      otherwise, all columns of U are returned in the
+                      array U and the first M rows of V**T are overwritten
+                      in the array A;
+              = 'N':  no columns of U or rows of V**T are computed.
+*/
+
+    char JOBZ='A';
+
+
+    /*
+    [in]	M
+
+              M is INTEGER
+              The number of rows of the input matrix A.  M >= 0.
+
+     */
+
+    int M=A.ncols();
+
+    /*
+
+
+    [in]	N
+
+              N is INTEGER
+              The number of columns of the input matrix A.  N >= 0.
+
+              */
+
+    int N=A.nrows();
+
+    /*
+
+    [in,out]	A
+
+              A is DOUBLE PRECISION array, dimension (LDA,N)
+              On entry, the M-by-N matrix A.
+              On exit,
+              if JOBZ = 'O',  A is overwritten with the first N columns
+                              of U (the left singular vectors, stored
+                              columnwise) if M >= N;
+                              A is overwritten with the first M rows
+                              of V**T (the right singular vectors, stored
+                              rowwise) otherwise.
+              if JOBZ .ne. 'O', the contents of A are destroyed.
+
+   */
+
+    M_Matrix<double> Ao=A;
+
+    /*
+    [in]	LDA
+
+              LDA is INTEGER
+              The leading dimension of the array A.  LDA >= max(1,M).
+
+
+              */
+
+    int LDA=M;
+
+    /*
+    [out]	S
+
+              S is DOUBLE PRECISION array, dimension (min(M,N))
+              The singular values of A, sorted so that S(i) >= S(i+1).
+*/
+
+    std::size_t minMN=std::min(M,N);
+
+    M_Matrix<double> S(N,M,M_Matrix<double>::DIAGONAL);
+
+    /*
+
+
+    [out]	U
+
+              U is DOUBLE PRECISION array, dimension (LDU,UCOL)
+              UCOL = M if JOBZ = 'A' or JOBZ = 'O' and M < N;
+              UCOL = min(M,N) if JOBZ = 'S'.
+              If JOBZ = 'A' or JOBZ = 'O' and M < N, U contains the M-by-M
+              orthogonal matrix U;
+              if JOBZ = 'S', U contains the first min(M,N) columns of U
+              (the left singular vectors, stored columnwise);
+              if JOBZ = 'O' and M >= N, or JOBZ = 'N', U is not referenced.
+
+    [in]	LDU
+
+              LDU is INTEGER
+              The leading dimension of the array U.  LDU >= 1; if
+              JOBZ = 'S' or 'A' or JOBZ = 'O' and M < N, LDU >= M.
+
+              */
+
+
+    int LDU=M;
+
+    M_Matrix<double> U(LDU,M);
+
+    /*
+
+    [out]	VT
+
+              VT is DOUBLE PRECISION array, dimension (LDVT,N)
+              If JOBZ = 'A' or JOBZ = 'O' and M >= N, VT contains the
+              N-by-N orthogonal matrix V**T;
+              if JOBZ = 'S', VT contains the first min(M,N) rows of
+              V**T (the right singular vectors, stored rowwise);
+              if JOBZ = 'O' and M < N, or JOBZ = 'N', VT is not referenced.
+
+    [in]	LDVT
+
+              LDVT is INTEGER
+              The leading dimension of the array VT.  LDVT >= 1;
+              if JOBZ = 'A' or JOBZ = 'O' and M >= N, LDVT >= N;
+              if JOBZ = 'S', LDVT >= min(M,N).
+*/
+
+    int LDVT=N;
+
+    M_Matrix<double> VT(N,LDVT);
+
+    /*
+
+
+    [out]	WORK
+
+              WORK is DOUBLE PRECISION array, dimension (MAX(1,LWORK))
+              On exit, if INFO = 0, WORK(1) returns the optimal LWORK;
+*/
+
+    std::vector<double> WORK(1);
+
+    /*
+
+
+    [in]	LWORK
+
+              LWORK is INTEGER
+              The dimension of the array WORK. LWORK >= 1.
+              If LWORK = -1, a workspace query is assumed.  The optimal
+              size for the WORK array is calculated and stored in WORK(1),
+              and no other work except argument checking is performed.
+
+              Let mx = max(M,N) and mn = min(M,N).
+              If JOBZ = 'N', LWORK >= 3*mn + max( mx, 7*mn ).
+              If JOBZ = 'O', LWORK >= 3*mn + max( mx, 5*mn*mn + 4*mn ).
+              If JOBZ = 'S', LWORK >= 4*mn*mn + 7*mn.
+              If JOBZ = 'A', LWORK >= 4*mn*mn + 6*mn + mx.
+              These are not tight minimums in all cases; see comments inside code.
+              For good performance, LWORK should generally be larger;
+              a query is recommended.
+
+              */
+
+    int LWORK=-1;
+
+    /*
+
+    [out]	IWORK
+
+              IWORK is INTEGER array, dimension (8*min(M,N))
+
+    */
+
+
+    std::vector<int> IWORK(8*minMN);
+
+    /*
+
+
+    [out]	INFO
+
+              INFO is INTEGER
+              = 0:  successful exit.
+              < 0:  if INFO = -i, the i-th argument had an illegal value.
+              > 0:  DBDSDC did not converge, updating process failed.
+
+
+
+*/
+
+
+    int INFO;
+    /*
+//    ( 	char*  	JOBZ,
+//                                  int*  	M,
+//                                  int*  	N,
+//                                  double  * /* precision, dimension( lda, * )   	A,
+//                                  int *  	LDA,
+//                                  double * /*precision, dimension( * ) */  	//S,
+    //                                  double * /*precision, dimension( ldu, * ) */ 	U,
+    //                                  int*  	LDU,
+    //                                  double* /* precision, dimension( ldvt, * ) */ 	VT,
+    //                                  int*  	LDVT,
+    //                                  double * /* precision, dimension( * ) */  	WORK,
+    //                                  int*  	LWORK,
+    //                                  int* /*, dimension( * ) */ 	IWORK,
+    //                                  int*  	INFO
+    //                              );
+    //    */
+
+    lapack::dgesdd_(&JOBZ,&M,&N,&Ao[0],&LDA,&S[0],&U[0],&LDU,&VT[0],&LDVT,&WORK[0],&LWORK,&IWORK[0],&INFO);
+
+    LWORK=WORK[0];
+    WORK.resize(LWORK);
+
+    lapack::dgesdd_(&JOBZ,&M,&N,&Ao[0],&LDA,&S[0],&U[0],&LDU,&VT[0],&LDVT,&WORK[0],&LWORK,&IWORK[0],&INFO);
+
+    typedef myOptional_t<SVD_type> Op;
+
+    if (INFO!=0)
+    {
+        if (INFO>0)
+            return Op(false,std::string("DBDSDC did not converge, updating process failed.")+std::to_string(INFO));
+        else
+        {
+            auto args= std::make_tuple(&JOBZ,&M,&N,&Ao[0],&LDA,&S[0],&U[0],&LDU,&VT[0],&LDVT,&WORK[0],&LWORK,&IWORK[0],&INFO);
+            std::string argumentsNames[]={"JOBZ","M","N","A","LDA","S","U","LDU","VT","LDVT","WORK","LWORK","IWORK","INFO"};
+
+            std::stringstream ss;
+            std::size_t i=-INFO;
+            io::write_tuple_i(ss,args,i);
+            return Op(false,"the"+std::to_string(i)+"-th argument "+argumentsNames[i]+" had the illegal value ="+ss.str());
+
+
+        }
+
+    }
+    else
+        return Op(std::tuple(std::move(VT),std::move(S),std::move(U)));
+
+}
+
+
+
+
 
 } // namespace Matrix_Decompositions
 
@@ -2400,184 +3046,8 @@ Parameters
 
 
 
-namespace Matrix_Generators
-{
-template<typename T>
-M_Matrix<T>  ones(size_t nrows, size_t ncols)
-{
-    return M_Matrix<T>(nrows,ncols,M_Matrix<T>::SCALAR_FULL,T(1));
-}
-
-template<typename T>
-M_Matrix<T>  zeros(size_t nrows, size_t ncols)
-{
-    return M_Matrix<T>(nrows,ncols,M_Matrix<T>::ZERO);
-}
-
-/**
-  Identity Matrix of the specified size
- */
-template<typename T>
-M_Matrix<T> eye(std::size_t n)
-{
-    return M_Matrix<T>(n,n,M_Matrix<T>::SCALAR_DIAGONAL,T(1));
-}
-
-template<typename T>
-M_Matrix<T>  Rand(const M_Matrix<T>& x)
-{
-    std::normal_distribution<> normal;
-    std::random_device rd;
-    std::mt19937_64 sto(rd());
-    auto out=M_Matrix<T>(x);
-    for (std::size_t i=0; i<out.size(); ++i)
-        out[i]=normal(sto);
-    return out;
-}
-
-template<class D>
-M_Matrix<double>  Rand(const M_Matrix<double>& x,D d, std::mt19937_64& sto)
-{
-    auto out=M_Matrix<double>(x.nrows(),x.ncols(),x.type());
-    for (auto it=out.begin(); it!=out.end(); ++it)
-        *it=d(sto);
-    return out;
-}
 
 
-template<typename T, class D>
-M_Matrix<T>  Rand(const M_Matrix<T>& x,D d, std::mt19937_64& sto)
-{
-    auto out=M_Matrix<T>(x.nrows(),x.ncols(),x.type());;
-    for (auto it=out.begin(); it!=out.end(); ++it)
-        *it=Rand(*it,d,sto);
-    return out;
-}
-}
-
-
-template<typename T>
-std::ostream& operator<<(std::ostream& os,const M_Matrix<T>& x)
-{
-    os<<"[";
-    for (std::size_t i=0; i<x.nrows(); ++i)
-    {
-        for (std::size_t j=0; j<x.ncols(); ++j)
-            os<<x(i,j)<<" ";
-        os<<";";
-    }
-    os<<"]";
-    return os;
-}
-
-
-template<typename T>
-std::istream& operator>>(std::istream& is,M_Matrix<T>& x)
-{
-    std::vector<T> o;
-    std::size_t nrows=0;
-    char ch;
-    while ((is>>ch)&&(ch!='[')){}
-    if(ch!='[')
-        return is;
-    else
-        while (ch!=']')
-        {
-            std::string s;
-            while ((is.get(ch))&&((ch!=']')&&ch!=';'))
-            {
-                s.push_back(ch);
-            }
-            std::stringstream ss(s);
-            T e;
-            std::size_t i=o.size();
-            while (ss>>e) o.push_back(e);
-            if (o.size()>i) ++nrows;
-        }
-    std::size_t ncols=o.size()/nrows;
-    x=M_Matrix<T>(nrows,ncols,o);
-    return is;
-
-}
-
-
-namespace Matrix_Unary_Predicates
-{
-template<typename T, class Predicate>
-bool all(const M_Matrix<T>& x, const Predicate& p)
-{
-    for (std::size_t i=0; i< x.size(); ++i)
-        if (!p(x[i]))
-            return false;
-    return true;
-}
-
-template<typename T, class Predicate>
-bool any(const M_Matrix<T>& x, const Predicate& p)
-{
-    for (std::size_t i=0; i< x.size(); ++i)
-        if (p(x[i]))
-            return true;
-    return false;
-}
-
-template<typename T, class Predicate>
-std::set<std::size_t> find(const M_Matrix<T>& x, const Predicate& p)
-{
-    std::set<std::size_t> out;
-    for (std::size_t i=0; i< x.size(); ++i)
-        if (p(x[i]))
-            out.insert(i);
-    return out;
-}
-
-
-using std::isnan;
-
-template <typename T>
-bool isnan(const M_Matrix<T>& x)
-{
-    return any(x,[](const T& e){return isnan(e);});
-}
-}
-
-
-namespace Matrix_Unary_Size_Functions
-{
-
-template<typename T>
-
-std::size_t nrows(const M_Matrix<T>& x){return x.nrows();}
-
-template<typename T>
-std::size_t ncols(const M_Matrix<T>& x){return x.ncols();}
-
-template<typename T>
-std::size_t size(const M_Matrix<T>& x){return x.size();}
-
-}
-using namespace Matrix_Unary_Size_Functions;
-namespace Matrix_Unary_Transformations
-{
-template<class E,class F, typename T>
-M_Matrix<T>
-accumulate_by_Rows(const M_Matrix<E>& me,const F& f, const T& init);
-template<class E,class F,typename T>
-M_Matrix<T>
-accumulate_by_Cols(const M_Matrix<E>& me,const F& f, const T& start);
-template<typename T>
-M_Matrix<T> diag(const M_Matrix<T>& x);
-
-template<typename T>
-M_Matrix<T> Transpose(const M_Matrix<T>& x);
-
-template<typename T>
-M_Matrix<T> TransposeSum(const M_Matrix<T>& x);
-
-
-
-}
-using namespace Matrix_Unary_Transformations;
 
 namespace Matrix_Unary_Functions
 {
@@ -2790,6 +3260,8 @@ std::size_t log2_norm(const M_Matrix<T>& x)
 
 
 
+
+
 namespace Matrix_Unary_Transformations
 {
 using Matrix_Binary_Transformations::
@@ -2882,6 +3354,7 @@ M_Matrix<T>  Transpose(const M_Matrix<T>& x)
                 out(j,i)=x(i,j);
         return out;
     }
+        // beware: does not transpose in those cases!!
     case M_Matrix<T>::ZERO:
     case M_Matrix<T>::SYMMETRIC:
     case M_Matrix<T>::DIAGONAL:
@@ -2894,6 +3367,39 @@ M_Matrix<T>  Transpose(const M_Matrix<T>& x)
     }
     }
 }
+
+
+template<typename T, std::size_t I0,std::size_t I1,std::size_t I2,std::size_t I3>
+M_Matrix<M_Matrix<T>> Permute(const M_Matrix<M_Matrix<T>>& x)
+{
+    std::tuple<std::size_t, std::size_t,std::size_t, std::size_t> sizes;
+
+    std::get<I0>(sizes)=x.nrows();
+    std::get<I1>(sizes)=x[0].nrows();
+    std::get<I2>(sizes)=x.ncols();
+    std::get<I3>(sizes)=x[0].ncols();
+
+
+    M_Matrix<M_Matrix<T>> out(std::get<0>(sizes), std::get<2>(sizes), M_Matrix<M_Matrix<T>>::FULL,
+                              M_Matrix<T>(std::get<1>(sizes), std::get<3>(sizes), M_Matrix<M_Matrix<T>>::FULL)
+                              );
+
+    for (std::size_t i=0; i<x.nrows(); ++i)
+        for (std::size_t j=0; j<x.ncols(); ++j)
+            for (std::size_t i1=0; i1<x(i,j).nrows(); ++i1)
+                for (std::size_t j1=0; j1<x(i,j).ncols(); ++j1)
+                {
+                    auto index=std::tuple(i,i1,j,j1);
+                    auto _i=std::get<I0>(index);
+                    auto _i1=std::get<I1>(index);
+                    auto _j=std::get<I2>(index);
+                    auto _j1=std::get<I3>(index);
+
+                    out(_i,_j)(_i1,_j1)=x(i,j)(i1,j1);
+                }
+    return out;
+}
+
 
 template<class T>
 M_Matrix<T>  TransposeSum(const M_Matrix<T>& x)
@@ -3464,6 +3970,8 @@ full_inv(const M_Matrix<double>& a)
 }
 
 
+
+
 template<typename T>
 myOptional_t<M_Matrix<T>>
 full_inv(const M_Matrix<T>& x)
@@ -3858,333 +4366,433 @@ diagonal_inv(const M_Matrix<double>& a)
 
 }
 
-
 template<typename T>
 auto
-diagonal_inv(const M_Matrix<T>& a)
+diagonal_pinv(const M_Matrix<T>& a, double min_value=0)
 {
-    typedef myOptional_t<M_Matrix<T>> Op;
-    double amax=0; double imax=0;
-    M_Matrix<T> out(a.nrows(),a.ncols(),M_Matrix<T>::DIAGONAL);
-    for (std::size_t i=0; i<a.nrows(); ++i)
-    {
-        double anorm=norm_1(a(i,i));
-        auto e=inv(a(i,i));
-        if (!e)
+    M_Matrix<double> out(a.ncols(),a.nrows(),M_Matrix<double>::DIAGONAL);
+    for (std::size_t i=0; i<std::min(a.nrows(),a.ncols()); ++i)
+        if (std::abs(a(i,i))<=min_value)
+            out(i,i)=0;
+        else
         {
-            return Op(false,"Singular block="+std::to_string(i)+e.error());
+            out(i,i)=1.0/a(i,i);
+        }
+    return out;
+
+}
+
+
+myOptional_t<M_Matrix<double>>
+full_pinv(const M_Matrix<double>& x)
+{
+
+    typedef myOptional_t<M_Matrix<double>> Op;
+    auto res=Matrix_Decompositions::Singular_Value_decomposition(x);
+    if (!res.has_value())
+        return Op(false,"SVD fails: "+res.error());
+    else
+    {
+        auto [U,S,VT]=std::move(res).value();
+                auto Spinv=diagonal_pinv(S,std::sqrt(std::numeric_limits<double>::epsilon())*S[0]);
+                auto VTS=TranspMult(VT,Spinv);
+                auto out=multTransp(VTS,U);
+                return Op(out);
+    }
+  }
+
+
+
+                template<typename T>
+                auto
+                diagonal_inv(const M_Matrix<T>& a)
+        {
+            typedef myOptional_t<M_Matrix<T>> Op;
+            double amax=0; double imax=0;
+            M_Matrix<T> out(a.nrows(),a.ncols(),M_Matrix<T>::DIAGONAL);
+            for (std::size_t i=0; i<a.nrows(); ++i)
+            {
+                double anorm=norm_1(a(i,i));
+                auto e=inv(a(i,i));
+                if (!e)
+                {
+                    return Op(false,"Singular block="+std::to_string(i)+e.error());
+                }
+                else
+                {
+                    out(i,i)=std::move(e.first);
+                    double inorm=1.0/(anorm*e.second.first);
+                    if (anorm>amax) amax=anorm;
+                    if (inorm>imax) imax=inorm;
+
+                }
+            }
+            //   return {out,{1.0/(amax*imax),""}};
+            return Op(out);
+        }
+
+        inline
+        auto
+        scalar_diagonal_inv(const M_Matrix<double>& a)
+        {
+            typedef myOptional_t<M_Matrix<double>> Op;
+
+            if (a(0,0)==0)
+                return Op(false,"Singular Matrix, Diagonal is zero");
+            else
+                return Op(
+                            M_Matrix<double>
+                            (a.nrows(),a.ncols(),
+                             M_Matrix<double>::SCALAR_DIAGONAL,
+                             1.0/a(0,0)));
+
+        }
+
+
+        template<typename T>
+        auto
+                scalar_diagonal_inv(const M_Matrix<T>& a)
+        {
+            typedef myOptional_t<M_Matrix<T>> Op;
+            auto e=inv(a(0,0));
+            if (!e.second.empty())
+            {
+                return Op(false,"Singular SCALAR DIAGONAL block: "+e.error());
+            }
+            else
+                return Op(
+                            M_Matrix<T>
+                            (a.nrows(),a.ncols(),
+                             M_Matrix<T>::SCALAR_DIAGONAL,
+                             std::move(e.first)));
+        }
+
+        template<typename E>
+
+        auto
+                Matrix_inverse(const M_Matrix<E>& x)
+        {
+            typedef  myOptional_t<M_Matrix<E>> Op;
+            assert(x.nrows()==x.ncols());
+            switch(x.type())
+            {
+            case M_Matrix<E>::FULL:
+            {
+                return full_inv(x);
+            }
+            case M_Matrix<E>::SYMMETRIC:
+            {
+                return symmetric_inv(x);
+            }
+            case M_Matrix<E>::DIAGONAL:
+            {
+                return diagonal_inv(x);
+            }
+            case M_Matrix<E>::SCALAR_DIAGONAL:
+            {
+                return scalar_diagonal_inv(x);
+            }
+            case M_Matrix<E>::SCALAR_FULL:
+            {
+                return Op(false,"SCALAR FULL is Singular");
+            }
+            case M_Matrix<E>::ZERO:
+            default:
+            {
+                return Op(false,"ZERO Matrix is is Singular");
+            }
+
+
+            }
+        }
+
+        template<typename E>
+        auto
+                Matrix_pseudo_inverse(const M_Matrix<E>& x)
+        {
+            typedef  myOptional_t<M_Matrix<E>> Op;
+            switch(x.type())
+            {
+            case M_Matrix<E>::FULL:
+            {
+                return full_pinv(x);
+            }
+            case M_Matrix<E>::SYMMETRIC:
+            {
+                return full_pinv(x);
+            }
+            case M_Matrix<E>::DIAGONAL:
+            {
+                return Op(diagonal_pinv(x));
+            }
+            case M_Matrix<E>::SCALAR_DIAGONAL:
+            {
+                return Op(diagonal_pinv(x));
+            }
+            case M_Matrix<E>::SCALAR_FULL:
+            {
+                return Op(false,"SCALAR FULL is Singular");
+            }
+            case M_Matrix<E>::ZERO:
+            default:
+            {
+                return Op(Transpose(x));
+            }
+
+
+            }
+        }
+
+
+    }
+
+    namespace cholesky
+    {
+    using  Matrix_Unary_Transformations::Transpose;
+    using namespace partition;
+    inline
+            myOptional_t<M_Matrix<double>>
+            symmetric_chol(const M_Matrix<double>& x,const std::string& kind)
+    {
+        typedef myOptional_t<M_Matrix<double>> Op;
+        assert(x.nrows()==x.ncols());
+
+        if (x.size()==0)
+            return {{},"cholesky of ZERO MATRIX"};
+        char UPLO='L';
+        M_Matrix<double> res;
+        if (kind=="lower")
+        {
+            UPLO='U';
+            res=lapack::LT(x);
         }
         else
         {
-            out(i,i)=std::move(e.first);
-            double inorm=1.0/(anorm*e.second.first);
-            if (anorm>amax) amax=anorm;
-            if (inorm>imax) imax=inorm;
-
+            res=lapack::UT(x);
         }
-    }
-    //   return {out,{1.0/(amax*imax),""}};
-    return Op(out);
-}
-
-inline
-auto
-scalar_diagonal_inv(const M_Matrix<double>& a)
-{
-    typedef myOptional_t<M_Matrix<double>> Op;
-
-    if (a(0,0)==0)
-        return Op(false,"Singular Matrix, Diagonal is zero");
-    else
-        return Op(
-                    M_Matrix<double>
-                    (a.nrows(),a.ncols(),
-                     M_Matrix<double>::SCALAR_DIAGONAL,
-                     1.0/a(0,0)));
-
-}
+        int N=x.nrows();
+        int LDA=N;
+        int INFO;
 
 
-template<typename T>
-auto
-scalar_diagonal_inv(const M_Matrix<T>& a)
-{
-    typedef myOptional_t<M_Matrix<T>> Op;
-    auto e=inv(a(0,0));
-    if (!e.second.empty())
-    {
-        return Op(false,"Singular SCALAR DIAGONAL block: "+e.error());
-    }
-    else
-        return Op(
-                    M_Matrix<T>
-                    (a.nrows(),a.ncols(),
-                     M_Matrix<T>::SCALAR_DIAGONAL,
-                     std::move(e.first)));
-}
+        lapack::dpotrf_(&UPLO,&N,&res[0],&LDA,&INFO);
 
-template<typename E>
-
-auto
-Matrix_inverse(const M_Matrix<E>& x)
-{
-    typedef  myOptional_t<M_Matrix<E>> Op;
-    assert(x.nrows()==x.ncols());
-    switch(x.type())
-    {
-    case M_Matrix<E>::FULL:
-    {
-        return full_inv(x);
-    }
-    case M_Matrix<E>::SYMMETRIC:
-    {
-        return symmetric_inv(x);
-    }
-    case M_Matrix<E>::DIAGONAL:
-    {
-        return diagonal_inv(x);
-    }
-    case M_Matrix<E>::SCALAR_DIAGONAL:
-    {
-        return scalar_diagonal_inv(x);
-    }
-    case M_Matrix<E>::SCALAR_FULL:
-    {
-        return Op(false,"SCALAR FULL is Singular");
-    }
-    case M_Matrix<E>::ZERO:
-    default:
-    {
-        return Op(false,"ZERO Matrix is is Singular");
-    }
-
-
-    }
-}
-}
-
-namespace cholesky
-{
-using  Matrix_Unary_Transformations::Transpose;
-using namespace partition;
-inline
-myOptional_t<M_Matrix<double>>
-symmetric_chol(const M_Matrix<double>& x,const std::string& kind)
-{
-    typedef myOptional_t<M_Matrix<double>> Op;
-    assert(x.nrows()==x.ncols());
-
-    if (x.size()==0)
-        return {{},"cholesky of ZERO MATRIX"};
-    char UPLO='L';
-    M_Matrix<double> res;
-    if (kind=="lower")
-    {
-        UPLO='U';
-        res=lapack::LT(x);
-    }
-    else
-    {
-        res=lapack::UT(x);
-    }
-    int N=x.nrows();
-    int LDA=N;
-    int INFO;
-
-
-    lapack::dpotrf_(&UPLO,&N,&res[0],&LDA,&INFO);
-
-    if (INFO!=0)
-    {
-        return Op(false,"Cholesky fails, zero diagonal at"+std::to_string(INFO));
-    }
-    else
-    {
-
-        assert((kind=="lower"? (are_Equal<true,M_Matrix<double>>(std::numeric_limits<double>::epsilon()*1000,std::numeric_limits<double>::epsilon()*1000).test_sum(res*Transpose(res),x, std::cerr)) :(are_Equal<true,M_Matrix<double>>(std::numeric_limits<double>::epsilon()*1000,std::numeric_limits<double>::epsilon()*1000).test_sum(Transpose(res)*res,x, std::cerr))));
-        return Op(res);
-    }
-
-}
-
-
-template<typename T>
-myOptional_t<M_Matrix<T>>
-symmetric_chol(const M_Matrix<T>& x,const std::string& kind)
-{
-    typedef myOptional_t<M_Matrix<T>> Op;
-
-    auto p=SymmetricPartition<T>(x,x.nrows()/2);
-    auto pchol=p.chol_by_A(kind);
-    if (!pchol.second.empty())
-        return Op(false,"Block Cholesky fails "+pchol.second);
-    else
-        return Op(pchol.value().full());
-}
-
-inline
-myOptional_t<M_Matrix<double>>
-diagonal_chol(const M_Matrix<double>& a, const std::string& /*kind*/)
-{
-    typedef myOptional_t<M_Matrix<double>> Op;
-
-    M_Matrix<double> out(a.nrows(),a.ncols(),M_Matrix<double>::DIAGONAL);
-    for (std::size_t i=0; i<a.nrows(); ++i)
-        if (a(i,i)<=0)
-            return Op(false,"Negative Diagonal zero at "+std::to_string(i)+"value "+std::to_string(a(i,i)));
+        if (INFO!=0)
+        {
+            return Op(false,"Cholesky fails, zero diagonal at"+std::to_string(INFO));
+        }
         else
-            out(i,i)=std::sqrt(a(i,i));
-    return Op(out);
+        {
 
-}
+            assert((kind=="lower"? (are_Equal<true,M_Matrix<double>>(std::numeric_limits<double>::epsilon()*1000,std::numeric_limits<double>::epsilon()*1000).test_sum(res*Transpose(res),x, std::cerr)) :(are_Equal<true,M_Matrix<double>>(std::numeric_limits<double>::epsilon()*1000,std::numeric_limits<double>::epsilon()*1000).test_sum(Transpose(res)*res,x, std::cerr))));
+            return Op(res);
+        }
+
+    }
 
 
-template<typename T>
-myOptional_t<M_Matrix<T>>
-diagonal_chol(const M_Matrix<T>& a, const std::string& kind)
-{
-    typedef myOptional_t<M_Matrix<T>> Op;
-
-    M_Matrix<T> out(a.nrows(),a.ncols(),M_Matrix<T>::DIAGONAL);
-    for (std::size_t i=0; i<a.nrows(); ++i)
+    template<typename T>
+    myOptional_t<M_Matrix<T>>
+            symmetric_chol(const M_Matrix<T>& x,const std::string& kind)
     {
-        auto e=chol(a(i,i), kind);
+        typedef myOptional_t<M_Matrix<T>> Op;
+
+        auto p=SymmetricPartition<T>(x,x.nrows()/2);
+        auto pchol=p.chol_by_A(kind);
+        if (!pchol.second.empty())
+            return Op(false,"Block Cholesky fails "+pchol.second);
+        else
+            return Op(pchol.value().full());
+    }
+
+    inline
+            myOptional_t<M_Matrix<double>>
+            diagonal_chol(const M_Matrix<double>& a, const std::string& /*kind*/)
+    {
+        typedef myOptional_t<M_Matrix<double>> Op;
+
+        M_Matrix<double> out(a.nrows(),a.ncols(),M_Matrix<double>::DIAGONAL);
+        for (std::size_t i=0; i<a.nrows(); ++i)
+            if (a(i,i)<=0)
+                return Op(false,"Negative Diagonal zero at "+std::to_string(i)+"value "+std::to_string(a(i,i)));
+            else
+                out(i,i)=std::sqrt(a(i,i));
+        return Op(out);
+
+    }
+
+
+    template<typename T>
+    myOptional_t<M_Matrix<T>>
+            diagonal_chol(const M_Matrix<T>& a, const std::string& kind)
+    {
+        typedef myOptional_t<M_Matrix<T>> Op;
+
+        M_Matrix<T> out(a.nrows(),a.ncols(),M_Matrix<T>::DIAGONAL);
+        for (std::size_t i=0; i<a.nrows(); ++i)
+        {
+            auto e=chol(a(i,i), kind);
+            if (!e.second.empty())
+            {
+                return Op(false,
+                          "Non positive definite  block="
+                          +std::to_string(i)+"  "+e.error());
+            }
+            else
+                out(i,i)=std::move(e.first);
+        }
+        return Op(out);
+
+    }
+
+
+    inline
+            myOptional_t<M_Matrix<double>>
+            scalar_diagonal_chol(const M_Matrix<double>& a, const std::string& /*kind*/)
+    {
+        typedef myOptional_t<M_Matrix<double>> Op;
+
+        if (a(0,0)<=0)
+            return Op(false,"Non Definite positive, Diagonal is non positive");
+        else
+            return Op(
+                        M_Matrix<double>
+                        (a.nrows(),a.ncols(),
+                         M_Matrix<double>::SCALAR_DIAGONAL,
+                         std::sqrt(a(0,0)))
+                        );
+
+    }
+
+
+    template<typename T>
+    myOptional_t<M_Matrix<T>>
+            scalar_diagonal_chol(const M_Matrix<T>& a, const std::string& kind)
+    {
+        typedef myOptional_t<M_Matrix<T>> Op;
+
+        auto e=chol(a(0,0), kind);
         if (!e.second.empty())
         {
-            return Op(false,
-                      "Non positive definite  block="
-                      +std::to_string(i)+"  "+e.error());
+            return Op(false,"Not positive definite SCALAR DIAGONAL block: "+e.second);
         }
         else
-            out(i,i)=std::move(e.first);
+            return Op(
+                        M_Matrix<T>
+                        (a.nrows(),a.ncols(),
+                         M_Matrix<T>::SCALAR_DIAGONAL,
+                         std::move(e.first)));;
     }
-    return Op(out);
-
-}
 
 
-inline
-myOptional_t<M_Matrix<double>>
-scalar_diagonal_chol(const M_Matrix<double>& a, const std::string& /*kind*/)
-{
-    typedef myOptional_t<M_Matrix<double>> Op;
 
-    if (a(0,0)<=0)
-        return Op(false,"Non Definite positive, Diagonal is non positive");
-    else
-        return Op(
-                    M_Matrix<double>
-                    (a.nrows(),a.ncols(),
-                     M_Matrix<double>::SCALAR_DIAGONAL,
-                     std::sqrt(a(0,0)))
-                    );
+    template<typename E>
+    myOptional_t<M_Matrix<E>>
+            Matrix_cholesky(const M_Matrix<E>& x, const std::string& kind)
 
-}
-
-
-template<typename T>
-myOptional_t<M_Matrix<T>>
-scalar_diagonal_chol(const M_Matrix<T>& a, const std::string& kind)
-{
-    typedef myOptional_t<M_Matrix<T>> Op;
-
-    auto e=chol(a(0,0), kind);
-    if (!e.second.empty())
     {
-        return Op(false,"Not positive definite SCALAR DIAGONAL block: "+e.second);
+        typedef myOptional_t<M_Matrix<E>> Op;
+        assert(x.nrows()==x.ncols());
+        switch(x.type())
+        {
+        case M_Matrix<E>::FULL:
+        {
+            return Op(false,"Error, Cholesky on a FULL MATRIX");
+        }
+        case M_Matrix<E>::SYMMETRIC:
+        {
+            return symmetric_chol(x, kind);
+        }
+        case M_Matrix<E>::DIAGONAL:
+        {
+            return diagonal_chol(x, kind);
+        }
+        case M_Matrix<E>::SCALAR_DIAGONAL:
+        {
+            return scalar_diagonal_chol(x, kind);
+        }
+        case M_Matrix<E>::SCALAR_FULL:
+        {
+            return {{},"SCALAR FULL is Not definite positive"};
+        }
+        case M_Matrix<E>::ZERO:
+        default:
+        {
+            return {{},"ZERO Matrix is Not definite positive"};
+        }
+
+
+        }
     }
-    else
-        return Op(
-                    M_Matrix<T>
-                    (a.nrows(),a.ncols(),
-                     M_Matrix<T>::SCALAR_DIAGONAL,
-                     std::move(e.first)));;
-}
 
 
 
-template<typename E>
-myOptional_t<M_Matrix<E>>
-Matrix_cholesky(const M_Matrix<E>& x, const std::string& kind)
 
-{
-    typedef myOptional_t<M_Matrix<E>> Op;
-    assert(x.nrows()==x.ncols());
-    switch(x.type())
+    }
+
+    template <class T>
+    myOptional_t<M_Matrix<T>>
+            inv(const M_Matrix<T>& x)
     {
-    case M_Matrix<E>::FULL:
+        return matrix_inverse::Matrix_inverse(x);
+    }
+    template <class T>
+    myOptional_t<Derivative<M_Matrix<T>>>
+            inv(const Derivative<M_Matrix<T>>& x)
     {
-        return Op(false,"Error, Cholesky on a FULL MATRIX");
+        typedef  myOptional_t<Derivative<M_Matrix<T>>> Op;
+
+        auto invx=matrix_inverse::Matrix_inverse(x.f());
+        if (!invx.has_value()) return Op(false,"cannot invert x "+invx.error());
+        else
+        {
+            auto fxxf=Permute<T,1,3,0,2>(x.dfdx());
+            auto df=-invx.value()*fxxf*invx.value();
+            df=Permute<T,2,0,3,1>(df);
+            return Op(Derivative<M_Matrix<T>>(std::move(invx).value(),x.x(),std::move(df)));
+        }
+
     }
-    case M_Matrix<E>::SYMMETRIC:
+
+
+    template <class T>
+    myOptional_t<M_Matrix<T>>
+            pinv(const M_Matrix<T>& x)
     {
-        return symmetric_chol(x, kind);
+        return matrix_inverse::Matrix_pseudo_inverse(x);
     }
-    case M_Matrix<E>::DIAGONAL:
+
+    template <class T>
+    myOptional_t<M_Matrix<T> > chol(const M_Matrix<T>& x, const std::string& kind)
     {
-        return diagonal_chol(x, kind);
+        return cholesky::Matrix_cholesky(x, kind);
     }
-    case M_Matrix<E>::SCALAR_DIAGONAL:
+
+
+
+
+
+
+    template<typename T, class Compare>
+    M_Matrix<T> sort(const M_Matrix<T>& x, Compare comp)
     {
-        return scalar_diagonal_chol(x, kind);
+        std::vector<T> o=x.toVector();
+        std::sort(o.begin(), o.end(), comp);
+        return M_Matrix<T>(x.nrows(),x.ncols(),o);
+
     }
-    case M_Matrix<E>::SCALAR_FULL:
+
+
+    template<typename T>
+    M_Matrix<T> sort(const M_Matrix<T>& x)
     {
-        return {{},"SCALAR FULL is Not definite positive"};
-    }
-    case M_Matrix<E>::ZERO:
-    default:
-    {
-        return {{},"ZERO Matrix is Not definite positive"};
-    }
-
+        std::vector<T> o=x.toVector();
+        std::sort(o.begin(), o.end());
+        return M_Matrix<T>(x.nrows(),x.ncols(),o);
 
     }
-}
 
-
-
-
-}
-
-template <class T>
-myOptional_t<M_Matrix<T>>
-inv(const M_Matrix<T>& x)
-{
-    return matrix_inverse::Matrix_inverse(x);
-}
-
-template <class T>
-myOptional_t<M_Matrix<T> > chol(const M_Matrix<T>& x, const std::string& kind)
-{
-    return cholesky::Matrix_cholesky(x, kind);
-}
-
-
-
-
-
-
-template<typename T, class Compare>
-M_Matrix<T> sort(const M_Matrix<T>& x, Compare comp)
-{
-    std::vector<T> o=x.toVector();
-    std::sort(o.begin(), o.end(), comp);
-    return M_Matrix<T>(x.nrows(),x.ncols(),o);
-
-}
-
-
-template<typename T>
-M_Matrix<T> sort(const M_Matrix<T>& x)
-{
-    std::vector<T> o=x.toVector();
-    std::sort(o.begin(), o.end());
-    return M_Matrix<T>(x.nrows(),x.ncols(),o);
-
-}
-
-/**
+    /**
        Diagonal of Matrix or Diagonal Matrix
        It has two behaviors:
        - If the input is a single column or a single row, it builds a diagonal
@@ -4192,47 +4800,47 @@ M_Matrix<T> sort(const M_Matrix<T>& x)
        - If the input is a Matrix, it returns the values of its diagonal
 
       */
-template<typename T>
-M_Matrix<T> diag(const M_Matrix<T>& x)
-{
-    size_t nr=x.nrows();
-    size_t nc=x.ncols();
-    if ((nr>1)&(nc>1))
+    template<typename T>
+    M_Matrix<T> diag(const M_Matrix<T>& x)
     {
-        std::size_t n=std::min(nr,nc);
-        M_Matrix<T> diagV(nr,nc,M_Matrix<T>::DIAGONAL);
-        for (size_t i=0; i<n; ++i)
-            diagV(i,i)=x(i,i);
-        return diagV;
+        size_t nr=x.nrows();
+        size_t nc=x.ncols();
+        if ((nr>1)&(nc>1))
+        {
+            std::size_t n=std::min(nr,nc);
+            M_Matrix<T> diagV(nr,nc,M_Matrix<T>::DIAGONAL);
+            for (size_t i=0; i<n; ++i)
+                diagV(i,i)=x(i,i);
+            return diagV;
+        }
+        else
+        {
+            nr=std::max(nr,nc);
+            M_Matrix<T> diagM(nr,nr,M_Matrix<T>::DIAGONAL);
+            for (size_t i=0; i<nr; ++i)
+                diagM(i,i)=x[i];
+            return diagM;
+        }
+
     }
-    else
+
+
+    template<typename T>
+    M_Matrix<T> col_vector(const M_Matrix<T>& x)
     {
-        nr=std::max(nr,nc);
-        M_Matrix<T> diagM(nr,nr,M_Matrix<T>::DIAGONAL);
-        for (size_t i=0; i<nr; ++i)
-            diagM(i,i)=x[i];
-        return diagM;
+        M_Matrix<T> colvec(x.size(),1);
+        for (std::size_t i=0; i<x.size(); ++i)
+            colvec[i]=x[i];
+        return colvec;
     }
-
-}
-
-
-template<typename T>
-M_Matrix<T> col_vector(const M_Matrix<T>& x)
-{
-    M_Matrix<T> colvec(x.size(),1);
-    for (std::size_t i=0; i<x.size(); ++i)
-        colvec[i]=x[i];
-    return colvec;
-}
-template<typename T>
-M_Matrix<T> row_vector(const M_Matrix<T>& x)
-{
-    M_Matrix<T> rowvec(1,x.size());
-    for (std::size_t i=0; i<x.size(); ++i)
-        rowvec[i]=x[i];
-    return rowvec;
-}
+    template<typename T>
+    M_Matrix<T> row_vector(const M_Matrix<T>& x)
+    {
+        M_Matrix<T> rowvec(1,x.size());
+        for (std::size_t i=0; i<x.size(); ++i)
+            rowvec[i]=x[i];
+        return rowvec;
+    }
 
 }
 
@@ -5689,7 +6297,7 @@ auto
 operator *
 (const M_Matrix<T>& one,
  const M_Matrix<S>& other)
-->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<S>,decltype(std::declval<T>()*std::declval<S>())>>
 {
     typedef decltype(std::declval<T>()*std::declval<S>()) R;
 
@@ -5880,7 +6488,8 @@ quadraticForm_B_A_BT (const M_Matrix<T>& A, const M_Matrix<S>& B)
      @post all the values of the matrix are multiplied by the value x
      */
 template<typename E, typename T>
-M_Matrix<E>& operator*=(M_Matrix<E>& itself, T x)
+auto operator*=(M_Matrix<E>& itself, T x)
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>&
 {
     if (itself.type()==M_Matrix<E>::ZERO)
         return itself;
@@ -5899,7 +6508,8 @@ M_Matrix<E>& operator*=(M_Matrix<E>& itself, T x)
      @post all the values of the matrix are divided by the value x
      */
 template<typename E,typename T>
-M_Matrix<E>& operator/=(M_Matrix<E>& itself, T x)
+auto operator/=(M_Matrix<E>& itself, T x)
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>&
 {
     if (itself.type()!=M_Matrix<E>::ZERO)
         for (size_t i=0; i<itself.size(); i++)
@@ -6202,7 +6812,7 @@ M_Matrix<T>& operator-=(M_Matrix<T>& x,const M_Matrix<S>& y)
         if (y.type()==M_Matrix<T>::ZERO)
             return x;
         else
-    return additive::substraction_assigment(x,y);
+            return additive::substraction_assigment(x,y);
 }
 
 /**
@@ -6225,7 +6835,7 @@ M_Matrix<T> operator-(const M_Matrix<T>& x,const M_Matrix<T>& y)
             return x;
         else
 
-    return additive::substraction_Operator(x,y);
+            return additive::substraction_Operator(x,y);
 }
 
 template<typename T>
@@ -6240,7 +6850,7 @@ M_Matrix<T> operator-(M_Matrix<T>&& x,M_Matrix<T>&& y)
             return x;
         else
 
-    return additive::substraction_Operator(std::move(x),std::move(y));
+            return additive::substraction_Operator(std::move(x),std::move(y));
 }
 
 
@@ -6298,23 +6908,24 @@ M_Matrix<T> operator-(T t,const M_Matrix<T>& x)
      */
 template<typename E, typename T>
 auto operator*(const M_Matrix<E> & x,T t)
-->M_Matrix<decltype(std::declval<E>()*std::declval<T>())>
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>
 {    // we build the M_Matrix result
     typedef decltype(std::declval<E>()*std::declval<T>()) R;
     M_Matrix<R> out(x);
     for (std::size_t i=0; i<x.size(); ++i)
-        out[i]*=t;
+        out[i]=out[i]*t;
     return out;
 }
 
-/**
-     Scalar Multiplication reverse order.
-     */
-
-template<typename T>
-M_Matrix<T> operator*(T t,const M_Matrix<T>& x)
-{
-    return x*t;
+template<typename E, typename T>
+auto operator*(T t,const M_Matrix<E> & x)
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>
+{    // we build the M_Matrix result
+    typedef decltype(std::declval<E>()*std::declval<T>()) R;
+    M_Matrix<R> out(x);
+    for (std::size_t i=0; i<x.size(); ++i)
+        out[i]=t*out[i];
+    return out;
 }
 
 

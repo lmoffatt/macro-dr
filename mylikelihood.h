@@ -689,7 +689,39 @@ private:
 
 
 
+
+
+
 namespace evidence {
+
+
+
+
+class Distribution_Function_Model
+{
+
+    template<class Data, class Parameters>
+    auto compute_Distribution(const Data& d, const Parameters& p)
+    {
+
+    }
+    template<class Data, class Parameters>
+    auto compute_Distribution_aux(const Data& data,const Parameters& p,std::ostream& os)
+    {
+
+    }
+
+    template<class Data, class Parameters, class Aux>
+    auto compute_Distribution_aux(const Data& data,const Parameters& p,std::ostream& os, const Aux& aux)
+    {
+
+    }
+
+};
+
+
+
+
 
 
 /// Aproximacion por Fisher Information Matrix al Hessiano
@@ -850,7 +882,7 @@ public:
     {
         std::vector<double> eps(p.size());
         for (std::size_t i=0; i<p.size(); ++i)
-            eps[i]=2.0*std::sqrt(std::numeric_limits<double>::epsilon()*std::abs(current.logL()/current.H()(i,i)));
+            eps[i]=2.0*std::sqrt(eps_f()*data.size()*std::numeric_limits<double>::epsilon()*std::abs(current.logL()/current.H()(i,i)));
 
         return compute_DLikelihood(p,os,data,eps);
     }
@@ -1016,13 +1048,16 @@ public:
                     }
 
 
-                    FIM_Model(const Distribution_Model& l, const Data& d, double eps):
-                        Likelihood_Model<Distribution_Model, Data> (l,d), eps_{eps}{}
+                    FIM_Model(const Distribution_Model& l, const Data& d, double eps, double epsf):
+                        Likelihood_Model<Distribution_Model, Data> (l,d), eps_{eps}, eps_f_{epsf}{}
 
                     void set_Data(Data&& d){ base_type::set_Data(std::move(d));}
 
+                    double eps_f()const {return eps_f_;}
+
                     private:
                     double eps_;
+                    double eps_f_;
 
                 };
                 template<class Parameters_Distribution,class Parameters_Values,class ExperimentData, class logLikelihood>
@@ -1278,6 +1313,115 @@ public:
                 };
 
 
+
+                template<class ExperimentSimulation, class PartialDLogLikelihood>
+                class Likelihood_sample
+                {
+                public:
+                    constexpr static auto const className=my_static_string("Likelihood_Test_sample");
+
+                    typedef   Likelihood_sample self_type ;
+                    static auto get_constructor_fields()
+                    {
+                        return std::make_tuple(
+                                    grammar::field(C<self_type>{},"simulations",&self_type::getSimulations),
+                                    grammar::field(C<self_type>{},"likelihoods",&self_type::getLikelihoods)
+                                    );
+                    }
+
+                    auto size()const {return s_.size();}
+                    M_Matrix<double> mean_Gradient()const
+                    {
+                        M_Matrix<double> out=s_[0].G();
+                        for (std::size_t i=1; i<s_.size(); ++i)
+                            out+=s_[i].G();
+                        return out/s_.size();
+                    }
+                    std::vector<M_Matrix<double>> partial_mean_Gradient()const
+                    {
+                        auto ns=s_[0].partial_DlogL().size();
+                        std::vector<M_Matrix<double>> out(ns);
+                        for (std::size_t n=0; n<ns; ++n)
+                        {
+                            M_Matrix<double> m=s_[0].partial_DlogL()[n].G();
+                            for (std::size_t i=1; i<s_.size(); ++i)
+                                m+=s_[i].partial_DlogL()[n].G();
+
+                            out[n]=m/s_.size();
+                        }
+                        return out;
+                    }
+                    M_Matrix<double> mean_sqr_Gradient()const
+                    {
+                        M_Matrix<double> out=quadraticForm_XTX(s_[0].G());
+                        for (std::size_t i=1; i<s_.size(); ++i)
+                            out+=quadraticForm_XTX(s_[i].G());
+                        return out/s_.size();
+                    }
+                    std::vector<M_Matrix<double>> partial_sqr_Gradient()const
+                    {
+                        auto ns=s_[0].partial_DlogL().size();
+                        std::vector<M_Matrix<double>> out(ns);
+                        for (std::size_t n=0; n<ns; ++n)
+                        {
+                            M_Matrix<double> m=quadraticForm_XTX(s_[0].partial_DlogL()[n].G());
+                            for (std::size_t i=1; i<s_.size(); ++i)
+                                m+=quadraticForm_XTX(s_[i].partial_DlogL()[n].G());
+                            out[n]=m/s_.size();
+                        }
+                        return out;
+                    }
+
+                    M_Matrix<double> mean_Hessian()const
+                    {
+                        M_Matrix<double> out=s_[0].H();
+                        for (std::size_t i=1; i<s_.size(); ++i)
+                            out+=s_[i].H();
+                        return out/s_.size();
+                    }
+
+
+                    std::vector<M_Matrix<double>> partial_mean_Hessian()const
+                    {
+                        auto ns=s_[0].partial_DlogL().size();
+                        std::vector<M_Matrix<double>> out(ns);
+                        for (std::size_t n=0; n<ns; ++n)
+                        {
+                            M_Matrix<double> m=s_[0].partial_DlogL()[n].H();
+                            for (std::size_t i=1; i<s_.size(); ++i)
+                                m+=s_[i].partial_DlogL()[n].H();
+
+                            out[n]=m/s_.size();
+                        }
+                        return out;
+                    }
+
+
+
+                    std::vector<ExperimentSimulation> const & getSimulations()const {return  e_;}
+
+                    std::vector<PartialDLogLikelihood>const & getLikelihoods()const { return s_;}
+
+
+                    Likelihood_sample(std::vector<ExperimentSimulation>&& e,std::vector<PartialDLogLikelihood>&& s):
+                        e_{std::move(e)},
+                        s_{std::move(s)}{}
+
+                    Likelihood_sample(const std::vector<ExperimentSimulation>& e,const std::vector<PartialDLogLikelihood>& s):
+                        e_{e},
+                        s_{s}{}
+
+
+                    Likelihood_sample()=default;
+
+                private:
+                    std::vector<ExperimentSimulation> e_;
+                    std::vector<PartialDLogLikelihood> s_;
+                };
+
+
+
+
                 class Likelihood_Test
                 {
                 public:
@@ -1381,114 +1525,8 @@ public:
                     }
 
 
-                    template<class ExperimentSimulation, class PartialDLogLikelihood>
-                    class sample
-                    {
-                    public:
-                        constexpr static auto const className=my_static_string("Likelihood_Test_sample");
-
-                        typedef   sample self_type ;
-                        static auto get_constructor_fields()
-                        {
-                            return std::make_tuple(
-                                        grammar::field(C<self_type>{},"simulations",&self_type::getSimulations),
-                                        grammar::field(C<self_type>{},"likelihoods",&self_type::getLikelihoods)
-                                        );
-                        }
-
-                        auto size()const {return s_.size();}
-                        M_Matrix<double> mean_Gradient()const
-                        {
-                            M_Matrix<double> out=s_[0].G();
-                            for (std::size_t i=1; i<s_.size(); ++i)
-                                out+=s_[i].G();
-                            return out/s_.size();
-                        }
-                        std::vector<M_Matrix<double>> partial_mean_Gradient()const
-                        {
-                            auto ns=s_[0].partial_DlogL().size();
-                            std::vector<M_Matrix<double>> out(ns);
-                            for (std::size_t n=0; n<ns; ++n)
-                            {
-                                M_Matrix<double> m=s_[0].partial_DlogL()[n].G();
-                                for (std::size_t i=1; i<s_.size(); ++i)
-                                    m+=s_[i].partial_DlogL()[n].G();
-
-                                out[n]=m/s_.size();
-                            }
-                            return out;
-                        }
-                        M_Matrix<double> mean_sqr_Gradient()const
-                        {
-                            M_Matrix<double> out=quadraticForm_XTX(s_[0].G());
-                            for (std::size_t i=1; i<s_.size(); ++i)
-                                out+=quadraticForm_XTX(s_[i].G());
-                            return out/s_.size();
-                        }
-                        std::vector<M_Matrix<double>> partial_sqr_Gradient()const
-                        {
-                            auto ns=s_[0].partial_DlogL().size();
-                            std::vector<M_Matrix<double>> out(ns);
-                            for (std::size_t n=0; n<ns; ++n)
-                            {
-                                M_Matrix<double> m=quadraticForm_XTX(s_[0].partial_DlogL()[n].G());
-                                for (std::size_t i=1; i<s_.size(); ++i)
-                                    m+=quadraticForm_XTX(s_[i].partial_DlogL()[n].G());
-                                out[n]=m/s_.size();
-                            }
-                            return out;
-                        }
-
-                        M_Matrix<double> mean_Hessian()const
-                        {
-                            M_Matrix<double> out=s_[0].H();
-                            for (std::size_t i=1; i<s_.size(); ++i)
-                                out+=s_[i].H();
-                            return out/s_.size();
-                        }
-
-
-                        std::vector<M_Matrix<double>> partial_mean_Hessian()const
-                        {
-                            auto ns=s_[0].partial_DlogL().size();
-                            std::vector<M_Matrix<double>> out(ns);
-                            for (std::size_t n=0; n<ns; ++n)
-                            {
-                                M_Matrix<double> m=s_[0].partial_DlogL()[n].H();
-                                for (std::size_t i=1; i<s_.size(); ++i)
-                                    m+=s_[i].partial_DlogL()[n].H();
-
-                                out[n]=m/s_.size();
-                            }
-                            return out;
-                        }
-
-
-
-                        std::vector<ExperimentSimulation> const & getSimulations()const {return  e_;}
-
-                        std::vector<PartialDLogLikelihood>const & getLikelihoods()const { return s_;}
-
-
-                        sample(std::vector<ExperimentSimulation>&& e,std::vector<PartialDLogLikelihood>&& s):
-                            e_{std::move(e)},
-                            s_{std::move(s)}{}
-
-                        sample(const std::vector<ExperimentSimulation>& e,const std::vector<PartialDLogLikelihood>& s):
-                            e_{e},
-                            s_{s}{}
-
-
-                        sample()=default;
-
-                    private:
-                        std::vector<ExperimentSimulation> e_;
-                        std::vector<PartialDLogLikelihood> s_;
-                    };
-
-
                     template<class Simulation_Model,class FIM_Model,  class Data, class ParametersDistribution,class Parameters>
-                    static    auto compute_PartialDLikelihood
+                    static    auto compute_Sample
                             (std::ostream& os,const Simulation_Model& sim, const FIM_Model& fim, const Data& e, const ParametersDistribution& prior, const Parameters& p,std::vector<double>& epsG,bool centered,std::mt19937_64& mt  )
                     {
                         auto data=sim.compute_simulation(e,p,mt);
@@ -1520,7 +1558,7 @@ public:
                     }
 
                     template<class Simulation_Model,class FIM_Model,  class Data, class ParametersDistribution,class Parameters>
-                    static    auto compute_PartialDLikelihood_init
+                    static    auto compute_Sample_init
                             (std::ostream& os,const Simulation_Model& sim, const FIM_Model& fim, const Data& e, const ParametersDistribution& prior, const Parameters& p,std::mt19937_64& mt  )
                     {
                         auto data=sim.compute_simulation(e,p,mt);
@@ -1555,7 +1593,7 @@ public:
                     {
                         typedef std::decay_t<decltype (sim.compute_simulation(e,p,mt).value())>  sim_type;
 
-                        typedef myOptional_t<sample<sim_type, PartialDLogLikelihood<typename FIM_Model::Aux>>> Op;
+                        typedef myOptional_t<Likelihood_sample<sim_type, PartialDLogLikelihood<typename FIM_Model::Aux>>> Op;
                         std::stringstream ss;
                         std::vector<sim_type> simuls(nsamples);
                         std::vector<PartialDLogLikelihood<typename FIM_Model::Aux>> s(nsamples);
@@ -1565,7 +1603,7 @@ public:
                         bool succed=true;
                         if (!init)
                         {
-                            auto logL=compute_PartialDLikelihood_init(os,sim,fim,e,prior,p,mt);
+                            auto logL=compute_Sample_init(os,sim,fim,e,prior,p,mt);
                             if (!logL.has_value()) succed=false;
                             else
                             {
@@ -1575,9 +1613,9 @@ public:
                                     double myLogL=logL.value().second.logL();
                                     auto myH=logL.value().second.H();
                                     for (std::size_t i=0; i<p.size(); ++i)
-                                        eps[i]=2.0*std::sqrt(std::numeric_limits<double>::epsilon()*std::abs(myLogL/myH(i,i)));
+                                        eps[i]=2.0*std::sqrt(fim.eps_f()*e.size()*std::numeric_limits<double>::epsilon()*std::abs(myLogL/myH(i,i)));
                                     os<<"\n eps="<<eps;
-                                    auto logL=compute_PartialDLikelihood(os,sim,fim,e,prior,p,eps,centered,mt);
+                                    auto logL=compute_Sample(os,sim,fim,e,prior,p,eps,centered,mt);
                                     if (!logL.has_value())
                                         succed=false;
                                 }
@@ -1589,7 +1627,7 @@ public:
                                     for (std::size_t ni=0; ni<8; ++ni)
                                     {
                                         std::size_t i=nc*8+ni;
-                                        auto logL=compute_PartialDLikelihood(oss[ni],sim,fim,e,prior,p,eps,centered,mtvec[ni]);
+                                        auto logL=compute_Sample(oss[ni],sim,fim,e,prior,p,eps,centered,mtvec[ni]);
                                         if (!logL.has_value())
                                             succed=false;
                                         else
@@ -1614,7 +1652,7 @@ public:
                                 for (std::size_t ni=0; ni<8; ++ni)
                                 {
                                     std::size_t i=nc*8+ni;
-                                    auto logL=compute_PartialDLikelihood_init(oss[ni],sim,fim,e,prior,p,mtvec[i]);
+                                    auto logL=compute_Sample_init(oss[ni],sim,fim,e,prior,p,mtvec[i]);
                                     if (!logL.has_value())
                                         succed=false;
                                     else
@@ -1636,7 +1674,7 @@ public:
                             os<<"\n"<<s[i].logL()<<"\t"<<sqr(s[i].logL()-s[i].elogL())/s[i].vlogL()<<"\t"<<s[i].G();
                         }
 
-                        auto samples=sample(std::move(simuls),std::move(s));
+                        auto samples=Likelihood_sample(std::move(simuls),std::move(s));
                         return Op(samples);
 
                     }
