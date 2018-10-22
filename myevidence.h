@@ -570,7 +570,7 @@ public:
             double logP_forward=current.g().logP(candidate.x());
             double logP_backward=candidate.g().logP(current.x());
             double logA=(logL_candidate+logP_backward)-(logL_current+logP_forward);
-            double A=std::min(1.0,exp(logA));
+            double A=std::min(1.0,std::exp(logA));
             s<<"\n logA=(logL_candidate+logP_backward)-(logL_current+logP_forward)\n logA="<<logA<<"\n";
             s<<"\nlogL_candidate="<<logL_candidate<<"\n";
             s<<"\nlogL_current="<<logL_current<<"\n";
@@ -650,7 +650,7 @@ public:
         else
         {
             double logA=(logL_candidate)-(logL_current);
-            double A=std::min(1.0,exp(logA));
+            double A=std::min(1.0,std::exp(logA));
             return A;
         }
     }
@@ -1321,7 +1321,7 @@ public:
             double logA=(model.beta(i)-model.beta(i+1))*
                     (Scout(i+1).likelihood().logL()-Scout(i).likelihood().logL());
             std::cerr<<"\n thermologA"<<logA<<"  "<<model.beta(i)<<" "<<model.beta(i+1)<<"  "<<Scout(i).likelihood().logL()<<" "<<Scout(i+1).likelihood().logL()<<"\n";
-            return  std::min(1.0,exp(logA));
+            return  std::min(1.0,std::exp(logA));
 
         }
         std::size_t size()const { return scouts_.size();}
@@ -1528,7 +1528,7 @@ public:
         double Accept(std::size_t i, std::size_t j, std::size_t k,const Model& model)
         {
             double logA=(model.beta(i)-model.beta(i+1))*(Scout(i).Walker(j).likelihood().logL()-Scout(i+1).Walker(k).likelihood().logL());
-            return  std::min(1.0,exp(logA));
+            return  std::min(1.0,std::exp(logA));
 
         }
 

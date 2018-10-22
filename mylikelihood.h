@@ -229,7 +229,7 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
         auto k=d.size();
         auto n=d0.size();
 
-        M_Matrix<double> out(k,k,M_Matrix<double>::SYMMETRIC,0.0);
+        M_Matrix<double> out(k,k,Matrix_TYPE::SYMMETRIC,0.0);
         for (std::size_t i=0; i<n; ++i)
         {
             out+=calculate_Hessian(i,d0,d,eps);
@@ -245,7 +245,7 @@ std::tuple<double,double,double> calculate_Likelihood(const V<Distribution<T>>& 
         auto k=dp.size();
         auto n=d0.size();
 
-        M_Matrix<double> out(k,k,M_Matrix<double>::SYMMETRIC,0.0);
+        M_Matrix<double> out(k,k,Matrix_TYPE::SYMMETRIC,0.0);
         for (std::size_t i=0; i<n; ++i)
         {
             out+=calculate_Hessian_center(i,d0,dn,dp,eps);
@@ -1512,7 +1512,7 @@ public:
                         }
                         else
                         {
-                            M_Matrix<double> S(k,k,M_Matrix<double>::SYMMETRIC,0.0);
+                            M_Matrix<double> S(k,k,Matrix_TYPE::SYMMETRIC,0.0);
                             M_Matrix<double> m(1,k,0.0);
                             for (std::size_t i=0; i<nsamples; ++i)
                             {

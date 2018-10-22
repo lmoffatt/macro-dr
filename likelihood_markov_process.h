@@ -153,6 +153,61 @@ public:
                     );
     }
 };
+}
+template<>
+class Derivative<markov::mp_state_information>
+{
+    Derivative<M_Matrix<double>> P_mean_;
+    Derivative<M_Matrix<double>> P_cov_;
+
+    Derivative<double> y_mean_;
+    Derivative<double> y_var_;
+    Derivative<double> plogL_;
+    Derivative<double> eplogL_;
+
+
+public:
+
+
+    Derivative(Derivative<M_Matrix<double>>&& P_mean__,
+                         Derivative<M_Matrix<double>>&& P_cov__,
+                         Derivative<double> y_mean__,
+                         Derivative<double> y_var__,
+                         Derivative<double> plogL__,
+                         Derivative<double> eplogL__
+                         ):
+        P_mean_{std::move(P_mean__)},
+        P_cov_{std::move( P_cov__)},
+        y_mean_{y_mean__},
+        y_var_{y_var__},
+        plogL_{plogL__},eplogL_{eplogL__}{
+    }
+
+    Derivative()=default;
+    auto& P_mean()const{return P_mean_;}
+    auto& P_cov()const {return P_cov_;}
+
+    auto& y_mean()const {return y_mean_;}
+    auto& y_var()const {return y_var_;}
+    auto& plogL()const {return plogL_;}
+    auto& eplogL()const{return eplogL_;}
+
+    typedef  Derivative self_type;
+    constexpr static auto  className=my_static_string("mp_state_information_Derivative");
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+                    grammar::field(C<self_type>{},"P_mean",&self_type::P_mean),
+                    grammar::field(C<self_type>{},"P_cov",&self_type::P_cov),
+                    grammar::field(C<self_type>{},"y_mean",&self_type::y_mean),
+                    grammar::field(C<self_type>{},"y_var",&self_type::y_var),
+                    grammar::field(C<self_type>{},"plogL",&self_type::plogL),
+                    grammar::field(C<self_type>{},"eplogL",&self_type::eplogL)
+                    );
+    }
+};
+
+namespace markov {
 
 
 enum MACROR {MACRO_DMNR,MACRO_DVNR,MACRO_DMR,MACRO_DVR};
@@ -754,6 +809,25 @@ public:
     double Binomial_magic_number() const {return binomial_magic;}
     MacroDMR(double tolerance, double binomial_magical):tolerance_{tolerance}, binomial_magic(binomial_magical){}
     MacroDMR()=default;
+
+    template< class Model, class Step>
+    myOptional_t<mp_state_information> start(Derivative<Model>& m,const Step& p, double min_p )const
+    {
+        typedef myOptional_t<mp_state_information> Op;
+
+        auto P_mean=m.Peq(p.begin()->x());
+        //  std::cerr<<"gslreijgsorjgps INIT!!!"<<P_mean.value();
+        if (! P_mean)
+            return Op(false,"fails to get Peq :"+P_mean.error());
+        else
+        {
+            auto P_cov=diag(P_mean.value())-quadraticForm_XTX(P_mean.value());
+            //     std::cerr<<"gslreijgsorjgps INIT!!!"<<P_cov;
+            double nan=std::numeric_limits<double>::quiet_NaN();
+            return Op(mp_state_information::adjust(std::move(P_mean).value(),std::move(P_cov),nan,nan,nan,nan, min_p,0));
+        }
+    }
+
 
 
 private:

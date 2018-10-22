@@ -1069,7 +1069,7 @@ public:
     { return M_Matrix<double>(1,2,std::vector<double>{dlogL_dmean(x),dlogL_dstddev(x)});};
 */
     virtual  M_Matrix<double> Fisher_Information()const override{
-        return M_Matrix<double>(2,2,M_Matrix<double>::DIAGONAL,std::vector<double>{d2logL_dmean2(),d2logL_dvariance2()});};
+        return M_Matrix<double>(2,2,Matrix_TYPE::DIAGONAL,std::vector<double>{d2logL_dmean2(),d2logL_dvariance2()});};
 
     virtual double mean()const override {return param_[0];}
 
@@ -1155,7 +1155,7 @@ public:
 
 
     virtual  M_Matrix<M_Matrix<E>> Fisher_Information()const override{
-        return M_Matrix<M_Matrix<E>>(2,2,M_Matrix<M_Matrix<E>>::DIAGONAL,
+        return M_Matrix<M_Matrix<E>>(2,2,Matrix_TYPE::DIAGONAL,
                                      std::vector<M_Matrix<E>>{d2logL_dmean2(),d2logL_dCov2()});}
 
 
@@ -1168,7 +1168,7 @@ public:
     }
     double p(const M_Matrix<E>& x)const override
     {
-        return exp(logP(x));
+        return std::exp(logP(x));
     }
 
     virtual M_Matrix<M_Matrix<E>>  param()const override {return param_;}
@@ -1248,7 +1248,7 @@ public:
     M_Matrix<E> d2logL_dCov2()const
     {
         std::size_t n=CovInv().size();
-        M_Matrix<E> out(n,n,M_Matrix<E>::DIAGONAL);
+        M_Matrix<E> out(n,n,Matrix_TYPE::DIAGONAL);
         for (std::size_t i=0; i<n; ++i)
             for (std::size_t j=0; j<i+1; ++j)
             {
@@ -1757,6 +1757,8 @@ struct Probability_transition: public Probability
         }
         return p;
     }
+
+
 
 };
 

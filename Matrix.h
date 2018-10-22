@@ -188,15 +188,15 @@ extern "C" void dgecon_(char *  NORM,
                         int *  INFO );
 
 extern "C" void  dsycon_( 	char*  	UPLO,
-                                int *  	N,
-                                double */* precision, dimension( lda, * ) */  	A,
-                                int *  	LDA,
-                                int */*, dimension( * ) */ 	IPIV,
-                                double *  	ANORM,
-                                double *   	RCOND,
-                                double */* dimension( * )  */	WORK,
-                                int */* dimension( * ) */ 	IWORK,
-                                int *  	INFO);
+                            int *  	N,
+                            double */* precision, dimension( lda, * ) */  	A,
+                            int *  	LDA,
+                            int */*, dimension( * ) */ 	IPIV,
+                            double *  	ANORM,
+                            double *   	RCOND,
+                            double */* dimension( * )  */	WORK,
+                            int */* dimension( * ) */ 	IWORK,
+                            int *  	INFO);
 
 extern "C" void dsytrf_( char *UPLO,
                          int *N,
@@ -275,29 +275,29 @@ extern "C" void dgeev_(char *jobvl,
 
 
 extern "C" void  dgeevx_ 	( 	char*  	BALANC,
-                                        char*  	JOBVL,
-                                        char*  	JOBVR,
-                                        char*  	SENSE,
-                                        int*  	N,
-                                        double * /* precision, dimension( lda, * ) */  	A,
-                                        int*  	LDA,
-                                        double * /* precision, dimension( * ) */  	WR,
-                                        double * /* precision, dimension( * ) */  	WI,
-                                        double * /* precision, dimension( ldvl, * ) */  	VL,
-                                        int*  	LDVL,
-                                        double * /* precision, dimension( ldvr, * ) */  	VR,
-                                        int*  	LDVR,
-                                        int*  	ILO,
-                                        int*  	IHI,
-                                        double * /* precision, dimension( * ) */  	SCALE,
-                                        double *  	ABNRM,
-                                        double * /* precision, dimension( * ) */  	RCONDE,
-                                        double * /* precision, dimension( * ) */  	RCONDV,
-                                        double * /* precision, dimension( * ) */  	WORK,
-                                        int*  	LWORK,
-                                        int* /*dimension( * ) */  	IWORK,
-                                        int*  	INFO
-                                        );
+                                char*  	JOBVL,
+                                char*  	JOBVR,
+                                char*  	SENSE,
+                                int*  	N,
+                                double * /* precision, dimension( lda, * ) */  	A,
+                                int*  	LDA,
+                                double * /* precision, dimension( * ) */  	WR,
+                                double * /* precision, dimension( * ) */  	WI,
+                                double * /* precision, dimension( ldvl, * ) */  	VL,
+                                int*  	LDVL,
+                                double * /* precision, dimension( ldvr, * ) */  	VR,
+                                int*  	LDVR,
+                                int*  	ILO,
+                                int*  	IHI,
+                                double * /* precision, dimension( * ) */  	SCALE,
+                                double *  	ABNRM,
+                                double * /* precision, dimension( * ) */  	RCONDE,
+                                double * /* precision, dimension( * ) */  	RCONDV,
+                                double * /* precision, dimension( * ) */  	WORK,
+                                int*  	LWORK,
+                                int* /*dimension( * ) */  	IWORK,
+                                int*  	INFO
+                                );
 
 
 extern "C" void  dgesdd_   ( 	char*  	JOBZ,
@@ -389,6 +389,10 @@ extern "C" void  dgesdd_   ( 	char*  	JOBZ,
 
     */
 
+enum class Matrix_TYPE{ZERO,FULL,SYMMETRIC,DIAGONAL,SCALAR_FULL,SCALAR_DIAGONAL};
+
+
+
 template<typename T>
 class M_Matrix
 {
@@ -414,23 +418,25 @@ public:
     class MyConstIterator;
     enum ITER_TYPE{FULL_IT,LT_IT,UT_IT,DIAG_IT,SCALAR_IT, ZERO_IT};
 
-    enum TYPE{ZERO,FULL,SYMMETRIC,DIAGONAL,SCALAR_FULL,SCALAR_DIAGONAL};
+   // enum TYPE{ZERO,FULL,SYMMETRIC,DIAGONAL,SCALAR_FULL,SCALAR_DIAGONAL};
+    typedef Matrix_TYPE TYPE;
+
     static
     ITER_TYPE
     iter_type(TYPE type)
     {
         switch(type)
         {
-        case ZERO:
+        case Matrix_TYPE::ZERO:
             return ZERO_IT;
-        case FULL:
+        case Matrix_TYPE::FULL:
             return FULL_IT;
-        case SYMMETRIC:
+        case Matrix_TYPE::SYMMETRIC:
             return LT_IT;
-        case DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
             return DIAG_IT;
-        case SCALAR_DIAGONAL:
-        case SCALAR_FULL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
+        case Matrix_TYPE::SCALAR_FULL:
             return SCALAR_IT;
         default: return {};
         }
@@ -440,14 +446,14 @@ public:
     {
         switch(type)
         {
-        case FULL:
-        case SYMMETRIC:
-        case SCALAR_FULL:
+        case Matrix_TYPE::FULL:
+        case Matrix_TYPE::SYMMETRIC:
+        case Matrix_TYPE::SCALAR_FULL:
             return FULL_IT;
-        case DIAGONAL:
-        case SCALAR_DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
             return DIAG_IT;
-        case ZERO:
+        case Matrix_TYPE::ZERO:
         default:
             return ZERO_IT;
         }
@@ -650,7 +656,7 @@ public:
 
     iterator begin()
     {
-        if (type()!=ZERO)
+        if (type()!=Matrix_TYPE::ZERO)
         {
             MyIterator out(*this);
             return out;
@@ -662,7 +668,7 @@ public:
 
     iterator begin(ITER_TYPE t)
     {
-        if ((type()!=ZERO)&&(t!=ZERO_IT))
+        if ((type()!=Matrix_TYPE::ZERO)&&(t!=ZERO_IT))
         {
             MyIterator out(*this,t);
             return out;
@@ -679,7 +685,7 @@ public:
 
     const_iterator begin()const
     {
-        if (type()!=ZERO)
+        if (type()!=Matrix_TYPE::ZERO)
         {
             MyConstIterator out(*this);
             return out;
@@ -690,7 +696,7 @@ public:
 
     const_iterator begin(ITER_TYPE t)const
     {
-        if ((type()!=ZERO)&&(t!=ZERO_IT))
+        if ((type()!=Matrix_TYPE::ZERO)&&(t!=ZERO_IT))
         {
             const_iterator out(*this,t);
             return out;
@@ -716,7 +722,7 @@ public:
 
 
     M_Matrix (std::size_t nrows,std::size_t ncols)
-        : type_(FULL),
+        : type_(Matrix_TYPE::FULL),
           _nrows(nrows),
           _ncols(ncols),
           _data(nrows*ncols)
@@ -724,7 +730,7 @@ public:
     }
 
 
-    template<typename S>
+    template<typename S, std::enable_if_t<std::is_convertible_v<S,T >,int> =0>
     M_Matrix (const M_Matrix<S> & sample)
         : type_(TYPE(sample.type())),
           _nrows(sample.nrows()),
@@ -737,7 +743,7 @@ public:
 
     }
     M_Matrix (const std::vector<std::vector<T>> & sample)
-        : type_(FULL),
+        : type_(Matrix_TYPE::FULL),
           _nrows(sample.size()),
           _ncols(sample[0].size()),
           _data(sample.size()*sample[0].size())
@@ -759,6 +765,7 @@ public:
 
     }
 
+
     M_Matrix (TYPE t,const M_Matrix<T> & sample)
         : type_(t),
           _nrows(sample.nrows()),
@@ -772,7 +779,7 @@ public:
 
     template<typename S>
     M_Matrix (const std::vector<std::vector<S>> & sample)
-        :type_(FULL),
+        :type_(Matrix_TYPE::FULL),
           _nrows(sample.size()),
           _ncols(sample[0].size()),
           _data(sample.size()*sample[0].size())
@@ -791,7 +798,7 @@ public:
     }
 
     M_Matrix(std::size_t nrows_,std::size_t ncols_,TYPE t):
-        type_(t),
+        type_{t},
         _nrows(nrows_),
         _ncols(ncols_),
         _data(getSize(t,nrows_,ncols_))
@@ -799,10 +806,19 @@ public:
     }
 
 
+    template<typename Enum,std::enable_if_t<std::is_enum_v<Enum>,int> =0>
+    M_Matrix(std::size_t nrows_,std::size_t ncols_,Enum t,T x):
+        type_{t},
+        _nrows(nrows_),
+        _ncols(ncols_),
+        _data(getSize(type_,nrows_,ncols_),x)
+    {
+    }
+
 
 
     M_Matrix(std::size_t nrows_,std::size_t ncols_, std::vector<T> data):
-        type_(FULL),
+        type_(Matrix_TYPE::FULL),
         _nrows(nrows_),
         _ncols(ncols_),
         _data(data)
@@ -811,7 +827,7 @@ public:
     }
 
     M_Matrix(std::size_t nrows_,std::size_t ncols_, const M_Matrix<T>& data):
-        type_(FULL),
+        type_(Matrix_TYPE::FULL),
         _nrows(nrows_),
         _ncols(ncols_),
         _data(nrows_*ncols_)
@@ -825,7 +841,7 @@ public:
 
     template <typename S>
     M_Matrix(std::size_t nrows_,std::size_t ncols_, const M_Matrix<S>& data):
-        type_(FULL),
+        type_(Matrix_TYPE::FULL),
         _nrows(nrows_),
         _ncols(ncols_),
         _data(nrows_*ncols_)
@@ -857,7 +873,7 @@ public:
 
 
     M_Matrix(std::size_t nrows_,std::size_t ncols_,T data):
-        type_(FULL),
+        type_(Matrix_TYPE::FULL),
         _nrows(nrows_),
         _ncols(ncols_),
         //   _data(new T[_ncells])
@@ -889,6 +905,15 @@ public:
         return out;
     }
 
+
+    template<class F>
+    M_Matrix&
+    transform(const F& f)
+    {
+        for (std::size_t i=0; i<size(); ++i)
+            std::invoke(f,(*this)[i]);
+        return *this;
+    }
 
 
 
@@ -937,22 +962,22 @@ public:
         assert(i<nrows());
         assert(j<ncols());
         switch(type_){
-        case FULL:
+        case Matrix_TYPE::FULL:
             return (*this)[i*_ncols+j];
-        case SYMMETRIC:
+        case Matrix_TYPE::SYMMETRIC:
             if(i>=j)
                 return (*this)[(i*(i+1))/2+j]; //stores at lower triangular portion
             else
                 return (*this)[(j*(j+1))/2+i];
-        case DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
             assert(i==j);
             return (*this)[i];
-        case SCALAR_DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
             assert(i==j);
             return (*this)[0];
-        case SCALAR_FULL:
+        case Matrix_TYPE::SCALAR_FULL:
             return (*this)[0];
-        case ZERO:
+        case Matrix_TYPE::ZERO:
             assert(false);
             return (*this)[0];
         default:
@@ -967,26 +992,26 @@ public:
             assert(true);
         assert(j<ncols());
         switch(type_){
-        case FULL:
+        case Matrix_TYPE::FULL:
             return (*this)[i*_ncols+j];
-        case SYMMETRIC:
+        case Matrix_TYPE::SYMMETRIC:
             if(i>=j)
                 return (*this)[i*(i+1)/2+j]; //stores at lower triangular portion
             else
                 return (*this)[j*(j+1)/2+i];
-        case DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
             if(i==j)
                 return (*this)[i];
             else
                 return zero_;
-        case SCALAR_DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
             if(i==j)
                 return (*this)[0];
             else
                 return zero_;
-        case SCALAR_FULL:
+        case Matrix_TYPE::SCALAR_FULL:
             return (*this)[0];
-        case ZERO:
+        case Matrix_TYPE::ZERO:
             return zero_;
         default:
             return zero_;
@@ -1124,7 +1149,7 @@ public:
 
     void clear()
     {
-        type_=ZERO;
+        type_=Matrix_TYPE::ZERO;
         _nrows=0;
         _ncols=0;
         _data.clear();
@@ -1168,7 +1193,7 @@ public:
     {
         switch (packedMatrix.type())
         {
-        case SYMMETRIC:
+        case Matrix_TYPE::SYMMETRIC:
         {
             M_Matrix<double> out(packedMatrix.nrows(),packedMatrix.ncols());
             if (UPLO=='L')
@@ -1208,20 +1233,20 @@ public:
     {
         switch (t)
         {
-        case ZERO: return 0;
-        case FULL: return nrows*ncols;
-        case SYMMETRIC:
+        case Matrix_TYPE::ZERO: return 0;
+        case Matrix_TYPE::FULL: return nrows*ncols;
+        case Matrix_TYPE::SYMMETRIC:
         {
             assert(nrows==ncols);
             return (nrows*(ncols+1))/2;
         }
-        case DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
         {
             return std::min(nrows,ncols);
             break;
         }
-        case SCALAR_FULL:
-        case SCALAR_DIAGONAL:
+        case Matrix_TYPE::SCALAR_FULL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
         default:
             return 1;
         }
@@ -1230,19 +1255,19 @@ public:
     {
         switch (t)
         {
-        case ZERO: return 0;
-        case FULL: return nrows*nrows;
-        case SYMMETRIC:
+        case Matrix_TYPE::ZERO: return 0;
+        case Matrix_TYPE::FULL: return nrows*nrows;
+        case Matrix_TYPE::SYMMETRIC:
         {
             return (nrows*(nrows+1))/2;
         }
-        case DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
         {
             return nrows;
             break;
         }
-        case SCALAR_FULL:
-        case SCALAR_DIAGONAL:
+        case Matrix_TYPE::SCALAR_FULL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
         default:
             return 1;
         }
@@ -1255,14 +1280,14 @@ public:
     bool isSymmetric()const {
         switch (type_)
         {
-        case ZERO:
-        case SYMMETRIC:
+        case Matrix_TYPE::ZERO:
+        case Matrix_TYPE::SYMMETRIC:
             return true;
-        case SCALAR_DIAGONAL:
-        case DIAGONAL:
-        case SCALAR_FULL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
+        case Matrix_TYPE::SCALAR_FULL:
             return ncols()==nrows();
-        case FULL:
+        case Matrix_TYPE::FULL:
         default:
             return false;
         }
@@ -1271,13 +1296,13 @@ public:
     bool isDiagonal()const {
         switch(type())
         {
-        case FULL:
-        case SYMMETRIC:
-        case SCALAR_FULL:
+        case Matrix_TYPE::FULL:
+        case Matrix_TYPE::SYMMETRIC:
+        case Matrix_TYPE::SCALAR_FULL:
             return false;
-        case DIAGONAL:
-        case SCALAR_DIAGONAL:
-        case ZERO:
+        case Matrix_TYPE::DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
+        case Matrix_TYPE::ZERO:
         default:
             return true;
         }
@@ -1315,7 +1340,7 @@ public:
 
 
 private:
-    TYPE type_=ZERO;
+    TYPE type_=Matrix_TYPE::ZERO;
     std::size_t          _nrows;    /**< number of rows */
     std::size_t          _ncols;    /**< number of columns */
 
@@ -1339,42 +1364,6 @@ template<class M>
 constexpr static bool is_Matrix_v=is_Matrix<M>::value;
 
 
-
-template<>
-class Derivative<double>
-{
-    double f_;
-    M_Matrix<double> x_;
-    M_Matrix<double> dfdx_;
-public:
-    double f()const { return f_;}
-    M_Matrix<double> const & x() const { return x_;}
-    M_Matrix<double> const& dfdx()const { return dfdx_;}
-    Derivative(double fx,  M_Matrix<double>&& myx, M_Matrix<double>&& der): f_{fx},x_{std::move(myx)}, dfdx_{std::move(der)}{}
-    Derivative()=default;
-};
-
-
-template<>
-class Derivative<M_Matrix<double>>
-{
-    M_Matrix<double> f_;
-    M_Matrix<double> x_;
-    M_Matrix<M_Matrix<double>> dfdx_;
-public:
-    M_Matrix<double> const & f()const { return f_;}
-    M_Matrix<double> const & x() const { return x_;}
-    M_Matrix<M_Matrix<double>> const& dfdx()const { return dfdx_;}
-    Derivative(M_Matrix<double>&& fx, const  M_Matrix<double>& myx, M_Matrix<M_Matrix<double>>&& der): f_{fx},x_{myx}, dfdx_{std::move(der)}{}
-    Derivative()=default;
-};
-
-template< class T>
-auto compose (const Derivative<T>& dfdx, const Derivative<M_Matrix<double>>& dxdy)
-{
-    assert(dfdx.x()==dxdy.f());
-    return Derivative<T>(dfdx.f(), dxdy.x(), dfdx.dfdx()*dxdy.dfdx());
-}
 
 
 template<bool output, template <bool, typename>class test, typename T, class M, class ostream>
@@ -1821,9 +1810,6 @@ template <class T>
 myOptional_t<M_Matrix<T>>
 inv(const M_Matrix<T>& x);
 
-template <class T>
-myOptional_t<Derivative<M_Matrix<T>>>
-inv(const Derivative<M_Matrix<T>>& x);
 
 
 
@@ -1895,8 +1881,13 @@ namespace Matrix_Binary_Transformations
 {
 template<typename T>
 M_Matrix<T> operator+(const M_Matrix<T>& x,const M_Matrix<T>& y);
+
+
 template<typename T>
 M_Matrix<T> operator-(const M_Matrix<T>& x,const M_Matrix<T>& y);
+
+
+
 template<typename T>
 M_Matrix<T> operator-(M_Matrix<T>&& x,M_Matrix<T>&& y);
 
@@ -1912,6 +1903,9 @@ operator *
 (const M_Matrix<T>& one,
  const M_Matrix<S>& other)
 ->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<S>,decltype(std::declval<T>()*std::declval<S>())>>;
+
+
+
 
 template<typename T, typename S>
 auto
@@ -1946,6 +1940,14 @@ quadraticForm_B_A_BT (const M_Matrix<T>& A, const M_Matrix<S>& B)
 ->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>;
 
 
+
+
+
+
+
+
+
+
 inline
 M_Matrix<double>
 Forward_Sustitution_Ly_b(const M_Matrix<double>& L,
@@ -1963,7 +1965,7 @@ Forward_Sustitution_Ly_b(const M_Matrix<T>& L, const M_Matrix<T>& b);
      */
 template<typename E, typename T>
 auto operator*=(M_Matrix<E>& itself, T x)
-->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>&;
+->M_Matrix<std::enable_if_t<!(is_Matrix_v<T> && !is_Matrix_v<E>),decltype(std::declval<E>()*std::declval<T>())>>&;
 
 
 /**
@@ -1973,7 +1975,7 @@ auto operator*=(M_Matrix<E>& itself, T x)
      */
 template<typename E,typename T>
 auto operator/=(M_Matrix<E>& itself, T x)
-->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>&;
+->M_Matrix<std::enable_if_t<!(is_Matrix_v<T> && !is_Matrix_v<E>),decltype(std::declval<E>()*std::declval<T>())>>&;
 
 
 
@@ -2007,15 +2009,16 @@ M_Matrix<T> operator-(T t,const M_Matrix<T>& x);
      */
 template<typename E, typename T>
 auto operator*(const M_Matrix<E> & x,T t)
-->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>;
-
+->std::enable_if_t<!(is_Matrix_v<T>  && !is_Matrix_v<E>)
+&& std::is_same_v<E,decltype(std::declval<E>()*std::declval<T>())>,M_Matrix<E>>;
 /**
      Scalar Multiplication reverse order.
      */
 
 template<typename E, typename T>
 auto operator*(T t,const M_Matrix<E> & x)
-->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>;
+->std::enable_if_t<!(is_Matrix_v<T>  && !is_Matrix_v<E>)
+&& std::is_same_v<E,decltype(std::declval<E>()*std::declval<T>())>,M_Matrix<E>>;
 
 
 /**
@@ -2055,13 +2058,13 @@ namespace Matrix_Generators
 template<typename T>
 M_Matrix<T>  ones(size_t nrows, size_t ncols)
 {
-    return M_Matrix<T>(nrows,ncols,M_Matrix<T>::SCALAR_FULL,T(1));
+    return M_Matrix<T>(nrows,ncols,Matrix_TYPE::SCALAR_FULL,T(1));
 }
 
 template<typename T>
 M_Matrix<T>  zeros(size_t nrows, size_t ncols)
 {
-    return M_Matrix<T>(nrows,ncols,M_Matrix<T>::ZERO);
+    return M_Matrix<T>(nrows,ncols,Matrix_TYPE::ZERO);
 }
 
 /**
@@ -2070,7 +2073,7 @@ M_Matrix<T>  zeros(size_t nrows, size_t ncols)
 template<typename T>
 M_Matrix<T> eye(std::size_t n)
 {
-    return M_Matrix<T>(n,n,M_Matrix<T>::SCALAR_DIAGONAL,T(1));
+    return M_Matrix<T>(n,n,Matrix_TYPE::SCALAR_DIAGONAL,T(1));
 }
 
 template<typename T>
@@ -2245,8 +2248,8 @@ auto EigenSystem_full_real_eigenvalue_dgeev(const M_Matrix<double>& x)
     M_Matrix<double> VL(x.ncols(),x.nrows());
     M_Matrix<double> VR(x.ncols(),x.nrows());
 
-    M_Matrix<double> L(x.nrows(), x.ncols(),M_Matrix<double>::DIAGONAL);
-    M_Matrix<double> L_imag(x.nrows(), x.ncols(),M_Matrix<double>::DIAGONAL);
+    M_Matrix<double> L(x.nrows(), x.ncols(),Matrix_TYPE::DIAGONAL);
+    M_Matrix<double> L_imag(x.nrows(), x.ncols(),Matrix_TYPE::DIAGONAL);
 
     M_Matrix<double> A=x;
 
@@ -2459,7 +2462,7 @@ Parameters
               WR is DOUBLE PRECISION array, dimension (N)
 
     */
-    M_Matrix<double> /* precision; dimension( * ) */  	WR(N,N,M_Matrix<double>::DIAGONAL);
+    M_Matrix<double> /* precision; dimension( * ) */  	WR(N,N,Matrix_TYPE::DIAGONAL);
 
     /**
     [out]	WI
@@ -2472,7 +2475,7 @@ Parameters
               first.
 
     */
-    M_Matrix<double> /* precision; dimension( * ) */  	WI(N,N,M_Matrix<double>::DIAGONAL);
+    M_Matrix<double> /* precision; dimension( * ) */  	WI(N,N,Matrix_TYPE::DIAGONAL);
 
     /**
     [out]	VL
@@ -2561,7 +2564,7 @@ Parameters
               The order in which the interchanges are made is N to IHI+1,
               then 1 to ILO-1.
     */
-    M_Matrix<double>  /* precision; dimension( * ) */  	SCALE(N,N,M_Matrix<double>::DIAGONAL);
+    M_Matrix<double>  /* precision; dimension( * ) */  	SCALE(N,N,Matrix_TYPE::DIAGONAL);
 
     /**
 
@@ -2582,7 +2585,7 @@ Parameters
               eigenvalue.
 
     */
-    M_Matrix<double> /* precision; dimension( * ) */  	RCONDE(N,N,M_Matrix<double>::DIAGONAL);
+    M_Matrix<double> /* precision; dimension( * ) */  	RCONDE(N,N,Matrix_TYPE::DIAGONAL);
 
     /**
     [out]	RCONDV
@@ -2591,7 +2594,7 @@ Parameters
               RCONDV(j) is the reciprocal condition number of the j-th
               right eigenvector.
     */
-    M_Matrix<double> /* precision; dimension( * ) */  	RCONDV(N,N,M_Matrix<double>::DIAGONAL);
+    M_Matrix<double> /* precision; dimension( * ) */  	RCONDV(N,N,Matrix_TYPE::DIAGONAL);
 
     /**
 
@@ -2682,50 +2685,6 @@ Parameters
     }
 }
 
-auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>>& Dx)
-{
-    typedef myOptional_t<std::tuple<Derivative<M_Matrix<double>>,Derivative<M_Matrix<double>>,Derivative<M_Matrix<double>>>>
-            Op;
-    auto res=EigenSystem_full_real_eigenvalue(Dx.f());
-    if (!res)
-        return Op(false,"Derivative error cannot calculete function value"+res.error());
-    else
-    {
-        auto [W, landa, V]=std::move(res).value();
-                auto fxxf=Permute<double,1,3,0,2>(Dx.dfdx());
-                M_Matrix<M_Matrix<double>> dlanda(landa.nrows(),Dx.x().nrows(),
-                M_Matrix<double>(landa.ncols(),Dx.x().ncols(),0));
-                M_Matrix<M_Matrix<double>> dV(V.nrows(),Dx.x().nrows(),
-                M_Matrix<double>(V.ncols(),Dx.x().ncols(),0));
-                for (std::size_t i=0; i<landa.nrows(); ++i)
-        {
-            auto v=V(i,":");
-            auto vT=Transpose(v);
-            for (std::size_t j1=0; j1<Dx.x().nrows(); ++j1)
-                for (std::size_t j2=0; j2<Dx.x().ncols(); ++j2)
-                    dlanda(i,j1)(i,j2)=(vT*fxxf(j1,j2)*v).getvalue();
-
-            auto vinv=pinv(landa(i,i)*Matrix_Generators::eye<double>(landa.nrows())-Dx.f());
-            if (!vinv) return Op(false, " Error calculating Derivative, problem with pseudoinverse "+vinv.error());
-            for (std::size_t j1=0; j1<Dx.x().nrows(); ++j1)
-                for (std::size_t j2=0; j2<Dx.x().ncols(); ++j2)
-                {
-                    auto dvi=vinv.value()*fxxf(j1,j2)*v;
-                    for (std::size_t i2=0; i2<V.ncols(); ++i2)
-                        dV(i,j1)(i2,j2)=dvi(i2,0);
-                }
-
-        }
-        Derivative<M_Matrix<double>> Dlanda(std::move(landa),Dx.x(),std::move(dlanda));
-        Derivative<M_Matrix<double>> DV(std::move(V),Dx.x(),std::move(dV));
-        auto DW=inv(DV);
-        if (!DW) return Op(false, " fails to invert the left eigenvector");
-
-        return Op(std::tuple(std::move(DW).value(),Dlanda,DV));
-    }
-
-
-}
 
 auto Singular_Value_decomposition(const M_Matrix<double>& A)
 {
@@ -2869,7 +2828,7 @@ Parameters
 
     std::size_t minMN=std::min(M,N);
 
-    M_Matrix<double> S(N,M,M_Matrix<double>::DIAGONAL);
+    M_Matrix<double> S(N,M,Matrix_TYPE::DIAGONAL);
 
     /*
 
@@ -3277,9 +3236,9 @@ accumulate_by_Rows(const M_Matrix<E>& me,const F& f, const T& start)
     M_Matrix<T> out(me.nrows(),1);
     switch(me.type())
     {//ZERO,FULL,SYMMETRIC,DIAGONAL,SCALAR_FULL,SCALAR_DIAGONAL
-    case M_Matrix<T>::FULL:
-    case M_Matrix<T>::SYMMETRIC:
-    case M_Matrix<T>::SCALAR_FULL:
+    case Matrix_TYPE::FULL:
+    case Matrix_TYPE::SYMMETRIC:
+    case Matrix_TYPE::SCALAR_FULL:
     {
         for (std::size_t i=0; i<me.nrows(); ++i)
         {
@@ -3291,14 +3250,14 @@ accumulate_by_Rows(const M_Matrix<E>& me,const F& f, const T& start)
         return out;
     }
 
-    case M_Matrix<T>::DIAGONAL:
-    case M_Matrix<T>::SCALAR_DIAGONAL:
+    case Matrix_TYPE::DIAGONAL:
+    case Matrix_TYPE::SCALAR_DIAGONAL:
     {
         for (std::size_t i=0; i<me.nrows(); ++i)
             out(i,1)=f(start,me(i,i));
         return out;
     }
-    case M_Matrix<T>::ZERO:
+    case Matrix_TYPE::ZERO:
     default:
     {
         return M_Matrix<T>(me.nrows(),1,f(start,me[0]));
@@ -3313,9 +3272,9 @@ accumulate_by_Cols(const M_Matrix<E> &me, const F& f, const T& start)
     M_Matrix<T> out(1, me.ncols());
     switch(me.type())
     {
-    case M_Matrix<E>::FULL:
-    case M_Matrix<E>::SYMMETRIC:
-    case M_Matrix<E>::SCALAR_FULL:
+    case Matrix_TYPE::FULL:
+    case Matrix_TYPE::SYMMETRIC:
+    case Matrix_TYPE::SCALAR_FULL:
     {
         for (std::size_t j=0; j<me.ncols(); ++j)
         {
@@ -3327,14 +3286,14 @@ accumulate_by_Cols(const M_Matrix<E> &me, const F& f, const T& start)
         return out;
     }
 
-    case M_Matrix<E>::DIAGONAL:
-    case M_Matrix<E>::SCALAR_DIAGONAL:
+    case Matrix_TYPE::DIAGONAL:
+    case Matrix_TYPE::SCALAR_DIAGONAL:
     {
         for (std::size_t i=0; i<me.ncols(); ++i)
             out(1,i)=f(start,me(i,i));
         return out;
     }
-    case M_Matrix<E>::ZERO:
+    case Matrix_TYPE::ZERO:
     {
         return M_Matrix<T>(1, me.ncols(), f(start,me[0]));
     }
@@ -3346,7 +3305,7 @@ M_Matrix<T>  Transpose(const M_Matrix<T>& x)
 {
     switch(x.type())
     {
-    case M_Matrix<T>::FULL:
+    case Matrix_TYPE::FULL:
     {
         M_Matrix<T> out(x.ncols(),x.nrows());
         for (std::size_t i=0; i<x.nrows(); i++)
@@ -3355,11 +3314,11 @@ M_Matrix<T>  Transpose(const M_Matrix<T>& x)
         return out;
     }
         // beware: does not transpose in those cases!!
-    case M_Matrix<T>::ZERO:
-    case M_Matrix<T>::SYMMETRIC:
-    case M_Matrix<T>::DIAGONAL:
-    case M_Matrix<T>::SCALAR_DIAGONAL:
-    case M_Matrix<T>::SCALAR_FULL:
+    case Matrix_TYPE::ZERO:
+    case Matrix_TYPE::SYMMETRIC:
+    case Matrix_TYPE::DIAGONAL:
+    case Matrix_TYPE::SCALAR_DIAGONAL:
+    case Matrix_TYPE::SCALAR_FULL:
     default:
     {
         M_Matrix<T> out(x);
@@ -3407,25 +3366,34 @@ M_Matrix<T>  TransposeSum(const M_Matrix<T>& x)
     assert(x.ncols()==x.nrows());
     switch(x.type())
     {
-    case M_Matrix<T>::FULL:
+    case Matrix_TYPE::FULL:
     {
-        M_Matrix<T> out(x.ncols(),x.nrows(),M_Matrix<T>::SYMMETRIC);
+        M_Matrix<T> out(x.ncols(),x.nrows(),Matrix_TYPE::SYMMETRIC);
         for (std::size_t i=0; i<x.nrows(); i++)
             for (std::size_t j=0; j<i+1; ++j)
                 out(j,i)=x(i,j)+x(j,i);
         return out;
     }
-    case M_Matrix<T>::ZERO:
-    case M_Matrix<T>::SYMMETRIC:
-    case M_Matrix<T>::DIAGONAL:
-    case M_Matrix<T>::SCALAR_DIAGONAL:
-    case M_Matrix<T>::SCALAR_FULL:
+    case Matrix_TYPE::ZERO:
+    case Matrix_TYPE::SYMMETRIC:
+    case Matrix_TYPE::DIAGONAL:
+    case Matrix_TYPE::SCALAR_DIAGONAL:
+    case Matrix_TYPE::SCALAR_FULL:
     default:
     {
         return x*2.0;
     }
     }
 }
+
+
+template<typename T>
+M_Matrix<T>  exp(const M_Matrix<T>& M)
+{
+    using std::exp;
+    return M.apply([](auto& x){return exp(x);});
+}
+
 
 template<typename T>
 myOptional_t<M_Matrix<T>>  expm_pade(const M_Matrix<T>& M)
@@ -3509,7 +3477,7 @@ myOptional_t<M_Matrix<T>>  expm_pade(const M_Matrix<T>& M)
   */
 
 template<typename T>
-myOptional_t<M_Matrix<T>>  full_exp(const M_Matrix<T>& x)
+myOptional_t<M_Matrix<T>>  full_expm(const M_Matrix<T>& x)
 {
     typedef myOptional_t<M_Matrix<T>> Op;
     assert(ncols(x)==nrows(x));
@@ -3538,11 +3506,10 @@ myOptional_t<M_Matrix<T>>  full_exp(const M_Matrix<T>& x)
 
 
 template<typename T>
-myOptional_t<M_Matrix<T>>  diagonal_exp(const M_Matrix<T>& a)
+myOptional_t<M_Matrix<T>>  diagonal_expm(const M_Matrix<T>& a)
 {
     typedef myOptional_t<M_Matrix<T>> Op;
-    using std::exp;
-    M_Matrix<double> out(a.nrows(),a.ncols(),M_Matrix<double>::DIAGONAL);
+    M_Matrix<double> out(a.nrows(),a.ncols(),Matrix_TYPE::DIAGONAL);
     if constexpr (std::is_arithmetic_v<T>)
     {
         for (std::size_t i=0; i<a.nrows(); ++i)
@@ -3560,40 +3527,40 @@ myOptional_t<M_Matrix<T>>  diagonal_exp(const M_Matrix<T>& a)
 
 
 template<typename T>
-M_Matrix<T>  scalar_diagonal_exp(const M_Matrix<T>& a)
+M_Matrix<T>  scalar_diagonal_expm(const M_Matrix<T>& a)
 {
     using std::exp;
-    return M_Matrix<T> (a.nrows(),a.ncols(),M_Matrix<T>::SCALAR_DIAGONAL,exp(a(0,0)));
+    return M_Matrix<T> (a.nrows(),a.ncols(),Matrix_TYPE::SCALAR_DIAGONAL,exp(a(0,0)));
 }
 
 
 template<typename E>
-myOptional_t<M_Matrix<E>>  exp(const M_Matrix<E>& x)
+myOptional_t<M_Matrix<E>>  expm(const M_Matrix<E>& x)
 {
     assert(x.nrows()==x.ncols());
     switch(x.type())
     {
-    case M_Matrix<E>::FULL:
+    case Matrix_TYPE::FULL:
     {
-        return full_exp(x);
+        return full_expm(x);
     }
-    case M_Matrix<E>::SYMMETRIC:
+    case Matrix_TYPE::SYMMETRIC:
     {
-        return full_exp(x);
+        return full_expm(x);
     }
-    case M_Matrix<E>::DIAGONAL:
+    case Matrix_TYPE::DIAGONAL:
     {
-        return diagonal_exp(x);
+        return diagonal_expm(x);
     }
-    case M_Matrix<E>::SCALAR_DIAGONAL:
+    case Matrix_TYPE::SCALAR_DIAGONAL:
     {
-        return scalar_diagonal_exp(x);
+        return scalar_diagonal_expm(x);
     }
-    case M_Matrix<E>::SCALAR_FULL:
+    case Matrix_TYPE::SCALAR_FULL:
     {
-        return full_exp(x);
+        return full_expm(x);
     }
-    case M_Matrix<E>::ZERO:
+    case Matrix_TYPE::ZERO:
     default:
     {
         return Matrix_Generators::eye<E>(x.nrows());
@@ -3611,7 +3578,7 @@ template<typename T>
 M_Matrix<T>
 quadraticForm_XXT(const M_Matrix<T>& x)
 {
-    M_Matrix<T> out(x.nrows(),x.nrows(),M_Matrix<T>::SYMMETRIC, T{});
+    M_Matrix<T> out(x.nrows(),x.nrows(),Matrix_TYPE::SYMMETRIC, T{});
     for (std::size_t i=0; i<x.nrows(); ++i)
         for (std::size_t j=0; j<i+1; ++j)
             for (std::size_t k=0; k<x.ncols(); ++k)
@@ -3623,7 +3590,7 @@ template<typename T>
 M_Matrix<T>
 quadraticForm_XTX(const M_Matrix<T>& x)
 {
-    M_Matrix<T> out(x.ncols(),x.ncols(),M_Matrix<T>::SYMMETRIC, T{});
+    M_Matrix<T> out(x.ncols(),x.ncols(),Matrix_TYPE::SYMMETRIC, T{});
     for (std::size_t i=0; i<x.ncols(); ++i)
         for (std::size_t j=0; j<i+1; ++j)
             for (std::size_t k=0; k<x.nrows(); ++k)
@@ -3762,9 +3729,9 @@ class SymmetricPartition
 {
 public:
     SymmetricPartition(const M_Matrix<E>& x, std::size_t n):
-        A_{n,n,M_Matrix<E>::SYMMETRIC},
+        A_{n,n,Matrix_TYPE::SYMMETRIC},
         B_{n,x.ncols()-n},
-        D_{x.nrows()-n,x.ncols()-n,M_Matrix<E>::SYMMETRIC}
+        D_{x.nrows()-n,x.ncols()-n,Matrix_TYPE::SYMMETRIC}
     {
         for (std::size_t j=0; j<n; ++j)
         {
@@ -3791,7 +3758,7 @@ public:
     M_Matrix<E> full()const
     {
         std::size_t N=A_.nrows()+D_.nrows();
-        M_Matrix<E> x(N,N, M_Matrix<E>::SYMMETRIC);
+        M_Matrix<E> x(N,N, Matrix_TYPE::SYMMETRIC);
         std::size_t n=A_.nrows();
         for (std::size_t j=0; j<n; ++j)
         {
@@ -3873,7 +3840,7 @@ public:
             if (!D_chol.second.empty())
                 return Op(false,"Cholesky block Dschur: "+D_chol.error());
             auto Czero=M_Matrix<E>
-                    (B_chol.ncols(), B_chol.nrows(), M_Matrix<E>::ZERO);
+                    (B_chol.ncols(), B_chol.nrows(), Matrix_TYPE::ZERO);
             return Op(FullPartition<E>(Ua.value(),B_chol,Czero,D_chol.value()));
         }
         else
@@ -3887,7 +3854,7 @@ public:
             if (!D_chol.second.empty())
                 return Op(false,"Cholesky block Dschur: "+D_chol.error());
             auto B_zero=M_Matrix<E>
-                    (C_chol.ncols(), C_chol.nrows(), M_Matrix<E>::ZERO);
+                    (C_chol.ncols(), C_chol.nrows(), Matrix_TYPE::ZERO);
             return Op(
                         FullPartition<E>(La.value(),B_zero,C_chol,D_chol.value()));
         }
@@ -4302,7 +4269,7 @@ Parameters
             else
             {
                 M_Matrix<double> out
-                        (B.nrows(),B.ncols(),M_Matrix<double>::SYMMETRIC);
+                        (B.nrows(),B.ncols(),Matrix_TYPE::SYMMETRIC);
                 if (kind=="lower")
                 {
                     for (std::size_t i=0; i<B.nrows(); ++i)
@@ -4317,7 +4284,7 @@ Parameters
                 }
 
                 /*    auto aa=a;
-                 M_Matrix<double> test(a.nrows(),a.ncols(),M_Matrix<double>::FULL,a);
+                 M_Matrix<double> test(a.nrows(),a.ncols(),Matrix_TYPE::FULL,a);
 
                  auto invtest=inv(test).first;
 
@@ -4351,7 +4318,7 @@ auto
 diagonal_inv(const M_Matrix<double>& a)
 {
     typedef myOptional_t<M_Matrix<double>> Op;
-    M_Matrix<double> out(a.nrows(),a.ncols(),M_Matrix<double>::DIAGONAL);
+    M_Matrix<double> out(a.nrows(),a.ncols(),Matrix_TYPE::DIAGONAL);
     double amax=0; double imax=0;
     for (std::size_t i=0; i<a.nrows(); ++i)
         if (a(i,i)==0)
@@ -4370,7 +4337,7 @@ template<typename T>
 auto
 diagonal_pinv(const M_Matrix<T>& a, double min_value=0)
 {
-    M_Matrix<double> out(a.ncols(),a.nrows(),M_Matrix<double>::DIAGONAL);
+    M_Matrix<double> out(a.ncols(),a.nrows(),Matrix_TYPE::DIAGONAL);
     for (std::size_t i=0; i<std::min(a.nrows(),a.ncols()); ++i)
         if (std::abs(a(i,i))<=min_value)
             out(i,i)=0;
@@ -4399,7 +4366,7 @@ full_pinv(const M_Matrix<double>& x)
                 auto out=multTransp(VTS,U);
                 return Op(out);
     }
-  }
+    }
 
 
 
@@ -4409,7 +4376,7 @@ full_pinv(const M_Matrix<double>& x)
         {
             typedef myOptional_t<M_Matrix<T>> Op;
             double amax=0; double imax=0;
-            M_Matrix<T> out(a.nrows(),a.ncols(),M_Matrix<T>::DIAGONAL);
+            M_Matrix<T> out(a.nrows(),a.ncols(),Matrix_TYPE::DIAGONAL);
             for (std::size_t i=0; i<a.nrows(); ++i)
             {
                 double anorm=norm_1(a(i,i));
@@ -4443,7 +4410,7 @@ full_pinv(const M_Matrix<double>& x)
                 return Op(
                             M_Matrix<double>
                             (a.nrows(),a.ncols(),
-                             M_Matrix<double>::SCALAR_DIAGONAL,
+                             Matrix_TYPE::SCALAR_DIAGONAL,
                              1.0/a(0,0)));
 
         }
@@ -4463,7 +4430,7 @@ full_pinv(const M_Matrix<double>& x)
                 return Op(
                             M_Matrix<T>
                             (a.nrows(),a.ncols(),
-                             M_Matrix<T>::SCALAR_DIAGONAL,
+                             Matrix_TYPE::SCALAR_DIAGONAL,
                              std::move(e.first)));
         }
 
@@ -4476,27 +4443,27 @@ full_pinv(const M_Matrix<double>& x)
             assert(x.nrows()==x.ncols());
             switch(x.type())
             {
-            case M_Matrix<E>::FULL:
+            case Matrix_TYPE::FULL:
             {
                 return full_inv(x);
             }
-            case M_Matrix<E>::SYMMETRIC:
+            case Matrix_TYPE::SYMMETRIC:
             {
                 return symmetric_inv(x);
             }
-            case M_Matrix<E>::DIAGONAL:
+            case Matrix_TYPE::DIAGONAL:
             {
                 return diagonal_inv(x);
             }
-            case M_Matrix<E>::SCALAR_DIAGONAL:
+            case Matrix_TYPE::SCALAR_DIAGONAL:
             {
                 return scalar_diagonal_inv(x);
             }
-            case M_Matrix<E>::SCALAR_FULL:
+            case Matrix_TYPE::SCALAR_FULL:
             {
                 return Op(false,"SCALAR FULL is Singular");
             }
-            case M_Matrix<E>::ZERO:
+            case Matrix_TYPE::ZERO:
             default:
             {
                 return Op(false,"ZERO Matrix is is Singular");
@@ -4513,27 +4480,27 @@ full_pinv(const M_Matrix<double>& x)
             typedef  myOptional_t<M_Matrix<E>> Op;
             switch(x.type())
             {
-            case M_Matrix<E>::FULL:
+            case Matrix_TYPE::FULL:
             {
                 return full_pinv(x);
             }
-            case M_Matrix<E>::SYMMETRIC:
+            case Matrix_TYPE::SYMMETRIC:
             {
                 return full_pinv(x);
             }
-            case M_Matrix<E>::DIAGONAL:
+            case Matrix_TYPE::DIAGONAL:
             {
                 return Op(diagonal_pinv(x));
             }
-            case M_Matrix<E>::SCALAR_DIAGONAL:
+            case Matrix_TYPE::SCALAR_DIAGONAL:
             {
                 return Op(diagonal_pinv(x));
             }
-            case M_Matrix<E>::SCALAR_FULL:
+            case Matrix_TYPE::SCALAR_FULL:
             {
                 return Op(false,"SCALAR FULL is Singular");
             }
-            case M_Matrix<E>::ZERO:
+            case Matrix_TYPE::ZERO:
             default:
             {
                 return Op(Transpose(x));
@@ -4611,7 +4578,7 @@ full_pinv(const M_Matrix<double>& x)
     {
         typedef myOptional_t<M_Matrix<double>> Op;
 
-        M_Matrix<double> out(a.nrows(),a.ncols(),M_Matrix<double>::DIAGONAL);
+        M_Matrix<double> out(a.nrows(),a.ncols(),Matrix_TYPE::DIAGONAL);
         for (std::size_t i=0; i<a.nrows(); ++i)
             if (a(i,i)<=0)
                 return Op(false,"Negative Diagonal zero at "+std::to_string(i)+"value "+std::to_string(a(i,i)));
@@ -4628,7 +4595,7 @@ full_pinv(const M_Matrix<double>& x)
     {
         typedef myOptional_t<M_Matrix<T>> Op;
 
-        M_Matrix<T> out(a.nrows(),a.ncols(),M_Matrix<T>::DIAGONAL);
+        M_Matrix<T> out(a.nrows(),a.ncols(),Matrix_TYPE::DIAGONAL);
         for (std::size_t i=0; i<a.nrows(); ++i)
         {
             auto e=chol(a(i,i), kind);
@@ -4658,7 +4625,7 @@ full_pinv(const M_Matrix<double>& x)
             return Op(
                         M_Matrix<double>
                         (a.nrows(),a.ncols(),
-                         M_Matrix<double>::SCALAR_DIAGONAL,
+                         Matrix_TYPE::SCALAR_DIAGONAL,
                          std::sqrt(a(0,0)))
                         );
 
@@ -4680,7 +4647,7 @@ full_pinv(const M_Matrix<double>& x)
             return Op(
                         M_Matrix<T>
                         (a.nrows(),a.ncols(),
-                         M_Matrix<T>::SCALAR_DIAGONAL,
+                         Matrix_TYPE::SCALAR_DIAGONAL,
                          std::move(e.first)));;
     }
 
@@ -4695,27 +4662,27 @@ full_pinv(const M_Matrix<double>& x)
         assert(x.nrows()==x.ncols());
         switch(x.type())
         {
-        case M_Matrix<E>::FULL:
+        case Matrix_TYPE::FULL:
         {
             return Op(false,"Error, Cholesky on a FULL MATRIX");
         }
-        case M_Matrix<E>::SYMMETRIC:
+        case Matrix_TYPE::SYMMETRIC:
         {
             return symmetric_chol(x, kind);
         }
-        case M_Matrix<E>::DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
         {
             return diagonal_chol(x, kind);
         }
-        case M_Matrix<E>::SCALAR_DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
         {
             return scalar_diagonal_chol(x, kind);
         }
-        case M_Matrix<E>::SCALAR_FULL:
+        case Matrix_TYPE::SCALAR_FULL:
         {
             return {{},"SCALAR FULL is Not definite positive"};
         }
-        case M_Matrix<E>::ZERO:
+        case Matrix_TYPE::ZERO:
         default:
         {
             return {{},"ZERO Matrix is Not definite positive"};
@@ -4736,24 +4703,6 @@ full_pinv(const M_Matrix<double>& x)
     {
         return matrix_inverse::Matrix_inverse(x);
     }
-    template <class T>
-    myOptional_t<Derivative<M_Matrix<T>>>
-            inv(const Derivative<M_Matrix<T>>& x)
-    {
-        typedef  myOptional_t<Derivative<M_Matrix<T>>> Op;
-
-        auto invx=matrix_inverse::Matrix_inverse(x.f());
-        if (!invx.has_value()) return Op(false,"cannot invert x "+invx.error());
-        else
-        {
-            auto fxxf=Permute<T,1,3,0,2>(x.dfdx());
-            auto df=-invx.value()*fxxf*invx.value();
-            df=Permute<T,2,0,3,1>(df);
-            return Op(Derivative<M_Matrix<T>>(std::move(invx).value(),x.x(),std::move(df)));
-        }
-
-    }
-
 
     template <class T>
     myOptional_t<M_Matrix<T>>
@@ -4805,10 +4754,10 @@ full_pinv(const M_Matrix<double>& x)
     {
         size_t nr=x.nrows();
         size_t nc=x.ncols();
-        if ((nr>1)&(nc>1))
+        if ((nr>1)&&(nc>1))
         {
             std::size_t n=std::min(nr,nc);
-            M_Matrix<T> diagV(nr,nc,M_Matrix<T>::DIAGONAL);
+            M_Matrix<T> diagV(nr,nc,Matrix_TYPE::DIAGONAL);
             for (size_t i=0; i<n; ++i)
                 diagV(i,i)=x(i,i);
             return diagV;
@@ -4816,7 +4765,7 @@ full_pinv(const M_Matrix<double>& x)
         else
         {
             nr=std::max(nr,nc);
-            M_Matrix<T> diagM(nr,nr,M_Matrix<T>::DIAGONAL);
+            M_Matrix<T> diagM(nr,nr,Matrix_TYPE::DIAGONAL);
             for (size_t i=0; i<nr; ++i)
                 diagM(i,i)=x[i];
             return diagM;
@@ -5065,35 +5014,35 @@ typename M_Matrix<T>::TYPE
 result_of_sum
 (const  M_Matrix<T>& x,const  M_Matrix<S>&  y)
 {
-    if ((x.type()==M_Matrix<T>::FULL)||
-            (y.type()==M_Matrix<S>::FULL))
-        return M_Matrix<T>::FULL;
-    else if ((x.type()==M_Matrix<T>::SYMMETRIC)||
-             (y.type()==M_Matrix<S>::SYMMETRIC))
-        return M_Matrix<T>::SYMMETRIC;
-    else if ((x.type()==M_Matrix<T>::DIAGONAL)||
-             (y.type()==M_Matrix<S>::DIAGONAL))
+    if ((x.type()==Matrix_TYPE::FULL)||
+            (y.type()==Matrix_TYPE::FULL))
+        return Matrix_TYPE::FULL;
+    else if ((x.type()==Matrix_TYPE::SYMMETRIC)||
+             (y.type()==Matrix_TYPE::SYMMETRIC))
+        return Matrix_TYPE::SYMMETRIC;
+    else if ((x.type()==Matrix_TYPE::DIAGONAL)||
+             (y.type()==Matrix_TYPE::DIAGONAL))
     {
-        if ((x.type()==M_Matrix<T>::SCALAR_FULL)||
-                (y.type()==M_Matrix<S>::SCALAR_FULL))
-            return M_Matrix<T>::SYMMETRIC;
+        if ((x.type()==Matrix_TYPE::SCALAR_FULL)||
+                (y.type()==Matrix_TYPE::SCALAR_FULL))
+            return Matrix_TYPE::SYMMETRIC;
         else
-            return M_Matrix<T>::DIAGONAL;
+            return Matrix_TYPE::DIAGONAL;
     }
-    else if ((x.type()==M_Matrix<T>::SCALAR_DIAGONAL)||
-             (y.type()==M_Matrix<S>::SCALAR_DIAGONAL))
+    else if ((x.type()==Matrix_TYPE::SCALAR_DIAGONAL)||
+             (y.type()==Matrix_TYPE::SCALAR_DIAGONAL))
     {
-        if ((x.type()==M_Matrix<T>::SCALAR_FULL)||
-                (y.type()==M_Matrix<S>::SCALAR_FULL))
-            return M_Matrix<T>::SYMMETRIC;
+        if ((x.type()==Matrix_TYPE::SCALAR_FULL)||
+                (y.type()==Matrix_TYPE::SCALAR_FULL))
+            return Matrix_TYPE::SYMMETRIC;
         else
-            return M_Matrix<T>::SCALAR_DIAGONAL;
+            return Matrix_TYPE::SCALAR_DIAGONAL;
     }
-    else if ((x.type()==M_Matrix<T>::SCALAR_FULL)||
-             (y.type()==M_Matrix<S>::SCALAR_FULL))
-        return M_Matrix<T>::SCALAR_FULL;
+    else if ((x.type()==Matrix_TYPE::SCALAR_FULL)||
+             (y.type()==Matrix_TYPE::SCALAR_FULL))
+        return Matrix_TYPE::SCALAR_FULL;
     else
-        return M_Matrix<T>::ZERO;
+        return Matrix_TYPE::ZERO;
 
 }
 
@@ -5107,99 +5056,99 @@ iterator_of_sum
 {
     switch(x.type())
     {
-    case M_Matrix<T>::FULL:
+    case Matrix_TYPE::FULL:
     {
         switch (y.type())
         {
-        case M_Matrix<S>::FULL:
-        case M_Matrix<S>::SYMMETRIC:
-        case M_Matrix<S>::SCALAR_FULL:
+        case Matrix_TYPE::FULL:
+        case Matrix_TYPE::SYMMETRIC:
+        case Matrix_TYPE::SCALAR_FULL:
             return M_Matrix<S>::FULL_IT;
-        case M_Matrix<S>::DIAGONAL:
-        case M_Matrix<S>::SCALAR_DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
             return M_Matrix<S>::DIAG_IT;
-        case M_Matrix<S>::ZERO:
+        case Matrix_TYPE::ZERO:
         default:
             return M_Matrix<S>::ZERO_IT;
         }
     }
-    case M_Matrix<T>::SYMMETRIC:
+    case Matrix_TYPE::SYMMETRIC:
     {
         switch (y.type())
         {
-        case M_Matrix<S>::FULL:
+        case Matrix_TYPE::FULL:
             assert(false);
-        case M_Matrix<S>::SYMMETRIC:
-        case M_Matrix<S>::SCALAR_FULL:
+        case Matrix_TYPE::SYMMETRIC:
+        case Matrix_TYPE::SCALAR_FULL:
             return M_Matrix<S>::LT_IT;
-        case M_Matrix<S>::DIAGONAL:
-        case M_Matrix<S>::SCALAR_DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
             return M_Matrix<S>::DIAG_IT;
-        case M_Matrix<S>::ZERO:
+        case Matrix_TYPE::ZERO:
         default:
             return M_Matrix<S>::ZERO_IT;
         }
     }
-    case M_Matrix<T>::DIAGONAL:
+    case Matrix_TYPE::DIAGONAL:
     {
         switch (y.type())
         {
-        case M_Matrix<S>::FULL:
-        case M_Matrix<S>::SYMMETRIC:
-        case M_Matrix<S>::SCALAR_FULL:
+        case Matrix_TYPE::FULL:
+        case Matrix_TYPE::SYMMETRIC:
+        case Matrix_TYPE::SCALAR_FULL:
             assert(false);
-        case M_Matrix<S>::DIAGONAL:
-        case M_Matrix<S>::SCALAR_DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
             return M_Matrix<S>::DIAG_IT;
-        case M_Matrix<S>::ZERO:
+        case Matrix_TYPE::ZERO:
         default:
             return M_Matrix<S>::ZERO_IT;
         }
     }
-    case M_Matrix<T>::SCALAR_DIAGONAL:
+    case Matrix_TYPE::SCALAR_DIAGONAL:
     {
         switch (y.type())
         {
-        case M_Matrix<S>::FULL:
-        case M_Matrix<S>::SYMMETRIC:
-        case M_Matrix<S>::SCALAR_FULL:
-        case M_Matrix<S>::DIAGONAL:
+        case Matrix_TYPE::FULL:
+        case Matrix_TYPE::SYMMETRIC:
+        case Matrix_TYPE::SCALAR_FULL:
+        case Matrix_TYPE::DIAGONAL:
             assert(false);
-        case M_Matrix<S>::SCALAR_DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
             return M_Matrix<S>::SCALAR_IT;
-        case M_Matrix<S>::ZERO:
+        case Matrix_TYPE::ZERO:
         default:
             return M_Matrix<S>::ZERO_IT;
         }
     }
-    case M_Matrix<T>::SCALAR_FULL:
+    case Matrix_TYPE::SCALAR_FULL:
     {
         switch (y.type())
         {
-        case M_Matrix<S>::FULL:
-        case M_Matrix<S>::SYMMETRIC:
-        case M_Matrix<S>::DIAGONAL:
-        case M_Matrix<S>::SCALAR_DIAGONAL:
+        case Matrix_TYPE::FULL:
+        case Matrix_TYPE::SYMMETRIC:
+        case Matrix_TYPE::DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
             assert(false);
-        case M_Matrix<S>::SCALAR_FULL:
+        case Matrix_TYPE::SCALAR_FULL:
             return M_Matrix<S>::SCALAR_IT;
-        case M_Matrix<S>::ZERO:
+        case Matrix_TYPE::ZERO:
         default:
             return M_Matrix<S>::ZERO_IT;
         }
     }
-    case M_Matrix<T>::ZERO:
+    case Matrix_TYPE::ZERO:
     default:
     {
         switch (y.type())
         {
-        case M_Matrix<S>::FULL:
-        case M_Matrix<S>::SYMMETRIC:
-        case M_Matrix<S>::DIAGONAL:
-        case M_Matrix<S>::SCALAR_DIAGONAL:
-        case M_Matrix<S>::SCALAR_FULL:
+        case Matrix_TYPE::FULL:
+        case Matrix_TYPE::SYMMETRIC:
+        case Matrix_TYPE::DIAGONAL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
+        case Matrix_TYPE::SCALAR_FULL:
             assert(false);
-        case M_Matrix<S>::ZERO:
+        case Matrix_TYPE::ZERO:
         default:
             return M_Matrix<S>::ZERO_IT;
         }
@@ -5236,38 +5185,38 @@ Size_of_Product(const M_Matrix<T>& one, const M_Matrix<S>& other, bool transpose
     typedef  decltype(std::declval<T>()*std::declval<S>()) R;
     auto s=Size_of_Product(x,y,transpose_x,transpose_y);
 
-    if ((x.type()==M_Matrix<T>::ZERO)||
-            (y.type()==M_Matrix<S>::ZERO))
-        return M_Matrix<R>(s.first,s.second,M_Matrix<R>::ZERO);
-    if ((x.type()==M_Matrix<T>::FULL)||
-            (y.type()==M_Matrix<S>::FULL))
-        return M_Matrix<R>(s.first,s.second,M_Matrix<R>::FULL);
+    if ((x.type()==Matrix_TYPE::ZERO)||
+            (y.type()==Matrix_TYPE::ZERO))
+        return M_Matrix<R>(s.first,s.second,Matrix_TYPE::ZERO);
+    if ((x.type()==Matrix_TYPE::FULL)||
+            (y.type()==Matrix_TYPE::FULL))
+        return M_Matrix<R>(s.first,s.second,Matrix_TYPE::FULL);
 
-    else if ((x.type()==M_Matrix<T>::SYMMETRIC)||
-             (y.type()==M_Matrix<S>::SYMMETRIC))
+    else if ((x.type()==Matrix_TYPE::SYMMETRIC)||
+             (y.type()==Matrix_TYPE::SYMMETRIC))
     {
-        if ((x.type()==M_Matrix<T>::SCALAR_DIAGONAL)||
-                (y.type()==M_Matrix<S>::SCALAR_DIAGONAL))
-            return M_Matrix<R>(s.first,s.second,M_Matrix<R>::SYMMETRIC);
+        if ((x.type()==Matrix_TYPE::SCALAR_DIAGONAL)||
+                (y.type()==Matrix_TYPE::SCALAR_DIAGONAL))
+            return M_Matrix<R>(s.first,s.second,Matrix_TYPE::SYMMETRIC);
         else
-            return M_Matrix<R>(s.first,s.second,M_Matrix<R>::FULL);
+            return M_Matrix<R>(s.first,s.second,Matrix_TYPE::FULL);
 
     }
-    else if ((x.type()==M_Matrix<T>::DIAGONAL)||
-             (y.type()==M_Matrix<S>::DIAGONAL))
+    else if ((x.type()==Matrix_TYPE::DIAGONAL)||
+             (y.type()==Matrix_TYPE::DIAGONAL))
     {
-        if ((x.type()==M_Matrix<T>::SCALAR_FULL)||
-                (y.type()==M_Matrix<S>::SCALAR_FULL))
-            return M_Matrix<R>(s.first,s.second,M_Matrix<R>::FULL);
+        if ((x.type()==Matrix_TYPE::SCALAR_FULL)||
+                (y.type()==Matrix_TYPE::SCALAR_FULL))
+            return M_Matrix<R>(s.first,s.second,Matrix_TYPE::FULL);
         else
-            return M_Matrix<R>(s.first,s.second,M_Matrix<R>::DIAGONAL);
+            return M_Matrix<R>(s.first,s.second,Matrix_TYPE::DIAGONAL);
     }
-    else if ((x.type()==M_Matrix<T>::SCALAR_DIAGONAL)
-             &&(y.type()==M_Matrix<S>::SCALAR_DIAGONAL))
+    else if ((x.type()==Matrix_TYPE::SCALAR_DIAGONAL)
+             &&(y.type()==Matrix_TYPE::SCALAR_DIAGONAL))
 
-        return M_Matrix<R>(s.first,s.second,M_Matrix<R>::SCALAR_DIAGONAL);
+        return M_Matrix<R>(s.first,s.second,Matrix_TYPE::SCALAR_DIAGONAL);
     else
-        return M_Matrix<R>(s.first,s.second,M_Matrix<R>::SCALAR_FULL);
+        return M_Matrix<R>(s.first,s.second,Matrix_TYPE::SCALAR_FULL);
 }
 
 
@@ -5760,7 +5709,7 @@ quadraticForm_Symmetric (const M_Matrix<T>& A, const M_Matrix<S>& B)
     typedef   decltype(std::declval<T>()*std::declval<S>()) R;
 
     auto AB=A*B;
-    M_Matrix<R> out(B.ncols(),B.ncols(),M_Matrix<R>::SYMMETRIC, R{});
+    M_Matrix<R> out(B.ncols(),B.ncols(),Matrix_TYPE::SYMMETRIC, R{});
     for (std::size_t i=0; i<out.nrows(); ++i)
         for (std::size_t j=i; j<out.ncols(); ++j)
             for (std::size_t k=0; k<B.nrows(); ++k)
@@ -5778,7 +5727,7 @@ quadraticForm_Diagonal (const M_Matrix<T>& A, const M_Matrix<S>& B)
 {
     typedef   decltype(std::declval<T>()*std::declval<S>()) R;
 
-    M_Matrix<R> out(B.ncols(),B.ncols(),M_Matrix<R>::SYMMETRIC, R{});
+    M_Matrix<R> out(B.ncols(),B.ncols(),Matrix_TYPE::SYMMETRIC, R{});
     for (std::size_t i=0; i<out.nrows(); ++i)
         for (std::size_t j=i; j<out.ncols(); ++j)
             for (std::size_t k=0; k<B.nrows(); ++k)
@@ -5794,7 +5743,7 @@ quadraticForm_Diagonal_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
 {
     typedef   decltype(std::declval<T>()*std::declval<S>()) R;
 
-    M_Matrix<R> out(B.nrows(),B.nrows(),M_Matrix<R>::SYMMETRIC, R{});
+    M_Matrix<R> out(B.nrows(),B.nrows(),Matrix_TYPE::SYMMETRIC, R{});
     for (std::size_t i=0; i<out.nrows(); ++i)
         for (std::size_t j=i; j<out.ncols(); ++j)
             for (std::size_t k=0; k<B.ncols(); ++k)
@@ -5814,7 +5763,7 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
     typedef   decltype(std::declval<T>()*std::declval<S>()) R;
 
     auto BA=B*A;
-    M_Matrix<R> out(B.nrows(),B.nrows(),M_Matrix<R>::SYMMETRIC, R{});
+    M_Matrix<R> out(B.nrows(),B.nrows(),Matrix_TYPE::SYMMETRIC, R{});
     for (std::size_t i=0; i<out.nrows(); ++i)
         for (std::size_t j=i; j<out.ncols(); ++j)
             for (std::size_t k=0; k<B.ncols(); ++k)
@@ -5858,12 +5807,12 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
         }
 
       assert(ncolsFirst==nrowsSecond);
-      if (one.type()==M_Matrix<double>::FULL)
+      if (one.type()==Matrix_TYPE::FULL)
         {
-          if (other.type()==M_Matrix<double>::FULL)
+          if (other.type()==Matrix_TYPE::FULL)
             return Lapack_Full_Product
                 (one,other,transposeOne,transposeOther);
-          else if (other.type()==M_Matrix<double>::SYMMETRIC)
+          else if (other.type()==Matrix_TYPE::SYMMETRIC)
             {
               if (transposeOne)
                 return Lapack_Transpose_Symmetric_Product(one,other);
@@ -5873,8 +5822,8 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
                   return Lapack_Symmetric_Transpose_Product(tr,other);
                 }
             }
-          else if ((other.type()==M_Matrix<double>::DIAGONAL)
-                   || (other.type()==M_Matrix<double>::SCALAR_DIAGONAL))
+          else if ((other.type()==Matrix_TYPE::DIAGONAL)
+                   || (other.type()==Matrix_TYPE::SCALAR_DIAGONAL))
             {
               M_Matrix<double> out(nrowsFirst,ncolsSecond);
               if (transposeOne)
@@ -5926,9 +5875,9 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
 
             }
         }
-      else   if (one.type()==M_Matrix<double>::SYMMETRIC)
+      else   if (one.type()==Matrix_TYPE::SYMMETRIC)
         {
-          if (other.type()==M_Matrix<double>::FULL)
+          if (other.type()==Matrix_TYPE::FULL)
             {
               if (transposeOther)
                 {
@@ -5940,13 +5889,13 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
                   return Lapack_Symmetric_Transpose_Product(one,tr,true);
                 }
             }
-          else if (other.type()==M_Matrix<double>::SYMMETRIC)
+          else if (other.type()==Matrix_TYPE::SYMMETRIC)
             {
               auto full=other.full();
               return Lapack_Symmetric_Transpose_Product(one,full,true);
             }
-          else if ((other.type()==M_Matrix<double>::DIAGONAL)
-                   || (other.type()==M_Matrix<double>::SCALAR_DIAGONAL))
+          else if ((other.type()==Matrix_TYPE::DIAGONAL)
+                   || (other.type()==Matrix_TYPE::SCALAR_DIAGONAL))
             {
               M_Matrix<double> out
                   (nrowsFirst,ncolsSecond);
@@ -5979,9 +5928,9 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
             }
 
         }
-      else  if (one.type()==M_Matrix<double>::DIAGONAL)
+      else  if (one.type()==Matrix_TYPE::DIAGONAL)
         {
-          if (other.type()==M_Matrix<double>::FULL)
+          if (other.type()==Matrix_TYPE::FULL)
             {
               if (transposeOther)
                 {
@@ -6013,7 +5962,7 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
                   return out;
                 }
             }
-          else if (other.type()==M_Matrix<double>::SYMMETRIC)
+          else if (other.type()==Matrix_TYPE::SYMMETRIC)
             {
               M_Matrix<double> out
                   (one.nrows(),other.ncols());
@@ -6024,11 +5973,11 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
                 }
               return out;
             }
-          else if ((other.type()==M_Matrix<double>::DIAGONAL)
-                   || (other.type()==M_Matrix<double>::SCALAR_DIAGONAL))
+          else if ((other.type()==Matrix_TYPE::DIAGONAL)
+                   || (other.type()==Matrix_TYPE::SCALAR_DIAGONAL))
             {
               M_Matrix<double> out
-                  (M_Matrix<double>::DIAGONAL,one.nrows(),other.ncols());
+                  (Matrix_TYPE::DIAGONAL,one.nrows(),other.ncols());
               for (std::size_t i=0; i<out.nrows(); ++i)
                 {
                   out(i,i)=one(i,i)*other(i,i);
@@ -6054,9 +6003,9 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
 
         }
 
-      else  if (one.type()==M_Matrix<double>::SCALAR_DIAGONAL)
+      else  if (one.type()==Matrix_TYPE::SCALAR_DIAGONAL)
         {
-          if (other.type()==M_Matrix<double>::FULL)
+          if (other.type()==Matrix_TYPE::FULL)
             {
               if (transposeOther)
                 {
@@ -6088,10 +6037,10 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
                   return out;
                 }
             }
-          else if (other.type()==M_Matrix<double>::SYMMETRIC)
+          else if (other.type()==Matrix_TYPE::SYMMETRIC)
             {
               M_Matrix<double> out
-                  (one.nrows(),other.ncols(),M_Matrix<double>::SYMMETRIC);
+                  (one.nrows(),other.ncols(),Matrix_TYPE::SYMMETRIC);
               for (std::size_t i=0; i<other.nrows(); ++i)
                 {
                   for (std::size_t j=0; j<=i; ++j)
@@ -6099,21 +6048,21 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
                 }
               return out;
             }
-          else if (other.type()==M_Matrix<double>::DIAGONAL)
+          else if (other.type()==Matrix_TYPE::DIAGONAL)
 
             {
               M_Matrix<double> out
-                  (one.nrows(),other.ncols(),M_Matrix<double>::DIAGONAL);
+                  (one.nrows(),other.ncols(),Matrix_TYPE::DIAGONAL);
               for (std::size_t i=0; i<out.nrows(); ++i)
                 {
                   out(i,i)=one(i,i)*other(i,i);
                 }
               return out;
             }
-          else if ((other.type()==M_Matrix<double>::SCALAR_DIAGONAL))
+          else if ((other.type()==Matrix_TYPE::SCALAR_DIAGONAL))
             {
               return M_Matrix<double>
-                  (one.nrows(),other.ncols(),M_Matrix<double>::SCALAR_DIAGONAL,
+                  (one.nrows(),other.ncols(),Matrix_TYPE::SCALAR_DIAGONAL,
                    one[0]*other[0]);
             }
           else if (other.type()==M_Matrix<double>::SCALAR_FULL)
@@ -6133,7 +6082,7 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
 
       else  if (one.type()==M_Matrix<double>::SCALAR_FULL)
         {
-          if (other.type()==M_Matrix<double>::FULL)
+          if (other.type()==Matrix_TYPE::FULL)
             {
               if (transposeOther)
                 {
@@ -6165,7 +6114,7 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
                   return out;
                 }
             }
-          else if (other.type()==M_Matrix<double>::SYMMETRIC)
+          else if (other.type()==Matrix_TYPE::SYMMETRIC)
             {
               M_Matrix<double> out(one.nrows(),other.ncols());
               for (std::size_t i=0; i<other.nrows(); ++i)
@@ -6179,7 +6128,7 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
                 }
               return out;
             }
-          else if (other.type()==M_Matrix<double>::DIAGONAL)
+          else if (other.type()==Matrix_TYPE::DIAGONAL)
             {
               M_Matrix<double> out(one.nrows(),other.ncols());
               for (std::size_t i=0; i<out.nrows(); ++i)
@@ -6190,7 +6139,7 @@ quadraticForm_Symmetric_T (const M_Matrix<T>& A, const M_Matrix<S>& B)
                 }
               return out;
             }
-          else if ((other.type()==M_Matrix<double>::SCALAR_DIAGONAL))
+          else if ((other.type()==Matrix_TYPE::SCALAR_DIAGONAL))
             {
               return M_Matrix<double>
                   (one.nrows(),other.ncols(),M_Matrix<double>::SCALAR_FULL,
@@ -6229,12 +6178,12 @@ Matrix_Multiplication
  bool transpose_y)
 
 {
-    if ((one.type()==M_Matrix<double>::FULL)&&
-            (other.type()==M_Matrix<double>::FULL))
+    if ((one.type()==Matrix_TYPE::FULL)&&
+            (other.type()==Matrix_TYPE::FULL))
         return Lapack_Full_Product(one,other,transpose_x,transpose_y);
 
-    else if ((one.type()==M_Matrix<double>::FULL)&&
-             (other.type()==M_Matrix<double>::SYMMETRIC))
+    else if ((one.type()==Matrix_TYPE::FULL)&&
+             (other.type()==Matrix_TYPE::SYMMETRIC))
     {
         if (transpose_x)
         {
@@ -6246,8 +6195,8 @@ Matrix_Multiplication
             return Lapack_Symmetric_Regular_Product(other,one,false);
         }
     }
-    else if ((one.type()==M_Matrix<double>::SYMMETRIC)&&
-             (other.type()==M_Matrix<double>::FULL))
+    else if ((one.type()==Matrix_TYPE::SYMMETRIC)&&
+             (other.type()==Matrix_TYPE::FULL))
     {
         if (transpose_y)
         {
@@ -6260,10 +6209,10 @@ Matrix_Multiplication
             return Lapack_Symmetric_Regular_Product(one,other,true);
         }
     }
-    else if ((one.type()==M_Matrix<double>::SYMMETRIC)&&
-             (other.type()==M_Matrix<double>::SYMMETRIC))
+    else if ((one.type()==Matrix_TYPE::SYMMETRIC)&&
+             (other.type()==Matrix_TYPE::SYMMETRIC))
     {
-        auto copy_other=M_Matrix<double>(other.nrows(),other.ncols(), M_Matrix<double>::FULL,other);
+        auto copy_other=M_Matrix<double>(other.nrows(),other.ncols(), Matrix_TYPE::FULL,other);
         return Lapack_Symmetric_Regular_Product(one,copy_other,true);
     }
     else
@@ -6297,8 +6246,11 @@ auto
 operator *
 (const M_Matrix<T>& one,
  const M_Matrix<S>& other)
-->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<S>,decltype(std::declval<T>()*std::declval<S>())>>
+->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<S>,
+decltype(std::declval<T>()*std::declval<S>())>
+>
 {
+
     typedef decltype(std::declval<T>()*std::declval<S>()) R;
 
     M_Matrix<R> out= product::Matrix_Multiplication(one,other,false,false);
@@ -6306,6 +6258,13 @@ operator *
     return out;
 
 }
+
+
+
+
+
+
+
 
 template<typename T, typename S>
 auto
@@ -6449,9 +6408,9 @@ quadraticForm_BT_A_B (const M_Matrix<T>& A, const M_Matrix<S>& B)
     assert(A.ncols()==B.nrows());
     assert(B.nrows()==A.nrows());
     typedef   decltype(std::declval<T>()*std::declval<S>()) R;
-    if ((A.type()==M_Matrix<T>::ZERO)||
-            (B.type()==M_Matrix<S>::ZERO))
-        return M_Matrix<R>(B.ncols(),B.ncols(),M_Matrix<R>::ZERO);
+    if ((A.type()==Matrix_TYPE::ZERO)||
+            (B.type()==Matrix_TYPE::ZERO))
+        return M_Matrix<R>(B.ncols(),B.ncols(),Matrix_TYPE::ZERO);
     else if (A.isDiagonal())
         return product::quadraticForm_Diagonal(A,B);
     else if (A.isSymmetric())
@@ -6469,9 +6428,9 @@ quadraticForm_B_A_BT (const M_Matrix<T>& A, const M_Matrix<S>& B)
     assert(A.ncols()==B.ncols());
     assert(B.ncols()==A.nrows());
     typedef   decltype(std::declval<T>()*std::declval<S>()) R;
-    if ((A.type()==M_Matrix<T>::ZERO)||
-            (B.type()==M_Matrix<S>::ZERO))
-        return M_Matrix<R>(B.nrows(),B.nrows(),M_Matrix<R>::ZERO);
+    if ((A.type()==Matrix_TYPE::ZERO)||
+            (B.type()==Matrix_TYPE::ZERO))
+        return M_Matrix<R>(B.nrows(),B.nrows(),Matrix_TYPE::ZERO);
     else if (A.isDiagonal())
         return product::quadraticForm_Diagonal_T(A,B);
     else if (A.isSymmetric())
@@ -6489,9 +6448,10 @@ quadraticForm_B_A_BT (const M_Matrix<T>& A, const M_Matrix<S>& B)
      */
 template<typename E, typename T>
 auto operator*=(M_Matrix<E>& itself, T x)
-->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>&
+->M_Matrix<std::enable_if_t<!(is_Matrix_v<T> && !is_Matrix_v<E>),decltype(std::declval<E>()*std::declval<T>())>
+>&
 {
-    if (itself.type()==M_Matrix<E>::ZERO)
+    if (itself.type()==Matrix_TYPE::ZERO)
         return itself;
     else
     {
@@ -6509,9 +6469,10 @@ auto operator*=(M_Matrix<E>& itself, T x)
      */
 template<typename E,typename T>
 auto operator/=(M_Matrix<E>& itself, T x)
-->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>&
+->M_Matrix<std::enable_if_t<!(is_Matrix_v<T> && !is_Matrix_v<E>),decltype(std::declval<E>()*std::declval<T>())>
+>&
 {
-    if (itself.type()!=M_Matrix<E>::ZERO)
+    if (itself.type()!=Matrix_TYPE::ZERO)
         for (size_t i=0; i<itself.size(); i++)
             itself[i]/=x;
 
@@ -6646,35 +6607,35 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
 (AsOp op,M_Matrix<T>& itself,
  const M_Matrix<S>& other)
 {
-    if (itself.type()==M_Matrix<T>::ZERO)
+    if (itself.type()==Matrix_TYPE::ZERO)
     {
         return itself;
     }
-    else if (other.type()==M_Matrix<S>::ZERO)
+    else if (other.type()==Matrix_TYPE::ZERO)
     {
         itself=other;
         return itself;
     }
-    else if (itself.type()==static_cast<typename M_Matrix<T>::TYPE>(other.type()))
+    else if (itself.type()==other.type())
     {
         assert(itself.size()==other.size());
         for (size_t i=0; i<itself.size(); i++)
             op(itself[i],other[i]);
         return itself;
     }
-    else if ((itself.type()==M_Matrix<T>::DIAGONAL)
-             ||(itself.type()==M_Matrix<T>::SCALAR_DIAGONAL))
+    else if ((itself.type()==Matrix_TYPE::DIAGONAL)
+             ||(itself.type()==Matrix_TYPE::SCALAR_DIAGONAL))
     {
         assert(itself.nrows()==other.nrows());
         assert(itself.ncols()==other.ncols());
         switch(other.type())
         {
-        case M_Matrix<S>::ZERO: // not possible
-        case M_Matrix<S>::FULL:
-        case M_Matrix<S>::SYMMETRIC:
-        case M_Matrix<S>::SCALAR_FULL:
-        case M_Matrix<S>::SCALAR_DIAGONAL:
-        case M_Matrix<S>::DIAGONAL:
+        case Matrix_TYPE::ZERO: // not possible
+        case Matrix_TYPE::FULL:
+        case Matrix_TYPE::SYMMETRIC:
+        case Matrix_TYPE::SCALAR_FULL:
+        case Matrix_TYPE::SCALAR_DIAGONAL:
+        case Matrix_TYPE::DIAGONAL:
         {
             for (std::size_t i=0; i<itself.nrows(); ++i)
                 op(itself(i,i),other(i,i));
@@ -6684,8 +6645,8 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
         }
     }
 
-    else if ((other.type()==M_Matrix<S>::DIAGONAL)
-             ||(other.type()==M_Matrix<S>::SCALAR_DIAGONAL))
+    else if ((other.type()==Matrix_TYPE::DIAGONAL)
+             ||(other.type()==Matrix_TYPE::SCALAR_DIAGONAL))
     {
         assert(itself.nrows()==other.nrows());
         assert(itself.ncols()==other.ncols());
@@ -6696,18 +6657,18 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
         return itself;
 
     }
-    else if(itself.type()==M_Matrix<T>::FULL)
+    else if(itself.type()==Matrix_TYPE::FULL)
     {
         assert(itself.nrows()==other.nrows());
         assert(itself.ncols()==other.ncols());
         switch(other.type())
         {
-        case M_Matrix<S>::ZERO: // not
-        case M_Matrix<S>::SCALAR_DIAGONAL:  //done
-        case M_Matrix<S>::DIAGONAL: // done
-        case M_Matrix<S>::FULL:
-        case M_Matrix<S>::SYMMETRIC:
-        case M_Matrix<S>::SCALAR_FULL:
+        case Matrix_TYPE::ZERO: // not
+        case Matrix_TYPE::SCALAR_DIAGONAL:  //done
+        case Matrix_TYPE::DIAGONAL: // done
+        case Matrix_TYPE::FULL:
+        case Matrix_TYPE::SYMMETRIC:
+        case Matrix_TYPE::SCALAR_FULL:
         {
             for (std::size_t i=0; i<itself.nrows(); ++i)
                 for (std::size_t j=0; j<itself.ncols(); ++j)
@@ -6717,7 +6678,7 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
 
         }
     }
-    else if(other.type()==M_Matrix<S>::FULL)
+    else if(other.type()==Matrix_TYPE::FULL)
     {
         assert(itself.nrows()==other.nrows());
         assert(itself.ncols()==other.ncols());
@@ -6728,18 +6689,18 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
         itself=std::move(out);
         return itself;
     }
-    else if(itself.type()==M_Matrix<T>::SYMMETRIC)
+    else if(itself.type()==Matrix_TYPE::SYMMETRIC)
     {
         assert(itself.nrows()==other.nrows());
         assert(itself.ncols()==other.ncols());
         switch(other.type())
         {
-        case M_Matrix<S>::ZERO:  //not possible
-        case M_Matrix<S>::SCALAR_DIAGONAL: //not possible
-        case M_Matrix<S>::DIAGONAL: //not possible
-        case M_Matrix<S>::FULL:  //should not land here
-        case M_Matrix<S>::SYMMETRIC: // should not land here
-        case M_Matrix<S>::SCALAR_FULL:
+        case Matrix_TYPE::ZERO:  //not possible
+        case Matrix_TYPE::SCALAR_DIAGONAL: //not possible
+        case Matrix_TYPE::DIAGONAL: //not possible
+        case Matrix_TYPE::FULL:  //should not land here
+        case Matrix_TYPE::SYMMETRIC: // should not land here
+        case Matrix_TYPE::SCALAR_FULL:
         {
             for (std::size_t i=0; i<itself.nrows(); ++i)
                 for (std::size_t j=0; j<=i; ++j)
@@ -6775,9 +6736,9 @@ M_Matrix<T>& Element_Wise_Multiplicative_Assigment_Operator
 template<typename T>
 M_Matrix<T> operator+(const M_Matrix<T>& x,const M_Matrix<T>& y)
 {
-    if (x.type()==M_Matrix<T>::ZERO) return y;
+    if (x.type()==Matrix_TYPE::ZERO) return y;
     else
-        if (y.type()==M_Matrix<T>::ZERO) return x;
+        if (y.type()==Matrix_TYPE::ZERO) return x;
         else
         {
             auto out=additive::sum_Operator(x,y);
@@ -6788,13 +6749,13 @@ M_Matrix<T> operator+(const M_Matrix<T>& x,const M_Matrix<T>& y)
 template<typename T, typename S>
 M_Matrix<T>& operator+=(M_Matrix<T>& x,const M_Matrix<S>& y)
 {
-    if (x.type()==M_Matrix<T>::ZERO)
+    if (x.type()==Matrix_TYPE::ZERO)
     {
         x=y;
         return x;
     }
     else
-        if (y.type()==M_Matrix<T>::ZERO)
+        if (y.type()==Matrix_TYPE::ZERO)
             return x;
         else
             return additive::sum_assigment(x,y);
@@ -6803,13 +6764,13 @@ M_Matrix<T>& operator+=(M_Matrix<T>& x,const M_Matrix<S>& y)
 template<typename T, typename S>
 M_Matrix<T>& operator-=(M_Matrix<T>& x,const M_Matrix<S>& y)
 {
-    if (x.type()==M_Matrix<T>::ZERO)
+    if (x.type()==Matrix_TYPE::ZERO)
     {
         x=-y;
         return x;
     }
     else
-        if (y.type()==M_Matrix<T>::ZERO)
+        if (y.type()==Matrix_TYPE::ZERO)
             return x;
         else
             return additive::substraction_assigment(x,y);
@@ -6826,12 +6787,12 @@ M_Matrix<T>& operator-=(M_Matrix<T>& x,const M_Matrix<S>& y)
 template<typename T>
 M_Matrix<T> operator-(const M_Matrix<T>& x,const M_Matrix<T>& y)
 {
-    if (x.type()==M_Matrix<T>::ZERO)
+    if (x.type()==Matrix_TYPE::ZERO)
     {
         return y;
     }
     else
-        if (y.type()==M_Matrix<T>::ZERO)
+        if (y.type()==Matrix_TYPE::ZERO)
             return x;
         else
 
@@ -6841,12 +6802,12 @@ M_Matrix<T> operator-(const M_Matrix<T>& x,const M_Matrix<T>& y)
 template<typename T>
 M_Matrix<T> operator-(M_Matrix<T>&& x,M_Matrix<T>&& y)
 {
-    if (x.type()==M_Matrix<T>::ZERO)
+    if (x.type()==Matrix_TYPE::ZERO)
     {
         return -y;
     }
     else
-        if (y.type()==M_Matrix<T>::ZERO)
+        if (y.type()==Matrix_TYPE::ZERO)
             return x;
         else
 
@@ -6908,7 +6869,9 @@ M_Matrix<T> operator-(T t,const M_Matrix<T>& x)
      */
 template<typename E, typename T>
 auto operator*(const M_Matrix<E> & x,T t)
-->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>
+->std::enable_if_t<!(is_Matrix_v<T>  && !is_Matrix_v<E>)
+&& std::is_same_v<E,decltype(std::declval<E>()*std::declval<T>())>,M_Matrix<E>
+>
 {    // we build the M_Matrix result
     typedef decltype(std::declval<E>()*std::declval<T>()) R;
     M_Matrix<R> out(x);
@@ -6919,7 +6882,9 @@ auto operator*(const M_Matrix<E> & x,T t)
 
 template<typename E, typename T>
 auto operator*(T t,const M_Matrix<E> & x)
-->M_Matrix<std::enable_if_t<is_Matrix_v<T> ==is_Matrix_v<E>,decltype(std::declval<E>()*std::declval<T>())>>
+->std::enable_if_t<!(is_Matrix_v<T>  && !is_Matrix_v<E>)
+&& std::is_same_v<E,decltype(std::declval<E>()*std::declval<T>())>,M_Matrix<E>
+>
 {    // we build the M_Matrix result
     typedef decltype(std::declval<E>()*std::declval<T>()) R;
     M_Matrix<R> out(x);
@@ -6988,18 +6953,33 @@ M_Matrix<double> operator/(T t,const M_Matrix<T>& x)
  and z(i,j)= sum on k of x(i,k)*y(k,j)
   @warning it \c assert the preconditions
  */
-template<typename T, typename S>
+template<typename T, typename S, std::enable_if_t<std::is_convertible_v<S,T>, int> =0>
 M_Matrix<T> elemMult(const M_Matrix<T>& x,const M_Matrix<S>& y)
 {
     auto out(x);
     return Element_Wise_Multiplicative_Assigment_Operator([](T& a, const S& b){a*=b; return a;},out,y);
 }
 
-template<typename T, typename S>
+template<typename T>
+M_Matrix<M_Matrix<T>> elemMult_a(const M_Matrix<M_Matrix<T>>& x,const M_Matrix<T>& y)
+{
+    return x.apply([&y](auto &e){return elemMult(e,y);});
+}
+template<typename T>
+M_Matrix<M_Matrix<T>> elemMult_a(const M_Matrix<T>& x,const M_Matrix<M_Matrix<T>>& y)
+{
+    return y.apply([&x](auto &e){return elemMult(x,e);});
+}
+
+
+
+
+template<typename T, typename S, std::enable_if_t<std::is_convertible_v<S,T>,int> =0>
 M_Matrix<T> elemMult(M_Matrix<T>&& x,M_Matrix<S>&& y)
 {
     return Element_Wise_Multiplicative_Assigment_Operator([](T& a, const S& b){a*=b; return a;},x,y);
 }
+
 
 
 template<typename T, typename S>
@@ -7054,7 +7034,6 @@ auto elemDivSafe(const M_Matrix<T>& x,const M_Matrix<S>& y, double eps=std::nume
     out= Element_Wise_Multiplicative_Assigment_Operator([eps,norm](T& a, const S& b){return a=elemDivSafe(a,b,eps);return a;},out,y);
     //assert((are_Equal<true, M_Matrix<R>>().test_sum(out,UnformatedelemDivSafe(x,y,eps), std::cerr)));
     return out;
-
 }
 
 template<typename T, typename S>
@@ -7062,6 +7041,18 @@ M_Matrix<T> elemDivSafe(M_Matrix<T>&& x,M_Matrix<S>&& y, double eps=std::numeric
 {
     double norm=Matrix_Unary_Functions::norm_1(y);
     return Element_Wise_Multiplicative_Assigment_Operator([eps,norm](T& a, const S& b){return elemDivSafe(a,b,eps*norm);},x,y);
+}
+
+template<typename T>
+auto elemDivSafe_a(const M_Matrix<M_Matrix<T>>& x,const M_Matrix<T>& y, double eps=std::numeric_limits<double>::epsilon())
+{
+   return  x.apply([&y,&eps](auto& e){return elemDivSafe(e,y,eps);});
+}
+
+template<typename T>
+auto elemDiv_a(const M_Matrix<M_Matrix<T>>& x,const M_Matrix<T>& y)
+{
+   return  x.apply([&y](auto& e){return elemDiv(e,y);});
 }
 
 

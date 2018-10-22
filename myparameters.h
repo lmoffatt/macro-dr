@@ -217,7 +217,7 @@ public:
     }
     virtual M_Matrix<double> dlogL_dx2(const M_Matrix<double> &x) const override
     {
-        M_Matrix<double> out(size(),size(),M_Matrix<double>::DIAGONAL);
+        M_Matrix<double> out(size(),size(),Matrix_TYPE::DIAGONAL);
         for (std::size_t i=0; i<size(); ++i)
         {
             out(i,i)=dist(i)->dlogL_dx2(x[i]);

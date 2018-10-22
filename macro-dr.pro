@@ -56,7 +56,8 @@ HEADERS += \
     mylikelihood.h \
     myprobabilitytest.h \
     myoperators.h \
-    myderivatives.h
+    myderivatives.h \
+    matrixderivative.h
 
 DISTFILES += \
     simulation.txt
