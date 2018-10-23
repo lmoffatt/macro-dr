@@ -1,7 +1,7 @@
 #ifndef MATRIXDERIVATIVE_H
 #define MATRIXDERIVATIVE_H
 #include "Matrix.h"
-
+# include "myfields.h"
 
 
 
@@ -15,19 +15,26 @@ public:
     typedef double primitive_type;
     constexpr static auto const className=my_static_string("Derivative_")+my_trait<primitive_type>::className;
     typedef   Derivative<primitive_type> self_type ;
+    typedef   const Derivative<primitive_type> const_self_type ;
+
 
     static auto get_constructor_fields()
     {
+        double const& ( self_type ::*myf )();
         return std::make_tuple(
-                    grammar::field(C<self_type>{},"f",&self_type::f),
-                    grammar::field(C<self_type>{},"elogL",&self_type::x),
-                    grammar::field(C<self_type>{},"vlogL",&self_type::dfdx)
+                    grammar::field(C<self_type>{},"f",myf),
+                    grammar::field(C<self_type>{},"x",&self_type::x),
+                    grammar::field(C<self_type>{},"dfdx",&self_type::dfdx)
                     );
     }
-    double f()const { return f_;}
+    double const& f()const { return f_;}
+    double & f() { return f_;}
     M_Matrix<double> const & x() const { return *x_;}
     M_Matrix<double> const& dfdx()const { return dfdx_;}
     Derivative(double fx,  const M_Matrix<double>& myx, M_Matrix<double>&& der): f_{fx},x_{&myx}, dfdx_{std::move(der)}{}
+    Derivative(double fx,  const M_Matrix<double>& myx, const  M_Matrix<double>& der): f_{fx},x_{&myx}, dfdx_{der}{}
+
+    Derivative(double fx,  const M_Matrix<double>& myx): f_{fx},x_{&myx},dfdx_{myx.nrows(),myx.ncols(),myx.type(),0.0}{}
     Derivative()=default;
     Derivative(const M_Matrix<double>& myx): f_{0},x_{&myx}, dfdx_{myx.nrows(),myx.ncols(),myx.type(),0.0}{}
     Derivative& operator+=(const Derivative& other)
@@ -37,8 +44,15 @@ public:
         dfdx_+=other.dfdx();
         return *this;
     }
+    Derivative& operator-=(const Derivative& other)
+    {
+        assert(x()==other.x());
+        f_-=other.f();
+        dfdx_-=other.dfdx();
+        return *this;
+    }
 
-};
+  };
 
 
 
@@ -52,6 +66,24 @@ class Derivative<M_Matrix<double>>
     M_Matrix<double>const * x_;
     M_Matrix<M_Matrix<double>> dfdx_;
 public:
+    typedef M_Matrix<double> primitive_type;
+    constexpr static auto const className=my_static_string("Derivative_")+my_trait<primitive_type>::className;
+    typedef   Derivative<primitive_type> self_type ;
+    typedef   const Derivative<primitive_type> const_self_type ;
+
+
+    static auto get_constructor_fields()
+    {
+        M_Matrix<double> const& ( self_type ::*myf )()const = &self_type::f;
+        M_Matrix<M_Matrix<double>> const& ( self_type ::*mydf )()const = &self_type::dfdx;
+        return std::make_tuple(
+                    grammar::field(C<self_type>{},"f",myf),
+                    grammar::field(C<self_type>{},"x",&self_type::x),
+                    grammar::field(C<self_type>{},"dfdx",mydf )
+                    );
+    }
+
+
     Derivative& set_by_f_index(std::size_t i, std::size_t j, const Derivative<double>& dfij)
     {
         assert(x()==dfij.x());
@@ -68,10 +100,10 @@ public:
     M_Matrix<double> const & x() const { return *x_;}
     M_Matrix<M_Matrix<double>> const& dfdx()const { return dfdx_;}
     M_Matrix<M_Matrix<double>> & dfdx() { return dfdx_;}
-    Derivative(M_Matrix<double>&& fx, const  M_Matrix<double>& myx, M_Matrix<M_Matrix<double>>&& der): f_{std::move(fx)},x_{&myx}, dfdx_{std::move(der)}{}
+    Derivative(const M_Matrix<double>& fx, const  M_Matrix<double>& myx, const M_Matrix<M_Matrix<double>>& der): f_{fx},x_{&myx}, dfdx_{der}{}
 
     template<class M_f, class M_d>
-    Derivative(M_f fx, const  M_Matrix<double>& myx, M_d der): f_{std::forward<M_f>(fx)},x_{&myx}, dfdx_{std::forward<M_d>(der)}{}
+    Derivative(M_f&& fx, const  M_Matrix<double>& myx, M_d&& der): f_{std::forward<M_f>(fx)},x_{&myx}, dfdx_{std::forward<M_d>(der)}{}
 
 
 
@@ -117,6 +149,16 @@ public:
         dfdx_+=other.dfdx();
         return *this;
     }
+
+    Derivative<double> getvalue()&&
+    {
+        {
+            assert(f().size()==1);
+            return Derivative<double>(f().getvalue(),x(),std::move(dfdx()[0]));
+        }
+    }
+
+
 };
 
 template<class T>
@@ -137,6 +179,15 @@ auto exp(const Derivative<double>& x)
 {
     return Derivative<double>(std::exp(x.f()),x.x(),exp(D(),x.f())*x.dfdx());
 }
+
+auto log(const Derivative<double>& x)
+{
+    return Derivative<double>(std::log(x.f()),x.x(),x.dfdx()/x.f());
+}
+
+
+
+
 
 auto exp(const Derivative<M_Matrix<double>>& x)
 {
@@ -159,6 +210,30 @@ auto abs(const Derivative<double>& x)
 
 
 
+auto pow(const Derivative<double>& x, const Derivative<double>& y)
+{
+    assert(x.x()==y.x());
+    auto f=std::pow(x.f(),y.f());
+
+    auto dx=x.dfdx()*(y.f()/x.f()*f);
+    auto dy=y.dfdx()*(std::log(x.f())*f);
+    return Derivative<double>(std::move(f),x.x(),dx+dy);
+
+}
+
+auto operator/(const Derivative<double>& x, const Derivative<double>& y)
+{
+    assert(x.x()==y.x());
+    auto f=x.f()/y.f();
+
+    auto dx=x.dfdx()/y.f();
+    auto dy=-y.dfdx()*x.f()/sqr(y.f());
+    return Derivative<double>(std::move(f),x.x(),dx+dy);
+
+}
+
+
+
 template <class> struct is_Derivative: public std::false_type{};
 
 template <typename T>
@@ -168,9 +243,42 @@ template<class D>
 constexpr static bool is_Derivative_v=is_Derivative<D>::value;
 
 template<typename T>
+auto TranspMult(const Derivative<M_Matrix<T>>& x,const Derivative<M_Matrix<T>>& y)
+{
+    assert(x.x()==y.x());
+    auto f=TranspMult(x.f(),y.f());
+    auto dfdx=x.dfdx().apply([&y](auto& m){return TranspMult(m,y.f());});
+    auto dfdy=y.dfdx().apply([&x](auto& m){return TranspMult(x.f(),m);});
+    return Derivative<M_Matrix<T>>(std::move(f),x.x(),dfdx+dfdy);
+}
+
+template<typename T>
+auto multTransp(const Derivative<M_Matrix<T>>& x,const Derivative<M_Matrix<T>>& y)
+{
+    assert(x.x()==y.x());
+    auto f=multTransp(x.f(),y.f());
+    auto dfdx=x.dfdx().apply([&y](auto& m){return multTransp(m,y.f());});
+    auto dfdy=y.dfdx().apply([&x](auto& m){return multTransp(x.f(),m);});
+    return Derivative<M_Matrix<T>>(std::move(f),x.x(),dfdx+dfdy);
+}
+
+template<typename T>
+auto quadraticForm_BT_A_B(const Derivative<M_Matrix<T>>& A,const Derivative<M_Matrix<T>>& B)
+{
+    assert(A.x()==B.x());
+    auto f=quadraticForm_BT_A_B(A.f(),B.f());
+    auto dfdA=A.dfdx().apply([&B](auto& m){return quadraticForm_BT_A_B(m,B.f());});
+    auto dfdB=B.dfdx().apply([&A,&B](auto& m){return TranspMult(m,A.f()*B.f())+TranspMult(B.f(),A.f()*m);});
+    return Derivative<M_Matrix<T>>(std::move(f),A.x(),dfdA+dfdB);
+}
+
+
+
+
+template<typename T>
 auto elemMult(const Derivative<M_Matrix<T>>& x,const Derivative<M_Matrix<T>>& y)
 {
-    assert(x.x()==y.y());
+    assert(x.x()==y.x());
     return Derivative<M_Matrix<T>
             >(elemMult(x.f(),y.f()),x.x(),
               elemMult_a(x.dfdx(),y.f())+elemMult_a(x.f(),y.dfdx()));
@@ -179,7 +287,7 @@ auto elemMult(const Derivative<M_Matrix<T>>& x,const Derivative<M_Matrix<T>>& y)
 template<typename T>
 auto elemDiv(const Derivative<M_Matrix<T>>& x,const Derivative<M_Matrix<T>>& y)
 {
-    assert(x.x()==y.y());
+    assert(x.x()==y.x());
     auto f=elemDiv(x.f(),y.f());
     auto dfdx=elemDiv_a(x.dfdx(),y.f());
     auto dfdy=elemMult_a(f,elemDiv_a(y.dfdx(),y.f()));
@@ -190,7 +298,7 @@ auto elemDiv(const Derivative<M_Matrix<T>>& x,const Derivative<M_Matrix<T>>& y)
 template<typename T>
 auto elemDivSafe(const Derivative<M_Matrix<T>>& x,const Derivative<M_Matrix<T>>& y, double eps=std::numeric_limits<double>::epsilon())
 {
-    assert(x.x()==y.y());
+    assert(x.x()==y.x());
     auto f=elemDivSafe(x.f(),y.f(),eps);
     auto dfdx=elemDivSafe_a(x.dfdx(),y.f(),eps);
     auto dfdy=elemMult_a(elemDivSafe_a(y.dfdx(),y.f(),eps),f);
@@ -199,14 +307,14 @@ auto elemDivSafe(const Derivative<M_Matrix<T>>& x,const Derivative<M_Matrix<T>>&
 }
 
 
-
+/*
 template< class T>
 auto compose (const Derivative<T>& dfdx, const Derivative<M_Matrix<double>>& dxdy)
 {
     assert(dfdx.x()==dxdy.f());
     return Derivative<T>(dfdx.f(), dxdy.x(), dfdx.dfdx()*dxdy.dfdx());
 }
-
+*/
 
 template<typename T, typename S>
 auto operator*(const Derivative<T>& x,S t)
@@ -245,6 +353,16 @@ Derivative<M_Matrix<T>>  TransposeSum(const Derivative<M_Matrix<T>>& x)
     return Derivative<M_Matrix<T>>(std::move(f),x.x(),std::move(df));
 }
 
+
+
+template<class T>
+Derivative<M_Matrix<T>>  quadraticForm_XTX(const Derivative<M_Matrix<T>>& x)
+{
+    auto f=quadraticForm_XTX(x.f());
+    auto df=x.dfdx().apply([&x](auto& m){return TranspMult(m,x.f())+TranspMult(x.f(),m);});
+    return Derivative<M_Matrix<T>>(std::move(f),x.x(),std::move(df));
+}
+
 template<class T>
 Derivative<M_Matrix<T>>  Transpose(const Derivative<M_Matrix<T>>& x)
 {
@@ -271,8 +389,35 @@ operator *
  const Derivative<T>& other)
 {
     assert(one.x()==other.x());
-    return  Derivative<T>(one.f()*other.f(),one.x(),one.dfdx()*other.f()+one.f()*other.dfdx());
+    auto df1=one.dfdx().apply([&other](auto & e){return e*other.f();});
+    auto df2=other.dfdx().apply([&one](auto & e){return one.f()*e;});
+    return  Derivative<T>(one.f()*other.f(),one.x(),df1+df2);
 }
+
+Derivative<M_Matrix<double>>
+operator *
+(const Derivative<double>& x,
+ const Derivative<M_Matrix<double>>& M)
+{
+    assert(x.x()==M.x());
+    auto df=x.f()*M.dfdx();
+    for (std::size_t i=0; i<df.size(); ++i)
+        df[i]+=x.dfdx()[i]*M.f();
+    return  Derivative<M_Matrix<double>>(x.f()*M.f(),x.x(),std::move(df));
+}
+
+Derivative<M_Matrix<double>>
+operator *
+(const Derivative<M_Matrix<double>>& M,const Derivative<double>& x)
+{
+    assert(x.x()==M.x());
+    auto df=M.dfdx()*x.f();
+    for (std::size_t i=0; i<df.size(); ++i)
+        df[i]+=M.f()*x.dfdx()[i];
+    return  Derivative<M_Matrix<double>>(M.f()*x.f(),x.x(),std::move(df));
+}
+
+
 
 
 template <class T>

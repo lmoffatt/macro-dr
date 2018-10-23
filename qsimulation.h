@@ -26,7 +26,7 @@ auto compute_simulation(const Experiment& e,   const Parameters& p,std::mt19937_
    {
        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()), min_P_);
 
-       Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,Experiment,double> MC(SM,e,n_sub_intervals_,tolerance_);
+       Markov_Model_calculations<Markov_Transition_step,Markov_Transition_rate,SingleLigandModel,Experiment,double> MC(SM,e,n_sub_intervals_,tolerance_);
 
        return markov::measure_experiment(get_current{},mt,MC,e,n_sub_intervals_,max_dt_);
    }

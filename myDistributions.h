@@ -484,6 +484,7 @@ inline std::pair<double,double> logit(double x,double sd){
 inline double logistic(double x){return 1.0/(1.0+std::exp(-x));}
 inline double log10it(double x){return std::log10(x/(1.0-x));}
 
+inline double dlog10it(double x){return 1.0/(std::log(10.0)*(x-sqr(x)));}
 
 
 inline std::pair<double,double> log10it(double x,double sd){
@@ -491,6 +492,7 @@ inline std::pair<double,double> log10it(double x,double sd){
 
 
 inline double log10istic(double x){return 1.0/(1.0+std::pow(10.0,-x));}
+inline double dlog10istic(double x){return -std::log(10)*std::pow(10,-x)/sqr(1.0+std::pow(10.0,-x));}
 
 
 template <class T> class Identity_Transformation;
@@ -509,6 +511,10 @@ public:
 
     virtual T apply(const T& x)const =0;
     virtual T apply_inv(const T& x)const =0;
+
+    virtual T dapply(const T& x)const =0;
+    virtual T dapply_inv(const T& x)const =0;
+
 
     virtual ~Base_Transformation(){}
 };
@@ -535,6 +541,8 @@ public:
 
     virtual T apply(const T& x)const override {return x;}
     virtual T apply_inv(const T& x)const override {return x;}
+    virtual T dapply(const T& x)const override {return T(1);}
+    virtual T dapply_inv(const T& x)const override {return T(1);}
 
     virtual ~Identity_Transformation(){}
 
@@ -559,6 +567,8 @@ public:
     virtual Logarithm_Transformation* clone()const override{ return new Logarithm_Transformation(*this);};
     virtual double apply(const double& x)const override  {return std::log10(x);}
     virtual double apply_inv(const double& x)const override {return std::pow(10.0,x);}
+    virtual double dapply(const double& x)const override {return 1.0/(std::log(10.0)*x);}
+    virtual double dapply_inv(const double& x)const override {return std::log(10)*std::pow(10.0,x);}
 
     virtual ~Logarithm_Transformation(){}
 
@@ -579,6 +589,8 @@ public:
     virtual Logit_Transformation* clone()const override{ return new Logit_Transformation(*this);};
     virtual double apply(const double& x)const override  {return log10it(x);}
     virtual double apply_inv(const double& x)const override {return log10istic(x);}
+    virtual double dapply(const double& x)const override  {return dlog10it(x);}
+    virtual double dapply_inv(const double& x)const override {return dlog10istic(x);}
 
     virtual ~Logit_Transformation(){}
 

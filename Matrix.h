@@ -1045,7 +1045,7 @@ public:
                               std::string /*dummy*/,
                               const M_Matrix<T>& newValues)
     {
-        assert(type_==FULL);
+        assert(type_==Matrix_TYPE::FULL);
         assert(iRow<nrows());//number of rows
         assert(newValues.size()==ncols()); //number of columns
         for (std::size_t j=0; j<std::min(ncols(),size()); j++)
@@ -1078,7 +1078,7 @@ public:
                               std::size_t jColumn,
                               const V& newValues)
     {
-        assert(type_==FULL);
+        assert(type_==Matrix_TYPE::FULL);
 
         for (std::size_t i=0; i<std::min(nrows(),newValues.size()); i++)
             this->operator()(i,jColumn)=newValues[i];
@@ -1105,7 +1105,7 @@ public:
                              const std::string /*dummy*/
                              ) const
     {
-        assert(type_==FULL);
+        assert(type_==Matrix_TYPE::FULL);
         M_Matrix<T> out(1,ncols());
         for (std::size_t j=0; j<ncols(); j++)
             out[j]=this->operator()(iRow,j);
@@ -1139,7 +1139,7 @@ public:
                              std::size_t jColumn
                              ) const
     {
-        assert(type_==FULL);
+        assert(type_==Matrix_TYPE::FULL);
         M_Matrix<T> out(nrows(),1);
         for (std::size_t i=0; i<nrows(); i++)
             out[i]=(*this)(i,jColumn);
@@ -2946,16 +2946,16 @@ Parameters
 //    ( 	char*  	JOBZ,
 //                                  int*  	M,
 //                                  int*  	N,
-//                                  double  * /* precision, dimension( lda, * )   	A,
+//                                  double  *  precision, dimension( lda, * )   	A,
 //                                  int *  	LDA,
-//                                  double * /*precision, dimension( * ) */  	//S,
-    //                                  double * /*precision, dimension( ldu, * ) */ 	U,
+//                                  double * precision, dimension( * )   	//S,
+    //                                  double * precision, dimension( ldu, * )  	U,
     //                                  int*  	LDU,
-    //                                  double* /* precision, dimension( ldvt, * ) */ 	VT,
+    //                                  double*  precision, dimension( ldvt, * )  	VT,
     //                                  int*  	LDVT,
-    //                                  double * /* precision, dimension( * ) */  	WORK,
+    //                                  double * precision, dimension( * )   	WORK,
     //                                  int*  	LWORK,
-    //                                  int* /*, dimension( * ) */ 	IWORK,
+    //                                  int* , dimension( * )  	IWORK,
     //                                  int*  	INFO
     //                              );
     //    */

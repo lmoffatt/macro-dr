@@ -1,6 +1,7 @@
 #ifndef MYDERIVATIVES_H
 #define MYDERIVATIVES_H
 #include <utility>
+#include <map>
 template< class...>
 class Derivative;
 
@@ -13,6 +14,15 @@ struct myDerivative
 
 template <class X>
 using Derivative_t=typename myDerivative<X>::type;
+
+
+template <typename K, typename T, typename ...X>
+struct myDerivative<std::map<K,T,X...>>
+{
+    typedef std::map<K, Derivative_t<T>> type;
+};
+
+
 
 class D{};
 

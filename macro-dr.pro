@@ -57,7 +57,12 @@ HEADERS += \
     myprobabilitytest.h \
     myoperators.h \
     myderivatives.h \
-    matrixderivative.h
+    matrixderivative.h \
+    qmodel_derivative.h \
+    likelihood_markov_process_derivative.h \
+    qlikelihood_derivative.h \
+    myparameters_derivative.h \
+    mydistributions_derivative.h
 
 DISTFILES += \
     simulation.txt

@@ -16,7 +16,7 @@
 #include "qlikelihood.h"
 #include "qsimulation.h"
 #include <type_traits>
-
+#include "likelihood_markov_process_derivative.h"
 //using opt::Template_Tempering_mcmc;
 using namespace experiment;
 
@@ -243,7 +243,7 @@ struct simulate{
 
         SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()), min_P);
 
-        Markov_Model_calculations<Markov_Transition_step,SingleLigandModel,Experiment,double> MC(SM,e,n_sub_intervals,tolerance);
+        Markov_Model_calculations<Markov_Transition_step,Markov_Transition_rate,SingleLigandModel,Experiment,double> MC(SM,e,n_sub_intervals,tolerance);
 
         if (initseed==0)
         {
@@ -283,7 +283,7 @@ struct likelihood{
         SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P);
 
 
-        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance);
+        Markov_Model_calculations<Markov_Transition_step_double,Markov_Transition_rate,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance);
 
         if (algorithm==my_trait<markov::MacroDVR>::className.str())
         {
@@ -418,7 +418,7 @@ struct likelihood_detail{
         SingleLigandModel SM(m.Qs(p),m.g(p), e.Vm(),p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P);
 
 
-        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance);
+        Markov_Model_calculations<Markov_Transition_step_double,Markov_Transition_rate,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance);
 
          if (algorithm==my_trait<markov::MacroDVR>::className.str())
         {

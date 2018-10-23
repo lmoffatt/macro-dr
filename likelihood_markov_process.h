@@ -154,59 +154,6 @@ public:
     }
 };
 }
-template<>
-class Derivative<markov::mp_state_information>
-{
-    Derivative<M_Matrix<double>> P_mean_;
-    Derivative<M_Matrix<double>> P_cov_;
-
-    Derivative<double> y_mean_;
-    Derivative<double> y_var_;
-    Derivative<double> plogL_;
-    Derivative<double> eplogL_;
-
-
-public:
-
-
-    Derivative(Derivative<M_Matrix<double>>&& P_mean__,
-                         Derivative<M_Matrix<double>>&& P_cov__,
-                         Derivative<double> y_mean__,
-                         Derivative<double> y_var__,
-                         Derivative<double> plogL__,
-                         Derivative<double> eplogL__
-                         ):
-        P_mean_{std::move(P_mean__)},
-        P_cov_{std::move( P_cov__)},
-        y_mean_{y_mean__},
-        y_var_{y_var__},
-        plogL_{plogL__},eplogL_{eplogL__}{
-    }
-
-    Derivative()=default;
-    auto& P_mean()const{return P_mean_;}
-    auto& P_cov()const {return P_cov_;}
-
-    auto& y_mean()const {return y_mean_;}
-    auto& y_var()const {return y_var_;}
-    auto& plogL()const {return plogL_;}
-    auto& eplogL()const{return eplogL_;}
-
-    typedef  Derivative self_type;
-    constexpr static auto  className=my_static_string("mp_state_information_Derivative");
-    static auto get_constructor_fields()
-    {
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"P_mean",&self_type::P_mean),
-                    grammar::field(C<self_type>{},"P_cov",&self_type::P_cov),
-                    grammar::field(C<self_type>{},"y_mean",&self_type::y_mean),
-                    grammar::field(C<self_type>{},"y_var",&self_type::y_var),
-                    grammar::field(C<self_type>{},"plogL",&self_type::plogL),
-                    grammar::field(C<self_type>{},"eplogL",&self_type::eplogL)
-                    );
-    }
-};
-
 namespace markov {
 
 
@@ -726,15 +673,15 @@ public:
 
 
     template< class Model, class Step>
-    myOptional_t<mp_state_information> run(const mp_state_information& prior, const Markov_Transition_step_double& Q_dt, Model& m,const Step& p,std::ostream& os)const
+    myOptional_t<mp_state_information> run(const mp_state_information& prior, const Markov_Transition_step_double& Q_dt, Model& m,const Step& p,std::ostream& /*os*/)const
     {
         typedef   myOptional_t<mp_state_information> Op;
         auto y=p.y();
 
-        double mg=(prior.P_mean()*Q_dt.gmean_i()).getvalue();
-        double g_max=max(Q_dt.g());
-        double g_min=min(Q_dt.g());
-        double g_range=g_max-g_min;
+       // double mg=(prior.P_mean()*Q_dt.gmean_i()).getvalue();
+        //double g_max=max(Q_dt.g());
+       // double g_min=min(Q_dt.g());
+   //     double g_range=g_max-g_min;
         double N=m.AverageNumberOfChannels();
         double e=m.noise_variance(p.nsamples());
         M_Matrix<double> u(prior.P_mean().size(),1,1.0);
@@ -913,7 +860,7 @@ public:
 
 
     template< class Model, class Step>
-    myOptional_t<mp_state_information> run(const mp_state_information& prior, const Markov_Transition_step_double& Q_dt, Model& m,const Step& p,std::ostream& os)const
+    myOptional_t<mp_state_information> run(const mp_state_information& prior, const Markov_Transition_step_double& Q_dt, Model& m,const Step& p,std::ostream& /*os*/)const
     {
         auto y=p.y();
         typedef   myOptional_t<mp_state_information> Op;
