@@ -185,6 +185,10 @@ auto log(const Derivative<double>& x)
     return Derivative<double>(std::log(x.f()),x.x(),x.dfdx()/x.f());
 }
 
+auto sqrt(const Derivative<double>& x)
+{
+    return Derivative<double>(std::sqrt(x.f()),x.x(),x.dfdx()/std::sqrt(x.f()));
+}
 
 
 
@@ -232,6 +236,14 @@ auto operator/(const Derivative<double>& x, const Derivative<double>& y)
 
 }
 
+auto operator/(double x, const Derivative<double>& y)
+{
+    auto f=x/y.f();
+
+    auto dy=-y.dfdx()*x/sqr(y.f());
+    return Derivative<double>(std::move(f),y.x(),std::move(dy));
+
+}
 
 
 template <class> struct is_Derivative: public std::false_type{};
@@ -374,7 +386,7 @@ Derivative<M_Matrix<T>>  Transpose(const Derivative<M_Matrix<T>>& x)
 
 
 template<typename T>
-Derivative<M_Matrix<T>> operator-(const Derivative<M_Matrix<T>>& x,const Derivative<M_Matrix<T>>& y)
+Derivative<T> operator-(const Derivative<T>& x,const Derivative<T>& y)
 {
     assert(x.x()==y.x());
     return  Derivative<M_Matrix<T>>(x.f()-y.f(),x.x(),x.dfdx()-y.dfdx());
