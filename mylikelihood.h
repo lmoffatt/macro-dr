@@ -418,6 +418,12 @@ public:
 
     DlogLikelihood(double logL, double elogL, double vlogL, const M_Matrix<double>& Gradient, const M_Matrix<double>& Hessian)
         :logLikelihood(logL,elogL,vlogL), G_{Gradient},H_{Hessian}{assert(H_.isSymmetric());}
+    DlogLikelihood(std::tuple<double,double,double,M_Matrix<double>,M_Matrix<double>>&& logL)
+       :DlogLikelihood(std::get<0>(logL),std::get<1>(logL),std::get<2>(logL),std::move(std::get<3>(logL)),
+                       std::move(std::get<4>(logL))){}
+
+
+
     DlogLikelihood(std::tuple<double,double,double> logL, M_Matrix<double>&& Gradient,  M_Matrix<double>&& Hessian)
         :DlogLikelihood(std::get<0>(logL),std::get<1>(logL),std::get<2>(logL),std::move(Gradient),std::move(Hessian)){}
     DlogLikelihood(double logL, double elogL, double vlogL, M_Matrix<double>&& Gradient,  M_Matrix<double>&& Hessian)
@@ -536,11 +542,15 @@ private:
 namespace evidence {
 
 
-template<class Aux>
+template<class... Auxs>
 class PartialDLogLikelihood: public DlogLikelihood
 {
 public:
     typedef  DlogLikelihood base_type;
+
+    constexpr static bool hasAux=sizeof...(Auxs)>0;
+
+    typedef std::tuple_element_t<0,std::tuple<Auxs...>> Aux;
 
     constexpr static auto const className=my_static_string("DlogLikelihood_")+base_type::className;
     //std::string myClass()const  { return className.str();}
@@ -552,6 +562,7 @@ public:
         M_Matrix<double> const & (base_type::*myG) () const=&self_type::G;
         const M_Matrix<double>& (base_type::*myH) () const=&self_type::H;
 
+        if constexpr (hasAux)
         return std::make_tuple(
                     grammar::field(C<self_type>{},"logL",myLogL),
                     grammar::field(C<self_type>{},"elogL",&self_type::elogL),
@@ -561,6 +572,16 @@ public:
                     grammar::field(C<self_type>{},"Partial_DlogL",&self_type::partial_DlogL),
                     grammar::field(C<self_type>{},my_trait<Aux>::className.c_str(),&self_type::getAuxiliar)
                     );
+        else
+        return std::make_tuple(
+                    grammar::field(C<self_type>{},"logL",myLogL),
+                    grammar::field(C<self_type>{},"elogL",&self_type::elogL),
+                    grammar::field(C<self_type>{},"vlogL",&self_type::vlogL),
+                    grammar::field(C<self_type>{},"Gradient",myG),
+                    grammar::field(C<self_type>{},"Hessian",myH),
+                    grammar::field(C<self_type>{},"Partial_DlogL",&self_type::partial_DlogL)
+                    );
+
     }
 
     template<class DataFrame>
@@ -578,12 +599,14 @@ public:
     }
 
 
-    std::vector<Aux> const & getAuxiliar()const { return aux_;}
+    std::enable_if_t<hasAux,std::vector<Aux>const &>  getAuxiliar()const { return aux_;}
 
     std::vector<DlogLikelihood> const& partial_DlogL()const {return  partial_;}
 
     PartialDLogLikelihood(DlogLikelihood&& dlogL, std::vector<DlogLikelihood>&& dist , std::vector<Aux>&& aux)
         :DlogLikelihood(std::move(dlogL)),chi_value_(getChi2_value(G(),H())),partial_{std::move(dist)}, aux_{std::move(aux)}{}
+
+
 
     PartialDLogLikelihood(double logL, double elogL, double vlogL,const M_Matrix<double>& Gradient, const M_Matrix<double>& Hessian,const std::vector<DlogLikelihood>& dist , const std::vector<Aux>& aux)
         :DlogLikelihood(logL,elogL,vlogL,Gradient,Hessian),chi_value_(getChi2_value(Gradient,Hessian)),partial_{dist}, aux_{aux}{}
@@ -1003,7 +1026,7 @@ public:
                                 partials[n]=DlogLikelihood(logL,std::move(G), std::move(H));
                             }
 
-                            return Op(PartialDLogLikelihood(std::move(Dlik).value(),std::move(partials), std::move(aux)));
+                            return Op(PartialDLogLikelihood<typename decltype (aux)::value_type>(std::move(Dlik).value(),std::move(partials), std::move(aux)));
 
                         }
                     }
@@ -1042,7 +1065,7 @@ public:
                                 partials[n]=DlogLikelihood(logL,std::move(G), std::move(H));
                             }
 
-                            return Op(PartialDLogLikelihood(std::move(Dlik).value(),std::move(partials), std::move(aux)));
+                            return Op(PartialDLogLikelihood<Aux>(std::move(Dlik).value(),std::move(partials), std::move(aux)));
 
                         }
                     }

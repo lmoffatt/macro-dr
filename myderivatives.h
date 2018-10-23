@@ -32,7 +32,9 @@ struct Constant
 {
    T value;
    Constant(T&& x):value{std::move(x)}{}
- };
+   Constant(const T& x):value{x}{}
+   
+};
 
 
 

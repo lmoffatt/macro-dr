@@ -157,4 +157,151 @@ struct Derivative<variance_value>: public variable_value
 
 
 
+template<typename T>
+class Derivative<Base_Distribution<T>>
+{
+public:
+    virtual Derivative<Base_Distribution<T>>* clone()const=0;
+
+    constexpr static auto const className=my_static_string("Base_Distribution_derivative_")+my_trait<T>::className;
+    virtual std::string myClass()const=0;
+
+    virtual T sample(std::mt19937_64& mt)const =0;
+
+    virtual Derivative<double> p(const T& x)const =0;
+
+    virtual Derivative<double> logP(const T& x)const =0;
+
+    virtual M_Matrix<Derivative<T>> const & param()const =0;
+
+    // virtual M_Matrix<T> Score(const T& x)const =0;    // V(x)
+
+    virtual M_Matrix<T> Fisher_Information()const =0;    //I()
+
+
+    virtual Derivative<T> dlogL_dx(const T& x)const =0;
+
+    virtual Derivative<T> dlogL_dx2(const T& x)const =0;
+
+
+    virtual Derivative<T> mean()const =0;
+
+    virtual Derivative<T> stddev()const =0;
+    
+    M_Matrix<double> const & x()const { return mean().x();}
+
+    virtual Derivative<double> expected_logP()const { return {0,mean().x()};}
+    virtual Derivative<double> variance_logP()const { return {0.5,mean().x()};}
+    virtual M_Matrix<double> FIM()const =0; 
+
+    
+    virtual ~Derivative<Base_Distribution<T>>(){}
+};
+
+
+template<>
+class Derivative<Normal_Distribution<double>>: public Derivative<Base_Distribution<double>>
+{
+public:
+    typedef  Derivative<Base_Distribution<double>> base_type;
+    typedef Normal_Distribution<double> primitive_type;
+
+    constexpr static auto const className=my_static_string("Normal_Distribution_derivative");
+    std::string myClass()const override { return className.str();}
+
+    typedef   Normal_Distribution<double> self_type ;
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+                    grammar::field(C<self_type>{},"mean",&self_type::mean),
+                    grammar::field(C<self_type>{},"variance",&self_type::variance)
+                    );
+    }
+
+
+    virtual Derivative<Normal_Distribution<double>>* clone()const override{ return new Derivative(*this);};
+
+    virtual double sample(std::mt19937_64& mt) const override{ return std::normal_distribution<double> {mean().f(),std::sqrt(variance().f())}(mt);}
+
+    virtual Derivative<double> p(const double& x)const override
+    { return 1.0/sqrt(2.0*PI*variance())*exp(-0.5*sqr(Constant(x)-mean())/variance());}
+
+    virtual Derivative<double> logP(const double& x)const override
+    {return Constant(-0.5*std::log(2*PI))-0.5*log(variance())-0.5*sqr(Constant(x)-mean())/variance();}
+
+
+    /*
+    virtual M_Matrix<double> Score(const double& x) const override
+    { return M_Matrix<double>(1,2,std::vector<double>{dlogL_dmean(x),dlogL_dstddev(x)});};
+*/
+    virtual  M_Matrix<double> Fisher_Information()const override{
+        return M_Matrix<double>(2,2,Matrix_TYPE::DIAGONAL,std::vector<double>{d2logL_dmean2(),d2logL_dvariance2()});};
+
+
+
+
+    virtual Derivative<double> mean()const override {return param_[0];}
+
+    virtual Derivative<double> stddev()const override  {return sqrt(variance());};
+
+    virtual Derivative<double> variance()const {return param_[1];}
+
+    virtual M_Matrix<Derivative<double>>const & param()const override{return param_;}
+
+    Derivative(Derivative<double> mean, Derivative<double> variance)
+        :param_(1,2,std::vector<Derivative<double>>{mean,variance}){}
+
+    Derivative()=default;
+    virtual ~Derivative(){}
+    virtual Derivative<double> dlogL_dx(const double& x)const override
+    {
+        return (mean()+Constant(-x))/variance();
+    }
+
+    virtual Derivative<double> dlogL_dx2(const double& )const override
+    {
+        return -1.0/variance();
+    }
+
+
+    virtual Derivative<double> expected_logP()const override
+    {
+        return Constant(-0.5)-log((2.0*PI)*variance())*0.5;
+    }
+
+    virtual Derivative<double> variance_logP()const override
+    {
+        return {0.5,mean().x()};
+    }
+
+    Derivative(const Derivative&)=default;
+    Derivative(Derivative&&)=default;
+    Derivative&operator=(const Derivative&)=default;
+    Derivative&operator=(Derivative&&)=default;
+
+    M_Matrix<double> const & x(){ return mean().x();}
+
+    virtual M_Matrix<double> FIM()const override 
+    {
+        if (mean().dfdx().nrows()>mean().dfdx().ncols())
+          return quadraticForm_XXT(mean().dfdx())*d2logL_dmean2()+quadraticForm_XXT(variance().dfdx())*d2logL_dvariance2();
+        else
+            return quadraticForm_XTX(mean().dfdx())*d2logL_dmean2()+quadraticForm_XXT(variance().dfdx())*d2logL_dvariance2();
+            
+    }
+
+protected:
+    M_Matrix<Derivative<double>> param_;
+
+
+    double d2logL_dmean2()const {return 1.0/variance().f();}
+
+    double d2logL_dvariance2()const {return  0.5/sqr(variance().f());}
+
+};
+
+
+
+
+
 #endif // MYDISTRIBUTIONS_DERIVATIVE_H

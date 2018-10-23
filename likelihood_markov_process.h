@@ -1446,6 +1446,8 @@ struct partialDistribution_function
 
 };
 
+
+
 template<bool calc,class aux=markov::MACROR>
 struct partialDistribution_function_aux
 {

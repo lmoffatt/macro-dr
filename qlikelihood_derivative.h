@@ -25,29 +25,30 @@ public:
     template< class Experiment>
     auto compute_Distribution(const Experiment& e, const M_Matrix<double>& parameters) const
     {
-        typedef myOptional_t<std::vector<Normal_Distribution<double>>> Op;
+        typedef myOptional_t<std::vector<Derivative<Normal_Distribution<double>>>> Op;
         auto p=p_.tr_to_Parameter_derivative(parameters);
-        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()), min_P_);
-        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance_);
+        Derivative<SingleLigandModel> SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()), min_P_);
+        Markov_Model_calculations<Derivative<Markov_Transition_step_double>,Derivative<Markov_Transition_rate>,
+                Derivative<SingleLigandModel>,Experiment,double> MC(SM,e,1,tolerance_);
           if(algorithm_==my_trait<markov::MacroDVR>::className.str())
         {
-            auto out= markov::partialDistribution(markov::MacroDVR(tolerance_),MC,e);
+            auto out= markov::partialDistribution_derivative(Derivative<markov::MacroDVR>(tolerance_),MC,e);
             return out;
         }
         else  if(algorithm_==my_trait<markov::MacroDMR>::className.str())
         {
-            auto out= markov::partialDistribution(markov::MacroDMR(tolerance_),MC,e);
+            auto out= markov::partialDistribution_derivative(Derivative<markov::MacroDMR>(tolerance_),MC,e);
             return out;
         }
         else  if(algorithm_==my_trait<markov::MacroDVNR>::className.str())
         {
-            auto out= markov::partialDistribution(markov::MacroDVNR(tolerance_),MC,e);
+            auto out= markov::partialDistribution_derivative(Derivative<markov::MacroDVNR>(tolerance_),MC,e);
             return out;
         }
 
         else  if(algorithm_==my_trait<markov::MacroDMNR>::className.str())
         {
-            auto out= markov::partialDistribution(markov::MacroDMNR(tolerance_),MC,e);
+            auto out= markov::partialDistribution_derivative(Derivative<markov::MacroDMNR>(tolerance_),MC,e);
             return out;
         }
 
@@ -55,68 +56,51 @@ public:
             return Op(false,"algoritm "+algorithm_+ " not found");
     };
 
+
     template< class Experiment>
-    auto compute_Distribution_aux(const Experiment& e, const M_Matrix<double>& parameters, std::ostream& os) const
+    auto compute_DLikelihood(const Experiment& e, const M_Matrix<double>& parameters) const
     {
-        typedef myOptional_t<std::pair<std::vector<Normal_Distribution<double>>,std::vector<markov::MACROR>>> Op;
-        auto p=p_.tr_to_Parameter(parameters);
-        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()), min_P_);
-        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance_);
+        typedef myOptional_t<evidence::DlogLikelihood> Op;
+        auto p=p_.tr_to_Parameter_derivative(parameters);
+        Derivative<SingleLigandModel> SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()), min_P_);
+        Markov_Model_calculations<Derivative<Markov_Transition_step_double>,Derivative<Markov_Transition_rate>,
+                Derivative<SingleLigandModel>,Experiment,double> MC(SM,e,1,tolerance_);
           if(algorithm_==my_trait<markov::MacroDVR>::className.str())
         {
-            auto out= markov::partialDistribution_aux(markov::MacroDVR(tolerance_,BiNumber_,VaNumber_),MC,e,os);
-            return out;
+            auto out= markov::logLikelihood_derivative(Derivative<markov::MacroDVR>(tolerance_),MC,e);
+            if (out.has_value())
+                return Op(evidence::DlogLikelihood(std::move(out).value()));
+            else
+                return Op(false," compute_DLikelihood fails: "+out.error());
         }
-          else  if(algorithm_==my_trait<markov::MacroDMR>::className.str())
+        else  if(algorithm_==my_trait<markov::MacroDMR>::className.str())
           {
-              auto out= markov::partialDistribution_aux(markov::MacroDMR(tolerance_,BiNumber_),MC,e,os);
-              return out;
+              auto out= markov::logLikelihood_derivative(Derivative<markov::MacroDMR>(tolerance_),MC,e);
+              if (out.has_value())
+                  return Op(evidence::DlogLikelihood(std::move(out).value()));
+              else
+                  return Op(false," compute_DLikelihood fails: "+out.error());
           }
           else  if(algorithm_==my_trait<markov::MacroDVNR>::className.str())
-          {
-              auto out= markov::partialDistribution_aux(markov::MacroDVNR(tolerance_,VaNumber_),MC,e,os);
-              return out;
-          }
+            {
+                auto out= markov::logLikelihood_derivative(Derivative<markov::MacroDVNR>(tolerance_),MC,e);
+                if (out.has_value())
+                    return Op(evidence::DlogLikelihood(std::move(out).value()));
+                else
+                    return Op(false," compute_DLikelihood fails: "+out.error());
+            }
+
           else  if(algorithm_==my_trait<markov::MacroDMNR>::className.str())
-          {
-              auto out= markov::partialDistribution_aux(markov::MacroDMNR(tolerance_),MC,e,os);
-              return out;
-          }
+            {
+                auto out= markov::logLikelihood_derivative(Derivative<markov::MacroDMNR>(tolerance_),MC,e);
+                if (out.has_value())
+                    return Op(evidence::DlogLikelihood(std::move(out).value()));
+                else
+                    return Op(false," compute_DLikelihood fails: "+out.error());
+            }
 
-        else return Op(false,"algoritm "+algorithm_+ " not found");
-    };
-
-
-    template< class Experiment>
-    auto compute_Distribution_aux(const Experiment& e, const M_Matrix<double>& parameters, std::ostream& os,const std::vector<markov::MACROR> & aux) const
-    {
-        typedef myOptional_t<std::vector<Normal_Distribution<double>>> Op;
-        auto p=p_.tr_to_Parameter(parameters);
-        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()), min_P_);
-        Markov_Model_calculations<Markov_Transition_step_double,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance_);
-       if(algorithm_==my_trait<markov::MacroDVR>::className.str())
-       {
-           auto out= markov::partialDistribution_aux(markov::MacroDVR(tolerance_,BiNumber_,VaNumber_),MC,e,os,aux);
-           return out;
-       }
-       else  if(algorithm_==my_trait<markov::MacroDMR>::className.str())
-       {
-           auto out= markov::partialDistribution_aux(markov::MacroDMR(tolerance_,BiNumber_),MC,e,os,aux);
-           return out;
-       }
-       else  if(algorithm_==my_trait<markov::MacroDVNR>::className.str())
-       {
-           auto out= markov::partialDistribution_aux(markov::MacroDVNR(tolerance_,VaNumber_),MC,e,os,aux);
-           return out;
-       }
-       else  if(algorithm_==my_trait<markov::MacroDMNR>::className.str())
-       {
-           auto out= markov::partialDistribution_aux(markov::MacroDMNR(tolerance_),MC,e,os,aux);
-           return out;
-       }
-
-
-        else return Op(false,"algoritm "+algorithm_+ " not found");
+        else
+            return Op(false,"algoritm "+algorithm_+ " not found");
     };
 
 

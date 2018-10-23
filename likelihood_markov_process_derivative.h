@@ -754,11 +754,70 @@ public:
     Derivative()=default;
 };
 
+template<>
+struct Derivative<markov::logLikelihood_function>
+{
+    template<class Experiment>
+    std::tuple<double,double,double,M_Matrix<double>, M_Matrix<double>> operator()(const Experiment& )const
+    {
+        return std::tuple(0,0,0,M_Matrix<double>(), M_Matrix<double>());
+    }
+   // template<class mp_state_information>
+    void operator()(const Derivative<markov::mp_state_information>& mp, std::tuple<double,double,double,M_Matrix<double>, M_Matrix<double>>& logLsum, std::size_t& i)const
+    {
+        if (std::isfinite(mp.plogL().f()))
+        {
+            Derivative<Normal_Distribution<double>> n(mp.y_mean(),mp.y_var());
+            std::get<0>(logLsum)+=mp.plogL().f();
+            std::get<1>(logLsum)+=mp.eplogL().f();
+            std::get<2>(logLsum)+=0.5;
+            std::get<3>(logLsum)+=mp.plogL().dfdx();
+            std::get<4>(logLsum)+=n.FIM();
+            ++i;
+        }
+    }
+
+};
+
+
+template<>
+struct Derivative<markov::partialDistribution_function>
+{
+    template<class Experiment>
+    auto operator()(const Experiment& e)const
+    {
+        std::size_t n=e.num_measurements();
+
+        return std::vector<Derivative<Normal_Distribution<double>>>(n);
+    }
+
+    // template<class mp_state_information>
+    void operator()(const Derivative<markov::mp_state_information>& mp,std::vector<Derivative<Normal_Distribution<double>>>& v, std::size_t& i)const
+    {
+            v[i]=Derivative<Normal_Distribution<double>>(mp.y_mean(),mp.y_var());
+            ++i;
+    }
+
+};
+
+namespace markov {
+
+template<class MacroDR,class Model,class Experiment>
+myOptional_t<std::tuple<double,double,double,M_Matrix<double>,M_Matrix<double>>> logLikelihood_derivative(const Derivative<MacroDR>& a, Model& m, const Experiment e , std::ostream& os)
+{
+    return logLikelihood_experiment_calculation(Derivative<logLikelihood_function>(),a,m,e,os);
+}
+
+
+template<class MacroDR,class Model,class Experiment>
+myOptional_t<std::vector<Derivative<Normal_Distribution<double>>>> partialDistribution_derivative(const Derivative<MacroDR>& a, Model& m, const Experiment e )
+{
+    return logLikelihood_experiment_calculation(Derivative<markov::partialDistribution_function>(),a,m,e);
+}
 
 
 
-
-
+}
 
 
 #endif // LIKELIHOOD_MARKOV_PROCESS_DERIVATIVE_H
