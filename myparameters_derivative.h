@@ -13,6 +13,7 @@ class Derivative<Parameters_values<Model>>
     typedef typename Model::myParameter_label par_label;
     Derivative_t<LabelMap_t<par_label>> d_;
 public:
+  auto& x()const { return d_.begin()->second.x();}
 
     std::size_t size()const { return d_.size();}
     Derivative(Derivative_t<LabelMap_t<par_label>> values): d_{values}{};
@@ -54,10 +55,14 @@ public:
 template<typename Model>
 class Derivative<Parameters_distribution<Model>>: public Parameters_distribution<Model>
 {
-    typedef   Parameters_distribution<Model> base_type;
+public:
+  typedef Parameters_distribution<Model> base_type;
+
+     base_type const& f()const { return static_cast<base_type const &>(*this);}
+     Derivative (const base_type& p): base_type(p){}
      Derivative<Parameters_values<Model>> tr_to_Parameter_derivative(const M_Matrix<double>& val)const
     {
-        assert(val.size()==tu_.size());
+        assert(val.size()==base_type::tu_.size());
         Derivative_t<LabelMap_t<typename base_type::par_label>> m;
         for ( std::size_t i=0; i<val.size(); ++i)
         {
@@ -69,7 +74,8 @@ class Derivative<Parameters_distribution<Model>>: public Parameters_distribution
         }
         return Derivative<Parameters_values<Model>>(m);
     }
-
+    using base_type::tr_to_Parameter;
+    Derivative()=default;
 };
 
 

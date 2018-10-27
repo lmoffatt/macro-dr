@@ -20,7 +20,8 @@ public:
 
     static auto get_constructor_fields()
     {
-        double const& ( self_type ::*myf )();
+        double const& ( self_type ::*myf )()const;
+        myf=&self_type::f;
         return std::make_tuple(
                     grammar::field(C<self_type>{},"f",myf),
                     grammar::field(C<self_type>{},"x",&self_type::x),
@@ -178,8 +179,10 @@ Derivative<T> operator -(  Constant<T>&& c,const Derivative<T>& x)
     return Derivative<T>(c.value-x.f(),x.x(),-x.dfdx());
 }
 
-
-
+template <class T>
+Derivative<T> operator*(const Derivative<T> &x, const Constant<T> &c) {
+  return Derivative<T>(x.f() * c.value, x.x(), x.dfdx());
+}
 
 auto exp(D,double x)
 {

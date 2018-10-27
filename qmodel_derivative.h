@@ -15,12 +15,8 @@ public:
 
 public:
 
-
-
-
-
     Derivative()=default;
-
+    Derivative(const base_type& model): base_type{model}{}
 
 
     Derivative(std::size_t number_of_units,
@@ -50,7 +46,7 @@ public:
             {
                 Derivative<double> b(e.second,p.x());
                 for (auto& e2:e.first)
-                    b=b*std::pow(p.at(e2.first),p.at(e2.second));
+                    b=b*pow(p.at(e2.first),p.at(e2.second));
                 out+=b;
             }
         }
@@ -60,7 +56,7 @@ public:
             {
                 Derivative<double> b(e.second,p.x());
                 for (auto& e2:e.first)
-                    b=b*std::pow(p.at(e2.first),p.at(e2.second)-1.0);
+                  b=b*pow(p.at(e2.first),p.at(e2.second)+Constant(-1.0));
                 out+=b;
             }
         }
@@ -88,8 +84,8 @@ public:
                     Q0(i,i) -= Q0(i,j);
                 }}
         }
-        auto r=Q0*ones<double>(Q0.ncols(),1);
-        auto q=Qa*ones<double>(Q0.ncols(),1);
+    //    auto r=Q0*ones<Constant<double>>(Q0.ncols(),1);
+    //    auto q=Qa*ones<Constant<double>>(Q0.ncols(),1);
 
         return std::pair(Derivative<M_Matrix<double>>(std::move(Q0)),Derivative<M_Matrix<double>>(std::move(Qa)));
     }
@@ -98,7 +94,7 @@ public:
     template<class Parameters>
     auto g(const Derivative<Parameters>& p) const
     {
-        M_Matrix<Derivative<double>> out(conformer_.size(),1,p.x());
+      M_Matrix<Derivative<double>> out(conformer_.size(),1,Matrix_TYPE::FULL,Derivative<double>(p.x()));
         for (std::size_t i=0; i<conformer_.size(); ++i)
             out(i,0)=p.at(conductances_.at(i));
         return Derivative<M_Matrix<double>>(out);
@@ -388,7 +384,7 @@ public:
     }
 
 
-    Derivative(Derivative<Markov_Transition_step_double_minimum>&& x,  Derivative<M_Matrix<double>> g,double fs, double min_p)
+    Derivative(Derivative<Markov_Transition_step_double_minimum>&& x,  Derivative<M_Matrix<double>> g,double fs, double min_p, double)
         :base_type(std::move(x.PPn), std::move(g),x.n,fs,min_p)
     {
         init(std::move(x),fs);
@@ -684,10 +680,9 @@ private:
         {
             Derivative<Markov_Transition_step_double_minimum> step(step_ini);
             step*=step_ini;
-            step_ini=Derivative<Markov_Transition_step_double>(std::move(step),step_ini.g(),fs,min_P());
+            step_ini=Derivative<Markov_Transition_step_double>(std::move(step),step_ini.g(),fs,min_P(),0);
         }
         *this=step_ini;
-
 
 
     }
@@ -700,7 +695,7 @@ template<>
 class Derivative<SingleLigandModel>
 {
 public:
-    auto Q(double x)const { return Q0_+Qa_*x;}
+      auto Q(double x)const { return Q0_+Qa_*x;}
 
     auto& g(double)const { return g_;}
     auto Qx(double x, double tolerance) const { return Derivative_t<Markov_Transition_rate>::evaluate(Q(x),g(x),tolerance);}
@@ -714,6 +709,9 @@ public:
     auto noise_variance(std::size_t nsamples, double fs)const { return noise_variance_*(fs/nsamples);}
 
     auto& AverageNumberOfChannels()const { return N_channels_;}
+
+    std::size_t N_channels()const { return N_channels_.f();}
+
 
     Derivative(std::pair<Derivative<M_Matrix<double>>,Derivative<M_Matrix<double>>>&& Qs,
                Derivative<M_Matrix<double>>&& g, double Vm,Derivative<double> N, Derivative<double> noise, double min_P)

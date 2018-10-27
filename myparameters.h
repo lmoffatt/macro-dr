@@ -315,8 +315,9 @@ public:
     Parameters_distribution& operator=( Parameters_distribution&&)=default;
 
 
-private:
-    std::vector<std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>>> tu_;
+
+  protected:
+    ::std::vector<std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>>> tu_;
 
     static
     std::vector<std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>>>

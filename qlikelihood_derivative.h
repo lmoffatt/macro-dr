@@ -7,6 +7,7 @@
 #include "mytests.h"
 #include "qlikelihood.h"
 #include "likelihood_markov_process_derivative.h"
+#include "myparameters_derivative.h"
 
 
 
@@ -104,6 +105,42 @@ public:
     };
 
 
+
+    template <class Experiment>
+    auto compute_PartialDLikelihood(const M_Matrix<double> &parameters,std::ostream& os,const Experiment &e
+                             ) const {
+      typedef myOptional_t<evidence::PartialDLogLikelihood<markov::MACROR>> Op;
+      auto p = p_.tr_to_Parameter_derivative(parameters);
+      Derivative<SingleLigandModel> SM(
+          m.Qs(p), m.g(p), e.Vm(), p.at(Number_of_Channels_Parameter_label()),
+          p.at(gaussian_noise_Parameter_label()), min_P_);
+      Markov_Model_calculations<Derivative<Markov_Transition_step_double>,
+                                Derivative<Markov_Transition_rate>,
+                                Derivative<SingleLigandModel>, Experiment,
+                                double>
+          MC(SM, e, 1, tolerance_);
+      if (algorithm_ == my_trait<markov::MacroDVR>::className.str())
+      {
+        return markov::partialDlikelihood_derivative<markov::MACROR,evidence::PartialDLogLikelihood<markov::MACROR>>(
+            Derivative<markov::MacroDVR>(tolerance_,BiNumber_,VaNumber_), MC, e,os);
+      }
+      else  if (algorithm_ == my_trait<markov::MacroDMR>::className.str()) {
+        return markov::partialDlikelihood_derivative<
+            markov::MACROR, evidence::PartialDLogLikelihood<markov::MACROR>>(
+            Derivative<markov::MacroDMR>(tolerance_,BiNumber_), MC, e,os);
+      } else if (algorithm_ == my_trait<markov::MacroDMNR>::className.str()) {
+        return markov::partialDlikelihood_derivative<
+            markov::MACROR, evidence::PartialDLogLikelihood<markov::MACROR>>(
+            Derivative<markov::MacroDMNR>(tolerance_), MC, e,os);
+      }
+
+      else if (algorithm_ == my_trait<markov::MacroDVNR>::className.str()) {
+        return markov::partialDlikelihood_derivative<
+             markov::MACROR, evidence::PartialDLogLikelihood<markov::MACROR>>(
+            Derivative<markov::MacroDVNR>(tolerance_,VaNumber_), MC, e,os);
+      } else
+        return Op(false, "algoritm " + algorithm_ + " not found");
+    };
 
     Derivative(const Derivative<Model>& m, const Derivative<Parameters_distribution>& p, const std::string& algorithm, double min_P, double tolerance, double BiNumber,double VaNumber): m{m},p_{p}, algorithm_{algorithm}, min_P_{min_P}, tolerance_{tolerance}, BiNumber_(BiNumber),VaNumber_{VaNumber}{}
 private:

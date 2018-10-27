@@ -2,6 +2,7 @@
 #define MYDERIVATIVES_H
 #include <utility>
 #include <map>
+#include "mytypetraits.h"
 template< class...>
 class Derivative;
 
@@ -30,12 +31,24 @@ class D{};
 template <class T>
 struct Constant
 {
+  constexpr static auto className=my_static_string("Constant")+my_trait<T>::className;
+
    T value;
    Constant(T&& x):value{std::move(x)}{}
    Constant(const T& x):value{x}{}
+   Constant()=default;
    
 };
 
-
-
+namespace std{
+template <class T> struct numeric_limits<Constant<T>>: public numeric_limits<T> {
+  typedef numeric_limits<T> base_type;
+  using base_type::epsilon;
+};
+template <class T>
+struct numeric_limits<Derivative<T>> : public numeric_limits<T> {
+  typedef numeric_limits<T> base_type;
+//  using base_type::epsilon;
+};
+}
 #endif // MYDERIVATIVES_H

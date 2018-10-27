@@ -541,8 +541,8 @@ public:
 
     virtual T apply(const T& x)const override {return x;}
     virtual T apply_inv(const T& x)const override {return x;}
-    virtual T dapply(const T& x)const override {return T(1);}
-    virtual T dapply_inv(const T& x)const override {return T(1);}
+    virtual T dapply(const T& )const override {return T(1);}
+    virtual T dapply_inv(const T& )const override {return T(1);}
 
     virtual ~Identity_Transformation(){}
 

@@ -1530,6 +1530,8 @@ public:
 
     double AverageNumberOfChannels()const { return N_channels_;}
 
+    std::size_t N_channels()const { return N_channels_;}
+
     SingleLigandModel(std::pair<M_Matrix<double>,M_Matrix<double>>&& Qs, M_Matrix<double>&& g, double Vm,double N, double noise, double min_P)
         :Q0_{std::move(Qs.first)},Qa_{std::move(Qs.second)}, g_{g*Vm},N_channels_{N},noise_variance_{noise},min_P_{min_P}{}
 
@@ -1592,13 +1594,14 @@ public:
                 else
                     return Markov_Transition_step(num_recursion,Qx.value(),nsamples,fs(),Model().min_P());
             }
-            else return Markov_Transition_step(Qx.value(),nsamples,fs(),Model().min_P(), Model().tolerance());
+            else return Markov_Transition_step(Qx.value(),nsamples,fs(),Model().min_P());
             //     return Markov_Transition_step(get_Qx(x),nsamples,fs());
         }
     }
     auto Peq(const X& x)
     {
-        typedef myOptional_t<M_Matrix<double>> Op;
+
+      typedef myOptional_t<std::invoke_result_t<decltype (&Markov_Transition_rate::calc_Peq),Markov_Transition_rate>> Op;
         //  auto Qx=get_Qx(x);
         auto Qx=calc_Qx(x);
         // std::cerr<<"calcQx"<<Qx.value().Qrun();
@@ -1608,10 +1611,6 @@ public:
             return Op(Qx.value().calc_Peq());
     };
 
-    std::size_t N(const X&)const
-    {
-        return N_;
-    }
 
     auto AverageNumberOfChannels()const { return m_.AverageNumberOfChannels();}
 
@@ -1719,11 +1718,11 @@ public:
     double min_P() const { return Model().min_P();}
     double tolerance() const { return tolerance_;}
     double n_sub_samples()const {return n_sub_samples_;}
-
+    std::size_t N(const X &) const { return N_; }
     double fs()const {return fs_;}
 
     Markov_Model_calculations(const M& m, const Experiment& e, std::size_t n_sub_samples, double tolerance)
-        :    m_{m},N_{std::size_t(m.AverageNumberOfChannels())},fs_{e.frequency_of_sampling()},n_sub_samples_{n_sub_samples},tolerance_{tolerance},e_{e},rate_map_{}, map_{},step_map_{}{}
+        :    m_{m},N_{std::size_t(m.N_channels())},fs_{e.frequency_of_sampling()},n_sub_samples_{n_sub_samples},tolerance_{tolerance},e_{e},rate_map_{}, map_{},step_map_{}{}
 
 private:
     const M& m_;

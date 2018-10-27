@@ -5233,8 +5233,9 @@ UnformattedProduct
  )
 ->M_Matrix<decltype(std::declval<T>()*std::declval<S>())>
 {
-    assert(x.ncols()==y.nrows());
-    M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out(x.nrows(), y.ncols(),0);
+  typedef decltype(std::declval<T>()*std::declval<S>()) R;
+      assert(x.ncols()==y.nrows());
+      M_Matrix<decltype(std::declval<T>()*std::declval<S>())> out(x.nrows(), y.ncols(),R(0));
     for (std::size_t i=0; i<x.nrows();++i)
         for (std::size_t j=0; j<y.ncols();++j)
             for (std::size_t k=0; k<x.ncols();++k)
