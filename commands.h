@@ -411,7 +411,7 @@ template<class Experiment,class Model, class ParametersDistribution>
 struct likelihoodtest_derivative{
 
 
-    static constexpr auto className=my_static_string("likelihoodtest");
+    static constexpr auto className=my_static_string("likelihoodtest_derivative");
     static auto run(std::size_t initseed,
                     const Experiment& e,
                     const Model& m ,
@@ -422,20 +422,15 @@ struct likelihoodtest_derivative{
                     double VaNumber,
                     double min_P,
                     double tolerance,
-                    double eps_Gradient,
-                    bool eps_adjust,
-                    bool center_Gradient,
                     std::size_t n_sub_intervals,
                     double max_dt,
                     std::size_t nsamples,
-                    double pvalue,
-                    double epsf)
+                    double pvalue)
     {
         std::cerr<<"\nparameters\n"<<p;
         std::cerr<<"\n initseed="<<initseed<<"\n";
         std::cerr<<"\n n_sub_intervals="<<n_sub_intervals<<"\n";
         std::cerr<<"\n nsamples="<<nsamples<<"\n";
-        std::cerr<<"\n center_Gradient="<<center_Gradient<<"\n";
 
 
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
@@ -458,14 +453,10 @@ struct likelihoodtest_derivative{
                     grammar::argument(C<double>{},"Variance_threshold",1.0),
                     grammar::argument(C<double>{},"min_probability",1e-9),
                     grammar::argument(C<double>{},"tolerance_error",1e-7),
-                    grammar::argument(C<double>{},"eps_G"),
-                    grammar::argument(C<bool>{},"eps_G_adjust"),
-                    grammar::argument(C<bool>{},"Center_gradient"),
                     grammar::argument(C<std::size_t>{},"number_of_sub_intervals"),
                     grammar::argument(C<double>{},"max_dt"),
                     grammar::argument(C<std::size_t>{},"nsamples"),
-                    grammar::argument(C<double>{},"p_value"),
-                    grammar::argument(C<double>{},"eps_factor")
+                    grammar::argument(C<double>{},"p_value")
                     );
     }
 
