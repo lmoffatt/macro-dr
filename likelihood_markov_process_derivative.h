@@ -909,8 +909,9 @@ template <> struct Derivative<markov::partialDistribution_function> {
 template <class aux, class PartialDlogLikelihood>
 struct Derivative_partialDistribution_function_aux {
   template <class Experiment>
-  auto operator()(const Experiment &e, const std::vector<aux> &) const {
+  auto operator()(const Experiment &e,  std::vector<aux> & v) const {
     std::size_t n = e.num_measurements();
+    v.resize(n);
     return PartialDlogLikelihood(n);
   }
 

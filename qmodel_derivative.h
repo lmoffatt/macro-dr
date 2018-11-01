@@ -129,7 +129,7 @@ class Derivative<Markov_Transition_rate>
 
     void init(Derivative_t<Matrix_Decompositions::eigensystem_type>&& eig)
     {
-        std::tie(W_,landa_,V_)=std::move(eig);
+        std::tie(V_,landa_,W_)=std::move(eig);
         clean_landa(landa_);
         Wg_=W_*g_;
         WgV_=W_*diag(g_)*V_;

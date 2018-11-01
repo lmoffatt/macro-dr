@@ -664,7 +664,7 @@ class Markov_Transition_rate
 
     void init(Matrix_Decompositions::eigensystem_type&& eig)
     {
-        std::tie(W_,landa_,V_)=std::move(eig);
+        std::tie(V_,landa_,W_)=std::move(eig);
         clean_landa(landa_);
         Wg_=W_*g_;
         WgV_=W_*Matrix_Unary_Transformations::diag(g_)*V_;
