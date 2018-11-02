@@ -614,7 +614,7 @@ struct Objects
     likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
     likelihoodtest_derivative<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
   // not yet  likelihoodtest_derivative<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
-      simulate<singleLigandExperiment, State_Model>,
+     /* simulate<singleLigandExperiment, State_Model>,
       likelihood<singleLigandExperiment, State_Model>,
       likelihood_detail<singleLigandExperiment, State_Model>,
       Evidence<singleLigandExperiment, State_Model,
@@ -625,7 +625,7 @@ struct Objects
                      Parameters_distribution<State_Model>>,
       likelihoodtest<singleLigandExperiment, State_Model,
                      Parameters_partial_distribution<State_Model>>,
-
+*/
       to_experiment,
     to_DataFrame<measure_just_y<double>>,
     to_DataFrame<markov::measure_likelihood<double>>,

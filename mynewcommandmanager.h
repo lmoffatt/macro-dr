@@ -84,18 +84,25 @@ private:
 
 
 
-template <class...types, class...commands, template <typename...>class... template_commands>
-class CommandManager<Cs<types...>, Cs<commands...>, CCs<template_commands...>>
+//template <class Objects ,class...types, class...commands, template <typename...>class... template_commands>
+template <class Objects >
+class CommandManager<Objects>
 {
     
 public:
-    typedef CommandManager<Cs<types...>, Cs<commands...>, CCs<template_commands...>> self_type;
-    
-    typedef typename extract_types<Cs<types...>,Cs<commands...>,CCs<template_commands...> >::type myTypes;
-    
-    typedef class_concatenate_t<Cs<commands...>,build_all_commands_t<CCs<template_commands...>,extract_types_t<Cs<types...>,Cs<commands...>> > > myCommands;
 
-    typedef typename extract_function_return_types<myTypes,Cs<commands...>>::type myFuncReturns;
+
+  typedef typename Objects::types Cs_types;
+  typedef  typename Objects::commands  Cs_commands;
+  typedef typename Objects::templateCommands Cs_template_commands;
+  typedef CommandManager<Objects> self_type;
+
+  typedef typename extract_types<Cs_types,Cs_commands,Cs_template_commands >::type myTypes;
+//    typedef typename extract_types<Cs<types...>,Cs<commands...>,CCs<template_commands...> >::type myTypes;
+    
+    typedef class_concatenate_t<Cs_commands,build_all_commands_t<Cs_template_commands,extract_types_t<Cs_types,Cs_commands> > > myCommands;
+
+    typedef typename extract_function_return_types<myTypes,Cs_commands>::type myFuncReturns;
 
     typedef class_set_union_t<myTypes,myFuncReturns> allTypes;
 
