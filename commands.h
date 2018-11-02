@@ -602,10 +602,11 @@ struct Evidence{
 struct Objects
 {
 
-    typedef Cs<Allosteric_Model,singleLigandExperiment> types;
+  typedef Cs<State_Model,Allosteric_Model,singleLigandExperiment> types;
     typedef Cs<
     function_log10,
-    simulate<singleLigandExperiment,Allosteric_Model>, likelihood<singleLigandExperiment,Allosteric_Model>,
+    simulate<singleLigandExperiment,Allosteric_Model>,
+      likelihood<singleLigandExperiment,Allosteric_Model>,
     likelihood_detail<singleLigandExperiment,Allosteric_Model>,
     Evidence<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
     Evidence<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
@@ -613,8 +614,19 @@ struct Objects
     likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
     likelihoodtest_derivative<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
   // not yet  likelihoodtest_derivative<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
+      simulate<singleLigandExperiment, State_Model>,
+      likelihood<singleLigandExperiment, State_Model>,
+      likelihood_detail<singleLigandExperiment, State_Model>,
+      Evidence<singleLigandExperiment, State_Model,
+               Parameters_distribution<State_Model>>,
+      Evidence<singleLigandExperiment, State_Model,
+               Parameters_partial_distribution<State_Model>>,
+      likelihoodtest<singleLigandExperiment, State_Model,
+                     Parameters_distribution<State_Model>>,
+      likelihoodtest<singleLigandExperiment, State_Model,
+                     Parameters_partial_distribution<State_Model>>,
 
-    to_experiment,
+      to_experiment,
     to_DataFrame<measure_just_y<double>>,
     to_DataFrame<markov::measure_likelihood<double>>,
     to_DataFrame<evidence::Likelihood_Analisis<Parameters_distribution<Allosteric_Model>,M_Matrix<double>,singleLigandExperiment,evidence::PartialDLogLikelihood<markov::MACROR>>>

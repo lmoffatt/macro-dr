@@ -962,8 +962,11 @@ public:
     {
 
         //   typedef typename Adaptive_Mover<Model>::Mover stretch_move;
-        auto [one,two]=random_split(current.numWalkers());
-        #pragma omp parallel for
+        auto tu=random_split(current.numWalkers());
+        auto one=std::move(std::get<0>(tu));
+        auto two=std::move(std::get<1>(tu));
+    //    auto [one, two] =tu;
+#pragma omp parallel for
                 for (std::size_t ii=0; ii<one.size(); ++ii)
         {
             auto i=one[ii];

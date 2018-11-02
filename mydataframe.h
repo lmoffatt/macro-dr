@@ -131,7 +131,7 @@ public:
     template<typename... Ks>
     bool push_back_t(const std::tuple<Ks...>& data)
     {
-        return std::apply([this](auto... x){return push_back(x...);},data);
+      return std::apply([this](auto... x){return this->push_back(x...);},data);
     }
 
     template<typename... Ks>

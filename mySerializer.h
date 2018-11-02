@@ -44,15 +44,11 @@ std::string my_to_string(double x)
 
 
 template <typename T>
-auto  ToString(const T& x)->decltype ((std::declval<std::stringstream&>()<<x), std::string())
-{std::stringstream ss; ss<<x; return ss.str();}
-
+auto  ToString(const T& x)->decltype ((std::declval<std::stringstream&>()<<x), std::string());
 
 
 template <typename T>
-auto  ToString(const T& x)->decltype (x.put(std::declval<std::ostream&>()), std::string())
-{std::stringstream ss; x.put(ss); return ss.str();}
-
+auto  ToString(const T& x)->decltype (x.put(std::declval<std::ostream&>()), std::string());
 template <>
 std::string  ToString(const double& x)
 {std::stringstream ss; ss<<std::fixed; ss<<x; return ss.str();}
@@ -1473,8 +1469,21 @@ template <typename T> std::string my_to_string(const T& x)
     os<<x;
     return os.str();
 }
+template <typename T>
+auto ToString(const T &x)
+    -> decltype((std::declval<std::stringstream &>() << x), std::string()) {
+  std::stringstream ss;
+  ss << x;
+  return ss.str();
+}
 
-
+template <typename T>
+auto ToString(const T &x)
+    -> decltype(x.put(std::declval<std::ostream &>()), std::string()) {
+  std::stringstream ss;
+  x.put(ss);
+  return ss.str();
+}
 
 } // namespace io
 

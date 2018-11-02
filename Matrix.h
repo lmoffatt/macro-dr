@@ -39,8 +39,7 @@ inline double average(double x, double y) { return 0.5 * (x + y); }
 
 inline double sqr(double x) { return x * x; }
 
-template <typename T> inline T sqr(const T x) { return x * x; }
-
+template <typename T> inline T sqr(const T& x);
 namespace Vector_Unary_Index_Function {
 
 template <typename T> std::size_t i_max(const std::vector<T> &x) {
@@ -1112,7 +1111,11 @@ public:
                 ostream &os = std::cerr) const {
     return apply_test(are_Equal<output, T>(absolute_, relative_), one, two, os);
   }
+
   template <class ostream>
+  bool test(const M_Matrix<T> &one, const M_Matrix<T> &two,
+                ostream &os = std::cerr) const{ return test_sum(one,two,os);}
+      template <class ostream>
   bool test_prod(const M_Matrix<T> &one, const M_Matrix<T> &two,
                  ostream &os = std::cerr) const {
     double N = Matrix_Unary_Functions::norm_1(one);
@@ -1777,6 +1780,32 @@ typedef std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>>
 typedef std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>>
     SVD_type;
 
+eigensystem_type sort(const eigensystem_type& e)
+{
+  auto&[VR,L,VL]=e;
+  std::vector<std::pair<double,std::size_t>> la(L.size());
+  for (std::size_t i=0; i<L.size(); ++i)
+    la[i]=std::pair(L[i],i);
+  std::sort(la.begin(),la.end());
+  M_Matrix<double> Ls(L.nrows(),L.ncols(),L.type());
+
+  M_Matrix<double> VRs(VR.nrows(),VR.ncols(),VR.type());
+  M_Matrix<double> VLs(VL.nrows(),VL.ncols(),VL.type());
+  for (std::size_t i=0; i<la.size(); ++i)
+  {
+    auto is=la[i].second;
+    Ls[i]=L[is];
+    for (std::size_t j=0; j<la.size(); ++j)
+    {
+      VRs(j,i)=VR(j,is);
+      VLs(i,j)=VL(is,j);
+    }
+  }
+  return std::tuple(VRs,Ls,VLs);
+
+}
+
+
 M_Matrix<double> &Right_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
   assert(X.nrows() == X.ncols());
   auto n = X.nrows();
@@ -2230,8 +2259,8 @@ Parameters
     Nelson_Normalization(VR_cpp,VL_cpp);
     assert((are_Equal<true,M_Matrix<double>>().test_prod(VR_cpp*WR*VL_cpp,x,std::cerr)));
     return Op(
-        std::make_tuple(VR_cpp, WR,
-                        VL_cpp)); // in reality VL, L, VR because of transposition
+        sort(std::make_tuple(VR_cpp, WR,
+                             VL_cpp))); // in reality VL, L, VR because of transposition
   }
 }
 
@@ -6038,5 +6067,8 @@ struct Frobenius_test : public invariant {
       return false;
   }
 };
+
+
+template <typename T> inline T sqr(const T& x) { return x * x; }
 
 #endif // MATRIX_H
