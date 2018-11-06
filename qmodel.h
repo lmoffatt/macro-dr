@@ -1537,6 +1537,9 @@ operator*=(const Markov_Transition_step_double &x) {
 
 class SingleLigandModel {
 public:
+  auto &Q0() const { return Q0_; }
+  auto &Qa() const { return Qa_; }
+
   auto Q(double x) const { return Q0_ + Qa_ * x; }
 
   auto &g(double) const { return g_; }
@@ -1736,6 +1739,7 @@ public:
   double n_sub_samples() const { return n_sub_samples_; }
   std::size_t N(const X &) const { return N_; }
   double fs() const { return fs_; }
+  auto& get_Experiment()const { return e_;}
 
   Markov_Model_calculations(const M &m, const Experiment &e,
                             std::size_t n_sub_samples, double tolerance)

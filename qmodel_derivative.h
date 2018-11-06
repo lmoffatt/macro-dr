@@ -2,6 +2,7 @@
 #define QMODEL_DERIVATIVE_H
 #include "qmodel.h"
 #include "matrixderivative.h"
+#include "myparameters_derivative.h"
 
 template <> class Derivative<State_Model> : public State_Model {
 public:
@@ -13,22 +14,20 @@ public:
   Derivative() = default;
   Derivative(const base_type &model) : base_type{model} {}
 
-  Derivative(
-      std::size_t number_of_states,
-      std::map<std::pair<std::size_t, std::size_t>, rate_Parameter_label>
-          mytransition_rates,
-      std::map<std::pair<std::size_t, std::size_t>, rate_Parameter_label>
-          myagonist_transitions,
-      std::map<std::size_t, Conductance_Parameter_label> myconductances)
-      :base_type(number_of_states,mytransition_rates,myagonist_transitions,myconductances) {}
+  Derivative(std::size_t number_of_states,
+             std::map<std::pair<std::size_t, std::size_t>, rate_Parameter_label>
+                 mytransition_rates,
+             std::map<std::pair<std::size_t, std::size_t>, rate_Parameter_label>
+                 myagonist_transitions,
+             std::map<std::size_t, Conductance_Parameter_label> myconductances)
+      : base_type(number_of_states, mytransition_rates, myagonist_transitions,
+                  myconductances) {}
 
   template <class Parameters> auto Qs(const Derivative<Parameters> &p) const {
 
-    M_Matrix<Derivative<double>> Q0(k(),k(),
-                                    Matrix_TYPE::FULL,
+    M_Matrix<Derivative<double>> Q0(k(), k(), Matrix_TYPE::FULL,
                                     Derivative<double>(p.x()));
-    M_Matrix<Derivative<double>> Qa(k(),k(),
-                                    Matrix_TYPE::FULL,
+    M_Matrix<Derivative<double>> Qa(k(), k(), Matrix_TYPE::FULL,
                                     Derivative<double>(p.x()));
 
     for (auto &e : transition_rates()) {
@@ -39,7 +38,7 @@ public:
       Qa(e.first.first, e.first.second) = p.at(e.second);
       Qa(e.first.first, e.first.first) -= Qa(e.first.first, e.first.second);
     }
-     //    auto r=Q0*ones<Constant<double>>(Q0.ncols(),1);
+    //    auto r=Q0*ones<Constant<double>>(Q0.ncols(),1);
     //    auto q=Qa*ones<Constant<double>>(Q0.ncols(),1);
 
     return std::pair(Derivative<M_Matrix<double>>(std::move(Q0)),
@@ -53,6 +52,51 @@ public:
     return Derivative<M_Matrix<double>>(out);
   }
 };
+
+template <class F, class Model, class Parameters>
+auto Incremental_ratio(const F &fun, const Model &M,
+                       const Derivative<Parameters_values<State_Model>> &p,
+                       double eps) {
+  auto f = std::invoke(fun, M, p.f());
+  M_Matrix<M_Matrix<double>> dfdx(p.x().nrows(), p.x().ncols(), p.x().type());
+
+  for (std::size_t i = 0; i < p.x().size(); ++i) {
+    double e = eps;
+    if (p.x()[i] != 0)
+      e *= std::abs(p.x()[i]);
+    auto ppos = p.f_dfdx(i, e);
+    auto pneg = p.f_dfdx(i, -e);
+
+    auto fpos = fun(ppos);
+    auto fneg = fun(pneg);
+    dfdx[i] = (fpos - fneg) / (2.0 * e);
+  }
+  return Derivative<M_Matrix<double>>(f, p.x(), dfdx);
+}
+
+template <class F, class Model, class Parameters>
+auto Incremental_ratio_pair(const F &fun, const Model &M,
+                            const Derivative<Parameters_values<State_Model>> &p,
+                            double eps) {
+  auto [f1, f2] = std::invoke(fun, M, p.f());
+  M_Matrix<M_Matrix<double>> df1dx(p.x().nrows(), p.x().ncols(), p.x().type());
+  M_Matrix<M_Matrix<double>> df2dx(p.x().nrows(), p.x().ncols(), p.x().type());
+
+  for (std::size_t i = 0; i < p.x().size(); ++i) {
+    double e = eps;
+    if (p.x()[i] != 0)
+      e *= std::abs(p.x()[i]);
+    auto ppos = p.f_dfdx(i, e);
+    auto pneg = p.f_dfdx(i, -e);
+
+    auto [fpos1, fpos2] = fun(ppos);
+    auto [fneg1, fneg2] = fun(pneg);
+    df1dx[i] = (fpos1 - fneg1) / (2.0 * e);
+    df2dx[i] = (fpos2 - fneg2) / (2.0 * e);
+  }
+  return std::pair(Derivative<M_Matrix<double>>(f1, p.x(), df1dx),
+                   Derivative<M_Matrix<double>>(f2, p.x(), df2dx));
+}
 
 template <> class Derivative<Allosteric_Model> : public Allosteric_Model {
 public:
@@ -149,7 +193,6 @@ public:
   }
 };
 
-
 template <> class Derivative<Markov_Transition_rate> {
 
   Derivative<M_Matrix<double>> Qrun_; // transition rate matrix at time zero
@@ -175,7 +218,20 @@ template <> class Derivative<Markov_Transition_rate> {
     std::tie(V_, landa_, W_) = std::move(eig);
     clean_landa(landa_);
     Wg_ = W_ * g_;
+    assert((are_Equal<true, Derivative<M_Matrix<double>>>().test_prod(
+        Wg_,
+        Incremental_ratio([](auto const &W, auto const &g) { return W * g; },
+                          W_, g_, 1e-6),
+        std::cerr)));
+
     WgV_ = W_ * diag(g_) * V_;
+    assert((are_Equal<true, Derivative<M_Matrix<double>>>().test_prod(
+        WgV_,
+        Incremental_ratio([](auto const &W, auto const &g,
+                             auto const &V) { return W * diag(g) * V; },
+                          1e-6, W_, g_, V_),
+        std::cerr)));
+
     // assert(Frobenius_test::test(Qrun(),V()*landa()*W(),1,
     // std::sqrt(std::numeric_limits<double>::epsilon())));
   }
@@ -193,62 +249,8 @@ public:
     typedef myOptional_t<Derivative<Markov_Transition_rate>> Op;
     auto eig = Matrix_Decompositions::EigenSystem_full_real_eigenvalue(_Qrun);
     if (eig) {
-      std::cerr<<"\n --------1e-1-------\n";
-      bool test_e1=are_Equal<true, Derivative_t<typename Matrix_Decompositions::eigensystem_type>>().
-test(
-          eig.value(),
-          Incremental_ratio_tuple_3([](auto& x)
-                                    { return Matrix_Decompositions::EigenSystem_full_real_eigenvalue(x).value();},_Qrun, 1e-1),std::cerr);
-
-      std::cerr << "\n --------1e-3-------\n";
-      bool test_e3 =
-          are_Equal<
-              true,
-              Derivative_t<typename Matrix_Decompositions::eigensystem_type>>()
-              .test(eig.value(),
-                    Incremental_ratio_tuple_3(
-                        [](auto &x) {
-                          return Matrix_Decompositions::
-                              EigenSystem_full_real_eigenvalue(x)
-                                  .value();
-                        },
-                        _Qrun, 1e-3),
-                    std::cerr);
-      std::cerr<<"\n --------1e-5-------\n";
-      bool test_e5 =
-          are_Equal<
-              true,
-              Derivative_t<typename Matrix_Decompositions::eigensystem_type>>()
-              .test(eig.value(),
-                    Incremental_ratio_tuple_3(
-                        [](auto &x) {
-                          return Matrix_Decompositions::
-                              EigenSystem_full_real_eigenvalue(x)
-                                  .value();
-                        },
-                        _Qrun, 1e-5),
-                    std::cerr);
-
-      std::cerr << "\n --------1e-3  vs 1e-5-------\n";
+      // std::cerr<<"\n --------1e-5  vs 1e-6-------\n";
       are_Equal<true, Derivative_t<
-                          typename Matrix_Decompositions::eigensystem_type>>()
-          .test(Incremental_ratio_tuple_3(
-                    [](auto &x) {
-                      return Matrix_Decompositions::
-                          EigenSystem_full_real_eigenvalue(x)
-                              .value();
-                    },
-                    _Qrun, 1e-3),
-                Incremental_ratio_tuple_3(
-                    [](auto &x) {
-                      return Matrix_Decompositions::
-                          EigenSystem_full_real_eigenvalue(x)
-                              .value();
-                    },
-                    _Qrun, 1e-5),
-                std::cerr);
-      std::cerr<<"\n --------1e-5  vs 1e-6-------\n";
-          are_Equal<true, Derivative_t<
                           typename Matrix_Decompositions::eigensystem_type>>()
           .test(Incremental_ratio_tuple_3(
                     [](auto &x) {
@@ -265,9 +267,9 @@ test(
                     },
                     _Qrun, 1e-6),
                 std::cerr);
-          std::cerr<<"\n --------1e-7-------\n";
+      // std::cerr<<"\n --------1e-6-------\n";
 
-      bool test_e7 =
+      bool test_e6 =
           are_Equal<
               true,
               Derivative_t<typename Matrix_Decompositions::eigensystem_type>>()
@@ -278,24 +280,8 @@ test(
                               EigenSystem_full_real_eigenvalue(x)
                                   .value();
                         },
-                        _Qrun, 1e-7),
+                        _Qrun, 1e-6),
                     std::cerr);
-      std::cerr<<"\n --------1e-9-------\n";
-
-      bool test_e9 =
-          are_Equal<
-              true,
-              Derivative_t<typename Matrix_Decompositions::eigensystem_type>>()
-              .test(eig.value(),
-                    Incremental_ratio_tuple_3(
-                        [](auto &x) {
-                          return Matrix_Decompositions::
-                              EigenSystem_full_real_eigenvalue(x)
-                                  .value();
-                        },
-                        _Qrun, 1e-9),
-                    std::cerr);
-      assert(test_e3&&test_e5&&test_e9);
 
       if (auto eigtest = test(eig.value(), tolerance); eigtest.has_value())
         return Op(Derivative(std::move(_Qrun), _g, std::move(eig).value()));
@@ -336,6 +322,7 @@ test(
     }
     //  std::cerr<<"\n
     //  ----calc_Peq-----\np0="<<p0<<"laexp="<<laexp<<"V()"<<V()<<"W"<<W();
+
     return p0 * V() * laexp * W();
   }
 };
@@ -802,6 +789,14 @@ private:
 
 template <> class Derivative<SingleLigandModel> {
 public:
+
+  auto& x()const {return Q0_.x();}
+
+  SingleLigandModel f()const
+
+  {
+    return  SingleLigandModel({Q0_.f(),Qa_.f()}, g_.f()*1.0, 1.0,  N_channels(), noise_variance_.f(), min_P());
+  }
   auto Q(double x) const { return Q0_ + Qa_ * x; }
 
   auto &g(double) const { return g_; }
@@ -838,6 +833,11 @@ public:
 
   double min_P() const { return min_P_; }
 
+  auto & Q0()const { return Q0_;}
+  auto & Qa()const { return Qa_;}
+  auto & g0()const {return g_;}
+  auto & noise_std()const { return noise_variance_;}
+
 private:
   Derivative<M_Matrix<double>> Q0_;
   Derivative<M_Matrix<double>> Qa_;
@@ -846,5 +846,60 @@ private:
   Derivative<double> noise_variance_;
   double min_P_;
 };
+
+
+
+inline SingleLigandModel Taylor_first(const Derivative<SingleLigandModel> &dy, std::size_t i, double eps) {
+  auto Q0=Taylor_first(dy.Q0(),i,eps);
+  auto Qa=Taylor_first(dy.Qa(),i,eps);
+  auto g=Taylor_first(dy.g0(),i,eps);
+  auto N=Taylor_first(dy.AverageNumberOfChannels(),i,eps);
+  auto noise=Taylor_first(dy.noise_std(),i,eps);
+  return SingleLigandModel(std::pair(std::move(Q0),std::move(Qa)),std::move(g),1.0,N,noise,dy.min_P());
+}
+
+template <class Markov_Transition_step, class Markov_Transition_rate, class M,
+          class Experiment, class X>
+Markov_Model_calculations<Markov_Transition_step, Markov_Transition_rate, M,
+                          Experiment, X>
+Primitive(const Markov_Model_calculations<Derivative<Markov_Transition_step>,
+                                          Derivative<Markov_Transition_rate>,
+                                          Derivative<M>, Experiment, X> &dm) {
+  return Markov_Model_calculations<Markov_Transition_step,
+                                   Markov_Transition_rate, M, Experiment, X>(
+      dm.Model().f(), dm.get_Experiment(), dm.n_sub_samples(), dm.tolerance());
+}
+
+template <class Markov_Transition_step, class Markov_Transition_rate, class M,
+          class Experiment, class X>
+Markov_Model_calculations<Markov_Transition_step, Markov_Transition_rate, M,
+                          Experiment, X>
+Taylor_first(const Markov_Model_calculations<Derivative<Markov_Transition_step>,
+                                          Derivative<Markov_Transition_rate>,
+                                             Derivative<M>, Experiment, X> &dm, std::size_t i, double eps) {
+  return Markov_Model_calculations<Markov_Transition_step,
+                                   Markov_Transition_rate, M, Experiment, X>(
+      Taylor_first(dm.Model(),i,eps), dm.get_Experiment(), dm.n_sub_samples(), dm.tolerance());
+}
+
+template <class F, class ModelCalculationsDerivative>
+auto Incremental_ratio_model(const F &fun, const ModelCalculationsDerivative &dm,
+                             double eps) {
+
+  auto m=Primitive(dm);
+  auto x=dm.Model().x();
+  auto f = std::invoke(fun, m).value();
+  std::vector<std::decay_t<decltype(f)>> fpos(x.size());
+  std::vector<std::decay_t<decltype(f)>> fneg(x.size());
+  for (std::size_t i = 0; i < x.size(); ++i) {
+    double e = eps;
+    if (x[i] != 0)
+      e *= std::abs(x[i]);
+    auto mpos=Taylor_first(dm, i, e);
+    fpos[i] = fun(mpos).value();
+    fneg[i] = std::invoke(fun, Taylor_first(dm, i, -e)).value();
+  }
+  return Incremental_ratio_calc(f, x, fpos, fneg, eps);
+}
 
 #endif // QMODEL_DERIVATIVE_H

@@ -110,9 +110,19 @@ public:
   }
 };
 
+
+
+
+
+
+
+
 template <> class Derivative<markov::MacroDMNR> : public markov::MacroDMNR {
 public:
   typedef markov::MacroDMNR base_type;
+
+  base_type const & f()const { return *this;}
+
 
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
@@ -276,6 +286,7 @@ template <> class Derivative<markov::MacroDVNR> : public markov::MacroDVNR {
 public:
   inline constexpr static auto const className = my_static_string("MacroDVNR");
   typedef markov::MacroDVNR base_type;
+  base_type const & f()const { return *this;}
 
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
@@ -475,6 +486,8 @@ public:
   inline constexpr static auto const className = my_static_string("MacroDMR");
 
   typedef markov::MacroDMR base_type;
+  base_type const & f()const { return *this;}
+
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior, Model &m,
@@ -667,6 +680,8 @@ class Derivative<markov::MacroDVR> : public markov::MacroDVR
 public:
   inline constexpr static auto const className = my_static_string("MacroDVR");
   typedef markov::MacroDVR base_type;
+  base_type const & f()const { return *this;}
+
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior, Model &m,
@@ -937,12 +952,42 @@ struct Derivative_partialDistribution_function_aux {
 
 namespace markov {
 
+template <class F, class MacroDR, class Model,
+          template <class, class> class Experiment, class Point, class Measure,
+          class... Aux>
+auto logLikelihood_experiment_calculation_derivative(const F &f, const MacroDR &a,
+                                          Model &m,
+                                          const Experiment<Point, Measure> &e,
+                                          std::ostream &os, Aux &... aux) {
+  auto out = f(e, aux...);
+  typedef myOptional_t<std::decay_t<decltype(out)>> Op;
+
+  auto first_step = *e.begin_begin();
+  auto prior = a.start(m, first_step, m.min_P());
+  assert(are_Equal_v(prior.value(),Incremental_ratio_model([&first_step,&m,&a](auto &&mo){return a.f().start(mo,first_step,m.min_P());},m,1e-6),os));
+
+  if (!prior.has_value())
+    return Op(false, "calculation interrupted at start :" + prior.error());
+  std::size_t i = 0;
+  for (auto it = e.begin_begin(); it != e.end_end(); ++it) {
+    auto post = a.run(prior.value(), m, *it, os, aux[i]...);
+    if (!post.has_value())
+      return Op(false, "calculation interrupted at " + ToString(*it) + "  :" +
+                           post.error());
+    else {
+      f(post.value(), out, i, aux[i]...);
+      prior.value() = std::move(post).value();
+    }
+  }
+  return Op(out);
+}
+
 template <class MacroDR, class Model, class Experiment>
 myOptional_t<
     std::tuple<double, double, double, M_Matrix<double>, M_Matrix<double>>>
 logLikelihood_derivative(const Derivative<MacroDR> &a, Model &m,
                          const Experiment e, std::ostream &os) {
-  return logLikelihood_experiment_calculation(
+  return logLikelihood_experiment_calculation_derivative(
       Derivative<logLikelihood_function>(), a, m, e, os);
 }
 
@@ -950,7 +995,7 @@ template <class MacroDR, class Model, class Experiment>
 myOptional_t<std::vector<Derivative<Normal_Distribution<double>>>>
 partialDistribution_derivative(const Derivative<MacroDR> &a, Model &m,
                                const Experiment e) {
-  return logLikelihood_experiment_calculation(
+  return logLikelihood_experiment_calculation_derivative(
       Derivative<markov::partialDistribution_function>(), a, m, e);
 }
 
@@ -959,7 +1004,7 @@ template <class aux, class PartialDlogLikelihood, class DMacroDR, class Model,
 auto partialDlikelihood_derivative(const DMacroDR &a, Model &m,
                                    const Experiment &e, std::ostream &os) {
   std::vector<aux> dummy_a;
-  return logLikelihood_experiment_calculation(
+  return logLikelihood_experiment_calculation_derivative(
       Derivative_partialDistribution_function_aux<aux, PartialDlogLikelihood>(),
       a, m, e, os, dummy_a);
 }

@@ -701,7 +701,11 @@ private:
 
   std::vector<moments<evidence::DlogLikelihood>>
   calc_moments(const std::vector<evidence::PartialDLogLikelihood<Aux>> &data) {
-    auto n = data[0].partial_DlogL().size();
+    std::size_t n=0;
+    if (data.size()>0)
+    {
+        n = data[0].partial_DlogL().size();
+    }
     std::vector<moments<evidence::DlogLikelihood>> out(n);
     for (std::size_t i = 0; i < n; ++i) {
       out[i] = moments<evidence::DlogLikelihood>(
@@ -1087,10 +1091,12 @@ template <class Parameters_Distribution, class Parameters_Values,
 class Likelihood_Analisis {
 
 public:
-  constexpr static auto const className =
-      my_static_string("Likelihood_Analisis");
-
   typedef Likelihood_Analisis self_type;
+  typedef Cs<Parameters_Distribution,Parameters_Values,ExperimentData,logLikelihood> template_types;
+  constexpr static auto const className =
+      my_static_string("Likelihood_Analisis") + my_trait<template_types>::className;
+
+
   static auto get_constructor_fields() {
     return std::make_tuple(
         grammar::field(C<self_type>{}, "prior",
@@ -1637,7 +1643,7 @@ public:
         for (std::size_t ni = 0; ni < 8; ++ni) {
           std::size_t i = nc * 8 + ni;
           auto logL =
-              compute_Sample_init(oss[ni], sim, fim, e, prior, p, mtvec[i]);
+              compute_Sample_init(oss[ni], sim, fim, e, prior, p, mtvec[ni]);
           if (!logL.has_value())
             succed = false;
           else {
@@ -1693,7 +1699,7 @@ public:
         for (std::size_t ni = 0; ni < 8; ++ni) {
           std::size_t i = nc * 8 + ni;
           auto logL =
-              compute_Sample_derivative(oss[ni], sim, dm, e, dprior, p, mtvec[i]);
+              compute_Sample_derivative(oss[ni], sim, dm, e, dprior, p, mtvec[ni]);
           if (!logL.has_value())
             succed = false;
           else {

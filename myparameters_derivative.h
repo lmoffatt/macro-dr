@@ -13,7 +13,23 @@ class Derivative<Parameters_values<Model>>
     typedef typename Model::myParameter_label par_label;
     Derivative_t<LabelMap_t<par_label>> d_;
 public:
-  auto& x()const { return d_.begin()->second.x();}
+    auto& x()const { return d_.begin()->second.x();}
+
+    Parameters_values<Model> f()const
+    {
+      LabelMap_t<par_label> m;
+      for (auto & e: d_)
+        m.insert(e.first,e.second.f());
+      return Parameters_values<Model>(m);
+    }
+    Parameters_values<Model> f_dfdx(std::size_t i,double dx)const
+    {
+      LabelMap_t<par_label> m;
+      for (auto &e : d_)
+        m.insert(e.first, e.second.f()+e.second.dfdx()[i]*dx);
+      return Parameters_values<Model>(m);
+    }
+
 
     std::size_t size()const { return d_.size();}
     Derivative(Derivative_t<LabelMap_t<par_label>> values): d_{values}{};

@@ -5,13 +5,13 @@
 #include <iostream>
 
 #include "myoptional.h"
-
+#include "myfields.h"
 struct invariant{};
 
 
 template<class... > struct class_Invariants;
 
-template<bool, class > struct are_Equal;
+template<bool, class, typename = void> struct are_Equal;
 template<bool, class > struct are_zero;
 template<bool, class > struct are_finite;
 template<bool, class > struct are_non_negative;
@@ -29,7 +29,7 @@ public:
     template<class ostream=std::ostream>
     bool test(double x, double y,ostream& s=std::cerr)const
     {
-        if  ((std::abs(x-y)<absolute_error())||(std::abs(x-y)/std::abs(x+y))<relative_error())
+      if  ((x==y)||(std::abs(x-y)<=absolute_error())||(std::abs(x-y)/std::abs(x+y))<relative_error())
             return true;
         else
         {
@@ -57,6 +57,13 @@ private:
     double absolute_=std::numeric_limits<double>::epsilon()*100;
     double relative_=std::numeric_limits<double>::epsilon()*100;
 };
+
+
+
+
+
+
+
 
 
 
@@ -253,8 +260,46 @@ private:
 };
 
 
+template <class T>
+bool are_Equal_v(const T &one, const T &other, std::ostream &os) {
+  return are_Equal<true, T>().test(one, other, os);
+}
 
+template <bool output, class Object, class method>
+bool field_test(const grammar::field<Object, method> &m, const Object &one,
+                const Object &other, std::ostream &os) {
+  std::stringstream ss;
+  bool res = are_Equal_v(std::invoke(m.access_method, one),
+                         std::invoke(m.access_method, other), ss);
+  if constexpr (output)
+    if (!res) {
+      os << "\nEquality test failed for field " << m.idField
+         << " details: " << ss.str();
+    }
+  return res;
+}
 
+template <bool output, class Object>
+class are_Equal<
+    output, Object,
+    std::void_t<decltype(std::declval<Object &>().get_constructor_fields())>> {
 
+public:
+  bool test(const Object &one, const Object &other, std::ostream &os) {
+    auto fields = one.get_constructor_fields();
+    std::stringstream ss;
+    bool res = std::apply(
+        [&one, &other, &ss](auto &... f) {
+          return (field_test<output>(f, one, other, ss) && ...);
+        },
+        fields);
+    if constexpr (output)
+      if (!res) {
+        os << "\n Equality test failed for "
+           << my_trait<Object>::className.str() << " details: " << ss.str();
+      }
+    return res;
+  }
+};
 
 #endif // MYTESTS_H

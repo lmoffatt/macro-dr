@@ -14,7 +14,7 @@ struct myDerivative
 
 
 template <class X>
-using Derivative_t=typename myDerivative<X>::type;
+using Derivative_t=typename myDerivative<std::decay_t<X>>::type;
 
 
 template <typename K, typename T, typename ...X>
@@ -39,6 +39,14 @@ struct Constant
    Constant()=default;
    
 };
+
+
+
+
+
+
+
+
 
 namespace std{
 template <class T> struct numeric_limits<Constant<T>>: public numeric_limits<T> {

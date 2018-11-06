@@ -4,7 +4,7 @@
 #include <utility>
 #include <type_traits>
 #include <optional>
-
+#include <functional>
 
 
 template<typename T> void hash_combine(std::size_t & seed, T const& v)
@@ -46,6 +46,23 @@ struct hash<Co<T,Alloc>>
    }
 };
 }
+
+template<class F, class... Args, class... Args2, std::size_t ...Is>
+auto
+myApply(const F &f, std::tuple<Args...> &&t1, std::tuple<Args2...>&& t2, std::index_sequence<Is...>) {
+
+  return std::invoke(f,std::pair(std::get<Is>(t1),std::get<Is>(t2))...);
+}
+
+  template <class F, class...Args, class...Args2>
+auto myApply(const F& f, std::tuple<Args...>&& t1, std::tuple<Args2...> t2)
+{
+  static_assert(sizeof... (Args)==sizeof... (Args2) );
+  return myApply(f,std::move(t1),std::move(t2),std::index_sequence_for<Args...>());
+
+}
+
+
 
 
 

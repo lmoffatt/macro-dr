@@ -89,9 +89,16 @@ public:
   M_Matrix<double> const &x() const { return *x_; }
   M_Matrix<M_Matrix<double>> const &dfdx() const { return dfdx_; }
   M_Matrix<M_Matrix<double>> &dfdx() { return dfdx_; }
+
   Derivative(const M_Matrix<double> &fx, const M_Matrix<double> &myx,
              const M_Matrix<M_Matrix<double>> &der)
       : f_{fx}, x_{&myx}, dfdx_{der} {}
+
+  Derivative(const M_Matrix<double> &fx, const M_Matrix<double> &myx)
+      : f_{fx}, x_{&myx}, dfdx_{M_Matrix<M_Matrix<double>>(
+                              myx.nrows(), myx.ncols(), myx.type(),
+                              M_Matrix<double>(fx.nrows(), fx.ncols(),
+                                               fx.type()))} {}
 
   template <class M_f, class M_d>
   Derivative(M_f &&fx, const M_Matrix<double> &myx, M_d &&der)
@@ -103,16 +110,6 @@ public:
                                            M_Matrix<double>(nrows, ncols, t)} {}
   Derivative() = default;
 
-  M_Matrix<Derivative<double>> to_Matrix() const {
-    M_Matrix<Derivative<double>> out(f().nrows(), f().ncols(), f().type());
-    for (std::size_t i = 0; i < f().size(); ++i) {
-      M_Matrix<double> dfdxi(x());
-      for (std::size_t j = 0; j < x().size(); ++j)
-        dfdxi[j] = dfdx()[j][i];
-      out[i] = Derivative<double>(f()[i], x(), std::move(dfdxi));
-    }
-    return out;
-  }
   Derivative(const M_Matrix<Derivative<double>> &x)
       : f_{x.nrows(), x.ncols(), x.type()}, x_{&x[0].x()},
         dfdx_{x[0].x().nrows(), x[0].x().ncols(), x[0].x().type(),
@@ -122,6 +119,16 @@ public:
       for (std::size_t j = 0; j < x[0].x().size(); ++j)
         dfdx_[j][i] = x[i].dfdx()[j];
     }
+  }
+  M_Matrix<Derivative<double>> to_Matrix() const {
+    M_Matrix<Derivative<double>> out(f().nrows(), f().ncols(), f().type());
+    for (std::size_t i = 0; i < f().size(); ++i) {
+      M_Matrix<double> dfdxi(x());
+      for (std::size_t j = 0; j < x().size(); ++j)
+        dfdxi[j] = dfdx()[j][i];
+      out[i] = Derivative<double>(f()[i], x(), std::move(dfdxi));
+    }
+    return out;
   }
 
   template <class F> Derivative apply(const F &f) {
@@ -143,76 +150,87 @@ public:
   }
 };
 
-
-
-
-
-template <bool output, typename T> class are_Equal<output, Derivative<M_Matrix<T>>> {
+template <bool output, typename T>
+class are_Equal<output, Derivative<M_Matrix<T>>> {
 public:
-  template <class ostream>
-  bool test_sum(const Derivative<M_Matrix<T>> &one, const Derivative<M_Matrix<T>> &two,
+  bool test(const Derivative<M_Matrix<T>> &one,
+            const Derivative<M_Matrix<T>> &two, std::ostream &os)
+  {
+    return test_prod(one,two,os);
+  }
+
+      template <class ostream>
+  bool test_sum(const Derivative<M_Matrix<T>> &one,
+                const Derivative<M_Matrix<T>> &two,
                 ostream &os = std::cerr) const {
     std::stringstream ss_f;
-    bool equal_f=are_Equal<output,M_Matrix<T>>(absolute_,relative_).test_sum(one.f(),two.f(),ss_f);
-    if (!equal_f) os<<" error in function!!!\n "<<ss_f.str()<<" \n error in function  END!!!\n";
-    bool equal_dfdx=true;
-    for (std::size_t i=0; i<one.x(); ++i)
+    bool equal_f = are_Equal<output, M_Matrix<T>>(absolute_, relative_)
+                       .test_sum(one.f(), two.f(), ss_f);
+    if (!equal_f)
+      os << " error in function!!!\n " << ss_f.str()
+         << " \n error in function  END!!!\n";
+    bool equal_dfdx = true;
+    for (std::size_t i = 0; i < one.x(); ++i)
 
     {
       std::stringstream ss_df;
-      bool equal_dfdx_i=are_Equal<output,M_Matrix<T>>(absolute_,relative_).test_sum(one.dfdx()[i],two.dfdx()[i],ss_df);
-      if (!equal_dfdx_i) os<<" error in the" <<i<<"th derivative function!!!\n "<<ss_df.str()<<" error in the" <<i<<"th derivative function END!!!\n";
-      if (!equal_dfdx_i) equal_dfdx=false;
+      bool equal_dfdx_i = are_Equal<output, M_Matrix<T>>(absolute_, relative_)
+                              .test_sum(one.dfdx()[i], two.dfdx()[i], ss_df);
+      if (!equal_dfdx_i)
+        os << " error in the" << i << "th derivative function!!!\n "
+           << ss_df.str() << " error in the" << i
+           << "th derivative function END!!!\n";
+      if (!equal_dfdx_i)
+        equal_dfdx = false;
     }
 
-    return equal_f&& equal_dfdx;
+    return equal_f && equal_dfdx;
   }
   template <class ostream>
-  bool test_prod(const Derivative<M_Matrix<T>> &one, const Derivative<M_Matrix<T>> &two,
-                 ostream &os = std::cerr) const
-  {
-      std::stringstream ss_f;
-      bool equal_f = are_Equal<output, M_Matrix<T>>(absolute_, relative_)
-                         .test_prod(one.f(), two.f(), ss_f);
-      if (!equal_f)
-        os << " error in function!!!\n " << ss_f.str()
-           << " \n error in function  END----------------------!!!\n---------------------\n";
-      bool equal_dfdx = true;
-      for (std::size_t i = 0; i < one.x().size(); ++i)
+  bool test_prod(const Derivative<M_Matrix<T>> &one,
+                 const Derivative<M_Matrix<T>> &two,
+                 ostream &os = std::cerr) const {
+    std::stringstream ss_f;
+    bool equal_f = are_Equal<output, M_Matrix<T>>(absolute_, relative_)
+                       .test_prod(one.f(), two.f(), ss_f);
+    if (!equal_f)
+      os << " error in function!!!\n " << ss_f.str()
+         << " \n error in function  "
+            "END----------------------!!!\n---------------------\n";
+    bool equal_dfdx = true;
+    for (std::size_t i = 0; i < one.x().size(); ++i)
 
-      {
-        std::stringstream ss_df;
-        bool equal_dfdx_i = are_Equal<output, M_Matrix<T>>(absolute_, relative_)
-                                .test_prod(one.dfdx()[i], two.dfdx()[i], ss_df);
-        if (!equal_dfdx_i)
-          os << " \n error in the" << i << "th derivative function!!!\n "
-             << ss_df.str() << " error in the" << i
-             << "\n th derivative function END-------------------------------!!!\n";
-        if (!equal_dfdx_i)
-          equal_dfdx = false;
-      }
-
-      return equal_f && equal_dfdx;
+    {
+      std::stringstream ss_df;
+      bool equal_dfdx_i = are_Equal<output, M_Matrix<T>>(absolute_, relative_)
+                              .test_prod(one.dfdx()[i], two.dfdx()[i], ss_df);
+      if (!equal_dfdx_i)
+        os << " \n error in the" << i << "th derivative function!!!\n "
+           << ss_df.str() << " error in the" << i
+           << "\n th derivative function "
+              "END-------------------------------!!!\n";
+      if (!equal_dfdx_i)
+        equal_dfdx = false;
     }
 
+    return equal_f && equal_dfdx;
+  }
 
   template <class ostream, class... Ts, std::size_t... Is>
   bool test_prod_impl(const std::tuple<Derivative<M_Matrix<Ts>>...> &one,
-                 const std::tuple<Derivative<M_Matrix<Ts>>...> &two,
+                      const std::tuple<Derivative<M_Matrix<Ts>>...> &two,
                       ostream &os, std::index_sequence<Is...>) const {
-    return (test_prod(std::get<Is>(one), std::get<Is>(two),os)&&...);
-
+    return (test_prod(std::get<Is>(one), std::get<Is>(two), os) && ...);
   }
 
-  template <class ostream, class...Ts>
-  bool test_prod(const std::tuple<Derivative<M_Matrix<Ts>>...> &one, const std::tuple<Derivative<M_Matrix<Ts>>...> &two,
-                 ostream &os = std::cerr) const
-  {
-    return test_prod_impl(one,two,os,std::index_sequence_for<Ts...>());
-
+  template <class ostream, class... Ts>
+  bool test_prod(const std::tuple<Derivative<M_Matrix<Ts>>...> &one,
+                 const std::tuple<Derivative<M_Matrix<Ts>>...> &two,
+                 ostream &os = std::cerr) const {
+    return test_prod_impl(one, two, os, std::index_sequence_for<Ts...>());
   }
 
-    are_Equal(double absoluteError, double relativeError)
+  are_Equal(double absoluteError, double relativeError)
       : absolute_{absoluteError}, relative_{relativeError} {}
   are_Equal()
       : absolute_{std::numeric_limits<T>::epsilon() * 100},
@@ -223,128 +241,163 @@ private:
   double relative_;
 };
 
-template <class F>
-Derivative<double> Incremental_ratio (const F& fun, const Derivative<double>& y, double eps){
-  double f=fun(y.f());
-  double fpos=fun(y.f()+eps);
-  double fneg=fun(y.f()-eps);
-  double dfdy=(fpos-fneg)/(2*eps);
-  M_Matrix<double> dfdx=dfdy*y.dfdx();
-  return Derivative<double>(f,y.x(),dfdx);
+inline double Taylor_first(const Derivative<double> &dx, std::size_t i,
+                           double eps) {
+  return dx.f() + dx.dfdx()[i] * eps;
 }
 
 template <class F>
-Derivative<M_Matrix<double>> Incremental_ratio(const F &fun, const Derivative<M_Matrix<double>> &y,
+Derivative<double> Incremental_ratio(const F &fun, const Derivative<double> &y,
                                      double eps) {
-  M_Matrix<double> f = fun(y.f());
-  M_Matrix<M_Matrix<double>> dfdx(y.x().nrows(),y.x().ncols(),y.x().type());
-  for (std::size_t i=0; i<y.x().size(); ++i)
-  {
-    auto ypos=y.f()+y.dfdx()[i]*eps;
-    auto yneg=y.f()-y.dfdx()[i]*eps;
+  double f = fun(y.f());
+  double fpos = fun(y.f() + eps);
+  double fneg = fun(y.f() - eps);
+  double dfdy = (fpos - fneg) / (2 * eps);
+  M_Matrix<double> dfdx = dfdy * y.dfdx();
+  return Derivative<double>(f, y.x(), dfdx);
+}
 
-    auto  fpos = fun(ypos);
-    auto fneg= fun(yneg);
+inline M_Matrix<double> Taylor_first(const Derivative<M_Matrix<double>> &dx,
+                                     std::size_t i, double eps) {
+  return dx.f() + dx.dfdx()[i] * eps;
+}
+
+template <class F>
+Derivative<M_Matrix<double>>
+Incremental_ratio(const F &fun, const Derivative<M_Matrix<double>> &y,
+                  double eps) {
+  M_Matrix<double> f = fun(y.f());
+  M_Matrix<M_Matrix<double>> dfdx(y.x().nrows(), y.x().ncols(), y.x().type());
+  for (std::size_t i = 0; i < y.x().size(); ++i) {
+    auto ypos = Taylor_first(y, i, eps);
+    auto yneg = Taylor_first(y, i, -eps);
+    ;
+
+    auto fpos = fun(ypos);
+    auto fneg = fun(yneg);
     dfdx[i] = (fpos - fneg) / (2 * eps);
   }
   return Derivative<M_Matrix<double>>(f, y.x(), dfdx);
 }
 
-
-template <class T>
-M_Matrix<T> flatten(const M_Matrix<M_Matrix<T>>& dfdx)
-{
-  auto ncols=dfdx.size();
-  auto nrows=dfdx[0].size();
-  M_Matrix<T> out(nrows,ncols,Matrix_TYPE::FULL);
-  for (std::size_t i=0; i<nrows; ++i)
-    for (std::size_t j=0; j<ncols; ++j)
-      out(i,j)=dfdx[j][i];
-  return out;
-}
-
-template <class T, class K, class L> M_Matrix<M_Matrix<T>> unflatten(const M_Matrix<T> &dfdx, const M_Matrix<K>& f, const M_Matrix<L>& x )
-{
-  assert(dfdx.ncols()==x.size());
-  assert(dfdx.nrows()==f.size());
-  auto ncols = dfdx.ncols();
-  auto nrows = dfdx.nrows();
-  M_Matrix<M_Matrix<T>> out(x.nrows(), x.ncols(),x.type(), M_Matrix<T>(f.nrows(),f.ncols(),f.type()));
+template <class T> M_Matrix<T> flatten(const M_Matrix<M_Matrix<T>> &dfdx) {
+  auto ncols = dfdx.size();
+  auto nrows = dfdx[0].size();
+  M_Matrix<T> out(nrows, ncols, Matrix_TYPE::FULL);
   for (std::size_t i = 0; i < nrows; ++i)
     for (std::size_t j = 0; j < ncols; ++j)
-      out[j][i] = dfdx(i,j);
+      out(i, j) = dfdx[j][i];
+  return out;
+}
+
+template <class T, class K, class L>
+M_Matrix<M_Matrix<T>> unflatten(const M_Matrix<T> &dfdx, const M_Matrix<K> &f,
+                                const M_Matrix<L> &x) {
+  assert(dfdx.ncols() == x.size());
+  assert(dfdx.nrows() == f.size());
+  auto ncols = dfdx.ncols();
+  auto nrows = dfdx.nrows();
+  M_Matrix<M_Matrix<T>> out(x.nrows(), x.ncols(), x.type(),
+                            M_Matrix<T>(f.nrows(), f.ncols(), f.type()));
+  for (std::size_t i = 0; i < nrows; ++i)
+    for (std::size_t j = 0; j < ncols; ++j)
+      out[j][i] = dfdx(i, j);
   return out;
 }
 
 template <class T>
-M_Matrix<M_Matrix<T>> compose(const M_Matrix<M_Matrix<T>>& dfdy,const M_Matrix<M_Matrix<T>>& dydx)
-{
-  return unflatten(flatten(dfdy)*flatten(dydx),dfdy[0],dydx);
+M_Matrix<M_Matrix<T>> compose(const M_Matrix<M_Matrix<T>> &dfdy,
+                              const M_Matrix<M_Matrix<T>> &dydx) {
+  return unflatten(flatten(dfdy) * flatten(dydx), dfdy[0], dydx);
 }
-
-
 
 template <class F>
 Derivative<M_Matrix<double>>
-    Incremental_ratio_compose(const F &fun, const Derivative<M_Matrix<double>> &y,
-                         double eps) {
+Incremental_ratio_compose(const F &fun, const Derivative<M_Matrix<double>> &y,
+                          double eps) {
   M_Matrix<double> f = fun(y.f());
   M_Matrix<M_Matrix<double>> dfdy(y.f().nrows(), y.f().ncols(), y.f().type());
   for (std::size_t i = 0; i < y.f().size(); ++i) {
     auto ypos = y.f();
-    ypos[i]+=eps;
+    ypos[i] += eps;
     auto yneg = y.f();
-    yneg[i]-=  eps;
+    yneg[i] -= eps;
 
     auto fpos = fun(ypos);
     auto fneg = fun(yneg);
     dfdy[i] = (fpos - fneg) / (2 * eps);
   }
-   return Derivative<M_Matrix<double>>(f, y.x(), compose(dfdy,y.dfdx()));
+  return Derivative<M_Matrix<double>>(f, y.x(), compose(dfdy, y.dfdx()));
 }
 
 template <class F>
 Derivative<M_Matrix<double>>
-Incremental_ratio(const F &fun, const Derivative<M_Matrix<double>> &one,const Derivative<M_Matrix<double>> &other,
-                  double eps) {
-  assert(one.x()==other.x());
-  M_Matrix<double> f = fun(one.f(),other.f());
-  M_Matrix<M_Matrix<double>> dfdx(one.x().nrows(), one.x().ncols(), one.x().type());
+Incremental_ratio(const F &fun, const Derivative<M_Matrix<double>> &one,
+                  const Derivative<M_Matrix<double>> &other, double eps) {
+  assert(one.x() == other.x());
+  M_Matrix<double> f = fun(one.f(), other.f());
+  M_Matrix<M_Matrix<double>> dfdx(one.x().nrows(), one.x().ncols(),
+                                  one.x().type());
   for (std::size_t i = 0; i < one.x().size(); ++i) {
-    auto one_pos = one.f() + one.dfdx()[i] * eps;
-    auto other_pos = other.f() + other.dfdx()[i] * eps;
-    auto one_neg = one.f() - one.dfdx()[i] * eps;
-    auto other_neg = other.f() - other.dfdx()[i] * eps;
+    auto one_pos = Taylor_first(one, i, eps);
+    auto other_pos = Taylor_first(other, i, eps);
+    auto one_neg = Taylor_first(one, i, -eps);
+    auto other_neg = Taylor_first(other, i, -eps);
 
-    auto fpos = fun(one_pos,other_pos);
-    auto fneg = fun(one_neg,other_neg);
+    auto fpos = fun(one_pos, other_pos);
+    auto fneg = fun(one_neg, other_neg);
+    dfdx[i] = (fpos - fneg) / (2 * eps);
+  }
+  return Derivative<M_Matrix<double>>(f, one.x(), dfdx);
+}
+
+template <class F, typename... Ts>
+Derivative<M_Matrix<double>>
+Incremental_ratio(const F &fun, double eps,
+                  const Derivative<M_Matrix<double>> &y0,
+                  const Derivative<M_Matrix<Ts>> &... y) {
+  assert(((y0.x() == y.x()) && ...));
+  M_Matrix<double> f = fun(y0.f(), y.f()...);
+  auto &one = y0;
+  M_Matrix<M_Matrix<double>> dfdx(one.x().nrows(), one.x().ncols(),
+                                  one.x().type());
+  for (std::size_t i = 0; i < one.x().size(); ++i) {
+    double e = eps;
+    if (one.x()[i] != 0)
+      e *= std::abs(one.x()[i]);
+    auto fpos = fun(Taylor_first(y0, i, e), Taylor_first(y, i, e)...);
+    auto fneg = fun(Taylor_first(y0, i, -e), Taylor_first(y, i, -e)...);
     dfdx[i] = (fpos - fneg) / (2 * eps);
   }
   return Derivative<M_Matrix<double>>(f, one.x(), dfdx);
 }
 
 template <class F>
-    std::tuple<Derivative<M_Matrix<double>>,Derivative<M_Matrix<double>>,Derivative<M_Matrix<double>>>
-Incremental_ratio_tuple_3_compose(const F &fun, const Derivative<M_Matrix<double>> &y, double eps) {
-  auto [f1,f2,f3] = fun(y.f());
+std::tuple<Derivative<M_Matrix<double>>, Derivative<M_Matrix<double>>,
+           Derivative<M_Matrix<double>>>
+Incremental_ratio_tuple_3_compose(const F &fun,
+                                  const Derivative<M_Matrix<double>> &y,
+                                  double eps) {
+  auto [f1, f2, f3] = std::invoke(fun, y.f());
   M_Matrix<M_Matrix<double>> df1dy(y.f().nrows(), y.f().ncols(), y.f().type());
   M_Matrix<M_Matrix<double>> df2dy(y.f().nrows(), y.f().ncols(), y.f().type());
   M_Matrix<M_Matrix<double>> df3dy(y.f().nrows(), y.f().ncols(), y.f().type());
   for (std::size_t i = 0; i < y.f().size(); ++i) {
     auto ypos = y.f();
-    ypos[i]+= eps;
+    ypos[i] += eps;
     auto yneg = y.f();
-    yneg[i]-= eps;
+    yneg[i] -= eps;
 
-    auto [fpos1,fpos2,fpos3] = fun(ypos);
-    auto [fneg1,fneg2,fneg3] = fun(yneg);
+    auto [fpos1, fpos2, fpos3] = fun(ypos);
+    auto [fneg1, fneg2, fneg3] = fun(yneg);
     df1dy[i] = (fpos1 - fneg1) / (2.0 * eps);
     df2dy[i] = (fpos2 - fneg2) / (2.0 * eps);
     df3dy[i] = (fpos3 - fneg3) / (2.0 * eps);
   }
-  return std::tuple(Derivative<M_Matrix<double>>(f1, y.x(), compose(df1dy,y.dfdx())),
-                    Derivative<M_Matrix<double>>(f2, y.x(), compose(df2dy,y.dfdx())),
-                    Derivative<M_Matrix<double>>(f3, y.x(), compose(df3dy,y.dfdx())));
+  return std::tuple(
+      Derivative<M_Matrix<double>>(f1, y.x(), compose(df1dy, y.dfdx())),
+      Derivative<M_Matrix<double>>(f2, y.x(), compose(df2dy, y.dfdx())),
+      Derivative<M_Matrix<double>>(f3, y.x(), compose(df3dy, y.dfdx())));
 }
 
 template <class F>
@@ -357,9 +410,11 @@ Incremental_ratio_tuple_3(const F &fun, const Derivative<M_Matrix<double>> &y,
   M_Matrix<M_Matrix<double>> df2dx(y.x().nrows(), y.x().ncols(), y.x().type());
   M_Matrix<M_Matrix<double>> df3dx(y.x().nrows(), y.x().ncols(), y.x().type());
   for (std::size_t i = 0; i < y.x().size(); ++i) {
-    auto e=eps*std::abs(y.x()[i]);
-    auto ypos = y.f() + y.dfdx()[i] * e;
-    auto yneg = y.f() - y.dfdx()[i] * e;
+    double e = eps;
+    if (y.x()[i] != 0)
+      e *= std::abs(y.x()[i]);
+    auto ypos = Taylor_first(y, i, e);
+    auto yneg = Taylor_first(y, i, -e);
 
     auto [fpos1, fpos2, fpos3] = fun(ypos);
     auto [fneg1, fneg2, fneg3] = fun(yneg);
@@ -372,6 +427,96 @@ Incremental_ratio_tuple_3(const F &fun, const Derivative<M_Matrix<double>> &y,
                     Derivative<M_Matrix<double>>(f3, y.x(), df3dx));
 }
 
+template <class C>
+C Taylor_first(const Derivative<C> &dy, std::size_t i, double eps) {
+  auto fields = dy.get_constructor_fields();
+  return std::apply(
+      [&i, &eps, &dy](auto &... m) {
+        return C(Taylor_first(std::invoke(m.access_method, dy), i, eps)...);
+      },
+      fields);
+}
+
+template <class C>
+auto Incremental_ratio_calc(const C &f, const M_Matrix<double> &x,
+                            const std::vector<C> &fpos,
+                            const std::vector<C> &fneg, double eps)
+    -> Derivative<std::decay_t<decltype(C::get_constructor_fields(), std::declval<C>())>> {
+  auto fields = f.get_constructor_fields();
+  auto dfields = Derivative<std::decay_t<C>>::get_constructor_fields();
+  return myApply(
+      [&f, &x, &fpos, &fneg, &eps](auto && ...mdm) {
+        return Derivative<std::decay_t<C>>(
+            Incremental_ratio(mdm.first, mdm.second, f, x, fpos, fneg, eps)...);
+      },
+      std::move(fields), std::move(dfields));
+}
+
+inline Derivative<double>
+Incremental_ratio_calc(double f, const M_Matrix<double> &x,
+                       const std::vector<double> &fpos,
+                       const std::vector<double> &fneg, double eps) {
+  Derivative<double> out(f, x);
+  for (std::size_t i = 0; i < x.size(); ++i)
+    out.dfdx()[i] = (fpos[i] - fneg[i]) * (1.0 / (2. * eps));
+  return out;
+}
+
+inline
+Derivative<M_Matrix<double>>
+Incremental_ratio_calc(const M_Matrix<double> &f, const M_Matrix<double> &x,
+                  const std::vector<M_Matrix<double>> &fpos,
+                  const std::vector<M_Matrix<double>> &fneg, double eps) {
+  Derivative<M_Matrix<double>> out(f, x);
+  for (std::size_t i = 0; i < x.size(); ++i)
+    out.dfdx()[i] = (fpos[i] - fneg[i]) * (1.0 / (2. * eps));
+  return out;
+}
+
+template <class C, class method, class dmethod>
+auto Incremental_ratio(const grammar::field<C, method> m,
+                       const grammar::field<Derivative<C>, dmethod> dm,
+                       const C &f, const M_Matrix<double> &x,
+                       const std::vector<C> &fpos, const std::vector<C> &fneg,
+                       double eps) {
+  typedef std::invoke_result_t<method, C> R;
+  typedef std::invoke_result_t<dmethod, Derivative<C>> dR;
+
+  if constexpr (std::is_same_v<R, dR>) {
+    return std::invoke(m.access_method, f);
+  } else {
+    auto rf = std::invoke(m.access_method, f);
+    typedef decltype (rf)  RR;
+    std::vector<RR> rfpos(x.size());
+    std::vector<RR> rfneg(x.size());
+
+    for (std::size_t i = 0; i < x.size(); ++i) {
+      rfpos[i] = std::invoke(m.access_method, fpos[i]);
+      rfneg[i] = std::invoke(m.access_method, fneg[i]);
+    }
+    return Incremental_ratio_calc(rf, x, rfpos, rfneg, eps);
+  }
+}
+
+
+template <class F, class Object>
+auto Incremental_ratio_object(const F &fun, const Derivative<Object> &y, double eps)
+    -> Derivative<std::invoke_result_t<F, Object>> {
+
+  typedef std::invoke_result_t<F, Object> R;
+  auto f = std::invoke(fun, y.f());
+  std::vector<R> fpos(y.x().size());
+  std::vector<R> fneg(y.x().size());
+  for (std::size_t i = 0; i < y.x().size(); ++i) {
+    double e = eps;
+    if (y.x()[i] != 0)
+      e *= std::abs(y.x()[i]);
+    fpos[i] = std::invoke(fun, Taylor_first(y, i, e));
+    fneg[i] = std::invoke(fun, Taylor_first(y, i, -e));
+  }
+  return Incremental_ratio_calc(f,y.x(),fpos,fneg,eps);
+
+}
 template <class T>
 Derivative<T> operator+(const Derivative<T> &x, Constant<T> &&c) {
   return Derivative<T>(x.f() + c.value, x.x(), x.dfdx());
@@ -644,15 +789,14 @@ auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>> &Dx) {
       auto vT = VL(i, ":");
       auto u = VR(":", i);
       dlanda[i].f() = landa[i];
-      dlanda[i].dfdx() =
-          Dx.dfdx().auto_apply([&vT, &u](auto &m) { return (vT * m * u).getvalue(); });
+      dlanda[i].dfdx() = Dx.dfdx().auto_apply(
+          [&vT, &u](auto &m) { return (vT * m * u).getvalue(); });
     }
 
     M_Matrix<M_Matrix<double>> C(
         Dx.x().nrows(), Dx.x().ncols(), Dx.x().type(),
         M_Matrix<double>(VR.nrows(), VR.ncols(), VR.type()));
-    for (std::size_t k = 0; k < VR.nrows(); ++k)
-    {
+    for (std::size_t k = 0; k < VR.nrows(); ++k) {
       auto uk = VR(":", k);
       std::size_t m = 0;
       for (std::size_t j = 0; j < VR.ncols(); ++j) {
@@ -668,19 +812,20 @@ auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>> &Dx) {
       for (std::size_t is = 0; is < Dx.x().size(); ++is) {
         C[is](k, k) = 0;
         for (std::size_t j = 0; j < VR.ncols(); ++j) {
-          C[is](k, k) -= VR(m, j) * C[is]( k,j);
+          if (k != j)
+            C[is](k, k) -= VR(m, j) * C[is](k, j);
         }
       }
     }
     auto VRR = VR;
-    auto dVR = C.apply([&VRR](auto &m) { return m*VRR; });
+    auto dVR = C.apply([&VRR](auto &m) { return multTransp(VRR, m); });
     Derivative<M_Matrix<double>> DVR(std::move(VR), Dx.x(), std::move(dVR));
     auto DVL = inv(DVR);
     if (!DVL)
       return Op(false, " fails to invert the left eigenvector");
 
-    return Op(std::tuple(std::move(DVR),
-                         Derivative<M_Matrix<double>>(dlanda), std::move(DVL).value()));
+    return Op(std::tuple(std::move(DVR), Derivative<M_Matrix<double>>(dlanda),
+                         std::move(DVL).value()));
   }
 }
 } // namespace Matrix_Decompositions
@@ -691,17 +836,18 @@ template <> struct myDerivative<Matrix_Decompositions::eigensystem_type> {
       type;
 };
 
-template<bool output>
-class    are_Equal<output,Derivative_t<Matrix_Decompositions::eigensystem_type>>
-{
+template <bool output>
+class are_Equal<output, Derivative_t<Matrix_Decompositions::eigensystem_type>> {
 public:
-  bool test (const Derivative_t<Matrix_Decompositions::eigensystem_type>& one,
-            const Derivative_t<Matrix_Decompositions::eigensystem_type>& other, std::ostream& os)
-  {
-    are_Equal<output,Derivative<M_Matrix<double>>> t;
+  bool test(const Derivative_t<Matrix_Decompositions::eigensystem_type> &one,
+            const Derivative_t<Matrix_Decompositions::eigensystem_type> &other,
+            std::ostream &os) {
+    are_Equal<output, Derivative<M_Matrix<double>>> t;
     std::stringstream ss_VR;
-    bool test_VR=t.test_prod(std::get<0>(one),std::get<0>(other),ss_VR);
-    if (!test_VR) os<<"\n\n\n errror in VR-------!!!!\n\n\n"<<ss_VR.str()<<"\n\n\n errror in VR--END---!!!!\n\n\n";
+    bool test_VR = t.test_prod(std::get<0>(one), std::get<0>(other), ss_VR);
+    if (!test_VR)
+      os << "\n\n\n errror in VR-------!!!!\n\n\n"
+         << ss_VR.str() << "\n\n\n errror in VR--END---!!!!\n\n\n";
 
     std::stringstream ss_L;
     bool test_L = t.test_prod(std::get<1>(one), std::get<1>(other), ss_L);
@@ -709,18 +855,15 @@ public:
       os << "\n\n\n errror in Landa-------!!!!\n\n\n"
          << ss_L.str() << "\n\n\n errror in Landa--END---!!!!\n\n\n";
 
-
     std::stringstream ss_VL;
     bool test_VL = t.test_prod(std::get<2>(one), std::get<2>(other), ss_VL);
     if (!test_VL)
       os << "\n\n\n errror in VLeft-------!!!!\n\n\n"
          << ss_VL.str() << "\n\n\n errror in VLeft--END---!!!!\n\n\n";
 
-    return test_VR&&test_L&&test_VL;
+    return test_VR && test_L && test_VL;
   }
-
- };
-
+};
 
 template <typename T>
 Derivative<M_Matrix<T>> diag(const Derivative<M_Matrix<T>> &x) {

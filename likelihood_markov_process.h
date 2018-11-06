@@ -25,6 +25,20 @@ class mp_state_information
 
     
 public:
+  typedef mp_state_information self_type;
+  constexpr static auto className = my_static_string("mp_state_information");
+  static auto get_constructor_fields() {
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "P_mean", &self_type::P_mean),
+        grammar::field(C<self_type>{}, "P_cov", &self_type::P_cov),
+        grammar::field(C<self_type>{}, "y_mean", &self_type::y_mean),
+        grammar::field(C<self_type>{}, "y_var", &self_type::y_var),
+        grammar::field(C<self_type>{}, "plogL", &self_type::plogL),
+        grammar::field(C<self_type>{}, "eplogL", &self_type::eplogL));
+  }
+
+
+
     static Op_void close_to_zero_test(const M_Matrix<double>& P_mean__,
                                       double tolerance)
     {
@@ -130,6 +144,13 @@ public:
         plogL_{plogL__},eplogL_{eplogL__}{
     }
 
+    mp_state_information(const M_Matrix<double> &P_mean__,
+                         const M_Matrix<double> &P_cov__, double y_mean__,
+                         double y_var__, double plogL__, double eplogL__)
+        : P_mean_{P_mean__}, P_cov_{P_cov__},
+          y_mean_{y_mean__}, y_var_{y_var__}, plogL_{plogL__}, eplogL_{
+                                                                   eplogL__} {}
+
     mp_state_information()=default;
     const M_Matrix<double>& P_mean()const{return P_mean_;}
     const M_Matrix<double>& P_cov()const {return P_cov_;}
@@ -139,19 +160,7 @@ public:
     double plogL()const {return plogL_;}
     double eplogL()const{return eplogL_;}
     
-    typedef  mp_state_information self_type;
-    constexpr static auto  className=my_static_string("mp_state_information");
-    static auto get_constructor_fields()
-    {
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"P_mean",&self_type::P_mean),
-                    grammar::field(C<self_type>{},"P_cov",&self_type::P_cov),
-                    grammar::field(C<self_type>{},"y_mean",&self_type::y_mean),
-                    grammar::field(C<self_type>{},"y_var",&self_type::y_var),
-                    grammar::field(C<self_type>{},"plogL",&self_type::plogL),
-                    grammar::field(C<self_type>{},"eplogL",&self_type::eplogL)
-                    );
-    }
+
 };
 }
 namespace markov {
@@ -1537,6 +1546,9 @@ auto logLikelihood_experiment_calculation(const F& f,const MacroDR& a,  Model& m
     return Op(out);
     
 }
+
+
+
 template<class MacroDR,class Model,class Experiment>
 myOptional_t<double> logLikelihood(const MacroDR& a, Model& m, const Experiment e , std::ostream& os)
 {
