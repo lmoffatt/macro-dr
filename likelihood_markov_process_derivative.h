@@ -964,7 +964,7 @@ auto logLikelihood_experiment_calculation_derivative(const F &f, const MacroDR &
 
   auto first_step = *e.begin_begin();
   auto prior = a.start(m, first_step, m.min_P());
-  auto dprior=Incremental_ratio_model([&first_step,&a](auto &mo){return std::move(a.f().start(mo,first_step,mo.min_P())).value();},m,1e-6);
+  auto dprior=Incremental_ratio_model(1e-6,[&first_step,&a](auto &mo){return std::move(a.f().start(mo,first_step,mo.min_P())).value();},m);
   assert(are_Equal_v(prior.value(),dprior,std::cerr));
 
   if (!prior.has_value())
@@ -976,6 +976,10 @@ auto logLikelihood_experiment_calculation_derivative(const F &f, const MacroDR &
       return Op(false, "calculation interrupted at " + ToString(*it) + "  :" +
                            post.error());
     else {
+      auto dpost=Incremental_ratio_model(1e-6,
+                                           [&a,&it,&os,&i,&aux...](auto  &mo,auto const  &p)
+                                           {return std::move(a.f().run(p,mo,*it,os,aux[i]...)).value();},m,prior.value());
+      assert((are_Equal_v(post.value(),dpost,std::cerr)));
       f(post.value(), out, i, aux[i]...);
       prior.value() = std::move(post).value();
     }

@@ -42,11 +42,11 @@ struct Constant
 
 
 
-
-
-
-
-
+template <class C>
+auto Primitive(const Derivative<C> &dy)->decltype (std::declval<const Derivative<C>&>().f())
+{
+  return dy.f();
+}
 
 namespace std{
 template <class T> struct numeric_limits<Constant<T>>: public numeric_limits<T> {

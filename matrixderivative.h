@@ -36,7 +36,8 @@ public:
       : f_{fx}, x_{&myx}, dfdx_{der} {}
 
   Derivative(double fx, const M_Matrix<double> &myx)
-      : f_{fx}, x_{&myx}, dfdx_{myx.nrows(), myx.ncols(), myx.type(), std::isnan(fx)?fx:0} {}
+      : f_{fx}, x_{&myx}, dfdx_{myx.nrows(), myx.ncols(), myx.type(),
+                                std::isnan(fx) ? fx : 0} {}
   Derivative() = default;
   Derivative(const M_Matrix<double> &myx)
       : f_{0}, x_{&myx}, dfdx_{myx.nrows(), myx.ncols(), myx.type(), 0.0} {}
@@ -154,12 +155,11 @@ template <bool output, typename T>
 class are_Equal<output, Derivative<M_Matrix<T>>> {
 public:
   bool test(const Derivative<M_Matrix<T>> &one,
-            const Derivative<M_Matrix<T>> &two, std::ostream &os)
-  {
-    return test_prod(one,two,os);
+            const Derivative<M_Matrix<T>> &two, std::ostream &os) {
+    return test_prod(one, two, os);
   }
 
-      template <class ostream>
+  template <class ostream>
   bool test_sum(const Derivative<M_Matrix<T>> &one,
                 const Derivative<M_Matrix<T>> &two,
                 ostream &os = std::cerr) const {
@@ -247,8 +247,8 @@ inline double Taylor_first(const Derivative<double> &dx, std::size_t i,
 }
 
 template <class F>
-Derivative<double> Incremental_ratio(const F &fun, const Derivative<double> &y,
-                                     double eps) {
+Derivative<double> Incremental_ratio(double eps, const F &fun,
+                                     const Derivative<double> &y) {
   double f = fun(y.f());
   double fpos = fun(y.f() + eps);
   double fneg = fun(y.f() - eps);
@@ -264,18 +264,20 @@ inline M_Matrix<double> Taylor_first(const Derivative<M_Matrix<double>> &dx,
 
 template <class F>
 Derivative<M_Matrix<double>>
-Incremental_ratio(const F &fun, const Derivative<M_Matrix<double>> &y,
-                  double eps) {
+Incremental_ratio(double eps, const F &fun,
+                  const Derivative<M_Matrix<double>> &y) {
   M_Matrix<double> f = fun(y.f());
   M_Matrix<M_Matrix<double>> dfdx(y.x().nrows(), y.x().ncols(), y.x().type());
   for (std::size_t i = 0; i < y.x().size(); ++i) {
-    auto ypos = Taylor_first(y, i, eps);
-    auto yneg = Taylor_first(y, i, -eps);
-    ;
+    double e = eps;
 
+    if (std::abs(y.x()[i]) > 0)
+      e *= std::abs(y.x()[i]);
+    auto ypos = Taylor_first(y, i, e);
+    auto yneg = Taylor_first(y, i, -e);
     auto fpos = fun(ypos);
     auto fneg = fun(yneg);
-    dfdx[i] = (fpos - fneg) / (2 * eps);
+    dfdx[i] = (fpos - fneg) / (2 * e);
   }
   return Derivative<M_Matrix<double>>(f, y.x(), dfdx);
 }
@@ -313,8 +315,8 @@ M_Matrix<M_Matrix<T>> compose(const M_Matrix<M_Matrix<T>> &dfdy,
 
 template <class F>
 Derivative<M_Matrix<double>>
-Incremental_ratio_compose(const F &fun, const Derivative<M_Matrix<double>> &y,
-                          double eps) {
+Incremental_ratio_compose(double eps, const F &fun,
+                          const Derivative<M_Matrix<double>> &y) {
   M_Matrix<double> f = fun(y.f());
   M_Matrix<M_Matrix<double>> dfdy(y.f().nrows(), y.f().ncols(), y.f().type());
   for (std::size_t i = 0; i < y.f().size(); ++i) {
@@ -332,8 +334,9 @@ Incremental_ratio_compose(const F &fun, const Derivative<M_Matrix<double>> &y,
 
 template <class F>
 Derivative<M_Matrix<double>>
-Incremental_ratio(const F &fun, const Derivative<M_Matrix<double>> &one,
-                  const Derivative<M_Matrix<double>> &other, double eps) {
+Incremental_ratio(double eps, const F &fun,
+                  const Derivative<M_Matrix<double>> &one,
+                  const Derivative<M_Matrix<double>> &other) {
   assert(one.x() == other.x());
   M_Matrix<double> f = fun(one.f(), other.f());
   M_Matrix<M_Matrix<double>> dfdx(one.x().nrows(), one.x().ncols(),
@@ -353,7 +356,7 @@ Incremental_ratio(const F &fun, const Derivative<M_Matrix<double>> &one,
 
 template <class F, typename... Ts>
 Derivative<M_Matrix<double>>
-Incremental_ratio(const F &fun, double eps,
+Incremental_ratio(double eps, const F &fun,
                   const Derivative<M_Matrix<double>> &y0,
                   const Derivative<M_Matrix<Ts>> &... y) {
   assert(((y0.x() == y.x()) && ...));
@@ -375,9 +378,8 @@ Incremental_ratio(const F &fun, double eps,
 template <class F>
 std::tuple<Derivative<M_Matrix<double>>, Derivative<M_Matrix<double>>,
            Derivative<M_Matrix<double>>>
-Incremental_ratio_tuple_3_compose(const F &fun,
-                                  const Derivative<M_Matrix<double>> &y,
-                                  double eps) {
+Incremental_ratio_tuple_3_compose(double eps, const F &fun,
+                                  const Derivative<M_Matrix<double>> &y) {
   auto [f1, f2, f3] = std::invoke(fun, y.f());
   M_Matrix<M_Matrix<double>> df1dy(y.f().nrows(), y.f().ncols(), y.f().type());
   M_Matrix<M_Matrix<double>> df2dy(y.f().nrows(), y.f().ncols(), y.f().type());
@@ -403,8 +405,8 @@ Incremental_ratio_tuple_3_compose(const F &fun,
 template <class F>
 std::tuple<Derivative<M_Matrix<double>>, Derivative<M_Matrix<double>>,
            Derivative<M_Matrix<double>>>
-Incremental_ratio_tuple_3(const F &fun, const Derivative<M_Matrix<double>> &y,
-                          double eps) {
+Incremental_ratio_tuple_3(double eps, const F &fun,
+                          const Derivative<M_Matrix<double>> &y) {
   auto [f1, f2, f3] = fun(y.f());
   M_Matrix<M_Matrix<double>> df1dx(y.x().nrows(), y.x().ncols(), y.x().type());
   M_Matrix<M_Matrix<double>> df2dx(y.x().nrows(), y.x().ncols(), y.x().type());
@@ -428,6 +430,18 @@ Incremental_ratio_tuple_3(const F &fun, const Derivative<M_Matrix<double>> &y,
 }
 
 template <class C>
+auto Primitive(const Derivative<C> &dy)
+    ->std::enable_if_t<is_field_Object<C>::value&&is_field_Object<Derivative<C>>::value,C>
+{
+  auto fields = dy.get_constructor_fields();
+  return std::apply(
+      [&dy](auto &... m) {
+        return C(Primitive(std::invoke(m.access_method, dy))...);
+      },
+      fields);
+}
+
+template <class C>
 C Taylor_first(const Derivative<C> &dy, std::size_t i, double eps) {
   auto fields = dy.get_constructor_fields();
   return std::apply(
@@ -438,47 +452,48 @@ C Taylor_first(const Derivative<C> &dy, std::size_t i, double eps) {
 }
 
 template <class C>
-auto Incremental_ratio_calc(const C &f, const M_Matrix<double> &x,
+auto Incremental_ratio_calc(const std::vector<double> &eps, const C &f,
+                            const M_Matrix<double> &x,
                             const std::vector<C> &fpos,
-                            const std::vector<C> &fneg, double eps)
-    -> Derivative<std::decay_t<decltype(C::get_constructor_fields(), std::declval<C>())>> {
+                            const std::vector<C> &fneg)
+    -> Derivative<std::decay_t<decltype(C::get_constructor_fields(),
+                                        std::declval<C>())>> {
   auto fields = f.get_constructor_fields();
   auto dfields = Derivative<std::decay_t<C>>::get_constructor_fields();
   return myApply(
-      [&f, &x, &fpos, &fneg, &eps](auto && ...mdm) {
-        return Derivative<std::decay_t<C>>(
-            Incremental_ratio(mdm.first, mdm.second, f, x, fpos, fneg, eps)...);
+      [&f, &x, &fpos, &fneg, &eps](auto &&... mdm) {
+        return Derivative<std::decay_t<C>>(Incremental_ratio_method_calc(
+            eps, mdm.first, mdm.second, f, x, fpos, fneg)...);
       },
       std::move(fields), std::move(dfields));
 }
 
-inline Derivative<double>
-Incremental_ratio_calc(double f, const M_Matrix<double> &x,
-                       const std::vector<double> &fpos,
-                       const std::vector<double> &fneg, double eps) {
+inline Derivative<double> Incremental_ratio_calc(
+    const std::vector<double> &eps, double f, const M_Matrix<double> &x,
+    const std::vector<double> &fpos, const std::vector<double> &fneg) {
   Derivative<double> out(f, x);
   for (std::size_t i = 0; i < x.size(); ++i)
-    out.dfdx()[i] = (fpos[i] - fneg[i]) * (1.0 / (2. * eps));
+    out.dfdx()[i] = (fpos[i] - fneg[i]) * (1.0 / (2. * eps[i]));
   return out;
 }
 
-inline
-Derivative<M_Matrix<double>>
-Incremental_ratio_calc(const M_Matrix<double> &f, const M_Matrix<double> &x,
-                  const std::vector<M_Matrix<double>> &fpos,
-                  const std::vector<M_Matrix<double>> &fneg, double eps) {
+inline Derivative<M_Matrix<double>>
+Incremental_ratio_calc(const std::vector<double> &eps, const M_Matrix<double> &f,
+                       const M_Matrix<double> &x,
+                       const std::vector<M_Matrix<double>> &fpos,
+                       const std::vector<M_Matrix<double>> &fneg) {
   Derivative<M_Matrix<double>> out(f, x);
   for (std::size_t i = 0; i < x.size(); ++i)
-    out.dfdx()[i] = (fpos[i] - fneg[i]) * (1.0 / (2. * eps));
+    out.dfdx()[i] = (fpos[i] - fneg[i]) * (1.0 / (2. * eps[i]));
   return out;
 }
 
 template <class C, class method, class dmethod>
-auto Incremental_ratio(const grammar::field<C, method> m,
-                       const grammar::field<Derivative<C>, dmethod> dm,
-                       const C &f, const M_Matrix<double> &x,
-                       const std::vector<C> &fpos, const std::vector<C> &fneg,
-                       double eps) {
+auto Incremental_ratio_method_calc(
+    const std::vector<double> &eps, const grammar::field<C, method> m,
+    const grammar::field<Derivative<C>, dmethod> dm, const C &f,
+    const M_Matrix<double> &x, const std::vector<C> &fpos,
+    const std::vector<C> &fneg) {
   typedef std::invoke_result_t<method, C> R;
   typedef std::invoke_result_t<dmethod, Derivative<C>> dR;
 
@@ -486,7 +501,7 @@ auto Incremental_ratio(const grammar::field<C, method> m,
     return std::invoke(m.access_method, f);
   } else {
     auto rf = std::invoke(m.access_method, f);
-    typedef decltype (rf)  RR;
+    typedef decltype(rf) RR;
     std::vector<RR> rfpos(x.size());
     std::vector<RR> rfneg(x.size());
 
@@ -494,13 +509,13 @@ auto Incremental_ratio(const grammar::field<C, method> m,
       rfpos[i] = std::invoke(m.access_method, fpos[i]);
       rfneg[i] = std::invoke(m.access_method, fneg[i]);
     }
-    return Incremental_ratio_calc(rf, x, rfpos, rfneg, eps);
+    return Incremental_ratio_calc(eps, rf, x, rfpos, rfneg);
   }
 }
 
-
 template <class F, class Object>
-auto Incremental_ratio_object(const F &fun, const Derivative<Object> &y, double eps)
+auto Incremental_ratio_object(double eps, const F &fun,
+                              const Derivative<Object> &y)
     -> Derivative<std::invoke_result_t<F, Object>> {
 
   typedef std::invoke_result_t<F, Object> R;
@@ -514,8 +529,7 @@ auto Incremental_ratio_object(const F &fun, const Derivative<Object> &y, double 
     fpos[i] = std::invoke(fun, Taylor_first(y, i, e));
     fneg[i] = std::invoke(fun, Taylor_first(y, i, -e));
   }
-  return Incremental_ratio_calc(f,y.x(),fpos,fneg,eps);
-
+  return Incremental_ratio_calc(eps, f, y.x(), fpos, fneg);
 }
 template <class T>
 Derivative<T> operator+(const Derivative<T> &x, Constant<T> &&c) {
@@ -533,12 +547,14 @@ Derivative<T> operator-(Constant<T> &&c, const Derivative<T> &x) {
 
 template <class T>
 Derivative<T> operator*(const Derivative<T> &x, const Constant<T> &c) {
-  return Derivative<T>(x.f() * c.value, x.x(), x.dfdx().apply([&c](auto& m){return m*c.value;}));
+  return Derivative<T>(x.f() * c.value, x.x(),
+                       x.dfdx().apply([&c](auto &m) { return m * c.value; }));
 }
 
 template <class T>
-Derivative<T> operator*(const Constant<T> &c,const Derivative<T> &x) {
-  return Derivative<T> (c.value*x.f() , x.x(), x.dfdx().apply([&c](auto& m){return c.value*m;}));
+Derivative<T> operator*(const Constant<T> &c, const Derivative<T> &x) {
+  return Derivative<T>(c.value * x.f(), x.x(),
+                       x.dfdx().apply([&c](auto &m) { return c.value * m; }));
 }
 
 auto exp(D, double x) { return std::exp(x); }
