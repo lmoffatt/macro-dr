@@ -1118,7 +1118,7 @@ public:
       template <class ostream>
   bool test_prod(const M_Matrix<T> &one, const M_Matrix<T> &two,
                  ostream &os = std::cerr) const {
-    double N = Matrix_Unary_Functions::norm_1(one);
+        double N = std::max(Matrix_Unary_Functions::norm_1(one),1.0);
     auto n = one.size();
     return apply_test(are_Equal<output, T>(std::sqrt(absolute_) * n * N,
                                            std::sqrt(relative_) * n),

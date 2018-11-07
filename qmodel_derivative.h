@@ -225,6 +225,29 @@ template <> class Derivative<Markov_Transition_rate> {
         std::cerr)));
 
     WgV_ = W_ * diag(g_) * V_;
+
+    //auto WV=W_*V_;
+    //auto dWV=Incremental_ratio([](auto const &W,
+    //                                auto const &V) { return W * V; },
+     //                            W_, V_,1e-6);
+
+    //are_Equal_v(WV,dWV,std::cerr);
+
+    //auto VWg = V_*W_ * g_;
+    //auto dVWg = Incremental_ratio(
+     //   [](auto const &V, auto const &W, auto const & g) { return  V*W*g; },  1e-6,V_,W_,g_);
+
+    //are_Equal_v(VWg, dVWg, std::cerr);
+
+    assert((are_Equal<true, Derivative<M_Matrix<double>>>().test_prod(
+        Incremental_ratio([](auto const &W, auto const &g,
+                             auto const &V) { return W * diag(g) * V; },
+                          1e-5, W_, g_, V_),
+        Incremental_ratio([](auto const &W, auto const &g,
+                             auto const &V) { return W * diag(g) * V; },
+                          1e-6, W_, g_, V_),
+        std::cerr)));
+
     assert((are_Equal<true, Derivative<M_Matrix<double>>>().test_prod(
         WgV_,
         Incremental_ratio([](auto const &W, auto const &g,
@@ -323,7 +346,7 @@ public:
     //  std::cerr<<"\n
     //  ----calc_Peq-----\np0="<<p0<<"laexp="<<laexp<<"V()"<<V()<<"W"<<W();
 
-    return p0 * V() * laexp * W();
+    return Constant(p0) * V() * Constant(laexp) * W();
   }
 };
 
@@ -787,15 +810,16 @@ private:
   }
 };
 
-template <> class Derivative<SingleLigandModel> {
+template <> class Derivative<SingleLigandModel>: SingleLigandModel
+{
 public:
+  typedef SingleLigandModel base_type;
+  auto &x() const { return Q0_.x(); }
 
-  auto& x()const {return Q0_.x();}
-
-  SingleLigandModel f()const
+  SingleLigandModel const& f() const
 
   {
-    return  SingleLigandModel({Q0_.f(),Qa_.f()}, g_.f()*1.0, 1.0,  N_channels(), noise_variance_.f(), min_P());
+    return *this;
   }
   auto Q(double x) const { return Q0_ + Qa_ * x; }
 
@@ -828,15 +852,16 @@ public:
                        Derivative<M_Matrix<double>>> &&Qs,
              Derivative<M_Matrix<double>> &&g, double Vm, Derivative<double> N,
              Derivative<double> noise, double min_P)
-      : Q0_{std::move(Qs.first)}, Qa_{std::move(Qs.second)}, g_{g * Vm},
+      :SingleLigandModel ({Qs.first.f(),Qs.second.f()},g.f(),Vm,N.f(),noise.f(),min_P),
+        Q0_{std::move(Qs.first)}, Qa_{std::move(Qs.second)}, g_{g * Vm},
         N_channels_{N}, noise_variance_{noise}, min_P_{min_P} {}
 
   double min_P() const { return min_P_; }
 
-  auto & Q0()const { return Q0_;}
-  auto & Qa()const { return Qa_;}
-  auto & g0()const {return g_;}
-  auto & noise_std()const { return noise_variance_;}
+  auto &Q0() const { return Q0_; }
+  auto &Qa() const { return Qa_; }
+  auto &g0() const { return g_; }
+  auto &noise_std() const { return noise_variance_; }
 
 private:
   Derivative<M_Matrix<double>> Q0_;
@@ -847,15 +872,15 @@ private:
   double min_P_;
 };
 
-
-
-inline SingleLigandModel Taylor_first(const Derivative<SingleLigandModel> &dy, std::size_t i, double eps) {
-  auto Q0=Taylor_first(dy.Q0(),i,eps);
-  auto Qa=Taylor_first(dy.Qa(),i,eps);
-  auto g=Taylor_first(dy.g0(),i,eps);
-  auto N=Taylor_first(dy.AverageNumberOfChannels(),i,eps);
-  auto noise=Taylor_first(dy.noise_std(),i,eps);
-  return SingleLigandModel(std::pair(std::move(Q0),std::move(Qa)),std::move(g),1.0,N,noise,dy.min_P());
+inline SingleLigandModel Taylor_first(const Derivative<SingleLigandModel> &dy,
+                                      std::size_t i, double eps) {
+  auto Q0 = Taylor_first(dy.Q0(), i, eps);
+  auto Qa = Taylor_first(dy.Qa(), i, eps);
+  auto g = Taylor_first(dy.g0(), i, eps);
+  auto N = Taylor_first(dy.AverageNumberOfChannels(), i, eps);
+  auto noise = Taylor_first(dy.noise_std(), i, eps);
+  return SingleLigandModel(std::pair(std::move(Q0), std::move(Qa)),
+                           std::move(g), 1.0, N, noise, dy.min_P());
 }
 
 template <class Markov_Transition_step, class Markov_Transition_rate, class M,
@@ -875,29 +900,35 @@ template <class Markov_Transition_step, class Markov_Transition_rate, class M,
 Markov_Model_calculations<Markov_Transition_step, Markov_Transition_rate, M,
                           Experiment, X>
 Taylor_first(const Markov_Model_calculations<Derivative<Markov_Transition_step>,
-                                          Derivative<Markov_Transition_rate>,
-                                             Derivative<M>, Experiment, X> &dm, std::size_t i, double eps) {
+                                             Derivative<Markov_Transition_rate>,
+                                             Derivative<M>, Experiment, X> &dm,
+             std::size_t i, double eps) {
   return Markov_Model_calculations<Markov_Transition_step,
-                                   Markov_Transition_rate, M, Experiment, X>(
-      Taylor_first(dm.Model(),i,eps), dm.get_Experiment(), dm.n_sub_samples(), dm.tolerance());
+                                   Markov_Transition_rate, M, Experiment, X>
+      (
+      Taylor_first(dm.Model(), i, eps), dm.get_Experiment(), dm.n_sub_samples(),
+      dm.tolerance());
 }
 
 template <class F, class ModelCalculationsDerivative>
-auto Incremental_ratio_model(const F &fun, const ModelCalculationsDerivative &dm,
+auto Incremental_ratio_model(const F &fun,
+                             const ModelCalculationsDerivative &dm,
                              double eps) {
 
-  auto m=Primitive(dm);
-  auto x=dm.Model().x();
-  auto f = std::invoke(fun, m).value();
+  auto m = Primitive(dm);
+  auto const & x = dm.Model().x();
+  auto f = std::invoke(fun, m);
   std::vector<std::decay_t<decltype(f)>> fpos(x.size());
   std::vector<std::decay_t<decltype(f)>> fneg(x.size());
   for (std::size_t i = 0; i < x.size(); ++i) {
     double e = eps;
     if (x[i] != 0)
       e *= std::abs(x[i]);
-    auto mpos=Taylor_first(dm, i, e);
-    fpos[i] = fun(mpos).value();
-    fneg[i] = std::invoke(fun, Taylor_first(dm, i, -e)).value();
+    auto mpos = Taylor_first(dm, i, e);
+    auto mneg = Taylor_first(dm, i, -e);
+
+    fpos[i] = std::invoke(fun,mpos);
+    fneg[i] = std::invoke(fun, mneg);
   }
   return Incremental_ratio_calc(f, x, fpos, fneg, eps);
 }

@@ -1570,6 +1570,11 @@ public:
                     double min_P)
       : Q0_{std::move(Qs.first)}, Qa_{std::move(Qs.second)}, g_{g * Vm},
         N_channels_{N}, noise_variance_{noise}, min_P_{min_P} {}
+  SingleLigandModel(const std::pair<M_Matrix<double>, M_Matrix<double>> &Qs,
+                    const M_Matrix<double> &g, double Vm, double N, double noise,
+                    double min_P)
+      : Q0_{std::move(Qs.first)}, Qa_{std::move(Qs.second)}, g_{g * Vm},
+        N_channels_{N}, noise_variance_{noise}, min_P_{min_P} {}
 
   double min_P() const { return min_P_; }
 
@@ -1745,10 +1750,10 @@ public:
                             std::size_t n_sub_samples, double tolerance)
       : m_{m}, N_{std::size_t(m.N_channels())}, fs_{e.frequency_of_sampling()},
         n_sub_samples_{n_sub_samples},
-        tolerance_{tolerance}, e_{e}, rate_map_{}, map_{}, step_map_{} {}
+        tolerance_{tolerance}, e_{e}, current_x_{},current_step_{},rate_map_{}, map_{}, step_map_{} {}
 
 private:
-  const M &m_;
+  M m_;
   size_t N_;
   double fs_;
   std::size_t n_sub_samples_;

@@ -270,7 +270,7 @@ public:
       auto P_cov = diag(P_mean.value()) - quadraticForm_XTX(P_mean.value());
       //     std::cerr<<"gslreijgsorjgps INIT!!!"<<P_cov;
       auto nan = std::numeric_limits<double>::quiet_NaN();
-      auto x = P_mean.value().x();
+      auto& x = P_mean.value().x();
       return Op(Derivative<markov::mp_state_information>::adjust(
           std::move(P_mean).value(), std::move(P_cov),
           Derivative<double>(nan, x), Derivative<double>(nan, x),
@@ -468,7 +468,7 @@ public:
       auto P_cov = diag(P_mean.value()) - quadraticForm_XTX(P_mean.value());
       //     std::cerr<<"gslreijgsorjgps INIT!!!"<<P_cov;
       auto nan = std::numeric_limits<double>::quiet_NaN();
-      auto x = P_mean.value().x();
+      auto& x = P_mean.value().x();
       return Op(Derivative<markov::mp_state_information>::adjust(
           std::move(P_mean).value(), std::move(P_cov),
           Derivative<double>(nan, x), Derivative<double>(nan, x),
@@ -642,7 +642,7 @@ public:
       auto P_cov = diag(P_mean.value()) - quadraticForm_XTX(P_mean.value());
       //     std::cerr<<"gslreijgsorjgps INIT!!!"<<P_cov;
       auto nan = std::numeric_limits<double>::quiet_NaN();
-      auto x = P_mean.value().x();
+      auto& x = P_mean.value().x();
       return Op(Derivative<markov::mp_state_information>::adjust(
           std::move(P_mean).value(), std::move(P_cov),
           Derivative<double>(nan, x), Derivative<double>(nan, x),
@@ -870,7 +870,7 @@ public:
       auto P_cov = diag(P_mean.value()) - quadraticForm_XTX(P_mean.value());
       //     std::cerr<<"gslreijgsorjgps INIT!!!"<<P_cov;
       auto nan = std::numeric_limits<double>::quiet_NaN();
-      auto x = P_mean.value().x();
+      auto& x = P_mean.value().x();
       return Op(Derivative<markov::mp_state_information>::adjust(
           std::move(P_mean).value(), std::move(P_cov),
           Derivative<double>(nan, x), Derivative<double>(nan, x),
@@ -964,7 +964,8 @@ auto logLikelihood_experiment_calculation_derivative(const F &f, const MacroDR &
 
   auto first_step = *e.begin_begin();
   auto prior = a.start(m, first_step, m.min_P());
-  assert(are_Equal_v(prior.value(),Incremental_ratio_model([&first_step,&m,&a](auto &&mo){return a.f().start(mo,first_step,m.min_P());},m,1e-6),os));
+  auto dprior=Incremental_ratio_model([&first_step,&a](auto &mo){return std::move(a.f().start(mo,first_step,mo.min_P())).value();},m,1e-6);
+  assert(are_Equal_v(prior.value(),dprior,std::cerr));
 
   if (!prior.has_value())
     return Op(false, "calculation interrupted at start :" + prior.error());

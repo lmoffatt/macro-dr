@@ -29,13 +29,19 @@ public:
     template<class ostream=std::ostream>
     bool test(double x, double y,ostream& s=std::cerr)const
     {
-      if  ((x==y)||(std::abs(x-y)<=absolute_error())||(std::abs(x-y)/std::abs(x+y))<relative_error())
+      if  ((std::isnan(x)==std::isnan(y))
+          &&((std::isnan(x)==std::isnan(y)
+               ||(x==y)
+               ||(std::abs(x-y)<=absolute_error())
+               ||(std::abs(x-y)/std::abs(x+y))<relative_error())))
             return true;
         else
         {
             {
                 if constexpr(output){
                     s<<"\n not equal!!";
+                    if (std::isnan(x)!=std::isnan(y))
+                      s<<" nan value: "<<"  x="<<x<<"  y="<<y;
                     if  ((std::abs(x-y)>=absolute_error()))
                         s<<"\tabsolute="<<absolute_error()<<"  x="<<x<<"  y="<<y<<"  abs(x-y)="<<std::abs(x-y);
                     if  ((std::abs(x-y)/std::abs(x+y))>=relative_error())
@@ -290,7 +296,7 @@ public:
     std::stringstream ss;
     bool res = std::apply(
         [&one, &other, &ss](auto &... f) {
-          return (field_test<output>(f, one, other, ss) && ...);
+          return (field_test<output>(f, one, other, ss) * ...);
         },
         fields);
     if constexpr (output)

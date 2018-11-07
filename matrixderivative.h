@@ -36,7 +36,7 @@ public:
       : f_{fx}, x_{&myx}, dfdx_{der} {}
 
   Derivative(double fx, const M_Matrix<double> &myx)
-      : f_{fx}, x_{&myx}, dfdx_{myx.nrows(), myx.ncols(), myx.type(), 0.0} {}
+      : f_{fx}, x_{&myx}, dfdx_{myx.nrows(), myx.ncols(), myx.type(), std::isnan(fx)?fx:0} {}
   Derivative() = default;
   Derivative(const M_Matrix<double> &myx)
       : f_{0}, x_{&myx}, dfdx_{myx.nrows(), myx.ncols(), myx.type(), 0.0} {}
@@ -367,7 +367,7 @@ Incremental_ratio(const F &fun, double eps,
       e *= std::abs(one.x()[i]);
     auto fpos = fun(Taylor_first(y0, i, e), Taylor_first(y, i, e)...);
     auto fneg = fun(Taylor_first(y0, i, -e), Taylor_first(y, i, -e)...);
-    dfdx[i] = (fpos - fneg) / (2 * eps);
+    dfdx[i] = (fpos - fneg) / (2.0 * e);
   }
   return Derivative<M_Matrix<double>>(f, one.x(), dfdx);
 }
@@ -533,7 +533,12 @@ Derivative<T> operator-(Constant<T> &&c, const Derivative<T> &x) {
 
 template <class T>
 Derivative<T> operator*(const Derivative<T> &x, const Constant<T> &c) {
-  return Derivative<T>(x.f() * c.value, x.x(), x.dfdx());
+  return Derivative<T>(x.f() * c.value, x.x(), x.dfdx().apply([&c](auto& m){return m*c.value;}));
+}
+
+template <class T>
+Derivative<T> operator*(const Constant<T> &c,const Derivative<T> &x) {
+  return Derivative<T> (c.value*x.f() , x.x(), x.dfdx().apply([&c](auto& m){return c.value*m;}));
 }
 
 auto exp(D, double x) { return std::exp(x); }

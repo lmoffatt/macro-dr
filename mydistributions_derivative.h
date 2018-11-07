@@ -43,13 +43,15 @@ struct Derivative<Probability_distribution> : public Probability_distribution {
       else
         dneg -= dp[i];
     }
-    double fpos = dneg / (dpos + dneg);
-    double fneg = dpos / (dpos + dneg);
-    for (std::size_t i = 0; i < dp.size(); ++i) {
-      if (dp[i] > 0)
-        dp[i] *= fpos;
-      else
-        dp[i] *= fneg;
+    if (dpos + dneg > 0) {
+      double fpos = dneg / (dpos + dneg);
+      double fneg = dpos / (dpos + dneg);
+      for (std::size_t i = 0; i < dp.size(); ++i) {
+        if (dp[i] > 0)
+          dp[i] *= fpos;
+        else
+          dp[i] *= fneg;
+      }
     }
     return dp;
   }
@@ -82,7 +84,7 @@ struct Derivative<Probability_distribution_covariance>
 
   typedef Probability_distribution_covariance base_type;
 
-      static M_Matrix<double>
+  static M_Matrix<double>
   normalize_derivative(M_Matrix<double> &&dp,
                        const std::set<std::size_t> &non_zero_i) {
     for (auto i : non_zero_i) {
@@ -95,13 +97,15 @@ struct Derivative<Probability_distribution_covariance>
         else
           dneg -= dp(i, j);
       }
-      double fpos = dneg / (dpos + dneg);
-      double fneg = dpos / (dpos + dneg);
-      for (auto j : non_zero_i) {
-        if (dp(i, j) > 0)
-          dp(i, j) *= fpos;
-        else
-          dp(i, j) *= fneg;
+      if ((dpos + dneg) > 0) {
+        double fpos = dneg / (dpos + dneg);
+        double fneg = dpos / (dpos + dneg);
+        for (auto j : non_zero_i) {
+          if (dp(i, j) > 0)
+            dp(i, j) *= fpos;
+          else
+            dp(i, j) *= fneg;
+        }
       }
     }
     return dp;
@@ -155,19 +159,19 @@ struct Derivative<Probability_distribution_covariance>
   static Op_void test_derivative(const M_Matrix<M_Matrix<double>> &dp,
                                  double tolerance) {
     for (std::size_t npar = 0; npar < dp.size(); ++npar) {
-      auto& p=dp[npar];
+      auto &p = dp[npar];
       for (std::size_t i = 0; i < p.nrows(); ++i) {
         double sum = 0;
         for (std::size_t j = 0; j < p.ncols(); ++j) {
 
-          if (i != j)               sum += p(i, j);
-
+          if (i != j)
+            sum += p(i, j);
         }
         if (std::abs(p(i, i) + sum) > tolerance) {
           if constexpr (output) {
             std::stringstream ss;
             ss << "tolerance=" << tolerance << "\n";
-            ss << " dp["+ToString(npar)+"]=\n"
+            ss << " dp[" + ToString(npar) + "]=\n"
                << p << "\n i=" << i << " dp(i,j)=" << p(i, i) << " sum=" << sum
                << "\n";
             return Op_void(false, ss.str());
@@ -179,14 +183,12 @@ struct Derivative<Probability_distribution_covariance>
     return Op_void(true, "");
   }
 
-
-    template <bool output, class dP>
+  template <bool output, class dP>
   static Op_void test(const dP &p, double tolerance) {
-      auto test_f=base_type::test<output>(p.f(),tolerance);
-      auto test_df=test_derivative<output>(p.dfdx(),tolerance);
-      return std::move(test_f)+std::move(test_df);
-
-    }
+    auto test_f = base_type::test<output>(p.f(), tolerance);
+    auto test_df = test_derivative<output>(p.dfdx(), tolerance);
+    return std::move(test_f) + std::move(test_df);
+  }
 };
 
 template <> struct Derivative<variance_value> : public variable_value {
