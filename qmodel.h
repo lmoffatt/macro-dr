@@ -1152,11 +1152,30 @@ public:
       my_static_string("Markov_Transition_step_double");
   static auto get_constructor_fields() {
     // M_Matrix<double> const & (self_type::*myP) ()const& =&self_type::P;
+/*
+ *   Markov_Transition_step_double(M_Matrix<double> &&P,
+ * M_Matrix<double> &&g,
+ * std::size_t nsamples,
+ * double fs,
+ *  double min_p,
+ * M_Matrix<double>
+     &&gmean_i, M_Matrix<double> &&gtotal_ij, M_Matrix<double> &&gmean_ij,
 
+                                    M_Matrix<double> &&gtotal_sqr_ij,
+
+                                    M_Matrix<double> &&gsqr_i,
+
+                                    M_Matrix<double> &&gvar_i,
+                                    M_Matrix<double> &&gtotal_var_ij,
+                                    M_Matrix<double> &&gvar_ij)
+
+ * */
     return std::make_tuple(
         grammar::field(C<self_type>{}, "P", &self_type::myP),
         grammar::field(C<self_type>{}, "g", &self_type::g),
-        grammar::field(C<self_type>{}, "y_mean", &self_type::nsamples),
+
+        grammar::field(C<self_type>{}, "nsamples", &self_type::nsamples),
+        grammar::field(C<self_type>{}, "fs", &self_type::fs),
         grammar::field(C<self_type>{}, "min_p", &self_type::min_P),
         grammar::field(C<self_type>{}, "gmean_i", &self_type::gmean_i),
         grammar::field(C<self_type>{}, "gtotal_ij", &self_type::gtotal_ij),

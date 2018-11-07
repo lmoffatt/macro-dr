@@ -54,9 +54,8 @@ public:
 };
 
 template <class F, class Model, class Parameters>
-auto Incremental_ratio(double eps,const F &fun, const Model &M,
-                       const Derivative<Parameters_values<State_Model>> &p
-                       ) {
+auto Incremental_ratio(double eps, const F &fun, const Model &M,
+                       const Derivative<Parameters_values<State_Model>> &p) {
   auto f = std::invoke(fun, M, p.f());
   M_Matrix<M_Matrix<double>> dfdx(p.x().nrows(), p.x().ncols(), p.x().type());
 
@@ -75,9 +74,9 @@ auto Incremental_ratio(double eps,const F &fun, const Model &M,
 }
 
 template <class F, class Model, class Parameters>
-auto Incremental_ratio_pair(double eps,const F &fun, const Model &M,
-                            const Derivative<Parameters_values<State_Model>> &p
-                            ) {
+auto Incremental_ratio_pair(
+    double eps, const F &fun, const Model &M,
+    const Derivative<Parameters_values<State_Model>> &p) {
   auto [f1, f2] = std::invoke(fun, M, p.f());
   M_Matrix<M_Matrix<double>> df1dx(p.x().nrows(), p.x().ncols(), p.x().type());
   M_Matrix<M_Matrix<double>> df2dx(p.x().nrows(), p.x().ncols(), p.x().type());
@@ -220,39 +219,46 @@ template <> class Derivative<Markov_Transition_rate> {
     Wg_ = W_ * g_;
     assert((are_Equal<true, Derivative<M_Matrix<double>>>().test_prod(
         Wg_,
-        Incremental_ratio(1e-6,[](auto const &W, auto const &g) { return W * g; },
-                          W_, g_),
+        Incremental_ratio(
+            1e-6, [](auto const &W, auto const &g) { return W * g; }, W_, g_),
         std::cerr)));
 
     WgV_ = W_ * diag(g_) * V_;
 
-    //auto WV=W_*V_;
-    //auto dWV=Incremental_ratio([](1e-6,auto const &W,
+    // auto WV=W_*V_;
+    // auto dWV=Incremental_ratio([](1e-6,auto const &W,
     //                                auto const &V) { return W * V; },
-     //                            W_, V_);
+    //                            W_, V_);
 
-    //are_Equal_v(WV,dWV,std::cerr);
+    // are_Equal_v(WV,dWV,std::cerr);
 
-    //auto VWg = V_*W_ * g_;
-    //auto dVWg = Incremental_ratio(1e-6,
-     //   [](auto const &V, auto const &W, auto const & g) { return  V*W*g; }, V_,W_,g_);
+    // auto VWg = V_*W_ * g_;
+    // auto dVWg = Incremental_ratio(1e-6,
+    //   [](auto const &V, auto const &W, auto const & g) { return  V*W*g; },
+    //   V_,W_,g_);
 
-    //are_Equal_v(VWg, dVWg, std::cerr);
+    // are_Equal_v(VWg, dVWg, std::cerr);
 
     assert((are_Equal<true, Derivative<M_Matrix<double>>>().test_prod(
-        Incremental_ratio(1e-5,[](auto const &W, auto const &g,
-                             auto const &V) { return W * diag(g) * V; },
-                           W_, g_, V_),
-        Incremental_ratio(1e-6,[](auto const &W, auto const &g,
-                             auto const &V) { return W * diag(g) * V; },
-                           W_, g_, V_),
+        Incremental_ratio(1e-5,
+                          [](auto const &W, auto const &g, auto const &V) {
+                            return W * diag(g) * V;
+                          },
+                          W_, g_, V_),
+        Incremental_ratio(1e-6,
+                          [](auto const &W, auto const &g, auto const &V) {
+                            return W * diag(g) * V;
+                          },
+                          W_, g_, V_),
         std::cerr)));
 
     assert((are_Equal<true, Derivative<M_Matrix<double>>>().test_prod(
         WgV_,
-        Incremental_ratio(1e-6,[](auto const &W, auto const &g,
-                             auto const &V) { return W * diag(g) * V; },
-                           W_, g_, V_),
+        Incremental_ratio(1e-6,
+                          [](auto const &W, auto const &g, auto const &V) {
+                            return W * diag(g) * V;
+                          },
+                          W_, g_, V_),
         std::cerr)));
 
     // assert(Frobenius_test::test(Qrun(),V()*landa()*W(),1,
@@ -275,14 +281,16 @@ public:
       // std::cerr<<"\n --------1e-5  vs 1e-6-------\n";
       are_Equal<true, Derivative_t<
                           typename Matrix_Decompositions::eigensystem_type>>()
-          .test(Incremental_ratio_tuple_3(1e-5,
+          .test(Incremental_ratio_tuple_3(
+                    1e-5,
                     [](auto &x) {
                       return Matrix_Decompositions::
                           EigenSystem_full_real_eigenvalue(x)
                               .value();
                     },
                     _Qrun),
-                Incremental_ratio_tuple_3(1e-6,
+                Incremental_ratio_tuple_3(
+                    1e-6,
                     [](auto &x) {
                       return Matrix_Decompositions::
                           EigenSystem_full_real_eigenvalue(x)
@@ -297,7 +305,8 @@ public:
               true,
               Derivative_t<typename Matrix_Decompositions::eigensystem_type>>()
               .test(eig.value(),
-                    Incremental_ratio_tuple_3(1e-6,
+                    Incremental_ratio_tuple_3(
+                        1e-6,
                         [](auto &x) {
                           return Matrix_Decompositions::
                               EigenSystem_full_real_eigenvalue(x)
@@ -547,7 +556,8 @@ public:
     return std::make_tuple(
         grammar::field(C<self_type>{}, "P", &self_type::myP),
         grammar::field(C<self_type>{}, "g", &self_type::g),
-        grammar::field(C<self_type>{}, "y_mean", &self_type::nsamples),
+        grammar::field(C<self_type>{}, "nsamples", &self_type::nsamples),
+        grammar::field(C<self_type>{}, "fs", &self_type::fs),
         grammar::field(C<self_type>{}, "min_p", &self_type::min_P),
         grammar::field(C<self_type>{}, "gmean_i", &self_type::gmean_i),
         grammar::field(C<self_type>{}, "gtotal_ij", &self_type::gtotal_ij),
@@ -810,13 +820,12 @@ private:
   }
 };
 
-template <> class Derivative<SingleLigandModel>: SingleLigandModel
-{
+template <> class Derivative<SingleLigandModel> : SingleLigandModel {
 public:
   typedef SingleLigandModel base_type;
   auto &x() const { return Q0_.x(); }
 
-  SingleLigandModel const& f() const
+  SingleLigandModel const &f() const
 
   {
     return *this;
@@ -852,7 +861,8 @@ public:
                        Derivative<M_Matrix<double>>> &&Qs,
              Derivative<M_Matrix<double>> &&g, double Vm, Derivative<double> N,
              Derivative<double> noise, double min_P)
-      :SingleLigandModel ({Qs.first.f(),Qs.second.f()},g.f(),Vm,N.f(),noise.f(),min_P),
+      : SingleLigandModel({Qs.first.f(), Qs.second.f()}, g.f(), Vm, N.f(),
+                          noise.f(), min_P),
         Q0_{std::move(Qs.first)}, Qa_{std::move(Qs.second)}, g_{g * Vm},
         N_channels_{N}, noise_variance_{noise}, min_P_{min_P} {}
 
@@ -904,20 +914,19 @@ Taylor_first(const Markov_Model_calculations<Derivative<Markov_Transition_step>,
                                              Derivative<M>, Experiment, X> &dm,
              std::size_t i, double eps) {
   return Markov_Model_calculations<Markov_Transition_step,
-                                   Markov_Transition_rate, M, Experiment, X>
-      (
+                                   Markov_Transition_rate, M, Experiment, X>(
       Taylor_first(dm.Model(), i, eps), dm.get_Experiment(), dm.n_sub_samples(),
       dm.tolerance());
 }
 
-template <class F, class ModelCalculationsDerivative, class...Ds>
-auto Incremental_ratio_model(double eps,const F &fun,
+template <class F, class ModelCalculationsDerivative, class... Ds>
+auto Incremental_ratio_model(double eps, const F &fun,
                              const ModelCalculationsDerivative &dm,
-                             const Ds&... ys) {
+                             const Ds &... ys) {
 
   auto m = Primitive(dm);
-  auto const & x = dm.Model().x();
-  auto f = std::invoke(fun, m,Primitive(ys)...);
+  auto const &x = dm.Model().x();
+  auto f = std::invoke(fun, m, Primitive(ys)...);
   std::vector<std::decay_t<decltype(f)>> fpos(x.size());
   std::vector<std::decay_t<decltype(f)>> fneg(x.size());
   std::vector<double> e(x.size());
@@ -928,10 +937,10 @@ auto Incremental_ratio_model(double eps,const F &fun,
     auto mpos = Taylor_first(dm, i, e[i]);
     auto mneg = Taylor_first(dm, i, -e[i]);
 
-    fpos[i] = std::invoke(fun,mpos,Taylor_first(ys,i,e[i])...);
-    fneg[i] = std::invoke(fun, mneg,Taylor_first(ys,i,-e[i])...);
+    fpos[i] = std::invoke(fun, mpos, Taylor_first(ys, i, e[i])...);
+    fneg[i] = std::invoke(fun, mneg, Taylor_first(ys, i, -e[i])...);
   }
-  return Incremental_ratio_calc(e,f, x, fpos, fneg);
+  return Incremental_ratio_calc(e, f, x, fpos, fneg);
 }
 
 #endif // QMODEL_DERIVATIVE_H

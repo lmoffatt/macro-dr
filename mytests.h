@@ -255,4 +255,25 @@ public:
   }
 };
 
+
+template <bool output, class Int>
+class are_Equal<
+    output, Int,std::enable_if_t<std::is_integral_v<Int>,void>> {
+
+  double absolute_;
+  double relative_;
+
+public:
+  are_Equal(double, double ) {}
+  bool test(const Int &one, const Int &other, std::ostream &os) {
+    bool res = one==other;
+    if constexpr (output)
+      if (!res) {
+        os << "\n Equality test failed for "
+           << my_trait<Int>::className.str() << " one = " << one<<" other= "<<other;
+      }
+    return res;
+  }
+};
+
 #endif // MYTESTS_H

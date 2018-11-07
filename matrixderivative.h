@@ -354,15 +354,16 @@ Incremental_ratio(double eps, const F &fun,
   return Derivative<M_Matrix<double>>(f, one.x(), dfdx);
 }
 
-template <class F, typename... Ts>
-Derivative<M_Matrix<double>>
+template <class F, typename... Ds>
+auto
 Incremental_ratio(double eps, const F &fun,
                   const Derivative<M_Matrix<double>> &y0,
-                  const Derivative<M_Matrix<Ts>> &... y) {
+                  const Ds &... y) {
   assert(((y0.x() == y.x()) && ...));
-  M_Matrix<double> f = fun(y0.f(), y.f()...);
-  auto &one = y0;
-  M_Matrix<M_Matrix<double>> dfdx(one.x().nrows(), one.x().ncols(),
+  auto f = fun(y0.f(), Primitive(y)...);
+  typedef decltype (f) R;
+      auto &one = y0;
+  M_Matrix<R> dfdx(one.x().nrows(), one.x().ncols(),
                                   one.x().type());
   for (std::size_t i = 0; i < one.x().size(); ++i) {
     double e = eps;
@@ -372,7 +373,7 @@ Incremental_ratio(double eps, const F &fun,
     auto fneg = fun(Taylor_first(y0, i, -e), Taylor_first(y, i, -e)...);
     dfdx[i] = (fpos - fneg) / (2.0 * e);
   }
-  return Derivative<M_Matrix<double>>(f, one.x(), dfdx);
+  return Derivative<R>(f, one.x(), dfdx);
 }
 
 template <class F>
@@ -456,13 +457,13 @@ auto Incremental_ratio_calc(const std::vector<double> &eps, const C &f,
                             const M_Matrix<double> &x,
                             const std::vector<C> &fpos,
                             const std::vector<C> &fneg)
-    -> Derivative<std::decay_t<decltype(C::get_constructor_fields(),
-                                        std::declval<C>())>> {
+    -> std::enable_if_t<is_field_Object<C>::value&&is_field_Object<Derivative<C>>::value,
+                        Derivative<C>> {
   auto fields = f.get_constructor_fields();
-  auto dfields = Derivative<std::decay_t<C>>::get_constructor_fields();
+  auto dfields = Derivative<C>::get_constructor_fields();
   return myApply(
       [&f, &x, &fpos, &fneg, &eps](auto &&... mdm) {
-        return Derivative<std::decay_t<C>>(Incremental_ratio_method_calc(
+        return Derivative<C>(Incremental_ratio_method_calc(
             eps, mdm.first, mdm.second, f, x, fpos, fneg)...);
       },
       std::move(fields), std::move(dfields));
