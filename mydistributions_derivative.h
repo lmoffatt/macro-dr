@@ -44,8 +44,8 @@ struct Derivative<Probability_distribution> : public Probability_distribution {
         dneg -= dp[i];
     }
     if (dpos + dneg > 0) {
-      double fpos = dneg / (dpos + dneg);
-      double fneg = dpos / (dpos + dneg);
+      double fpos = 2.0*dneg / (dpos + dneg);
+      double fneg = 2.0*dpos / (dpos + dneg);
       for (std::size_t i = 0; i < dp.size(); ++i) {
         if (dp[i] > 0)
           dp[i] *= fpos;
@@ -85,8 +85,10 @@ struct Derivative<Probability_distribution_covariance>
   typedef Probability_distribution_covariance base_type;
 
   static M_Matrix<double>
-  normalize_derivative(M_Matrix<double> &&dp,
-                       const std::set<std::size_t> &non_zero_i) {
+  normalize_derivative(const M_Matrix<double> &dp0,
+                       const std::set<std::size_t> &non_zero_i0) {
+    M_Matrix<double> dp=dp0;
+    auto non_zero_i=non_zero_i0;
     for (auto i : non_zero_i) {
 
       double dpos = 0;
@@ -98,8 +100,8 @@ struct Derivative<Probability_distribution_covariance>
           dneg -= dp(i, j);
       }
       if ((dpos + dneg) > 0) {
-        double fpos = dneg / (dpos + dneg);
-        double fneg = dpos / (dpos + dneg);
+        double fpos = 2.0*dneg / (dpos + dneg);
+        double fneg = 2.0*dpos / (dpos + dneg);
         for (auto j : non_zero_i) {
           if (dp(i, j) > 0)
             dp(i, j) *= fpos;

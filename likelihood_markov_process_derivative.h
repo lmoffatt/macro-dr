@@ -219,8 +219,29 @@ public:
       Derivative<double> eplogL(std::numeric_limits<double>::quiet_NaN(),
                                 prior.y_mean().x());
       auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
+      assert(are_Equal_v(
+          P__cov,
+          Incremental_ratio(
+              1e-4,
+              [](auto const &P,
+                 auto const &SmD_) {
+                return quadraticForm_BT_A_B(SmD_, P);
+              },
+              Q_dt.P(), SmD),
+          std::cerr));
       auto P_mean = prior.P_mean() * Q_dt.P();
+      assert(
+          are_Equal_v(P_mean,
+                      Incremental_ratio(1e-4,
+                                        [](auto const &Pmean, auto const &P) {
+                                          return Pmean * P ;
+                                        },
+                                        prior.P_mean(), Q_dt.P()),
+                      std::cerr));
+
       P__cov += diag(P_mean);
+
+
       // std::cerr<<"\nPcov nana corr\n"<<P__cov<<"\nP_mean nana
       // corr\n"<<P_mean<<"\nQ.P \n"<<Q_dt.P();
       auto test = markov::mp_state_information::test(P_mean.f(), P__cov.f(),
@@ -236,7 +257,23 @@ public:
     auto dy = Constant(y) - y_mean;
     auto chi = dy / y_var;
     auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
+
+      assert(are_Equal_v(P__cov,
+                       Incremental_ratio(1e-4,
+                                         [](auto const &P, auto const &SmD_) {
+                                           return quadraticForm_BT_A_B(SmD_, P);
+                                         },
+                                         Q_dt.P(), SmD),
+                       std::cerr));
+
     auto P_mean = prior.P_mean() * Q_dt.P();
+    assert(are_Equal_v(P_mean,
+                       Incremental_ratio(1e-4,
+                                         [](auto const &Pmean, auto const &P) {
+                                           return Pmean * P;
+                                         },
+                                         prior.P_mean(), Q_dt.P()),
+                       std::cerr));
     P__cov += diag(P_mean);
 
     auto chi2 = dy * chi;
@@ -688,10 +725,28 @@ std::cerr<<"<------1e-7 vs 1e-8---------------------------";
     auto dy = Constant(y) - y_mean;
     auto chi = dy / y_var;
     auto P_mean = prior.P_mean() * Q_dt.P() + chi * gS;
+    assert(are_Equal_v(P_mean,
+                       Incremental_ratio(1e-4,
+                                         [](auto const &Pmean, auto const &P, auto const & chi_, auto const & gS_) {
+                                           return Pmean*P+chi_*gS_;
+                                         },
+                                         prior.P_mean(),Q_dt.P(),chi,gS),
+                       std::cerr));
 
     auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P()) +
                   diag(prior.P_mean() * Q_dt.P()) -
                   (N / y_var) * quadraticForm_XTX(gS);
+
+    assert(are_Equal_v(P__cov,
+                       Incremental_ratio(1e-4,
+                                         [](auto const &Pmean, auto const &P,
+                                             auto const &gS_, auto const & SmD_,auto const & N_,auto const &y_var_) {
+                                           return quadraticForm_BT_A_B(SmD_, P) +
+                                   diag(Pmean * P) -
+                                   (N_ / y_var_) * quadraticForm_XTX(gS_);
+                          },
+                                         prior.P_mean(), Q_dt.P(),  gS,SmD,N,y_var),
+                       std::cerr));
 
     auto chi2 = dy * chi;
 
@@ -1107,7 +1162,7 @@ auto logLikelihood_experiment_calculation_derivative(
             return std::move(a.f().run(p, mo, *it, os, aux[i]...)).value();
           },
           m, prior.value());
-      assert((are_Equal_v(post.value(), dpost, std::cerr)));
+      assert((are_Equal_v(post.value(), dpost, std::cerr, "i= ",i,"  position: *it=",*it)));
       f(post.value(), out, i, aux[i]...);
       prior.value() = std::move(post).value();
     }
