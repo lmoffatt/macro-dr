@@ -599,7 +599,7 @@ private:
   static double dEedx(double x, double y, double exp_x, double exp_y,
                       double eps = std::numeric_limits<double>::epsilon()) {
     if (sqr(x - y) < eps)
-      return exp_x;
+      return exp_x / 2.0;
     else
       return (exp_x * (x - y) - (exp_x - exp_y)) / sqr(x - y);
   };
@@ -615,12 +615,22 @@ private:
   static double EX_111(double x, double y, double z, double exp_x) {
     return Markov_Transition_step_double::EX_111(x, y, z, exp_x);
   }
+  //  static double EX_111(double x, double y, double z, double exp_x) {
+  //    return exp_x / ((x - y) * (x - z));
+  //  }
+
   static double dEX_111_dx(double x, double y, double z, double exp_x) {
+    // (u'v-uv')/v2
+    // return   (exp_x*((x - y) * (x - z))-(exp_x*( (x - z)+(x - y) )))/sqr((x -
+    // y) * (x - z));
+
     return exp_x * ((x - y) * (x - z) - (2 * x - z - y)) /
            sqr((x - y) * (x - z));
   }
   static double dEX_111_dy(double x, double y, double z, double exp_x) {
-    return exp_x * (x - z) / sqr((x - y) * (x - z));
+    // -v'/v2
+
+    return exp_x / (x - z) / sqr(x - y);
   }
 
   static double E111(double x, double y, double z, double exp_x, double exp_y,
@@ -634,6 +644,8 @@ private:
            dEX_111_dy(z, x, y, exp_z);
   }
   static double dEX_111_dyy(double x, double y, double exp_x) {
+
+    //    return exp_x / sqr(x - y);
     return 2 * exp_x / std::pow(x - y, 3);
   }
 
@@ -642,13 +654,18 @@ private:
   }
 
   static double dE12_dx(double x, double y, double exp_x, double exp_y) {
+
+    // exp_y / (y - x) * (1.0 - 1.0 / (y - x));
+
+    //   +exp_y / sqr(y - x) * (1.0 - 1.0 / (y - x))
+    //  -exp_y / (y - x) * ( 1.0 / sqr(y - x))
     return dEX_111_dx(x, y, y, exp_x) +
-           exp_y / sqr(y - x) * (1.0 - 1.0 / (y - x)) +
+           exp_y / sqr(y - x) * (1.0 - 1.0 / (y - x)) -
            exp_y / (y - x) * (1.0 / sqr(y - x));
   }
   static double dE12_dy(double x, double y, double exp_x, double exp_y) {
     return dEX_111_dyy(x, y, exp_x) + exp_y / (y - x) * (1.0 - 1.0 / (y - x)) -
-           exp_y / sqr(y - x) * (1.0 - 1.0 / (y - x)) -
+           exp_y / sqr(y - x) * (1.0 - 1.0 / (y - x)) +
            exp_y / (y - x) * (1.0 / sqr(y - x));
   }
 
@@ -676,16 +693,16 @@ private:
                       double eps = std::numeric_limits<double>::epsilon()) {
     if (sqr(x - y) < eps) // x==y
     {
-      if (sqr(y - z) < eps) // y==z
-        return exp_x / 2.0; // x==y==z
+      if (sqr(y - z) < eps)       // y==z
+        return exp_x / 2.0 / 3.0; // x==y==z
       else
-        return dE12_dy(z, x, exp_z, exp_x); // x==y!=z
-    } else if (sqr(y - z) < eps)            // x!=y==z
+        return dE12_dy(z, x, exp_z, exp_x) / 2.0; // x==y!=z
+    } else if (sqr(y - z) < eps)                  // x!=y==z
     {
       return dE12_dx(x, y, exp_x, exp_y);
     } else if (sqr(x - z) < eps) // y!=z==x!=y
     {
-      return dE12_dy(y, x, exp_y, exp_x);
+      return dE12_dy(y, x, exp_y, exp_x) / 2.0;
     } else
       return dE111_dx(x, y, z, exp_x, exp_y, exp_z); // x!=y!=z!=x
   }
@@ -695,8 +712,8 @@ private:
      double exp_x, double exp_y, double exp_z,
      double eps = std::numeric_limits<double>::epsilon()) {
     auto df = dE3dx(x.f(), y.f(), z.f(), exp_x, exp_y, exp_z, eps) * x.dfdx() +
-              dE3dx(y.f(), x.f(), z.f(), exp_y, exp_x, exp_z, eps) * y.dfdx() +
-              dE3dx(z.f(), y.f(), x.f(), exp_x, exp_y, exp_x, eps) * z.dfdx();
+              dE3dx(y.f(), z.f(), x.f(), exp_y, exp_z, exp_x, eps) * y.dfdx() +
+              dE3dx(z.f(), x.f(), y.f(), exp_z, exp_x, exp_y, eps) * z.dfdx();
 
     return Derivative<double>(E3(x.f(), y.f(), z.f(), exp_x, exp_y, exp_z, eps),
                               x.x(), std::move(df));
@@ -730,11 +747,22 @@ private:
 
     auto exp_ladt = exp(Qx.landa().f() * dt);
 
+    auto minP = min_P();
     M_Matrix<Derivative<double>> E2m(N, N, Matrix_TYPE::SYMMETRIC);
     M_Matrix<Derivative<double>> E2mb(N, N, Matrix_TYPE::SYMMETRIC);
     for (std::size_t i = 0; i < N; ++i)
-      for (std::size_t j = 0; j < i + 1; ++j)
+      for (std::size_t j = 0; j < i + 1; ++j) {
         E2m(i, j) = Ee(ladt[i], ladt[j], exp_ladt[i], exp_ladt[j], min_P());
+        assert(are_Equal_v(E2m(i, j),
+                           Incremental_ratio(1e-4,
+                                             [&minP](auto ladt1, auto ladt2) {
+                                               return Ee(ladt1, ladt2,
+                                                         std::exp(ladt1),
+                                                         std::exp(ladt2), minP);
+                                             },
+                                             ladt[i], ladt[j]),
+                           std::cerr));
+      }
 
     // build E2
     M_Matrix<Derivative<double>> WgV_E2(N, N);
@@ -748,6 +776,7 @@ private:
 
     M_Matrix<Derivative<double>> WgV_E3(N, N,
                                         Derivative<double>(Qx.Qrun().x()));
+    bool succed = true;
     for (std::size_t n1 = 0; n1 < N; n1++)
       for (std::size_t n3 = 0; n3 < N; n3++)
         for (std::size_t n2 = 0; n2 < N; n2++) {
@@ -755,8 +784,35 @@ private:
               WgV(n1, n2) * WgV(n2, n3) *
               E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1], exp_ladt[n2],
                  exp_ladt[n3], min_P()); // optimizable
+          are_Equal_v(Incremental_ratio(
+                          1e-2,
+                          [&minP](auto ladt1, auto ladt2, auto ladt3) {
+            return E3(ladt1, ladt2, ladt3, std::exp(ladt1), std::exp(ladt2),
+                      std::exp(ladt3), minP);
+                          },
+                          ladt[n1], ladt[n2], ladt[n3]),
+                      Incremental_ratio(
+                          1e-3,
+                          [&minP](auto ladt1, auto ladt2, auto ladt3) {
+                            return E3(ladt1, ladt2, ladt3, std::exp(ladt1),
+                                      std::exp(ladt2), std::exp(ladt3), minP);
+                          },
+                          ladt[n1], ladt[n2], ladt[n3]),
+                      std::cerr, " 1e-2 1e-3 n1=", n1, " n2=", n2, " n3=", n3);
+          if (!are_Equal_v(E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1],
+                              exp_ladt[n2], exp_ladt[n3], min_P()),
+                           Incremental_ratio(
+                               1e-2,
+                               [&minP](auto ladt1, auto ladt2, auto ladt3) {
+                                 return E3(ladt1, ladt2, ladt3, std::exp(ladt1),
+                                           std::exp(ladt2), std::exp(ladt3),
+                                           minP);
+                               },
+                               ladt[n1], ladt[n2], ladt[n3]),
+                           std::cerr, " n1=", n1, " n2=", n2, " n3=", n3))
+            succed = false;
         }
-
+    assert(succed);
     gtotal_sqr_ij_ =
         Qx.V() * Derivative<M_Matrix<double>>(WgV_E3) * Qx.W() * 2.0;
     for (std::size_t i = 0; i < N; ++i)

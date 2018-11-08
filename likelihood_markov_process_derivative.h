@@ -495,10 +495,57 @@ public:
     auto Q_dto = m.get_P(p, 0);
     if (!Q_dto)
       return Op(false, "fails in auto Q_dt=m.get_P(p,0) :" + Q_dto.error());
-    assert((are_Equal_v(Q_dto.value(),
-                        Incremental_ratio_model(1e-6,[&p](auto& mo){return mo.get_P(p,0).value();},m),
-                        std::cerr
-                        )));
+
+    std::vector<double> myps={1e-3,1e-4,1e-5,1e-6,1e-7,1e-8};
+
+    std::vector<std::decay_t<decltype (Q_dto.value())>> dQs;
+    for (auto eps:myps)
+      dQs.push_back(Incremental_ratio_model(
+         eps, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m));
+
+    auto fields=dQs[0].get_constructor_fields();
+    auto f=[&Q_dto,&dQs,&myps](auto const & m){
+      std::cerr << m.idField << ": \n";
+      std::cerr << "\n-------Derivative---------\n";
+      std::cerr << std::invoke(m.access_method, Q_dto.value()) << "-----------\n";
+
+      for (std::size_t i = 0; i < myps.size(); ++i) {
+        std::cerr << "\n-------" << myps[i] << "---------\n";
+        std::cerr << std::invoke(m.access_method, dQs[i]) << "-----------\n";
+      }
+      return 0;
+    };
+
+    std::apply([&f](auto const &... m){ return (f(m)+...);},fields);
+
+are_Equal_v(Incremental_ratio_model(
+                    1e-3, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
+                Incremental_ratio_model(
+                    1e-4, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
+                std::cerr);
+
+
+
+
+    std::cerr<<"<------1e-5 vs 1e-6---------------------------";
+are_Equal_v(Incremental_ratio_model(
+                    1e-5, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
+                Incremental_ratio_model(
+                    1e-6, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
+                std::cerr);
+
+std::cerr<<"<------1e-7 vs 1e-8---------------------------";
+
+    are_Equal_v(Incremental_ratio_model(
+                    1e-7, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
+                Incremental_ratio_model(
+                    1e-8, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
+                std::cerr);
+    assert((are_Equal_v(
+        Q_dto.value(),
+        Incremental_ratio_model(
+            1e-3, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
+        std::cerr)));
     Derivative<Markov_Transition_step_double> Q_dt = std::move(Q_dto).value();
     return run(prior, Q_dt, m, p, os, alg);
   }
@@ -560,8 +607,7 @@ public:
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
       const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
-      const Step &p, std::ostream & /*os*/) const
-  {
+      const Step &p, std::ostream & /*os*/) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     auto y = p.y();
 
@@ -599,8 +645,8 @@ public:
         gSg,
         Incremental_ratio(
             1e-6,
-            [&u](auto const &gmean_i, auto const &SmD, auto const &P_mean, auto const &gtotal_ij,
-                 auto const &gmean_ij) {
+            [&u](auto const &gmean_i, auto const &SmD, auto const &P_mean,
+                 auto const &gtotal_ij, auto const &gmean_ij) {
               return (TranspMult(gmean_i, SmD) * gmean_i).getvalue() +
                      (P_mean * (elemMult(gtotal_ij, gmean_ij) * u)).getvalue();
             },

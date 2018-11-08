@@ -354,10 +354,10 @@ Incremental_ratio(double eps, const F &fun,
   return Derivative<M_Matrix<double>>(f, one.x(), dfdx);
 }
 
-template <class F, typename... Ds>
+template <class F, typename T, typename... Ds>
 auto
 Incremental_ratio(double eps, const F &fun,
-                  const Derivative<M_Matrix<double>> &y0,
+                  const Derivative<T> &y0,
                   const Ds &... y) {
   assert(((y0.x() == y.x()) && ...));
   auto f = fun(y0.f(), Primitive(y)...);

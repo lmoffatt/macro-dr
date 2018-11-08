@@ -211,9 +211,14 @@ private:
   double absolute_ = std::numeric_limits<double>::epsilon();
 };
 
-template <class T>
-bool are_Equal_v(const T &one, const T &other, std::ostream &os) {
-  return are_Equal<true, T>(std::sqrt(std::numeric_limits<double>::epsilon()),std::sqrt(std::numeric_limits<double>::epsilon())).test(one, other, os);
+template <class T, typename...Ts>
+bool are_Equal_v(const T &one, const T &other, std::ostream &os, Ts...context) {
+  if (!are_Equal<true, T>(std::sqrt(std::numeric_limits<double>::epsilon()),std::sqrt(std::numeric_limits<double>::epsilon())).test(one, other, os))
+  {
+    auto& s=(os<<...<<context);
+    return false;
+  }
+  else return true;
 }
 
 template <bool output, class Object, class method>
