@@ -146,7 +146,10 @@ public:
   Derivative<double> getvalue() && {
     {
       assert(f().size() == 1);
-      return Derivative<double>(f().getvalue(), x(), std::move(dfdx()[0]));
+      M_Matrix<double> df(x().nrows(),x().ncols(),x().type());
+      for (std::size_t i=0; i<x().size(); ++i)
+        df[i]=dfdx()[i][0];
+      return Derivative<double>(f().getvalue(), x(), std::move(df));
     }
   }
 };

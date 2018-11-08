@@ -784,22 +784,7 @@ private:
               WgV(n1, n2) * WgV(n2, n3) *
               E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1], exp_ladt[n2],
                  exp_ladt[n3], min_P()); // optimizable
-          are_Equal_v(Incremental_ratio(
-                          1e-2,
-                          [&minP](auto ladt1, auto ladt2, auto ladt3) {
-            return E3(ladt1, ladt2, ladt3, std::exp(ladt1), std::exp(ladt2),
-                      std::exp(ladt3), minP);
-                          },
-                          ladt[n1], ladt[n2], ladt[n3]),
-                      Incremental_ratio(
-                          1e-3,
-                          [&minP](auto ladt1, auto ladt2, auto ladt3) {
-                            return E3(ladt1, ladt2, ladt3, std::exp(ladt1),
-                                      std::exp(ladt2), std::exp(ladt3), minP);
-                          },
-                          ladt[n1], ladt[n2], ladt[n3]),
-                      std::cerr, " 1e-2 1e-3 n1=", n1, " n2=", n2, " n3=", n3);
-          if (!are_Equal_v(E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1],
+          /*if (!are_Equal_v(E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1],
                               exp_ladt[n2], exp_ladt[n3], min_P()),
                            Incremental_ratio(
                                1e-2,
@@ -810,9 +795,9 @@ private:
                                },
                                ladt[n1], ladt[n2], ladt[n3]),
                            std::cerr, " n1=", n1, " n2=", n2, " n3=", n3))
-            succed = false;
+            succed = false; */
         }
-    assert(succed);
+   // assert(succed);
     gtotal_sqr_ij_ =
         Qx.V() * Derivative<M_Matrix<double>>(WgV_E3) * Qx.W() * 2.0;
     for (std::size_t i = 0; i < N; ++i)

@@ -181,10 +181,31 @@ public:
     M_Matrix<double> u(prior.P_mean().f().size(), 1, 1.0);
 
     auto SmD = prior.P_cov() - diag(prior.P_mean());
+
+    assert((are_Equal_v(SmD,
+                        Incremental_ratio(1e-6,
+                                          [](auto &cov, auto &mean) {
+                                            return cov - diag(mean);
+                                          },
+                                          prior.P_cov(), prior.P_mean()),
+                        std::cerr)));
     Derivative<double> gSg =
         (TranspMult(Q_dt.gmean_i(), SmD) * Q_dt.gmean_i()).getvalue() +
-        (prior.P_mean() * (elemMult(Q_dt.gtotal_ij(), Q_dt.gmean_ij()) * u))
+        (prior.P_mean() * (elemMult(Q_dt.gtotal_ij(), Q_dt.gmean_ij()) * Constant(u)))
             .getvalue();
+
+    assert((are_Equal_v(
+        gSg,
+        Incremental_ratio(
+            1e-6,
+            [&u](auto const &gmean_i, auto const &SmD, auto const &P_mean,
+                 auto const &gtotal_ij, auto const &gmean_ij) {
+              return (TranspMult(gmean_i, SmD) * gmean_i).getvalue() +
+                     (P_mean * (elemMult(gtotal_ij, gmean_ij) * u)).getvalue();
+            },
+            Q_dt.gmean_i(), SmD, prior.P_mean(), Q_dt.gtotal_ij(),
+            Q_dt.gmean_ij()),
+        std::cerr)));
 
     Derivative<double> ms = (prior.P_mean() * Q_dt.gvar_i()).getvalue();
 
@@ -541,7 +562,8 @@ std::cerr<<"<------1e-7 vs 1e-8---------------------------";
                 Incremental_ratio_model(
                     1e-8, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
                 std::cerr);
-    assert((are_Equal_v(
+    //assert
+        ((are_Equal_v(
         Q_dto.value(),
         Incremental_ratio_model(
             1e-3, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
