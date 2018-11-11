@@ -16,6 +16,7 @@ template <> class Derivative<markov::mp_state_information> {
   Derivative<double> eplogL_;
 
 public:
+
   Derivative(Derivative<M_Matrix<double>> &&P_mean__,
              Derivative<M_Matrix<double>> &&P_cov__,
              Derivative<double> &&y_mean__, Derivative<double> &&y_var__,
@@ -32,7 +33,7 @@ public:
   auto &y_var() const { return y_var_; }
   auto &plogL() const { return plogL_; }
   auto &eplogL() const { return eplogL_; }
-
+  auto &x() const { return y_mean().x(); }
   typedef Derivative self_type;
   constexpr static auto className =
       my_static_string("markov::mp_state_information_Derivative");
@@ -191,7 +192,8 @@ public:
                         std::cerr)));
     Derivative<double> gSg =
         (TranspMult(Q_dt.gmean_i(), SmD) * Q_dt.gmean_i()).getvalue() +
-        (prior.P_mean() * (elemMult(Q_dt.gtotal_ij(), Q_dt.gmean_ij()) * Constant(u)))
+        (prior.P_mean() *
+         (elemMult(Q_dt.gtotal_ij(), Q_dt.gmean_ij()) * Constant(u)))
             .getvalue();
 
     assert((are_Equal_v(
@@ -219,28 +221,23 @@ public:
       Derivative<double> eplogL(std::numeric_limits<double>::quiet_NaN(),
                                 prior.y_mean().x());
       auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
-      assert(are_Equal_v(
-          P__cov,
-          Incremental_ratio(
-              1e-4,
-              [](auto const &P,
-                 auto const &SmD_) {
-                return quadraticForm_BT_A_B(SmD_, P);
-              },
-              Q_dt.P(), SmD),
-          std::cerr));
+      assert(are_Equal_v(P__cov,
+                         Incremental_ratio(1e-4,
+                                           [](auto const &P, auto const &SmD_) {
+                                             return quadraticForm_BT_A_B(SmD_,
+                                                                         P);
+                                           },
+                                           Q_dt.P(), SmD),
+                         std::cerr));
       auto P_mean = prior.P_mean() * Q_dt.P();
-      assert(
-          are_Equal_v(P_mean,
-                      Incremental_ratio(1e-4,
-                                        [](auto const &Pmean, auto const &P) {
-                                          return Pmean * P ;
-                                        },
-                                        prior.P_mean(), Q_dt.P()),
-                      std::cerr));
+      assert(are_Equal_v(
+          P_mean,
+          Incremental_ratio(
+              1e-4, [](auto const &Pmean, auto const &P) { return Pmean * P; },
+              prior.P_mean(), Q_dt.P()),
+          std::cerr));
 
       P__cov += diag(P_mean);
-
 
       // std::cerr<<"\nPcov nana corr\n"<<P__cov<<"\nP_mean nana
       // corr\n"<<P_mean<<"\nQ.P \n"<<Q_dt.P();
@@ -258,7 +255,7 @@ public:
     auto chi = dy / y_var;
     auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
 
-      assert(are_Equal_v(P__cov,
+    assert(are_Equal_v(P__cov,
                        Incremental_ratio(1e-4,
                                          [](auto const &P, auto const &SmD_) {
                                            return quadraticForm_BT_A_B(SmD_, P);
@@ -554,18 +551,20 @@ public:
     if (!Q_dto)
       return Op(false, "fails in auto Q_dt=m.get_P(p,0) :" + Q_dto.error());
 
-    std::vector<double> myps={1e-3,1e-4,1e-5,1e-6,1e-7,1e-8};
+  assert((Derivative_correctness_mean_value_test(1e-2, [&p](auto &mo) { return std::move(mo.get_P(p, 0)).value(); }, m, Q_dto.value(), std::cerr, " step: ", p, "MACROR = ", alg)));
+    std::vector<double> myps = {1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8};
 
-    std::vector<std::decay_t<decltype (Q_dto.value())>> dQs;
-    for (auto eps:myps)
+    std::vector<std::decay_t<decltype(Q_dto.value())>> dQs;
+    for (auto eps : myps)
       dQs.push_back(Incremental_ratio_model(
-         eps, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m));
+          eps, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m));
 
-    auto fields=dQs[0].get_constructor_fields();
-    auto f=[&Q_dto,&dQs,&myps](auto const & m){
+    auto fields = dQs[0].get_constructor_fields();
+    auto f = [&Q_dto, &dQs, &myps](auto const &m) {
       std::cerr << m.idField << ": \n";
       std::cerr << "\n-------Derivative---------\n";
-      std::cerr << std::invoke(m.access_method, Q_dto.value()) << "-----------\n";
+      std::cerr << std::invoke(m.access_method, Q_dto.value())
+                << "-----------\n";
 
       for (std::size_t i = 0; i < myps.size(); ++i) {
         std::cerr << "\n-------" << myps[i] << "---------\n";
@@ -574,33 +573,11 @@ public:
       return 0;
     };
 
-    std::apply([&f](auto const &... m){ return (f(m)+...);},fields);
+  //  std::apply([&f](auto const &... m) { return (f(m) + ...); }, fields);
 
-are_Equal_v(Incremental_ratio_model(
-                    1e-3, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
-                Incremental_ratio_model(
-                    1e-4, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
-                std::cerr);
-
-
-
-
-    std::cerr<<"<------1e-5 vs 1e-6---------------------------";
-are_Equal_v(Incremental_ratio_model(
-                    1e-5, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
-                Incremental_ratio_model(
-                    1e-6, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
-                std::cerr);
-
-std::cerr<<"<------1e-7 vs 1e-8---------------------------";
-
-    are_Equal_v(Incremental_ratio_model(
-                    1e-7, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
-                Incremental_ratio_model(
-                    1e-8, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
-                std::cerr);
-    //assert
-        ((are_Equal_v(
+        // assert
+    if constexpr (false)
+      ((are_Equal_v(
         Q_dto.value(),
         Incremental_ratio_model(
             1e-3, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
@@ -727,26 +704,28 @@ std::cerr<<"<------1e-7 vs 1e-8---------------------------";
     auto P_mean = prior.P_mean() * Q_dt.P() + chi * gS;
     assert(are_Equal_v(P_mean,
                        Incremental_ratio(1e-4,
-                                         [](auto const &Pmean, auto const &P, auto const & chi_, auto const & gS_) {
-                                           return Pmean*P+chi_*gS_;
+                                         [](auto const &Pmean, auto const &P,
+                                            auto const &chi_, auto const &gS_) {
+                                           return Pmean * P + chi_ * gS_;
                                          },
-                                         prior.P_mean(),Q_dt.P(),chi,gS),
+                                         prior.P_mean(), Q_dt.P(), chi, gS),
                        std::cerr));
 
     auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P()) +
                   diag(prior.P_mean() * Q_dt.P()) -
                   (N / y_var) * quadraticForm_XTX(gS);
 
-    assert(are_Equal_v(P__cov,
-                       Incremental_ratio(1e-4,
-                                         [](auto const &Pmean, auto const &P,
-                                             auto const &gS_, auto const & SmD_,auto const & N_,auto const &y_var_) {
-                                           return quadraticForm_BT_A_B(SmD_, P) +
-                                   diag(Pmean * P) -
-                                   (N_ / y_var_) * quadraticForm_XTX(gS_);
-                          },
-                                         prior.P_mean(), Q_dt.P(),  gS,SmD,N,y_var),
-                       std::cerr));
+    assert(are_Equal_v(
+        P__cov,
+        Incremental_ratio(
+            1e-4,
+            [](auto const &Pmean, auto const &P, auto const &gS_,
+               auto const &SmD_, auto const &N_, auto const &y_var_) {
+              return quadraticForm_BT_A_B(SmD_, P) + diag(Pmean * P) -
+                     (N_ / y_var_) * quadraticForm_XTX(gS_);
+            },
+            prior.P_mean(), Q_dt.P(), gS, SmD, N, y_var),
+        std::cerr));
 
     auto chi2 = dy * chi;
 
@@ -1156,14 +1135,20 @@ auto logLikelihood_experiment_calculation_derivative(
       return Op(false, "calculation interrupted at " + ToString(*it) + "  :" +
                            post.error());
     else {
-      auto dpost = Incremental_ratio_model(
+      if constexpr (false) {auto dpost = Incremental_ratio_model(
           1e-6,
           [&a, &it, &os, &i, &aux...](auto &mo, auto const &p) {
             return std::move(a.f().run(p, mo, *it, os, aux[i]...)).value();
           },
           m, prior.value());
-      assert((are_Equal_v(post.value(), dpost, std::cerr, "i= ",i,"  position: *it=",*it)));
-      f(post.value(), out, i, aux[i]...);
+      assert((are_Equal_v(post.value(), dpost, std::cerr, "i= ", i,
+                            "  position: *it=", *it)));
+      }
+      ((Derivative_correctness_mean_value_test(1e-4, [&a, &it, &os, &i, &aux...](auto mo, auto p) {
+            return std::move(a.run(p, mo, *it, os, aux[i]...)).value();
+      },std::forward_as_tuple(m,prior.value()),post.value(), std::cerr, "i= ", i,
+                                                     "  position: *it=", *it)));
+          f(post.value(), out, i, aux[i]...);
       prior.value() = std::move(post).value();
     }
   }

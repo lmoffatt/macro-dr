@@ -1535,7 +1535,9 @@ public:
       auto Par = dprior.Parameter_to_tr(p);
         auto Dlik = dm.compute_PartialDLikelihood(Par, os, data.value());
         if (!Dlik)
+        {
           return Op(false, "Likelihood failed!!: " + Dlik.error());
+        }
 
         return Op(std::pair(std::move(data).value(), std::move(Dlik).value()));
 
@@ -1701,7 +1703,11 @@ public:
           auto logL =
               compute_Sample_derivative(oss[ni], sim, dm, e, dprior, p, mtvec[ni]);
           if (!logL.has_value())
+          {
+            std::cerr<<logL.error();
+            assert(false);
             succed = false;
+          }
           else {
             auto pair = std::move(logL).value();
             s[i] = std::move(pair.second);
@@ -1715,6 +1721,7 @@ public:
         }
       }
     if (!succed)
+
       return Op(false, "failed in one of the samples");
     os << "\n successfully obtained " + ToString(nsamples) +
               " samples for Gradient_Expectancy_Test \n";

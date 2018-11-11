@@ -282,6 +282,13 @@ public:
     assert(k == i * (i + 1) / 2 + j);
     return std::pair(i, j);
   }
+  static std::pair<std::size_t, std::size_t>
+  pos_to_ij_Full(std::size_t k, std::size_t n) {
+    std::size_t i = k/n;
+    std::size_t j = k - i * n;
+    assert(k == i * n + j);
+    return std::pair(i, j);
+  }
 
   static std::pair<std::size_t, std::size_t>
   pos_to_ij_Symmetric(std::size_t k, std::size_t n) {
@@ -697,6 +704,28 @@ public:
 
   const T &operator[](std::size_t n) const { return _data[n]; }
 
+  std::pair<std::size_t, std::size_t> pos_to_ij(std::size_t i)const
+  {
+    switch (type_) {
+    case Matrix_TYPE::FULL:
+    {
+      return pos_to_ij_Full(i,_ncols);
+    }
+    case Matrix_TYPE::SYMMETRIC:
+        return pos_to_ij_Symmetric(i);
+    case Matrix_TYPE::DIAGONAL:
+    case Matrix_TYPE::SCALAR_DIAGONAL:
+      return {i,i};
+    case Matrix_TYPE::SCALAR_FULL:
+      return {0,0};
+    case Matrix_TYPE::ZERO:
+    default:
+      assert(false);
+      return {0,0};
+    }
+  }
+
+
   T &operator()(std::size_t i, std::size_t j) {
     assert(i < nrows());
     assert(j < ncols());
@@ -728,7 +757,7 @@ public:
 
   T const &operator()(std::size_t i, std::size_t j) const {
     if (i >= nrows())
-      assert(true);
+      assert(false);
     assert(j < ncols());
     switch (type_) {
     case Matrix_TYPE::FULL:

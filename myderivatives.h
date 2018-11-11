@@ -2,6 +2,7 @@
 #define MYDERIVATIVES_H
 #include <utility>
 #include <map>
+#include <functional>
 #include "mytypetraits.h"
 template< class...>
 class Derivative;
@@ -23,6 +24,13 @@ struct myDerivative<std::map<K,T,X...>>
     typedef std::map<K, Derivative_t<T>> type;
 };
 
+template <class> struct is_Derivative : public std::false_type {};
+
+template <typename T>
+struct is_Derivative<Derivative<T>> : public std::true_type {};
+
+template <class D>
+constexpr static bool is_Derivative_v = is_Derivative<D>::value;
 
 
 class D{};
@@ -59,4 +67,7 @@ struct numeric_limits<Derivative<T>> : public numeric_limits<T> {
 //  using base_type::epsilon;
 };
 }
+
+
+
 #endif // MYDERIVATIVES_H

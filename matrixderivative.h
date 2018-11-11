@@ -91,24 +91,39 @@ public:
   M_Matrix<M_Matrix<double>> const &dfdx() const { return dfdx_; }
   M_Matrix<M_Matrix<double>> &dfdx() { return dfdx_; }
 
+  bool check() {
+    bool out = true;
+    for (std ::size_t i = 0; i < dfdx_.size(); ++i)
+      if (f_.type() != dfdx()[i].type())
+        out = false;
+    return out;
+  }
   Derivative(const M_Matrix<double> &fx, const M_Matrix<double> &myx,
              const M_Matrix<M_Matrix<double>> &der)
-      : f_{fx}, x_{&myx}, dfdx_{der} {}
+      : f_{fx}, x_{&myx}, dfdx_{der} {
+    assert(check());
+  }
 
   Derivative(const M_Matrix<double> &fx, const M_Matrix<double> &myx)
       : f_{fx}, x_{&myx}, dfdx_{M_Matrix<M_Matrix<double>>(
                               myx.nrows(), myx.ncols(), myx.type(),
                               M_Matrix<double>(fx.nrows(), fx.ncols(),
-                                               fx.type()))} {}
+                                               fx.type()))} {
+    assert(check());
+  }
 
   template <class M_f, class M_d>
   Derivative(M_f &&fx, const M_Matrix<double> &myx, M_d &&der)
-      : f_{std::forward<M_f>(fx)}, x_{&myx}, dfdx_{std::forward<M_d>(der)} {}
+      : f_{std::forward<M_f>(fx)}, x_{&myx}, dfdx_{std::forward<M_d>(der)} {
+    assert(check());
+  }
 
   Derivative(std::size_t nrows, std::size_t ncols, M_Matrix<double>::TYPE t,
              const M_Matrix<double> &x)
       : f_{nrows, ncols, t}, x_{&x}, dfdx_{x.nrows(), x.ncols(), x.type(),
-                                           M_Matrix<double>(nrows, ncols, t)} {}
+                                           M_Matrix<double>(nrows, ncols, t)} {
+    assert(check());
+  }
   Derivative() = default;
 
   Derivative(const M_Matrix<Derivative<double>> &x)
@@ -119,6 +134,7 @@ public:
       f_[i] = x[i].f();
       for (std::size_t j = 0; j < x[0].x().size(); ++j)
         dfdx_[j][i] = x[i].dfdx()[j];
+      assert(check());
     }
   }
   M_Matrix<Derivative<double>> to_Matrix() const {
@@ -146,9 +162,9 @@ public:
   Derivative<double> getvalue() && {
     {
       assert(f().size() == 1);
-      M_Matrix<double> df(x().nrows(),x().ncols(),x().type());
-      for (std::size_t i=0; i<x().size(); ++i)
-        df[i]=dfdx()[i][0];
+      M_Matrix<double> df(x().nrows(), x().ncols(), x().type());
+      for (std::size_t i = 0; i < x().size(); ++i)
+        df[i] = dfdx()[i][0];
       return Derivative<double>(f().getvalue(), x(), std::move(df));
     }
   }
@@ -265,6 +281,22 @@ inline M_Matrix<double> Taylor_first(const Derivative<M_Matrix<double>> &dx,
   return dx.f() + dx.dfdx()[i] * eps;
 }
 
+inline Derivative<double> Directional_Derivative(const Derivative<double> &dx,
+                                                 const M_Matrix<double> &new_x,
+                                                 std::size_t i, double eps) {
+  return Derivative<double>(Taylor_first(dx, i, eps), new_x,
+                            M_Matrix<double>(1, 1, dx.dfdx()[i]));
+}
+
+inline Derivative<M_Matrix<double>>
+Directional_Derivative(const Derivative<M_Matrix<double>> &dx,
+                       const M_Matrix<double> &newx, std::size_t i,
+                       double eps) {
+  return Derivative<M_Matrix<double>>(
+      Taylor_first(dx, i, eps), newx,
+      M_Matrix<M_Matrix<double>>(1, 1, dx.dfdx()[i]));
+}
+
 template <class F>
 Derivative<M_Matrix<double>>
 Incremental_ratio(double eps, const F &fun,
@@ -358,16 +390,13 @@ Incremental_ratio(double eps, const F &fun,
 }
 
 template <class F, typename T, typename... Ds>
-auto
-Incremental_ratio(double eps, const F &fun,
-                  const Derivative<T> &y0,
-                  const Ds &... y) {
+auto Incremental_ratio(double eps, const F &fun, const Derivative<T> &y0,
+                       const Ds &... y) {
   assert(((y0.x() == y.x()) && ...));
   auto f = fun(y0.f(), Primitive(y)...);
-  typedef decltype (f) R;
-      auto &one = y0;
-  M_Matrix<R> dfdx(one.x().nrows(), one.x().ncols(),
-                                  one.x().type());
+  typedef decltype(f) R;
+  auto &one = y0;
+  M_Matrix<R> dfdx(one.x().nrows(), one.x().ncols(), one.x().type());
   for (std::size_t i = 0; i < one.x().size(); ++i) {
     double e = eps;
     if (one.x()[i] != 0)
@@ -434,9 +463,8 @@ Incremental_ratio_tuple_3(double eps, const F &fun,
 }
 
 template <class C>
-auto Primitive(const Derivative<C> &dy)
-    ->std::enable_if_t<is_field_Object<C>::value&&is_field_Object<Derivative<C>>::value,C>
-{
+auto Primitive(const Derivative<C> &dy) -> std::enable_if_t<
+    is_field_Object<C>::value && is_field_Object<Derivative<C>>::value, C> {
   auto fields = dy.get_constructor_fields();
   return std::apply(
       [&dy](auto &... m) {
@@ -456,11 +484,25 @@ C Taylor_first(const Derivative<C> &dy, std::size_t i, double eps) {
 }
 
 template <class C>
+Derivative<C> Directional_Derivative(const Derivative<C> &dy,
+                                     const M_Matrix<double> &new_x,
+                                     std::size_t i, double eps) {
+  auto fields = dy.get_constructor_fields();
+  return std::apply(
+      [&i, &dy, &eps, &new_x](auto &... m) {
+        return Derivative<C>(Directional_Derivative(
+            std::invoke(m.access_method, dy), new_x, i, eps)...);
+      },
+      fields);
+}
+
+template <class C>
 auto Incremental_ratio_calc(const std::vector<double> &eps, const C &f,
                             const M_Matrix<double> &x,
                             const std::vector<C> &fpos,
                             const std::vector<C> &fneg)
-    -> std::enable_if_t<is_field_Object<C>::value&&is_field_Object<Derivative<C>>::value,
+    -> std::enable_if_t<is_field_Object<C>::value &&
+                            is_field_Object<Derivative<C>>::value,
                         Derivative<C>> {
   auto fields = f.get_constructor_fields();
   auto dfields = Derivative<C>::get_constructor_fields();
@@ -482,8 +524,8 @@ inline Derivative<double> Incremental_ratio_calc(
 }
 
 inline Derivative<M_Matrix<double>>
-Incremental_ratio_calc(const std::vector<double> &eps, const M_Matrix<double> &f,
-                       const M_Matrix<double> &x,
+Incremental_ratio_calc(const std::vector<double> &eps,
+                       const M_Matrix<double> &f, const M_Matrix<double> &x,
                        const std::vector<M_Matrix<double>> &fpos,
                        const std::vector<M_Matrix<double>> &fneg) {
   Derivative<M_Matrix<double>> out(f, x);
@@ -535,6 +577,176 @@ auto Incremental_ratio_object(double eps, const F &fun,
   }
   return Incremental_ratio_calc(eps, f, y.x(), fpos, fneg);
 }
+
+inline bool mean_value_test(
+    double eps, double f, double feps, double df, double dfeps,
+    std::ostream &os,
+    double tol = 10*std::sqrt(std::numeric_limits<double>::epsilon())) {
+  if (std::abs((feps - f) - (df + dfeps) * eps / 2.0) >
+      200.0* std::abs((dfeps - df) * eps) + tol) {
+    double deltaf = (feps - f) / eps;
+    double dfm = (df + dfeps) / 2;
+    double dferr = std::abs(dfeps - df);
+    os << "\n eps= " << eps << " f= " << f << " feps= " << feps << " df= " << df
+       << " dfeps= " << dfeps << "\n";
+    os << "df_analytic_mean =\t " << dfm << "\t df_numeric =\t " << deltaf
+       << "\tdifference * eps\t=" << std ::abs(dfm - deltaf) * eps;
+    os << "\t df_analytic_error * eps=\t" << dferr * eps;
+    return false;
+  } else
+    return true;
+}
+inline bool mean_value_test_calc(const std::vector<double> &eps,
+                                 const Derivative<double> &y,
+                                 const std::vector<Derivative<double>> &yeps,
+                                 std::ostream &os) {
+  bool out = true;
+  for (std::size_t j = 0; j < yeps.size(); ++j) {
+    std::stringstream ss;
+    if (!mean_value_test(eps[j], y.f(), yeps[j].f(), y.dfdx()[j],
+                         yeps[j].dfdx()[0], ss)) {
+      os << "\n Fails for the " << j << "th derivative: " << ss.str();
+      out = false;
+    }
+  }
+  return out;
+}
+
+inline bool mean_value_test_calc(
+    std::vector<double> eps, const Derivative<M_Matrix<double>> &y,
+    const std::vector<Derivative<M_Matrix<double>>> &yeps, std::ostream &os) {
+  bool out = true;
+  for (std::size_t j = 0; j < yeps.size(); ++j) {
+    bool jder = true;
+    std::stringstream ssder;
+    for (std::size_t i = 0; i < y.f().size(); ++i) {
+      std::stringstream ss;
+      if (!mean_value_test(eps[j], y.f()[i], yeps[j].f()[i], y.dfdx()[j][i],
+                           yeps[j].dfdx()[0][i], ss)) {
+        ssder << "\nat " << y.f().pos_to_ij(i) << ss.str();
+        jder = false;
+      }
+    }
+    if (!jder) {
+      os << "\n Fails for the " << j << "th derivative: " << ssder.str();
+      os << " \n y.f()\n"
+         << y.f() << "\n yeps.f()\n"
+         << yeps[j].f() << "\n y.dfdx[j]\n"
+         << y.dfdx()[j] << "\n yeps[j].dfdx()\n"
+         << yeps[j].dfdx()[0];
+      os << "\n----------ends the " << j << "th derivative--\n";
+      out = false;
+    }
+  }
+  return out;
+}
+
+template <class Object, class Method, class DerivativeObject>
+bool mean_value_test_method_calc(const std::vector<double> &eps,
+                                 const grammar::field<Object, Method> &m,
+                                 const DerivativeObject &y,
+                                 const std::vector<DerivativeObject> &yeps,
+                                 std::ostream &os) {
+  std::stringstream ss;
+  typedef std::decay_t<std::invoke_result_t<Method, Object>> FieldObject;
+  if constexpr (!is_Derivative_v<FieldObject>) {
+    // typedef typename FieldObject::NO_DER gege;
+    return true;
+
+  } else {
+    typedef FieldObject DerFieldObject;
+    // typedef typename DerFieldObject::IS_DER gege;
+
+    auto my = std::invoke(m.access_method, y);
+    std::vector<FieldObject> myeps(yeps.size());
+    for (std::size_t i = 0; i < myeps.size(); ++i)
+      myeps[i] = (std::invoke(m.access_method, yeps[i]));
+    if (!mean_value_test_calc(eps, my, myeps, ss)) {
+      os << "\nMean value test fails for Field " << m.idField << "\n" << ss.str();
+      return false;
+    } else
+      return true;
+  }
+}
+template <class DerivativeObject>
+auto mean_value_test_calc(const std::vector<double> &eps,
+                          const DerivativeObject &y,
+                          const std::vector<DerivativeObject> &yeps,
+                          std::ostream &os)
+    -> std::enable_if_t<is_field_Object<DerivativeObject>::value, bool> {
+  std::stringstream ss;
+  auto dfields = y.get_constructor_fields();
+  bool out = std::apply(
+      [&eps, &y, &yeps, &ss](auto &... m) {
+        return (mean_value_test_method_calc(eps, m, y, yeps, ss) * ...);
+      },
+      dfields);
+  if (!out) {
+    os << "\nMean value test fails for class "
+       << my_trait<DerivativeObject>::className.str() << "\n"
+       << ss.str();
+    return false;
+  } else
+    return true;
+}
+template <class Diff, class DerX, class DerY, typename... Ts>
+bool Derivative_correctness_mean_value_test(double eps, const Diff &Dfunction,
+                                            const DerX &x0, const DerY &y,
+                                            std::ostream &os, Ts... context) {
+
+  std::vector<DerY> yeps(y.x().size());
+  std::vector<double> e(y.x().size());
+
+  for (std::size_t i = 0; i < y.x().size(); ++i) {
+    e[i] = eps;
+    if (std::abs(y.x()[i]) > 0)
+      e[i] *= std ::abs(y.x()[i]);
+
+    M_Matrix<double> new_x(1, 1, y.x()[i] + e[i]);
+
+    auto xpos = Directional_Derivative(x0, new_x, i, e[i]);
+    yeps[i] = std::invoke(Dfunction, xpos);
+  }
+  std::stringstream ss;
+  bool out = mean_value_test_calc(e, y, yeps, os);
+  if (!out) {
+    os << "\ncontext :";
+    (os << ... << context);
+  }
+  return out;
+}
+
+template <class Diff, class... Ders, class Y, typename... Ts>
+bool Derivative_correctness_mean_value_test(double eps, const Diff &Dfunction,
+                                            const std::tuple<Ders...> &x0,
+                                            const Derivative<Y> &y,
+                                            std::ostream &os, Ts... context) {
+
+  std::vector<Derivative<Y>> yeps(y.x().size());
+  std::vector<double> e(y.x().size());
+  for (std::size_t i = 0; i < y.x().size(); ++i) {
+    e[i] = eps;
+    if (std::abs(y.x()[i]) > 0)
+      e[i] *= std ::abs(y.x()[i]);
+
+    M_Matrix<double> new_x(1, 1, y.x()[i] + e[i]);
+    yeps[i] = std::apply(
+        [&Dfunction, &i, &eps, &new_x, &e](auto const &... t) {
+          return std::invoke(Dfunction,
+                             Directional_Derivative(t, new_x, i, e[i])...);
+        },
+        x0);
+  }
+  std::stringstream ss;
+  bool out = mean_value_test_calc(e, y, yeps, os);
+  if (!out) {
+    os << "\n context: ";
+    (os << ... << context);
+    os << "\n";
+  }
+  return out;
+}
+
 template <class T>
 Derivative<T> operator+(const Derivative<T> &x, Constant<T> &&c) {
   return Derivative<T>(x.f() + c.value, x.x(), x.dfdx());
@@ -617,14 +829,6 @@ auto operator/(double x, const Derivative<double> &y) {
   return Derivative<double>(std::move(f), y.x(), std::move(dy));
 }
 
-template <class> struct is_Derivative : public std::false_type {};
-
-template <typename T>
-struct is_Derivative<Derivative<T>> : public std::true_type {};
-
-template <class D>
-constexpr static bool is_Derivative_v = is_Derivative<D>::value;
-
 template <typename T>
 auto TranspMult(const Derivative<M_Matrix<T>> &x,
                 const Derivative<M_Matrix<T>> &y) {
@@ -652,10 +856,18 @@ auto quadraticForm_BT_A_B(const Derivative<M_Matrix<T>> &A,
   auto f = quadraticForm_BT_A_B(A.f(), B.f());
   auto dfdA =
       A.dfdx().apply([&B](auto &m) { return quadraticForm_BT_A_B(m, B.f()); });
-  auto dfdB = B.dfdx().apply([&A, &B](auto &m) {
-    return TranspMult(m, A.f() * B.f()) + TranspMult(B.f(), A.f() * m);
-  });
-  return Derivative<M_Matrix<T>>(std::move(f), A.x(), dfdA + dfdB);
+  if (A.f().isSymmetric()) {
+    auto dfdB = B.dfdx().apply([&A, &B](auto &m) {
+      return TransposeSum(TranspMult(m, A.f() * B.f()));
+    });
+    return Derivative<M_Matrix<T>>(std::move(f), A.x(), dfdA + dfdB);
+  } else {
+    auto dfdB = B.dfdx().apply([&A, &B](auto &m) {
+      return TranspMult(m, A.f() * B.f()) + TranspMult(B.f(), A.f() * m);
+    });
+    return Derivative<M_Matrix<T>>(std::move(f), A.x(), dfdA + dfdB);
+
+  }
 }
 
 template <typename T>
@@ -672,10 +884,11 @@ auto elemDiv(const Derivative<M_Matrix<T>> &x,
              const Derivative<M_Matrix<T>> &y) {
   assert(x.x() == y.x());
   auto f = elemDiv(x.f(), y.f());
-  auto dfdx = elemDiv_a(x.dfdx(), y.f());
-  auto dfdy = elemMult_a(f, elemDiv_a(y.dfdx(), y.f()));
-
-  return Derivative<M_Matrix<T>>(std::move(f), x.x(), dfdx + dfdy);
+  auto dfdx = x.dfdx().apply([&y](auto &xi) { return elemDiv(xi, y.f()); });
+  auto dfdys = elemDiv(f, y.f());
+  auto dfdy =
+      y.dfdx().apply([&dfdys](auto &yi) { return elemMult(yi, dfdys); });
+  return Derivative<M_Matrix<T>>(std::move(f), x.x(), dfdx - dfdy);
 }
 
 template <typename T>
@@ -687,7 +900,7 @@ auto elemDivSafe(const Derivative<M_Matrix<T>> &x,
   auto dfdx = elemDivSafe_a(x.dfdx(), y.f(), eps);
   auto dfdy = elemMult_a(elemDivSafe_a(y.dfdx(), y.f(), eps), f);
 
-  return Derivative<M_Matrix<T>>(std::move(f), x.x(), dfdx + dfdy);
+  return Derivative<M_Matrix<T>>(std::move(f), x.x(), dfdx - dfdy);
 }
 
 /*
@@ -732,7 +945,7 @@ template <class T>
 Derivative<M_Matrix<T>> quadraticForm_XTX(const Derivative<M_Matrix<T>> &x) {
   auto f = quadraticForm_XTX(x.f());
   auto df = x.dfdx().apply(
-      [&x](auto &m) { return TranspMult(m, x.f()) + TranspMult(x.f(), m); });
+      [&x](auto &m) { return TransposeSum(TranspMult(m, x.f())); });
   return Derivative<M_Matrix<T>>(std::move(f), x.x(), std::move(df));
 }
 

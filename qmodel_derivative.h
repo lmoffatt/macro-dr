@@ -279,6 +279,7 @@ public:
     auto eig = Matrix_Decompositions::EigenSystem_full_real_eigenvalue(_Qrun);
     if (eig) {
       // std::cerr<<"\n --------1e-5  vs 1e-6-------\n";
+
       are_Equal<true, Derivative_t<
                           typename Matrix_Decompositions::eigensystem_type>>()
           .test(Incremental_ratio_tuple_3(
@@ -341,7 +342,7 @@ public:
   auto &g() const { return g_; }
   auto &Wg() const { return Wg_; }
   auto &WgV() const { return WgV_; }
-
+  auto &x() const { return g().x(); }
   auto calc_Peq() const {
     M_Matrix<double> p0(1, Qrun().f().nrows(), 1.0 / Qrun().f().nrows());
     M_Matrix<double> laexp(landa().f().size(), landa().f().size(),
@@ -357,7 +358,39 @@ public:
 
     return Constant(p0) * V() * Constant(laexp) * W();
   }
-};
+  Derivative(
+      const Derivative<M_Matrix<double>>& Qrun, // transition rate matrix at time zero
+      Derivative<M_Matrix<double>> const& g,
+
+      Derivative<M_Matrix<double>> const&V,     // eigenvector of Qrun
+      Derivative<M_Matrix<double>> const&W,     // eigenvector of Qrun
+      Derivative<M_Matrix<double>> const&landa, // eigenvalues
+
+      Derivative<M_Matrix<double>> const&Wg, Derivative<M_Matrix<double>> const&WgV)
+      : Qrun_{Qrun}, g_{g}, V_{V}, W_{W}, landa_{landa}, Wg_{Wg}, WgV_{WgV} {}
+
+
+
+
+
+  typedef Markov_Transition_rate self_type;
+
+constexpr static auto const className =
+    my_static_string("Markov_Transition_rate");
+// std::string myClass()const  { return className.str();}
+
+static auto get_constructor_fields() {
+  return std::make_tuple(
+      grammar::field(C<self_type>{}, "Qrun", &self_type::Qrun),
+      grammar::field(C<self_type>{}, "g", &self_type::g),
+      grammar::field(C<self_type>{}, "V", &self_type::V),
+      grammar::field(C<self_type>{}, "W", &self_type::W),
+      grammar::field(C<self_type>{}, "landa", &self_type::landa),
+      grammar::field(C<self_type>{}, "Wg", &self_type::Wg),
+      grammar::field(C<self_type>{}, "WgV", &self_type::WgV));
+}
+}
+;
 
 template <> class Derivative<Markov_Transition_step> {
 protected:
@@ -468,6 +501,7 @@ class Derivative<Markov_Transition_step_double>
   Derivative<M_Matrix<double>> gvar_ij_; // variance of the conductance matrix
 
 public:
+  auto &x() const { return g().x(); }
   typedef Derivative<Markov_Transition_step> base_type;
   Derivative(Derivative<M_Matrix<double>> &&P, Derivative<M_Matrix<double>> &&g,
              std::size_t nsamples, double fs, double min_p,
@@ -762,6 +796,16 @@ private:
                                              },
                                              ladt[i], ladt[j]),
                            std::cerr));
+
+        assert(Derivative_correctness_mean_value_test(1e-2,
+                                             [&minP](auto ladt1, auto ladt2) {
+                                               return Ee(ladt1, ladt2,
+                  std::exp(ladt1.f()),
+                  std::exp(ladt2.f()), minP);
+                                             },
+                                                      std::forward_as_tuple(ladt[i], ladt[j]), E2m(i, j),
+                                                      std::cerr, "i= ", i, " j=", j, "ladt1= ", ladt[i], "ladt2= ", ladt[j]));
+
       }
 
     // build E2
@@ -780,10 +824,12 @@ private:
     for (std::size_t n1 = 0; n1 < N; n1++)
       for (std::size_t n3 = 0; n3 < N; n3++)
         for (std::size_t n2 = 0; n2 < N; n2++) {
+          auto E3v=E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1], exp_ladt[n2],
+                        exp_ladt[n3], min_P());
           WgV_E3(n1, n3) +=
-              WgV(n1, n2) * WgV(n2, n3) *
-              E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1], exp_ladt[n2],
-                 exp_ladt[n3], min_P()); // optimizable
+              WgV(n1, n2) * WgV(n2, n3) * E3v;
+//              E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1], exp_ladt[n2],
+//                 exp_ladt[n3], min_P()); // optimizable
           /*if (!are_Equal_v(E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1],
                               exp_ladt[n2], exp_ladt[n3], min_P()),
                            Incremental_ratio(
@@ -796,6 +842,15 @@ private:
                                ladt[n1], ladt[n2], ladt[n3]),
                            std::cerr, " n1=", n1, " n2=", n2, " n3=", n3))
             succed = false; */
+          if (!Derivative_correctness_mean_value_test(
+              1e-2,
+                               [&minP](auto ladt1, auto ladt2, auto ladt3) {
+          return E3(ladt1, ladt2, ladt3, std::exp(ladt1.f()), std::exp(ladt2.f()),
+                    std::exp(ladt3.f()), minP);
+                               },
+                               std::forward_as_tuple(ladt[n1], ladt[n2], ladt[n3]),E3v, std::cerr,
+              "n1= ", n1, " n2=", n2, " n3=", n3, "\nladt1= ", ladt[n1], "ladt2= ", ladt[n2], "ladt3= ", ladt[n3]))
+            succed = false;
         }
    // assert(succed);
     gtotal_sqr_ij_ =
@@ -806,11 +861,13 @@ private:
           gtotal_ij_.f()(i, j) = 0;
           gtotal_sqr_ij_.f()(i, j) = 0;
         }
+    if constexpr (true)
+    {
 
     M_Matrix<double> U = Matrix_Generators::ones<double>(1, g().f().size());
     M_Matrix<double> UU = M_Matrix<double>(g().f().size(), g().f().size(), 1);
-    auto gmean_ij_p = TransposeSum(g() * U) * (0.5);
-    auto gvar_ij_p = (g() * U - Transpose(g() * U)) * 0.5;
+    auto gmean_ij_p = TransposeSum(g() * Constant(U)) * (0.5);
+    auto gvar_ij_p = (g() * Constant(U) - Transpose(g() * Constant(U))) * 0.5;
     gvar_ij_p =
         gvar_ij_p.apply([](Derivative<double> const &x) { return abs(x); });
 
@@ -823,9 +880,20 @@ private:
     auto gvar_ij_tot = gtotal_var_ij_ + gvar_ij_p * min_P();
     gvar_ij_ = elemDiv(gvar_ij_tot, P_p);
     M_Matrix<double> u(N, 1, 1.0);
-    gmean_i_ = gtotal_ij_ * u;
-    gsqr_i_ = gtotal_sqr_ij_ * u;
-    gvar_i_ = gtotal_var_ij_ * u;
+    gmean_i_ = gtotal_ij_ * Constant(u);
+    gsqr_i_ = gtotal_sqr_ij_ * Constant(u);
+    gvar_i_ = gtotal_var_ij_ * Constant(u);
+  } else
+    {
+
+      gmean_ij_ = elemDiv(gtotal_ij_, P_);
+      gtotal_var_ij_ = gtotal_sqr_ij_ - elemMult(gtotal_ij_, gmean_ij_);
+      gvar_ij_ = elemDiv(gtotal_var_ij_, P_);
+      M_Matrix<double> u(N, 1, 1.0);
+      gmean_i_ = gtotal_ij_ * Constant(u);
+      gsqr_i_ = gtotal_sqr_ij_ * Constant(u);
+      gvar_i_ = gtotal_var_ij_ * Constant(u);
+    }
   }
 
   void init_by_step_init() {
@@ -875,8 +943,18 @@ public:
 
   auto &g(double) const { return g_; }
   auto Qx(double x, double tolerance) const {
-    return Derivative_t<Markov_Transition_rate>::evaluate(Q(x), g(x),
-                                                          tolerance);
+    auto out =
+        Derivative_t<Markov_Transition_rate>::evaluate(Q(x), g(x), tolerance);
+    assert((Derivative_correctness_mean_value_test(
+        1e-2,
+        [&tolerance](auto Qx, auto gx) {
+          return std::move(Derivative_t<Markov_Transition_rate>::evaluate(
+                               std::move(Qx), gx, tolerance))
+              .value();
+        },
+        std::forward_as_tuple(Q(x), g(x)), out.value(), std::cerr, "x= ", x,
+        "  tolerance=", tolerance)));
+    return out;
   }
 
   auto P(const Derivative_t<Markov_Transition_rate> &aQx, std::size_t n,
@@ -934,6 +1012,19 @@ inline SingleLigandModel Taylor_first(const Derivative<SingleLigandModel> &dy,
                            std::move(g), 1.0, N, noise, dy.min_P());
 }
 
+inline Derivative<SingleLigandModel>
+Directional_Derivative(const Derivative<SingleLigandModel> &dy,
+                       const M_Matrix<double> &new_x, std::size_t i,
+                       double eps) {
+  auto Q0 = Directional_Derivative(dy.Q0(), new_x, i, eps);
+  auto Qa = Directional_Derivative(dy.Qa(), new_x, i, eps);
+  auto g = Directional_Derivative(dy.g0(), new_x, i, eps);
+  auto N = Directional_Derivative(dy.AverageNumberOfChannels(), new_x, i, eps);
+  auto noise = Directional_Derivative(dy.noise_std(), new_x, i, eps);
+  return Derivative<SingleLigandModel>(std::pair(std::move(Q0), std::move(Qa)),
+                                       std::move(g), 1.0, N, noise, dy.min_P());
+}
+
 template <class Markov_Transition_step, class Markov_Transition_rate, class M,
           class Experiment, class X>
 Markov_Model_calculations<Markov_Transition_step, Markov_Transition_rate, M,
@@ -958,6 +1049,23 @@ Taylor_first(const Markov_Model_calculations<Derivative<Markov_Transition_step>,
                                    Markov_Transition_rate, M, Experiment, X>(
       Taylor_first(dm.Model(), i, eps), dm.get_Experiment(), dm.n_sub_samples(),
       dm.tolerance());
+}
+
+template <class Markov_Transition_step, class Markov_Transition_rate, class M,
+          class Experiment, class X>
+Markov_Model_calculations<Derivative<Markov_Transition_step>,
+                          Derivative<Markov_Transition_rate>, Derivative<M>,
+                          Experiment, X>
+Directional_Derivative(
+    const Markov_Model_calculations<Derivative<Markov_Transition_step>,
+                                    Derivative<Markov_Transition_rate>,
+                                    Derivative<M>, Experiment, X> &dm,
+    const M_Matrix<double> &new_x, std::size_t i, double eps) {
+  return Markov_Model_calculations<Derivative<Markov_Transition_step>,
+                                   Derivative<Markov_Transition_rate>,
+                                   Derivative<M>, Experiment, X>(
+      Directional_Derivative(dm.Model(), new_x, i, eps), dm.get_Experiment(),
+      dm.n_sub_samples(), dm.tolerance());
 }
 
 template <class F, class ModelCalculationsDerivative, class... Ds>

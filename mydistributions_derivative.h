@@ -16,12 +16,18 @@ struct Derivative<Probability_distribution> : public Probability_distribution {
       for (std::size_t i = 0; i < p.f().size(); ++i)
         sum += p.dfdx()[j][i];
       if (std::abs(sum) >= tolerance)
+      {
         if constexpr (output)
           return Op_void(false,
                          " p=\n" + ToString(p) +
                              " sum derivative on variable j= " + ToString(j) +
                              " sum=" + ToString(sum) + "\n");
-      return Op_void(false, "");
+        else
+          return Op_void(false,"");
+
+      }
+      else
+      return Op_void(true, "");
     }
     return Op_void(true, "");
   }
