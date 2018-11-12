@@ -16,7 +16,6 @@ template <> class Derivative<markov::mp_state_information> {
   Derivative<double> eplogL_;
 
 public:
-
   Derivative(Derivative<M_Matrix<double>> &&P_mean__,
              Derivative<M_Matrix<double>> &&P_cov__,
              Derivative<double> &&y_mean__, Derivative<double> &&y_var__,
@@ -551,7 +550,9 @@ public:
     if (!Q_dto)
       return Op(false, "fails in auto Q_dt=m.get_P(p,0) :" + Q_dto.error());
 
-  assert((Derivative_correctness_mean_value_test(1e-2, [&p](auto &mo) { return std::move(mo.get_P(p, 0)).value(); }, m, Q_dto.value(), std::cerr, " step: ", p, "MACROR = ", alg)));
+    assert((Derivative_correctness_mean_value_test(
+        1e-2, [&p](auto &mo) { return std::move(mo.get_P(p, 0)).value(); }, m,
+        Q_dto.value(), std::cerr, " step: ", p, "MACROR = ", alg)));
     std::vector<double> myps = {1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8};
 
     std::vector<std::decay_t<decltype(Q_dto.value())>> dQs;
@@ -573,15 +574,15 @@ public:
       return 0;
     };
 
-  //  std::apply([&f](auto const &... m) { return (f(m) + ...); }, fields);
+    //  std::apply([&f](auto const &... m) { return (f(m) + ...); }, fields);
 
-        // assert
+    // assert
     if constexpr (false)
       ((are_Equal_v(
-        Q_dto.value(),
-        Incremental_ratio_model(
-            1e-3, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
-        std::cerr)));
+          Q_dto.value(),
+          Incremental_ratio_model(
+              1e-3, [&p](auto &mo) { return mo.get_P(p, 0).value(); }, m),
+          std::cerr)));
     Derivative<Markov_Transition_step_double> Q_dt = std::move(Q_dto).value();
     return run(prior, Q_dt, m, p, os, alg);
   }
@@ -1088,19 +1089,28 @@ struct Derivative_partialDistribution_function_aux {
   void operator()(const Derivative<markov::mp_state_information> &mp,
                   PartialDlogLikelihood &v, std::size_t &i,
                   const aux &macror_alg) const {
-    if (std::isfinite(mp.plogL().f())) {
+    if constexpr (true) {
       Derivative<Normal_Distribution<double>> n(mp.y_mean(), mp.y_var());
 
       typename PartialDlogLikelihood::base_type logL(
           mp.plogL().f(), mp.eplogL().f(), 0.5, mp.plogL().dfdx(), n.FIM());
       v.add_one_i(i, logL, macror_alg);
       ++i;
-    } else // hack to avoid including intervals in the Jacobian calculation
-    {
-      typename PartialDlogLikelihood::base_type logL(
-          0, 0, 0, M_Matrix<double>(), M_Matrix<double>());
-      v.add_one_i(i, logL, macror_alg);
-      ++i;
+    } else { // this fork does not make much sense for derivatives, or it does?
+      if (std::isfinite(mp.plogL().f())) {
+        Derivative<Normal_Distribution<double>> n(mp.y_mean(), mp.y_var());
+
+        typename PartialDlogLikelihood::base_type logL(
+            mp.plogL().f(), mp.eplogL().f(), 0.5, mp.plogL().dfdx(), n.FIM());
+        v.add_one_i(i, logL, macror_alg);
+        ++i;
+      } else // hack to avoid including intervals in the Jacobian calculation
+      {
+        typename PartialDlogLikelihood::base_type logL(
+            0, 0, 0, M_Matrix<double>(), M_Matrix<double>());
+        v.add_one_i(i, logL, macror_alg);
+        ++i;
+      }
     }
   }
 };
@@ -1135,20 +1145,24 @@ auto logLikelihood_experiment_calculation_derivative(
       return Op(false, "calculation interrupted at " + ToString(*it) + "  :" +
                            post.error());
     else {
-      if constexpr (false) {auto dpost = Incremental_ratio_model(
-          1e-6,
-          [&a, &it, &os, &i, &aux...](auto &mo, auto const &p) {
-            return std::move(a.f().run(p, mo, *it, os, aux[i]...)).value();
-          },
-          m, prior.value());
-      assert((are_Equal_v(post.value(), dpost, std::cerr, "i= ", i,
+      if constexpr (false) {
+        auto dpost = Incremental_ratio_model(
+            1e-6,
+            [&a, &it, &os, &i, &aux...](auto &mo, auto const &p) {
+              return std::move(a.f().run(p, mo, *it, os, aux[i]...)).value();
+            },
+            m, prior.value());
+        assert((are_Equal_v(post.value(), dpost, std::cerr, "i= ", i,
                             "  position: *it=", *it)));
       }
-      ((Derivative_correctness_mean_value_test(1e-4, [&a, &it, &os, &i, &aux...](auto mo, auto p) {
+      ((Derivative_correctness_mean_value_test(
+          1e-4,
+          [&a, &it, &os, &i, &aux...](auto mo, auto p) {
             return std::move(a.run(p, mo, *it, os, aux[i]...)).value();
-      },std::forward_as_tuple(m,prior.value()),post.value(), std::cerr, "i= ", i,
-                                                     "  position: *it=", *it)));
-          f(post.value(), out, i, aux[i]...);
+          },
+          std::forward_as_tuple(m, prior.value()), post.value(), std::cerr,
+          "i= ", i, "  position: *it=", *it)));
+      f(post.value(), out, i, aux[i]...);
       prior.value() = std::move(post).value();
     }
   }
