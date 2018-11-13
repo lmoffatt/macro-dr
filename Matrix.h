@@ -39,7 +39,7 @@ inline double average(double x, double y) { return 0.5 * (x + y); }
 
 inline double sqr(double x) { return x * x; }
 
-template <typename T> inline T sqr(const T& x);
+template <typename T> inline T sqr(const T &x);
 namespace Vector_Unary_Index_Function {
 
 template <typename T> std::size_t i_max(const std::vector<T> &x) {
@@ -183,6 +183,18 @@ dgeevx_(char *BALANC, char *JOBVL, char *JOBVR, char *SENSE, int *N,
         double * /* precision, dimension( * ) */ WORK, int *LWORK,
         int * /*dimension( * ) */ IWORK, int *INFO);
 
+extern "C" void dsyevx_(char *JOBZ, char *RANGE, char *UPLO, int *N,
+                        double * /*precision, dimension(lda, *) */ A, int *LDA,
+                        double *VL, double *VU, int *IL, int *IU,
+                        double *ABSTOL, int *M,
+                        double * /*precision, dimension(*) */ W,
+                        double * /*
+                         dimension(ldz, *) */
+                            Z,
+                        int *LDZ, double * /*precision, dimension(*) */ WORK,
+                        int *LWORK, int * /*, dimension(*) */ IWORK,
+                        int * /*, dimension(*) */ IFAIL, int *INFO);
+
 extern "C" void
 dgesdd_(char *JOBZ, int *M, int *N,
         double * /* precision, dimension( lda, * ) */ A, int *LDA,
@@ -282,9 +294,9 @@ public:
     assert(k == i * (i + 1) / 2 + j);
     return std::pair(i, j);
   }
-  static std::pair<std::size_t, std::size_t>
-  pos_to_ij_Full(std::size_t k, std::size_t n) {
-    std::size_t i = k/n;
+  static std::pair<std::size_t, std::size_t> pos_to_ij_Full(std::size_t k,
+                                                            std::size_t n) {
+    std::size_t i = k / n;
     std::size_t j = k - i * n;
     assert(k == i * n + j);
     return std::pair(i, j);
@@ -674,7 +686,7 @@ public:
     return out;
   }
   template <class F> auto auto_apply(const F &f) const {
-    typedef std::invoke_result_t<F,T&> R;
+    typedef std::invoke_result_t<F, T &> R;
     M_Matrix<R> out(nrows(), ncols(), type());
     for (std::size_t i = 0; i < size(); ++i)
       out[i] = std::invoke(f, (*this)[i]);
@@ -704,27 +716,24 @@ public:
 
   const T &operator[](std::size_t n) const { return _data[n]; }
 
-  std::pair<std::size_t, std::size_t> pos_to_ij(std::size_t i)const
-  {
+  std::pair<std::size_t, std::size_t> pos_to_ij(std::size_t i) const {
     switch (type_) {
-    case Matrix_TYPE::FULL:
-    {
-      return pos_to_ij_Full(i,_ncols);
+    case Matrix_TYPE::FULL: {
+      return pos_to_ij_Full(i, _ncols);
     }
     case Matrix_TYPE::SYMMETRIC:
-        return pos_to_ij_Symmetric(i);
+      return pos_to_ij_Symmetric(i);
     case Matrix_TYPE::DIAGONAL:
     case Matrix_TYPE::SCALAR_DIAGONAL:
-      return {i,i};
+      return {i, i};
     case Matrix_TYPE::SCALAR_FULL:
-      return {0,0};
+      return {0, 0};
     case Matrix_TYPE::ZERO:
     default:
       assert(false);
-      return {0,0};
+      return {0, 0};
     }
   }
-
 
   T &operator()(std::size_t i, std::size_t j) {
     assert(i < nrows());
@@ -1143,11 +1152,13 @@ public:
 
   template <class ostream>
   bool test(const M_Matrix<T> &one, const M_Matrix<T> &two,
-                ostream &os = std::cerr) const{ return test_sum(one,two,os);}
-      template <class ostream>
+            ostream &os = std::cerr) const {
+    return test_sum(one, two, os);
+  }
+  template <class ostream>
   bool test_prod(const M_Matrix<T> &one, const M_Matrix<T> &two,
                  ostream &os = std::cerr) const {
-        double N = std::max(Matrix_Unary_Functions::norm_1(one),1.0);
+    double N = std::max(Matrix_Unary_Functions::norm_1(one), 1.0);
     auto n = one.size();
     return apply_test(are_Equal<output, T>(std::sqrt(absolute_) * n * N,
                                            std::sqrt(relative_) * n),
@@ -1430,6 +1441,15 @@ inline double xTSigmaX(const std::vector<double> &v,
 } // namespace Vector_Binary_Transformations
 
 namespace Matrix_Unary_Transformations {
+
+template <class T> M_Matrix<T> Symmetric_to_Full(const M_Matrix<T> &x) {
+  assert(x.type() == Matrix_TYPE::SYMMETRIC);
+  M_Matrix<T> out(x.nrows(), x.ncols(), Matrix_TYPE::FULL);
+  for (std ::size_t i = 0; i < x.nrows(); ++i)
+    for (std ::size_t j = 0; j < x.ncols(); ++j)
+      out(i, j) = x(i, j);
+  return out;
+}
 
 template <class T> myOptional_t<M_Matrix<T>> inv(const M_Matrix<T> &x);
 
@@ -1809,31 +1829,26 @@ typedef std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>>
 typedef std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>>
     SVD_type;
 
-eigensystem_type sort(const eigensystem_type& e)
-{
-  auto&[VR,L,VL]=e;
-  std::vector<std::pair<double,std::size_t>> la(L.size());
-  for (std::size_t i=0; i<L.size(); ++i)
-    la[i]=std::pair(L[i],i);
-  std::sort(la.begin(),la.end());
-  M_Matrix<double> Ls(L.nrows(),L.ncols(),L.type());
+eigensystem_type sort(const eigensystem_type &e) {
+  auto &[VR, L, VL] = e;
+  std::vector<std::pair<double, std::size_t>> la(L.size());
+  for (std::size_t i = 0; i < L.size(); ++i)
+    la[i] = std::pair(L[i], i);
+  std::sort(la.begin(), la.end());
+  M_Matrix<double> Ls(L.nrows(), L.ncols(), L.type());
 
-  M_Matrix<double> VRs(VR.nrows(),VR.ncols(),VR.type());
-  M_Matrix<double> VLs(VL.nrows(),VL.ncols(),VL.type());
-  for (std::size_t i=0; i<la.size(); ++i)
-  {
-    auto is=la[i].second;
-    Ls[i]=L[is];
-    for (std::size_t j=0; j<la.size(); ++j)
-    {
-      VRs(j,i)=VR(j,is);
-      VLs(i,j)=VL(is,j);
+  M_Matrix<double> VRs(VR.nrows(), VR.ncols(), VR.type());
+  M_Matrix<double> VLs(VL.nrows(), VL.ncols(), VL.type());
+  for (std::size_t i = 0; i < la.size(); ++i) {
+    auto is = la[i].second;
+    Ls[i] = L[is];
+    for (std::size_t j = 0; j < la.size(); ++j) {
+      VRs(j, i) = VR(j, is);
+      VLs(i, j) = VL(is, j);
     }
   }
-  return std::tuple(VRs,Ls,VLs);
-
+  return std::tuple(VRs, Ls, VLs);
 }
-
 
 M_Matrix<double> &Right_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
   assert(X.nrows() == X.ncols());
@@ -1845,23 +1860,22 @@ M_Matrix<double> &Right_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
         max = X(i, k);
       }
     for (std::size_t i = 0; i < n; ++i)
-      X(i, k) =X(i, k)/ max;
+      X(i, k) = X(i, k) / max;
   }
   return X;
 }
-void Nelson_Normalization(M_Matrix<double> &VR,M_Matrix<double> &VL ) {
+void Nelson_Normalization(M_Matrix<double> &VR, M_Matrix<double> &VL) {
   Right_Eigenvector_Nelson_Normalization(VR);
-  for (std::size_t i=0; i<VR.nrows(); ++i)
-  {
-    double sum=0;
-    for (std::size_t j=0; j<VR.ncols(); ++j)
-      sum+=VL(i,j)*VR(j,i);
-    for (std::size_t j=0; j<VR.ncols(); ++j)
-      VL(i,j)=VL(i,j)/sum;
+  for (std::size_t i = 0; i < VR.nrows(); ++i) {
+    double sum = 0;
+    for (std::size_t j = 0; j < VR.ncols(); ++j)
+      sum += VL(i, j) * VR(j, i);
+    for (std::size_t j = 0; j < VR.ncols(); ++j)
+      VL(i, j) = VL(i, j) / sum;
   }
-  assert((are_Equal<true,M_Matrix<double>>().test_prod(VR*VL,Matrix_Generators::eye<double>(VR.ncols()),std::cerr)));
+  assert((are_Equal<true, M_Matrix<double>>().test_prod(
+      VR * VL, Matrix_Generators::eye<double>(VR.ncols()), std::cerr)));
 }
-
 
 M_Matrix<double> &Left_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
   assert(X.nrows() == X.ncols());
@@ -2243,15 +2257,16 @@ Parameters
 
   int INFO;
   dgeevx_(&BALANC, &JOBVL, &JOBVR, &SENSE, &N, &A(0, 0), &LDA, &WR(0, 0),
-          &WI(0, 0), &VL_lapack[0], &LDVL, &VR_lapack[0], &LDVR, &ILO, &IHI, &SCALE[0],
-          &ABNRM, &RCONDE[0], &RCONDV[0], &WORK[0], &LWORK, &IWORK[0], &INFO);
+          &WI(0, 0), &VL_lapack[0], &LDVL, &VR_lapack[0], &LDVR, &ILO, &IHI,
+          &SCALE[0], &ABNRM, &RCONDE[0], &RCONDV[0], &WORK[0], &LWORK,
+          &IWORK[0], &INFO);
 
   M_Matrix<double> WORK_OPT(1, WORK[0]);
   LWORK = WORK[0];
   dgeevx_(&BALANC, &JOBVL, &JOBVR, &SENSE, &N, &A(0, 0), &LDA, &WR(0, 0),
-          &WI(0, 0), &VL_lapack[0], &LDVL, &VR_lapack[0], &LDVR, &ILO, &IHI, &SCALE[0],
-          &ABNRM, &RCONDE[0], &RCONDV[0], &WORK_OPT[0], &LWORK, &IWORK[0],
-          &INFO);
+          &WI(0, 0), &VL_lapack[0], &LDVL, &VR_lapack[0], &LDVR, &ILO, &IHI,
+          &SCALE[0], &ABNRM, &RCONDE[0], &RCONDV[0], &WORK_OPT[0], &LWORK,
+          &IWORK[0], &INFO);
 
   if (INFO != 0) {
     if (INFO > 0)
@@ -2263,11 +2278,11 @@ Parameters
                       "and WI contain eigenvalues which have converged ILO=") +
               std::to_string(ILO) + " i=" + std::to_string(INFO));
     else {
-      auto args =
-          std::make_tuple(&BALANC, &JOBVL, &JOBVR, &SENSE, &N, &A(0, 0), &LDA,
-                          &WR(0, 0), &WI(0, 0), &VL_lapack[0], &LDVL, &VR_lapack[0], &LDVR,
-                          &ILO, &IHI, &SCALE[0], &ABNRM, &RCONDE[0], &RCONDV[0],
-                          &WORK_OPT[0], &LWORK, &IWORK[0], &INFO);
+      auto args = std::make_tuple(&BALANC, &JOBVL, &JOBVR, &SENSE, &N, &A(0, 0),
+                                  &LDA, &WR(0, 0), &WI(0, 0), &VL_lapack[0],
+                                  &LDVL, &VR_lapack[0], &LDVR, &ILO, &IHI,
+                                  &SCALE[0], &ABNRM, &RCONDE[0], &RCONDV[0],
+                                  &WORK_OPT[0], &LWORK, &IWORK[0], &INFO);
       std::string argumentsNames[] = {
           "BALANC", "JOBVL", "JOBVR", "SENSE", "N",     "A",
           "LDA",    "WR",    "WI",    "VL",    "LDVL",  "VR",
@@ -2283,13 +2298,372 @@ Parameters
     }
 
   } else {
-    auto& VL_cpp=VR_lapack;
-    auto VR_cpp=Transpose(VL_lapack);
-    Nelson_Normalization(VR_cpp,VL_cpp);
-    assert((are_Equal<true,M_Matrix<double>>().test_prod(VR_cpp*WR*VL_cpp,x,std::cerr)));
-    return Op(
-        sort(std::make_tuple(VR_cpp, WR,
-                             VL_cpp))); // in reality VL, L, VR because of transposition
+    auto &VL_cpp = VR_lapack;
+    auto VR_cpp = Transpose(VL_lapack);
+    Nelson_Normalization(VR_cpp, VL_cpp);
+    assert((are_Equal<true, M_Matrix<double>>().test_prod(VR_cpp * WR * VL_cpp,
+                                                          x, std::cerr)));
+    return Op(sort(std::make_tuple(
+        VR_cpp, WR,
+        VL_cpp))); // in reality VL, L, VR because of transposition
+  }
+}
+
+auto EigenSystem_symm_real_eigenvalue(const M_Matrix<double> &x, std::string kind="lower") {
+  typedef myOptional_t<eigensystem_type> Op;
+
+  assert(x.type() == Matrix_TYPE::SYMMETRIC);
+  using lapack::dsyevx_;
+
+  /** DSYEVX computes the eigenvalues and, optionally, the left and/or right eigenvectors for SY matrices
+
+Download DSYEVX + dependencies [TGZ] [ZIP] [TXT]
+
+Purpose:
+
+     DSYEVX computes selected eigenvalues and, optionally, eigenvectors
+     of a real symmetric matrix A.  Eigenvalues and eigenvectors can be
+     selected by specifying either a range of values or a range of indices
+     for the desired eigenvalues.
+*/
+  /**
+Parameters
+    [in]	JOBZ
+
+              JOBZ is CHARACTER*1
+              = 'N':  Compute eigenvalues only;
+              = 'V':  Compute eigenvalues and eigenvectors.
+*/
+
+  char JOBZ = 'V';
+
+  /**
+    [in]	RANGE
+
+              RANGE is CHARACTER*1
+              = 'A': all eigenvalues will be found.
+              = 'V': all eigenvalues in the half-open interval (VL,VU]
+                     will be found.
+              = 'I': the IL-th through IU-th eigenvalues will be found.
+
+
+*/
+
+  char RANGE = 'A';
+
+  /**
+    [in]	UPLO
+
+              UPLO is CHARACTER*1
+              = 'U':  Upper triangle of A is stored;
+              = 'L':  Lower triangle of A is stored.
+
+
+*/
+  char UPLO;
+  if (kind == "lower")
+    UPLO = 'U';
+  else
+    UPLO = 'L';
+
+  /*
+    [in]	N
+
+              N is INTEGER
+              The order of the matrix A.  N >= 0.
+
+*/
+
+  int N = x.nrows();
+
+/**
+
+
+
+    [in,out]	A
+
+              A is DOUBLE PRECISION array, dimension (LDA, N)
+              On entry, the symmetric matrix A.  If UPLO = 'U', the
+              leading N-by-N upper triangular part of A contains the
+              upper triangular part of the matrix A.  If UPLO = 'L',
+              the leading N-by-N lower triangular part of A contains
+              the lower triangular part of the matrix A.
+              On exit, the lower triangle (if UPLO='L') or the upper
+              triangle (if UPLO='U') of A, including the diagonal, is
+              destroyed.
+
+*/
+
+  auto A = Symmetric_to_Full(x);
+ /*   M_Matrix<double> A(x.nrows(), x.ncols());
+  if (kind != "lower") {
+    for (std::size_t i = 0; i < x.nrows(); ++i)
+      for (std::size_t j = i; j < x.ncols(); ++j)
+        A(i, j) = x(i, j);
+  } else {
+    for (std::size_t i = 0; i < x.nrows(); ++i)
+      for (std::size_t j = 0; j < i + 1; ++j)
+        A(i, j) = x(i, j);
+  }
+*/
+
+
+/**
+
+    [in]	LDA
+
+              LDA is INTEGER
+              The leading dimension of the array A.  LDA >= max(1,N).
+
+*/
+
+  int LDA = N;
+
+
+/**
+
+
+    [in]	VL
+
+              VL is DOUBLE PRECISION
+              If RANGE='V', the lower bound of the interval to
+              be searched for eigenvalues. VL < VU.
+              Not referenced if RANGE = 'A' or 'I'.
+*/
+
+  double VL;
+
+
+  /**
+
+
+    [in]	VU
+
+              VU is DOUBLE PRECISION
+              If RANGE='V', the upper bound of the interval to
+              be searched for eigenvalues. VL < VU.
+              Not referenced if RANGE = 'A' or 'I'.
+*/
+
+  double VU;
+
+  /**
+
+
+
+
+    [in]	IL
+
+              IL is INTEGER
+              If RANGE='I', the index of the
+              smallest eigenvalue to be returned.
+              1 <= IL <= IU <= N, if N > 0; IL = 1 and IU = 0 if N = 0.
+              Not referenced if RANGE = 'A' or 'V'.
+
+
+*/
+
+  int IL;
+
+
+  /**
+    [in]	IU
+
+              IU is INTEGER
+              If RANGE='I', the index of the
+              largest eigenvalue to be returned.
+              1 <= IL <= IU <= N, if N > 0; IL = 1 and IU = 0 if N = 0.
+              Not referenced if RANGE = 'A' or 'V'.
+*/
+  int IU;
+
+
+      /**
+
+    [in]	ABSTOL
+
+              ABSTOL is DOUBLE PRECISION
+              The absolute error tolerance for the eigenvalues.
+              An approximate eigenvalue is accepted as converged
+              when it is determined to lie in an interval [a,b]
+              of width less than or equal to
+
+                      ABSTOL + EPS *   max( |a|,|b| ) ,
+
+              where EPS is the machine precision.  If ABSTOL is less than
+              or equal to zero, then  EPS*|T|  will be used in its place,
+              where |T| is the 1-norm of the tridiagonal matrix obtained
+              by reducing A to tridiagonal form.
+
+              Eigenvalues will be computed most accurately when ABSTOL is
+              set to twice the underflow threshold 2*DLAMCH('S'), not zero.
+              If this routine returns with INFO>0, indicating that some
+              eigenvectors did not converge, try setting ABSTOL to
+              2*DLAMCH('S').
+
+              See "Computing Small Singular Values of Bidiagonal Matrices
+              with Guaranteed High Relative Accuracy," by Demmel and
+              Kahan, LAPACK Working Note #3.
+*/
+
+  double ABSTOL = std ::numeric_limits<double>::epsilon()*100;
+
+  /**
+    [out]	M
+
+              M is INTEGER
+              The total number of eigenvalues found.  0 <= M <= N.
+              If RANGE = 'A', M = N, and if RANGE = 'I', M = IU-IL+1.
+*/
+
+  int M;
+
+/**
+    [out]	W
+
+              W is DOUBLE PRECISION array, dimension (N)
+              On normal exit, the first M elements contain the selected
+              eigenvalues in ascending order.
+*/
+
+  M_Matrix<double> W(x.nrows(), x.ncols(), Matrix_TYPE::DIAGONAL);
+
+
+  /**
+    [out]	Z
+
+              Z is DOUBLE PRECISION array, dimension (LDZ, max(1,M))
+              If JOBZ = 'V', then if INFO = 0, the first M columns of Z
+              contain the orthonormal eigenvectors of the matrix A
+              corresponding to the selected eigenvalues, with the i-th
+              column of Z holding the eigenvector associated with W(i).
+              If an eigenvector fails to converge, then that column of Z
+              contains the latest approximation to the eigenvector, and the
+              index of the eigenvector is returned in IFAIL.
+              If JOBZ = 'N', then Z is not referenced.
+              Note: the user must ensure that at least max(1,M) columns are
+              supplied in the array Z; if RANGE = 'V', the exact value of M
+              is not known in advance and an upper bound must be used.
+
+
+
+    [in]	LDZ
+
+              LDZ is INTEGER
+              The leading dimension of the array Z.  LDZ >= 1, and if
+              JOBZ = 'V', LDZ >= max(1,N).
+
+
+
+*/
+
+  int LDZ = N;
+  M_Matrix<double> Z(x.nrows(), x.nrows());
+  /*
+
+    [out]	WORK
+
+              WORK is DOUBLE PRECISION array, dimension (MAX(1,LWORK))
+              On exit, if INFO = 0, WORK(1) returns the optimal LWORK.
+
+*/
+
+  std ::vector<double> WORK(1);
+
+  /**
+    [in]	LWORK
+
+              LWORK is INTEGER
+              The length of the array WORK.  LWORK >= 1, when N <= 1;
+              otherwise 8*N.
+              For optimal efficiency, LWORK >= (NB+3)*N,
+              where NB is the max of the blocksize for DSYTRD and DORMTR
+              returned by ILAENV.
+
+              If LWORK = -1, then a workspace query is assumed; the routine
+              only calculates the optimal size of the WORK array, returns
+              this value as the first entry of the WORK array, and no error
+              message related to LWORK is issued by XERBLA.
+*/
+
+  int LWORK = -1;
+
+  /**
+    [out]	IWORK
+
+              IWORK is INTEGER array, dimension (5*N)
+
+*/
+
+  std ::vector<int> IWORK(5 * x.nrows());
+
+
+  /**
+    [out]	IFAIL
+
+              IFAIL is INTEGER array, dimension (N)
+              If JOBZ = 'V', then if INFO = 0, the first M elements of
+              IFAIL are zero.  If INFO > 0, then IFAIL contains the
+              indices of the eigenvectors that failed to converge.
+              If JOBZ = 'N', then IFAIL is not referenced.
+*/
+  std::vector<int> IFAIL(x.nrows());
+
+  /**
+    [out]	INFO
+
+              INFO is INTEGER
+              = 0:  successful exit
+              < 0:  if INFO = -i, the i-th argument had an illegal value
+              > 0:  if INFO = i, then i eigenvectors failed to converge.
+                    Their indices are stored in array IFAIL.
+*/
+
+  int INFO;
+
+
+  dsyevx_(&JOBZ, &RANGE, &UPLO, &N, &A[0], &LDA, &VL, &VU, &IL, &IU, &ABSTOL, &M, &W[0], &Z[0], &LDZ, &WORK[0], &LWORK, &IWORK[0], &IFAIL[0],&INFO );
+
+  LWORK = WORK[0];
+  WORK.resize(LWORK);
+  dsyevx_(&JOBZ, &RANGE, &UPLO, &N, &A[0], &LDA, &VL, &VU, &IL, &IU, &ABSTOL, &M, &W[0], &Z[0], &LDZ, &WORK[0], &LWORK, &IWORK[0], &IFAIL[0], &INFO);
+
+  if (INFO != 0) {
+    if (INFO > 0)
+      return Op(
+          false,
+
+std::to_string(INFO)+
+          std::string(" eigenvectors failed to converge. Their indices are: ") +
+              io::ToString(IFAIL));
+    else {
+      auto args = std::make_tuple(&JOBZ, &RANGE, &UPLO, &N, &A[0], &LDA, &VL, &VU, &IL, &IU, &ABSTOL, &M, &W, &Z[0], &LDZ, &WORK[0], &LWORK, &IWORK[0], &IFAIL[0],&INFO);
+      std::string argumentsNames[] = {
+          "JOBZ", "RANGE", "UPLO", "N", "A[0]", "LDA", "VL", "VU", "IL", "IU", "ABSTOL", "M", "W", "Z[0]", "LDZ", "WORK[0]", "LWORK",  "IWORK[0]","IFAIL[0]", "INFO"    };
+
+      std::stringstream ss;
+      std::size_t i = -INFO;
+      io::write_tuple_i(ss, args, i);
+      return Op(false, "the" + std::to_string(i) + "-th argument " +
+                           argumentsNames[i] +
+                           " had the illegal value =" + ss.str());
+    }
+
+  } else {
+    auto VL_cpp = Z;
+    auto VR_cpp = Transpose(Z);
+ //   Nelson_Normalization(VR_cpp, VL_cpp);
+
+    (are_Equal<true, M_Matrix<double>>().test_prod(Matrix_Generators
+                                                          ::eye<double>(x.nrows()),
+                                                          VL_cpp * VR_cpp, std::cerr));
+    assert((are_Equal<true, M_Matrix<double>>().test_prod(VR_cpp * W * VL_cpp,
+                                                          x, std::cerr)));
+    assert((are_Equal<true, M_Matrix<double>>().test_prod(VR_cpp * W * VL_cpp,
+                                                          x, std::cerr)));
+    return Op(std::make_tuple(
+        VR_cpp, W,
+        VL_cpp));
   }
 }
 
@@ -2375,7 +2749,7 @@ Parameters
 
    */
 
-  int M = A.ncols();
+  int M = A.nrows();
 
   /*
 
@@ -2387,7 +2761,7 @@ Parameters
 
             */
 
-  int N = A.nrows();
+  int N = A.ncols();
 
   /*
 
@@ -2406,7 +2780,13 @@ Parameters
 
  */
 
-  M_Matrix<double> Ao = A;
+  M_Matrix<double> Ao;
+
+  if (A.type() == Matrix_TYPE::SYMMETRIC)
+    Ao = Symmetric_to_Full(A);
+  else {
+    Ao = Transpose(A);
+  }
 
   /*
   [in]	LDA
@@ -2428,7 +2808,7 @@ Parameters
 
   std::size_t minMN = std::min(M, N);
 
-  M_Matrix<double> S(N, M, Matrix_TYPE::DIAGONAL);
+  M_Matrix<double> S(M, N, Matrix_TYPE::DIAGONAL);
 
   /*
 
@@ -2594,8 +2974,13 @@ WORK,
                            " had the illegal value =" + ss.str());
     }
 
-  } else
-    return Op(std::tuple(std::move(VT), std::move(S), std::move(U)));
+  } else {
+    U = Transpose(U);
+    VT = Transpose(VT);
+    assert(are_Equal_v(A, U * S * VT, std::cerr,
+                       "Matrix singular decomposition of ", A));
+    return Op(std::tuple(std::move(U), std::move(S), std::move(VT)));
+  }
 }
 
 } // namespace Matrix_Decompositions
@@ -3683,10 +4068,10 @@ auto diagonal_pinv(const M_Matrix<T> &a, double min_value = 0) {
   return out;
 }
 
-myOptional_t<M_Matrix<double>> full_pinv(const M_Matrix<double> &x) {
+myOptional_t<M_Matrix<double>> full_pinv(const M_Matrix<double> &A) {
 
   typedef myOptional_t<M_Matrix<double>> Op;
-  auto res = Matrix_Decompositions::Singular_Value_decomposition(x);
+  auto res = Matrix_Decompositions::Singular_Value_decomposition(A);
   if (!res.has_value())
     return Op(false, "SVD fails: " + res.error());
   else {
@@ -3695,7 +4080,34 @@ myOptional_t<M_Matrix<double>> full_pinv(const M_Matrix<double> &x) {
         S, std::sqrt(std::numeric_limits<double>::epsilon()) * S[0]);
     auto VTS = TranspMult(VT, Spinv);
     auto out = multTransp(VTS, U);
+    assert(are_Equal_v(A, A * out * A, std::cerr, "A =", A));
+    assert(are_Equal_v(out, out * A * out, std::cerr, "A =", A));
+    assert(are_Equal_v(Transpose(A * out), A * out, std::cerr));
+    assert(are_Equal_v(Transpose(out * A), out * A, std::cerr));
+
     return Op(out);
+  }
+}
+
+myOptional_t<M_Matrix<double>> symm_pinv(const M_Matrix<double> &A) {
+
+  typedef myOptional_t<M_Matrix<double>> Op;
+  auto res = Matrix_Decompositions::EigenSystem_symm_real_eigenvalue(A);
+  if (!res.has_value())
+    return Op(false, "Eigendecomposition fails: " + res.error());
+  else {
+    auto [VR, L, VL] = std::move(res).value();
+    assert(are_Equal_v(Matrix_Generators::eye<double>(A.ncols()), VL * VR, std::cerr," VL *VR =", VL * VR));
+    assert(are_Equal_v(A, VR * L * VL, std::cerr));
+    auto Lpinv = diagonal_pinv(
+        L, 100*std::sqrt(std::numeric_limits<double>::epsilon()) * L[L.size()-1]);
+    auto Apinv = VR*Lpinv*VL;
+    assert((are_Equal_v(A, A * Apinv * A, std::cerr, "A =", A, " \nL=", L, " \nLpinv=", Lpinv, " \nVL=", VL, " \nVR=", VR)));
+    assert(are_Equal_v(Apinv, Apinv * A * Apinv, std::cerr, "A =", A));
+    assert(are_Equal_v(Transpose(A * Apinv), A * Apinv, std::cerr));
+    assert(are_Equal_v(Transpose(Apinv * A), Apinv * A, std::cerr));
+
+    return Op(Apinv);
   }
 }
 
@@ -3775,7 +4187,7 @@ template <typename E> auto Matrix_pseudo_inverse(const M_Matrix<E> &x) {
     return full_pinv(x);
   }
   case Matrix_TYPE::SYMMETRIC: {
-    return full_pinv(x);
+    return symm_pinv(x);
   }
   case Matrix_TYPE::DIAGONAL: {
     return Op(diagonal_pinv(x));
@@ -6097,7 +6509,6 @@ struct Frobenius_test : public invariant {
   }
 };
 
-
-template <typename T> inline T sqr(const T& x) { return x * x; }
+template <typename T> inline T sqr(const T &x) { return x * x; }
 
 #endif // MATRIX_H

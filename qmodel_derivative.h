@@ -97,7 +97,8 @@ auto Incremental_ratio_pair(
                    Derivative<M_Matrix<double>>(f2, p.x(), df2dx));
 }
 
-template <> class Derivative<Allosteric_Model> : public Allosteric_Model {
+template <> class Derivative<Allosteric_Model>: public Allosteric_Model
+{
 public:
   typedef Derivative self_type;
   typedef Model_Parameter_label myParameter_label;
@@ -929,7 +930,7 @@ private:
   }
 };
 
-template <> class Derivative<SingleLigandModel> : SingleLigandModel {
+template <> class Derivative<SingleLigandModel> : public SingleLigandModel {
 public:
   typedef SingleLigandModel base_type;
   auto &x() const { return Q0_.x(); }

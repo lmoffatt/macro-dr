@@ -629,7 +629,7 @@ public:
     DlogLikelihood::operator+=(other);
     partial_[i] = other;
   }
-  void calc_chi2_value() const { chi_value_ = getChi2_value(G(), H()); }
+  void calc_chi2_value()  { chi_value_ = getChi2_value(G(), H()); }
 
 private:
   double chi_value_;
@@ -637,7 +637,7 @@ private:
   std::vector<Aux> aux_;
   static double getChi2_value(const M_Matrix<double> &myG,
                               const M_Matrix<double> &myH) {
-    auto Hinv = inv(myH);
+    auto Hinv = pinv(myH);
     if (!Hinv)
       return std::numeric_limits<double>::quiet_NaN();
     else

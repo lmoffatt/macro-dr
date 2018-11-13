@@ -6,7 +6,8 @@
 #include "qmodel_derivative.h"
 #include "mydistributions_derivative.h"
 
-template <> class Derivative<markov::mp_state_information> {
+template <>
+class Derivative<markov::mp_state_information> {
   Derivative<M_Matrix<double>> P_mean_;
   Derivative<M_Matrix<double>> P_cov_;
 
@@ -215,9 +216,9 @@ public:
     auto y_var = e_mu + N * gSg;
     auto y = p.y();
     if (std::isnan(y)) {
-      Derivative<double> plogL(std::numeric_limits<double>::quiet_NaN(),
+      Derivative<double> plogL(0.0,
                                prior.y_mean().x());
-      Derivative<double> eplogL(std::numeric_limits<double>::quiet_NaN(),
+      Derivative<double> eplogL(0.0,
                                 prior.y_mean().x());
       auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
       assert(are_Equal_v(P__cov,
@@ -1113,6 +1114,10 @@ struct Derivative_partialDistribution_function_aux {
       }
     }
   }
+
+
+  void operator()(PartialDlogLikelihood &v)const { v.calc_chi2_value(); }
+
 };
 
 namespace markov {
@@ -1166,6 +1171,7 @@ auto logLikelihood_experiment_calculation_derivative(
       prior.value() = std::move(post).value();
     }
   }
+  f(out);
   return Op(out);
 }
 
