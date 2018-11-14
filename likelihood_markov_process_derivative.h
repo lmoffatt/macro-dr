@@ -110,9 +110,10 @@ public:
   }
 };
 
-template <> class Derivative<markov::MacroDMNR> : public markov::MacroDMNR {
+template <>
+class Derivative<markov::hidden::MacroDMNR> : public markov::hidden::MacroDMNR {
 public:
-  typedef markov::MacroDMNR base_type;
+  typedef markov::hidden::MacroDMNR base_type;
 
   base_type const &f() const { return *this; }
 
@@ -144,7 +145,7 @@ public:
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     switch (alg) {
     case markov::MACRO_DMNR:
-      return Derivative<MacroDMNR>(tolerance()).run(prior, Q_dt, m, p, os);
+      return Derivative < markov::hidden::MacroDMNR > (tolerance()).run(prior, Q_dt, m, p, os);
     case markov::MACRO_DVNR:
       return Op(false, "Not a contemplated algorithm :" +
                            markov::MACROR_string[markov::MACRO_DMNR] +
@@ -328,10 +329,11 @@ public:
   Derivative() = default;
 };
 
-template <> class Derivative<markov::MacroDVNR> : public markov::MacroDVNR {
+template <>
+class Derivative<markov::hidden::MacroDVNR> : public markov::hidden::MacroDVNR {
 public:
   inline constexpr static auto const className = my_static_string("MacroDVNR");
-  typedef markov::MacroDVNR base_type;
+  typedef markov::hidden::MacroDVNR base_type;
   base_type const &f() const { return *this; }
 
   template <class Model, class Step>
@@ -362,10 +364,10 @@ public:
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     switch (alg) {
     case markov::MACRO_DMNR:
-      return Derivative<markov::MacroDMNR>(tolerance())
+      return Derivative<markov::hidden::MacroDMNR>(tolerance())
           .run(prior, Q_dt, m, p, os);
     case markov::MACRO_DVNR:
-      return Derivative<markov::MacroDVNR>(tolerance(), Variance_magic_number())
+      return Derivative<markov::hidden::MacroDVNR>(tolerance(), Variance_magic_number())
           .run(prior, Q_dt, m, p, os);
     case markov::MACRO_DMR:
       return Op(false, "Not a contemplated algorithm :" +
@@ -527,11 +529,11 @@ public:
       : base_type(tolerance, variance_magical) {}
 };
 
-template <> class Derivative<markov::MacroDMR> : public markov::MacroDMR {
+template <> class Derivative<markov::hidden::MacroDMR> : public markov::hidden::MacroDMR {
 public:
   inline constexpr static auto const className = my_static_string("MacroDMR");
 
-  typedef markov::MacroDMR base_type;
+  typedef markov::hidden::MacroDMR base_type;
   base_type const &f() const { return *this; }
 
   template <class Model, class Step>
@@ -596,14 +598,14 @@ public:
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     switch (alg) {
     case markov::MACRO_DMNR:
-      return Derivative<markov::MacroDMNR>(tolerance())
+      return Derivative < markov::hidden::MacroDMNR > (tolerance())
           .run(prior, Q_dt, m, p, os);
     case markov::MACRO_DVNR:
       return Op(false, "Not a contemplated algorithm :" +
                            markov::MACROR_string[markov::MACRO_DVNR] +
                            " is not valid for " + className.str());
     case markov::MACRO_DMR:
-      return Derivative<markov::MacroDMR>(tolerance(), Binomial_magic_number())
+      return Derivative<markov::hidden::MacroDMR>(tolerance(), Binomial_magic_number())
           .run(prior, Q_dt, m, p, os);
     case markov::MACRO_DVR:
     default:
@@ -831,12 +833,12 @@ public:
 };
 
 template <>
-class Derivative<markov::MacroDVR> : public markov::MacroDVR
+class Derivative<markov::hidden::MacroDVR> : public markov::hidden::MacroDVR
 
 {
 public:
   inline constexpr static auto const className = my_static_string("MacroDVR");
-  typedef markov::MacroDVR base_type;
+  typedef markov::hidden::MacroDVR base_type;
   base_type const &f() const { return *this; }
 
   template <class Model, class Step>
@@ -866,17 +868,17 @@ public:
       const Step &p, std::ostream &os, const markov::MACROR &alg) const {
     switch (alg) {
     case markov::MACRO_DMNR:
-      return Derivative<markov::MacroDMNR>(tolerance())
+      return Derivative<markov::hidden::MacroDMNR>(tolerance())
           .run(prior, Q_dt, m, p, os);
     case markov::MACRO_DVNR:
-      return Derivative<markov::MacroDVNR>(tolerance(), Variance_magic_number())
+      return Derivative<markov::hidden::MacroDVNR>(tolerance(), Variance_magic_number())
           .run(prior, Q_dt, m, p, os);
     case markov::MACRO_DMR:
-      return Derivative<markov::MacroDMR>(tolerance(), Binomial_magic_number())
+      return Derivative<markov::hidden::MacroDMR>(tolerance(), Binomial_magic_number())
           .run(prior, Q_dt, m, p, os);
     case markov::MACRO_DVR:
     default:
-      return Derivative<MacroDVR>(tolerance(), Binomial_magic_number(),
+      return Derivative<markov::hidden::MacroDVR>(tolerance(), Binomial_magic_number(),
                                   Variance_magic_number())
           .run(prior, Q_dt, m, p, os);
     }
@@ -951,10 +953,10 @@ public:
               prior.P_mean() * Q_dt.gtotal_ij();
 
     Derivative<double> ms = (prior.P_mean() * Q_dt.gvar_i()).getvalue();
-    Derivative<double> delta_emu = sqr(ms + e / N) - sSs / N * 0.5;
+    Derivative<double> delta_emu = sqr(ms + e / N) - sSs / N * 2.0;
     delta_emu.f() = std::max(delta_emu.f(), 0.0);
 
-    Derivative<double> ms0 = (ms - e / N) * 0.5 + sqrt(delta_emu) * 0.5;
+    Derivative<double> ms0 = (ms - e / N) * 0.5 + sqrt(delta_emu) * 2.0;
 
     auto e_mu = e + N * ms0;
     auto y_mean =
@@ -1038,6 +1040,297 @@ public:
       : base_type(tolerance, binomial_magical, variance_magical) {}
   Derivative() = default;
 };
+
+
+template <bool recursive, int averaging, bool variance>
+class Derivative<markov::Macro_R<recursive, averaging, variance>> : public markov::Macro_R<recursive, averaging, variance>
+
+{
+public:
+  using markov::Macro_R<recursive, averaging, variance>::tolerance;
+  using markov::Macro_R<recursive, averaging, variance>::Binomial_magic_number;
+  using markov::Macro_R<recursive, averaging, variance>::Variance_magic_number;
+
+
+  typedef markov::Macro_R<recursive, averaging, variance> base_type;
+  inline constexpr static auto const className = my_trait<base_type>::className+my_static_string("_derivative");
+  base_type const &f() const { return *this; }
+
+  template <class Model, class Step>
+  myOptional_t<Derivative<markov::mp_state_information>>
+  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+      const Step &p, std::ostream &os) const {
+    markov::MACROR alg;
+    return run(prior, m, p, os, alg);
+  }
+
+  template <class Model, class Step, class MACROR>
+  myOptional_t<Derivative<markov::mp_state_information>>
+  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+      const Step &p, std::ostream &os, MACROR &alg) const {
+    typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
+    auto Q_dto = m.get_P(p, 0);
+    if (!Q_dto)
+      return Op(false, "fails in auto Q_dt=m.get_P(p,0) :" + Q_dto.error());
+    Derivative<Markov_Transition_step_double> Q_dt = std::move(Q_dto).value();
+    return run(prior, Q_dt, m, p, os, alg);
+  }
+
+  template <class Model, class Step>
+  myOptional_t<Derivative<markov::mp_state_information>>
+  run(const Derivative<markov::mp_state_information> &prior,
+      const Derivative<Markov_Transition_step_double> Q_dt, Model &m,
+      const Step &p, std::ostream &os, const markov::MACROR &alg) const {
+    switch (alg) {
+    case markov::MACRO_DMNR:
+      return Derivative<markov::MacroDMNR>(tolerance(), Binomial_magic_number(),
+                                           Variance_magic_number())
+          .run(prior, Q_dt, m, p, os);
+    case markov::MACRO_DVNR:
+      return Derivative<markov::MacroDVNR>(tolerance(), Binomial_magic_number(),
+                                           Variance_magic_number())
+          .run(prior, Q_dt, m, p, os);
+    case markov::MACRO_DMR:
+      return Derivative<markov::MacroDMR>(tolerance(), Binomial_magic_number(),
+                                          Variance_magic_number())
+          .run(prior, Q_dt, m, p, os);
+    case markov::MACRO_DVR:
+    default:
+      return Derivative<markov::MacroDVR>(tolerance(), Binomial_magic_number(),
+                                          Variance_magic_number())
+          .run(prior, Q_dt, m, p, os);
+    }
+  }
+
+  template <class Model, class Step>
+  myOptional_t<Derivative<markov::mp_state_information>>
+  run(const Derivative<markov::mp_state_information> &prior,
+      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Step &p, std::ostream &os, markov::MACROR &alg) const {
+    auto y = p.y();
+    if (std::isnan(y))
+      alg = markov::MACRO_DMNR;
+    else {
+      double mg = (prior.P_mean().f() * Q_dt.gmean_i().f()).getvalue();
+      double g_max = max(Q_dt.g().f());
+      double g_min = min(Q_dt.g().f());
+      double g_range = g_max - g_min;
+      double N = m.AverageNumberOfChannels().f();
+      std::pair<Op_void, Op_void> test_Binomial;
+      auto p_bi = (g_max - mg) / g_range;
+      auto q_bi = (mg - g_min) / g_range;
+      test_Binomial =
+          markov::mp_state_information::is_Binomial_Approximation_valid(
+              N, p_bi, q_bi, Binomial_magic_number(), 0);
+      if (!test_Binomial.first.has_value()) {
+        if (!test_Binomial.second.has_value())
+          alg = markov::MACRO_DMNR;
+        else
+          alg = markov::MACRO_DVNR;
+      } else if (!test_Binomial.second.has_value())
+        alg = markov::MACRO_DMR;
+      else
+        alg = markov::MACRO_DVR;
+    }
+    const markov::MACROR alg2 = alg;
+    return run(prior, Q_dt, m, p, os, alg2);
+  }
+
+  template <class Model, class Step>
+  myOptional_t<Derivative<markov::mp_state_information>>
+  run(const Derivative<markov::mp_state_information> &prior,
+      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Step &p, std::ostream & /*os*/) const {
+    auto y = p.y();
+    typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
+    Derivative<double> N = m.AverageNumberOfChannels();
+
+    Derivative<double> e = m.noise_variance(p.nsamples());
+    //
+    M_Matrix<double> u(prior.P_mean().f().size(), 1, 1.0);
+
+    auto SmD = prior.P_cov() - diag(prior.P_mean());
+
+    Derivative<double> gSg =
+        (TranspMult(Q_dt.gmean_i(), SmD) * Q_dt.gmean_i()).getvalue() +
+        (prior.P_mean() * (elemMult(Q_dt.gtotal_ij(), Q_dt.gmean_ij()) * Constant(u)))
+            .getvalue();
+
+    Derivative<double> ms = (prior.P_mean() * Q_dt.gvar_i()).getvalue();
+
+    Derivative<double> e_mu;
+    Derivative<double> y_mean;
+    Derivative<double> y_var;
+
+    std::enable_if_t<variance, Derivative<double>> sSg;
+    std::enable_if_t<variance, Derivative<double>> sSs;
+    std::enable_if_t<variance, Derivative<double>> zeta;
+    if constexpr ((!variance) && (!recursive)) {
+      e_mu = e + N * ms;
+      y_mean = N * (prior.P_mean() * Q_dt.gmean_i()).getvalue();
+      y_var = e_mu + N * gSg;
+     } else if constexpr (!variance && recursive) {
+    auto gS = TranspMult(Q_dt.gmean_i(), SmD) * Q_dt.P() +
+              prior.P_mean() * Q_dt.gtotal_ij();
+
+    Derivative<double> ms = (prior.P_mean() * Q_dt.gvar_i()).getvalue();
+
+    e_mu = e + N * ms;
+    y_mean = N * (prior.P_mean() * Q_dt.gmean_i()).getvalue();
+    y_var = e_mu + N * gSg;
+  }
+  else // (variance && (recursive || !recursive))
+  {
+    sSg =
+        (TranspMult(Q_dt.gvar_i(), SmD) * Q_dt.gmean_i()).getvalue() +
+        (prior.P_mean() * (elemMult(Q_dt.gtotal_var_ij(), Q_dt.gmean_ij()) * u))
+            .getvalue();
+    sSs =
+        (TranspMult(Q_dt.gvar_i(), SmD) * Q_dt.gvar_i()).getvalue() +
+        (prior.P_mean() * (elemMult(Q_dt.gtotal_var_ij(), Q_dt.gvar_ij()) * u))
+            .getvalue();
+
+
+    Derivative<double> delta_emu = sqr(ms + e / N) - sSs / N * 2.0;
+
+    delta_emu.f() = std::max(delta_emu.f(), 0.0);
+
+
+    Derivative<double> ms0 = (ms - e / N) * 0.5 + sqrt(delta_emu) * 0.5;
+
+    e_mu = e + N * ms0;
+    y_mean =
+        N * (prior.P_mean() * Q_dt.gmean_i()).getvalue() - N * 0.5 / e_mu * sSg;
+    zeta = N / (2 * sqr(e_mu) + N * sSs);
+    y_var =e_mu + N * gSg - N * zeta * sqr(sSg);
+    y_var.f() = std::max(y_var.f(), e.f());
+  }
+
+  
+  if (std::isnan(y)) {
+    Derivative<double> plogL(0.0,
+                             prior.y_mean().x());
+    Derivative<double> eplogL(0.0,
+                              prior.y_mean().x());
+    auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
+      assert(are_Equal_v(P__cov,
+                         Incremental_ratio(1e-4,
+                                           [](auto const &P, auto const &SmD_) {
+        return quadraticForm_BT_A_B(SmD_,
+                                    P);
+                                         },
+                                         Q_dt.P(), SmD),
+                       std::cerr));
+      auto P_mean = prior.P_mean() * Q_dt.P();
+      assert(are_Equal_v(
+          P_mean,
+          Incremental_ratio(
+              1e-4, [](auto const &Pmean, auto const &P) { return Pmean * P; },
+              prior.P_mean(), Q_dt.P()),
+          std::cerr));
+      
+      P__cov += diag(P_mean);
+      
+  // std::cerr<<"\nPcov nana corr\n"<<P__cov<<"\nP_mean nana
+      // corr\n"<<P_mean<<"\nQ.P \n"<<Q_dt.P();
+      auto test = markov::mp_state_information::test(P_mean.f(), P__cov.f(),
+                                                     tolerance());
+      if (test.has_value())
+        return Op(Derivative<markov::mp_state_information>::adjust(
+            std::move(P_mean), std::move(P__cov), std::move(y_mean),
+            std::move(y_var), std::move(plogL), std::move(eplogL), Q_dt.min_P(),
+            e.f()));
+      else
+        return Op(false, "fails at intertrace prediction!!: " + test.error());
+    }
+  
+  auto dy = Constant(y) - y_mean;
+  auto chi = dy / y_var;
+  Derivative<M_Matrix<double>> P_mean;
+  Derivative<M_Matrix<double>> P__cov;
+  if constexpr (!recursive) {
+    P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
+
+    P_mean = prior.P_mean() * Q_dt.P();
+    P__cov += diag(P_mean);
+  } else if constexpr (!variance) {
+    auto gS = TranspMult(Q_dt.gmean_i(), SmD) * Q_dt.P() +
+              prior.P_mean() * Q_dt.gtotal_ij();
+    P_mean = prior.P_mean() * Q_dt.P() + chi * gS;
+
+    P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P()) +
+             diag(prior.P_mean() * Q_dt.P()) -
+             (N / y_var) * quadraticForm_XTX(gS);
+
+  } else {
+    auto gS = TranspMult(Q_dt.gmean_i(), SmD) * Q_dt.P() +
+              prior.P_mean() * Q_dt.gtotal_ij();
+    auto sS = TranspMult(Q_dt.gvar_i(), SmD) * Q_dt.P() +
+              prior.P_mean() * Q_dt.gtotal_var_ij();
+    P_mean = prior.P_mean() * Q_dt.P() + chi * gS -
+             (chi * zeta * sSg + 0.5 / e_mu) * sS;
+
+    P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P()) +
+             diag(prior.P_mean() * Q_dt.P()) -
+             (zeta + N / y_var * sqr(zeta * sSg)) * quadraticForm_XTX(sS) +
+             (2.0 * N / y_var * zeta * sSg) * TransposeSum(TranspMult(sS, gS)) -
+             (N / y_var) * quadraticForm_XTX(gS);
+  }
+
+  auto chi2 = dy * chi;
+
+  Derivative<double> plogL(y_mean.x());
+  if (y_var.f() > 0)
+    plogL = -0.5 * log(2 * PI * y_var) - 0.5 * chi2;
+  else
+    plogL.f() = std::numeric_limits<double>::infinity();
+
+  Derivative<double> eplogL =
+      -0.5 * log(2 * PI * y_var) +Constant(-0.5);
+
+    auto test = Derivative<markov::mp_state_information>::test(
+      P_mean, P__cov, y_mean, y_var, plogL, eplogL, e.f(), tolerance());
+  if (!test) {
+    std::stringstream ss;
+
+    ss << "\nP_mean \n" << P_mean;
+    ss << "\nPcov \n" << P__cov;
+    // ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
+
+    return Op(false, "\nfails in trace!!!; error=" + test.error() + ss.str());
+  } else
+    return Op(Derivative<markov::mp_state_information>::adjust(
+        std::move(P_mean), std::move(P__cov), std::move(y_mean),
+        std::move(y_var), std::move(plogL), std::move(eplogL), Q_dt.min_P(),
+        e.f()));
+  }
+  template <class Model, class Step>
+  myOptional_t<Derivative<markov::mp_state_information>>
+  start(Model &m, const Step &p, double min_p) const {
+    typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
+
+    auto P_mean = m.Peq(p.begin()->x());
+    //  std::cerr<<"gslreijgsorjgps INIT!!!"<<P_mean.value();
+    if (!P_mean)
+      return Op(false, "fails to get Peq :" + P_mean.error());
+    else {
+      auto P_cov = diag(P_mean.value()) - quadraticForm_XTX(P_mean.value());
+      //     std::cerr<<"gslreijgsorjgps INIT!!!"<<P_cov;
+      auto nan = std::numeric_limits<double>::quiet_NaN();
+      auto &x = P_mean.value().x();
+      return Op(Derivative<markov::mp_state_information>::adjust(
+          std::move(P_mean).value(), std::move(P_cov),
+          Derivative<double>(nan, x), Derivative<double>(nan, x),
+          Derivative<double>(nan, x), Derivative<double>(nan, x), min_p, 0));
+    }
+  }
+  Derivative(double tolerance, double binomial_magical, double variance_magical)
+      : base_type(tolerance, binomial_magical, variance_magical) {}
+  Derivative() = default;
+};
+
+
+
 
 template <> struct Derivative<markov::logLikelihood_function> {
   template <class Experiment>

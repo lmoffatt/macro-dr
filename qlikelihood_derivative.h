@@ -127,17 +127,17 @@ public:
       else  if (algorithm_ == my_trait<markov::MacroDMR>::className.str()) {
         return markov::partialDlikelihood_derivative<
             markov::MACROR, evidence::PartialDLogLikelihood<markov::MACROR>>(
-            Derivative<markov::MacroDMR>(tolerance_,BiNumber_), MC, e,os);
+            Derivative<markov::MacroDMR>(tolerance_,BiNumber_,VaNumber_), MC, e,os);
       } else if (algorithm_ == my_trait<markov::MacroDMNR>::className.str()) {
         return markov::partialDlikelihood_derivative<
             markov::MACROR, evidence::PartialDLogLikelihood<markov::MACROR>>(
-            Derivative<markov::MacroDMNR>(tolerance_), MC, e,os);
+            Derivative<markov::MacroDMNR>(tolerance_,BiNumber_,VaNumber_), MC, e,os);
       }
 
       else if (algorithm_ == my_trait<markov::MacroDVNR>::className.str()) {
         return markov::partialDlikelihood_derivative<
              markov::MACROR, evidence::PartialDLogLikelihood<markov::MACROR>>(
-            Derivative<markov::MacroDVNR>(tolerance_,VaNumber_), MC, e,os);
+            Derivative<markov::MacroDVNR>(tolerance_,BiNumber_,VaNumber_), MC, e,os);
       } else
         return Op(false, "algoritm " + algorithm_ + " not found");
     };

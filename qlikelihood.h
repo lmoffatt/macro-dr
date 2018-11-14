@@ -65,17 +65,17 @@ public:
         }
           else  if(algorithm_==my_trait<markov::MacroDMR>::className.str())
           {
-              auto out= markov::partialDistribution_aux(markov::MacroDMR(tolerance_,BiNumber_),MC,e,os);
+              auto out= markov::partialDistribution_aux(markov::MacroDMR(tolerance_,BiNumber_,VaNumber_),MC,e,os);
               return out;
           }
           else  if(algorithm_==my_trait<markov::MacroDVNR>::className.str())
           {
-              auto out= markov::partialDistribution_aux(markov::MacroDVNR(tolerance_,VaNumber_),MC,e,os);
+              auto out= markov::partialDistribution_aux(markov::MacroDVNR(tolerance_,BiNumber_,VaNumber_),MC,e,os);
               return out;
           }
           else  if(algorithm_==my_trait<markov::MacroDMNR>::className.str())
           {
-              auto out= markov::partialDistribution_aux(markov::MacroDMNR(tolerance_),MC,e,os);
+              auto out= markov::partialDistribution_aux(markov::MacroDMNR(tolerance_,BiNumber_,VaNumber_),MC,e,os);
               return out;
           }
 
@@ -97,17 +97,17 @@ public:
        }
        else  if(algorithm_==my_trait<markov::MacroDMR>::className.str())
        {
-           auto out= markov::partialDistribution_aux(markov::MacroDMR(tolerance_,BiNumber_),MC,e,os,aux);
+           auto out= markov::partialDistribution_aux(markov::MacroDMR(tolerance_,BiNumber_,VaNumber_),MC,e,os,aux);
            return out;
        }
        else  if(algorithm_==my_trait<markov::MacroDVNR>::className.str())
        {
-           auto out= markov::partialDistribution_aux(markov::MacroDVNR(tolerance_,VaNumber_),MC,e,os,aux);
+           auto out= markov::partialDistribution_aux(markov::MacroDVNR(tolerance_,BiNumber_,VaNumber_),MC,e,os,aux);
            return out;
        }
        else  if(algorithm_==my_trait<markov::MacroDMNR>::className.str())
        {
-           auto out= markov::partialDistribution_aux(markov::MacroDMNR(tolerance_),MC,e,os,aux);
+           auto out= markov::partialDistribution_aux(markov::MacroDMNR(tolerance_,BiNumber_,VaNumber_),MC,e,os,aux);
            return out;
        }
 

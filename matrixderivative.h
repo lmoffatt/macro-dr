@@ -1022,7 +1022,7 @@ auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>> &Dx) {
     M_Matrix<Derivative<double>> dlanda(
         landa.nrows(), landa.ncols(), landa.type(), Derivative<double>(Dx.x()));
 
-    auto n = landa.size();
+    //auto n = landa.size();
     for (std::size_t i = 0; i < landa.size(); ++i) {
       auto vT = VL(i, ":");
       auto u = VR(":", i);

@@ -299,7 +299,7 @@ struct likelihood{
 
         else  if (algorithm==my_trait<markov::MacroDMR>::className.str())
         {
-            auto out= markov::logLikelihood(markov::MacroDMR(tolerance, biNumber),MC,e, std::cerr);
+            auto out= markov::logLikelihood(markov::MacroDMR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
             if (out.has_value())
                 std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
             else std::cerr<<out.error();
@@ -308,7 +308,7 @@ struct likelihood{
         }
         else  if (algorithm==my_trait<markov::MacroDVNR>::className.str())
         {
-            auto out= markov::logLikelihood(markov::MacroDVNR(tolerance,Vanumber),MC,e, std::cerr);
+            auto out= markov::logLikelihood(markov::MacroDVNR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
             if (out.has_value())
                 std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
             else std::cerr<<out.error();
@@ -317,7 +317,7 @@ struct likelihood{
         }
         else  if (algorithm==my_trait<markov::MacroDMNR>::className.str())
         {
-            auto out= markov::logLikelihood(markov::MacroDMNR(tolerance),MC,e, std::cerr);
+            auto out= markov::logLikelihood(markov::MacroDMNR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
             if (out.has_value())
                 std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
             else std::cerr<<out.error();
@@ -485,15 +485,15 @@ struct likelihood_detail{
         }
         else if (algorithm==my_trait<markov::MacroDMR>::className.str())
         {
-            return markov::monitorLikelihood(markov::MacroDMR(tolerance,biNumber),MC,e, std::cerr);
+            return markov::monitorLikelihood(markov::MacroDMR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
         }
         else if (algorithm==my_trait<markov::MacroDVNR>::className.str())
         {
-            return markov::monitorLikelihood(markov::MacroDVNR(tolerance,Vanumber),MC,e, std::cerr);
+            return markov::monitorLikelihood(markov::MacroDVNR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
         }
         else if (algorithm==my_trait<markov::MacroDMNR>::className.str())
         {
-            return markov::monitorLikelihood(markov::MacroDMNR(tolerance),MC,e, std::cerr);
+            return markov::monitorLikelihood(markov::MacroDMNR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
         }
         else return Op(false,"algorithm "+algorithm+" is not recognized");
     }
