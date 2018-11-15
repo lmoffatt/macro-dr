@@ -1482,7 +1482,7 @@ public:
                 j=1;
 
             std::cerr<<" j="<<j<<"\n";
-            //#pragma omp parallel for
+            #pragma omp parallel for
             for (std::size_t i=j; i<model.size()-1; i+=2)
             {
                 double A=current.Accept(i,model);

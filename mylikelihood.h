@@ -1617,7 +1617,7 @@ public:
 
         auto mtvec = mts(mt, 8);
         for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-//#pragma omp parallel for
+#pragma omp parallel for
           for (std::size_t ni = 0; ni < 8; ++ni) {
             std::size_t i = nc * 8 + ni;
             auto logL = compute_Sample(oss[ni], sim, fim, e, prior, p, eps,
@@ -1641,7 +1641,7 @@ public:
 
       auto mtvec = mts(mt, 8);
       for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-//#pragma omp parallel for
+#pragma omp parallel for
         for (std::size_t ni = 0; ni < 8; ++ni) {
           std::size_t i = nc * 8 + ni;
           auto logL =
@@ -1697,7 +1697,7 @@ public:
 
       auto mtvec = mts(mt, 8);
       for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
- //#pragma omp parallel for
+ #pragma omp parallel for
         for (std::size_t ni = 0; ni < 8; ++ni) {
           std::size_t i = nc * 8 + ni;
           auto logL =

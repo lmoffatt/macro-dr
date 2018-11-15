@@ -90,18 +90,41 @@ result2 = write (variable = dd  filename = "mylogSimulation.txt" )
 //re = write (variable = dlik2 filename ="mySamples_MacroDMR_G_adj_4.txt" )
 
 
-liktest_0 = likelihoodtest ( singleLigandExperiment = mySimulation_0  State_Model = Model_0 model_parameters = param_0  model_parameters_distribution = paramPrior_0   algorithm = "MacroDMR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-50 tolerance_error=1e-2 eps_G = 1e-4  eps_G_adjust = 1 Center_gradient = 1 eps_factor =10 number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
+//liktest_0 = likelihoodtest ( singleLigandExperiment = mySimulation_0  State_Model = Model_0 model_parameters = param_0  model_parameters_distribution = paramPrior_0   algorithm = "MacroDMR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-50 tolerance_error=1e-2 eps_G = 1e-4  eps_G_adjust = 1 Center_gradient = 1 eps_factor =10 number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
 
-dlik_0 = to_dataframe ( analysis = liktest_0 )
+//dlik_0 = to_dataframe ( analysis = liktest_0 )
 
-re = write (variable = dlik_0 filename ="mySamples_0_MacroDMR_G_adj_4.txt" )
+//re = write (variable = dlik_0 filename ="mySamples_0_MacroDMR_G_adj_4.txt" )
+
+//liktest_der_DVNR = likelihoodtest_derivative ( singleLigandExperiment = mySimulation_0  State_Model = Model_0 model_parameters = param_0  model_parameters_distribution = paramPrior_0   algorithm = "MacroDVNR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-20 tolerance_error=1e-2  number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
+
+//dlik_der_DVNR = to_dataframe ( analysis = liktest_der_DVNR )
 
 
-liktest_der = likelihoodtest_derivative ( singleLigandExperiment = mySimulation_0  State_Model = Model_0 model_parameters = param_0  model_parameters_distribution = paramPrior_0   algorithm = "MacroDMR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-20 tolerance_error=1e-2  number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
+liktest_der_DMNR = likelihoodtest_derivative ( singleLigandExperiment = mySimulation_0  State_Model = Model_0 model_parameters = param_0  model_parameters_distribution = paramPrior_0   algorithm = "MacroDMNR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-20 tolerance_error=1e-2  number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
 
-dlik_der = to_dataframe ( analysis = liktest_der )
+dlik_der_DMNR = to_dataframe ( analysis = liktest_der_DMNR )
 
-re = write (variable = dlik_der filename ="mySamples_0_MacroDMR_der.txt" )
+re = write (variable = dlik_der_2 filename ="mySamples_0_MacroDMNR_der.txt" )
+
+
+re = write (variable = dlik_der_2 filename ="mySamples_0_MacroDVNR_der.txt" )
+
+liktest_der_DMR = likelihoodtest_derivative ( singleLigandExperiment = mySimulation_0  State_Model = Model_0 model_parameters = param_0  model_parameters_distribution = paramPrior_0   algorithm = "MacroDMR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-20 tolerance_error=1e-2  number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
+
+dlik_der_DMR = to_dataframe ( analysis = liktest_der_DMR )
+
+re = write (variable = dlik_der_2 filename ="mySamples_0_MacroDMNR_der.txt" )
+
+liktest_der_DVR = likelihoodtest_derivative ( singleLigandExperiment = mySimulation_0  State_Model = Model_0 model_parameters = param_0  model_parameters_distribution = paramPrior_0   algorithm = "MacroDVR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-20 tolerance_error=1e-2  number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
+
+dlik_der_DVR = to_dataframe ( analysis = liktest_der_DVR )
+
+re = write (variable = dlik_der_2 filename ="mySamples_0_MacroDVR_der.txt" )
+
+
+
+
 
 //liktest2 = likelihoodtest ( singleLigandExperiment = mySimulation  Allosteric_Model = Model_1 model_parameters = paramInit  model_parameters_distribution = paramPrior   algorithm = "MacroDMR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-50 tolerance_error=1e-2 eps_G = 1e-4  eps_G_adjust = 1 Center_gradient = 1 eps_factor =10 number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
 
