@@ -579,9 +579,8 @@ auto Incremental_ratio_object(double eps, const F &fun,
 }
 
 inline bool mean_value_test(
-    double eps, double f, double feps, double df, double dfeps,
-    std::ostream &os,
-    double tol = 10*std::sqrt(std::numeric_limits<double>::epsilon())) {
+    double eps, double tol,double f, double feps, double df, double dfeps,
+    std::ostream &os) {
   if (std::abs((feps - f) - (df + dfeps) * eps / 2.0) >
       200.0* std::abs((dfeps - df) * eps) + tol) {
     double deltaf = (feps - f) / eps;
@@ -596,14 +595,14 @@ inline bool mean_value_test(
   } else
     return true;
 }
-inline bool mean_value_test_calc(const std::vector<double> &eps,
+inline bool mean_value_test_calc(const std::vector<double> &eps,double tol,
                                  const Derivative<double> &y,
                                  const std::vector<Derivative<double>> &yeps,
                                  std::ostream &os) {
   bool out = true;
   for (std::size_t j = 0; j < yeps.size(); ++j) {
     std::stringstream ss;
-    if (!mean_value_test(eps[j], y.f(), yeps[j].f(), y.dfdx()[j],
+    if (!mean_value_test(eps[j], tol,y.f(), yeps[j].f(), y.dfdx()[j],
                          yeps[j].dfdx()[0], ss)) {
       os << "\n Fails for the " << j << "th derivative: " << ss.str();
       out = false;
@@ -613,7 +612,7 @@ inline bool mean_value_test_calc(const std::vector<double> &eps,
 }
 
 inline bool mean_value_test_calc(
-    std::vector<double> eps, const Derivative<M_Matrix<double>> &y,
+    std::vector<double> eps, double tol,const Derivative<M_Matrix<double>> &y,
     const std::vector<Derivative<M_Matrix<double>>> &yeps, std::ostream &os) {
   bool out = true;
   for (std::size_t j = 0; j < yeps.size(); ++j) {
@@ -621,7 +620,7 @@ inline bool mean_value_test_calc(
     std::stringstream ssder;
     for (std::size_t i = 0; i < y.f().size(); ++i) {
       std::stringstream ss;
-      if (!mean_value_test(eps[j], y.f()[i], yeps[j].f()[i], y.dfdx()[j][i],
+      if (!mean_value_test(eps[j], tol,y.f()[i], yeps[j].f()[i], y.dfdx()[j][i],
                            yeps[j].dfdx()[0][i], ss)) {
         ssder << "\nat " << y.f().pos_to_ij(i) << ss.str();
         jder = false;
@@ -642,7 +641,7 @@ inline bool mean_value_test_calc(
 }
 
 template <class Object, class Method, class DerivativeObject>
-bool mean_value_test_method_calc(const std::vector<double> &eps,
+bool mean_value_test_method_calc(const std::vector<double> &eps,double tol,
                                  const grammar::field<Object, Method> &m,
                                  const DerivativeObject &y,
                                  const std::vector<DerivativeObject> &yeps,
@@ -661,7 +660,7 @@ bool mean_value_test_method_calc(const std::vector<double> &eps,
     std::vector<FieldObject> myeps(yeps.size());
     for (std::size_t i = 0; i < myeps.size(); ++i)
       myeps[i] = (std::invoke(m.access_method, yeps[i]));
-    if (!mean_value_test_calc(eps, my, myeps, ss)) {
+    if (!mean_value_test_calc(eps,tol, my, myeps, ss)) {
       os << "\nMean value test fails for Field " << m.idField << "\n" << ss.str();
       return false;
     } else
@@ -670,6 +669,7 @@ bool mean_value_test_method_calc(const std::vector<double> &eps,
 }
 template <class DerivativeObject>
 auto mean_value_test_calc(const std::vector<double> &eps,
+                              double tol,
                           const DerivativeObject &y,
                           const std::vector<DerivativeObject> &yeps,
                           std::ostream &os)
@@ -677,8 +677,8 @@ auto mean_value_test_calc(const std::vector<double> &eps,
   std::stringstream ss;
   auto dfields = y.get_constructor_fields();
   bool out = std::apply(
-      [&eps, &y, &yeps, &ss](auto &... m) {
-        return (mean_value_test_method_calc(eps, m, y, yeps, ss) * ...);
+      [&eps, &y, &yeps, &ss,&tol](auto &... m) {
+        return (mean_value_test_method_calc(eps, tol,m, y, yeps, ss) * ...);
       },
       dfields);
   if (!out) {
@@ -690,7 +690,7 @@ auto mean_value_test_calc(const std::vector<double> &eps,
     return true;
 }
 template <class Diff, class DerX, class DerY, typename... Ts>
-bool Derivative_correctness_mean_value_test(double eps, const Diff &Dfunction,
+bool Derivative_correctness_mean_value_test(double eps, double tol,const Diff &Dfunction,
                                             const DerX &x0, const DerY &y,
                                             std::ostream &os, Ts... context) {
 
@@ -708,7 +708,7 @@ bool Derivative_correctness_mean_value_test(double eps, const Diff &Dfunction,
     yeps[i] = std::invoke(Dfunction, xpos);
   }
   std::stringstream ss;
-  bool out = mean_value_test_calc(e, y, yeps, os);
+  bool out = mean_value_test_calc(e, tol,y, yeps, os);
   if (!out) {
     os << "\ncontext :";
     (os << ... << context);
@@ -717,7 +717,7 @@ bool Derivative_correctness_mean_value_test(double eps, const Diff &Dfunction,
 }
 
 template <class Diff, class... Ders, class Y, typename... Ts>
-bool Derivative_correctness_mean_value_test(double eps, const Diff &Dfunction,
+bool Derivative_correctness_mean_value_test(double eps, double tol,const Diff &Dfunction,
                                             const std::tuple<Ders...> &x0,
                                             const Derivative<Y> &y,
                                             std::ostream &os, Ts... context) {
@@ -738,7 +738,7 @@ bool Derivative_correctness_mean_value_test(double eps, const Diff &Dfunction,
         x0);
   }
   std::stringstream ss;
-  bool out = mean_value_test_calc(e, y, yeps, os);
+  bool out = mean_value_test_calc(e, tol,y, yeps, os);
   if (!out) {
     os << "\n context: ";
     (os << ... << context);
@@ -785,7 +785,7 @@ auto log(const Derivative<double> &x) {
 
 auto sqrt(const Derivative<double> &x) {
   return Derivative<double>(std::sqrt(x.f()), x.x(),
-                            x.dfdx() / std::sqrt(x.f()));
+                            0.5*x.dfdx() / std::sqrt(x.f()));
 }
 
 auto exp(const Derivative<M_Matrix<double>> &x) {

@@ -1107,7 +1107,7 @@ public:
         auto p_bi = (g_max - mg) / g_range;
         auto q_bi = (mg - g_min) / g_range;
         test_Binomial = mp_state_information::is_Binomial_Approximation_valid(
-            N, p_bi, q_bi, Binomial_magic_number(), 0);
+            N, p_bi, q_bi, Binomial_magic_number(), Variance_magic_number());
         if (!recursive || !test_Binomial.first.has_value()) {
           if (!variance || !test_Binomial.second.has_value())
             alg = MACRO_DMNR;

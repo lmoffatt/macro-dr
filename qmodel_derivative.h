@@ -798,7 +798,7 @@ private:
                                              ladt[i], ladt[j]),
                            std::cerr));
 
-        assert(Derivative_correctness_mean_value_test(1e-2,
+        assert(Derivative_correctness_mean_value_test(1e-2,1e-8,
                                              [&minP](auto ladt1, auto ladt2) {
                                                return Ee(ladt1, ladt2,
                   std::exp(ladt1.f()),
@@ -844,7 +844,7 @@ private:
                            std::cerr, " n1=", n1, " n2=", n2, " n3=", n3))
             succed = false; */
           if (!Derivative_correctness_mean_value_test(
-              1e-2,
+              1e-2,1e-8,
                                [&minP](auto ladt1, auto ladt2, auto ladt3) {
           return E3(ladt1, ladt2, ladt3, std::exp(ladt1.f()), std::exp(ladt2.f()),
                     std::exp(ladt3.f()), minP);
@@ -853,7 +853,7 @@ private:
               "n1= ", n1, " n2=", n2, " n3=", n3, "\nladt1= ", ladt[n1], "ladt2= ", ladt[n2], "ladt3= ", ladt[n3]))
             succed = false;
         }
-   // assert(succed);
+    assert(succed);
     gtotal_sqr_ij_ =
         Qx.V() * Derivative<M_Matrix<double>>(WgV_E3) * Qx.W() * 2.0;
     for (std::size_t i = 0; i < N; ++i)
@@ -947,7 +947,7 @@ public:
     auto out =
         Derivative_t<Markov_Transition_rate>::evaluate(Q(x), g(x), tolerance);
     assert((Derivative_correctness_mean_value_test(
-        1e-2,
+        1e-2,1e-8,
         [&tolerance](auto Qx, auto gx) {
           return std::move(Derivative_t<Markov_Transition_rate>::evaluate(
                                std::move(Qx), gx, tolerance))

@@ -1121,16 +1121,18 @@ public:
       auto q_bi = (mg - g_min) / g_range;
       test_Binomial =
           markov::mp_state_information::is_Binomial_Approximation_valid(
-              N, p_bi, q_bi, Binomial_magic_number(), 0);
-      if (!test_Binomial.first.has_value()) {
-        if (!test_Binomial.second.has_value())
+              N, p_bi, q_bi, Binomial_magic_number(), Variance_magic_number());
+      if (!recursive || !test_Binomial.first.has_value()) {
+        if (!variance || !test_Binomial.second.has_value())
           alg = markov::MACRO_DMNR;
         else
           alg = markov::MACRO_DVNR;
-      } else if (!test_Binomial.second.has_value())
+      } else if (!variance || !test_Binomial.second.has_value())
         alg = markov::MACRO_DMR;
       else
-        alg = markov::MACRO_DVR;
+          alg = markov::MACRO_DVR;
+
+
     }
     const markov::MACROR alg2 = alg;
     return run(prior, Q_dt, m, p, os, alg2);
@@ -1183,27 +1185,61 @@ public:
   {
     sSg =
         (TranspMult(Q_dt.gvar_i(), SmD) * Q_dt.gmean_i()).getvalue() +
-        (prior.P_mean() * (elemMult(Q_dt.gtotal_var_ij(), Q_dt.gmean_ij()) * u))
+        (prior.P_mean() * (elemMult(Q_dt.gtotal_var_ij(), Q_dt.gmean_ij()) * Constant(u)))
             .getvalue();
+
+    assert((Derivative_correctness_mean_value_test(
+        1e-2, 1e-8,[&u](auto gvar_i,auto SmD_,auto gmean_i,auto P_mean,auto gtotal_var_ij,auto gmean_ij) {
+        return
+            (TranspMult(gvar_i, SmD_) *gmean_i).getvalue() +
+            (P_mean * (elemMult(gtotal_var_ij, gmean_ij) * Constant(u)))
+            .getvalue();
+},
+          std::forward_as_tuple(Q_dt.gvar_i(), SmD,Q_dt.gmean_i(),prior.P_mean(),Q_dt.gtotal_var_ij(), Q_dt.gmean_ij()), sSg, std::cerr,
+          " step=",p,"prior=",prior,"Q_dt= ", Q_dt, "  SmD=", SmD)));
+
     sSs =
         (TranspMult(Q_dt.gvar_i(), SmD) * Q_dt.gvar_i()).getvalue() +
-        (prior.P_mean() * (elemMult(Q_dt.gtotal_var_ij(), Q_dt.gvar_ij()) * u))
+        (prior.P_mean() * (elemMult(Q_dt.gtotal_var_ij(), Q_dt.gvar_ij()) * Constant(u)))
             .getvalue();
+
+
+    assert((Derivative_correctness_mean_value_test(
+        1e-2, 1e-8,[&u](auto gvar_i,auto SmD_,auto P_mean,auto gtotal_var_ij,auto gvar_ij) {
+        return
+            (TranspMult(gvar_i, SmD_) *gvar_i).getvalue() +
+            (P_mean * (elemMult(gtotal_var_ij, gvar_ij) * Constant(u)))
+                .getvalue();
+},
+          std::forward_as_tuple(Q_dt.gvar_i(), SmD,prior.P_mean(),Q_dt.gtotal_var_ij(), Q_dt.gvar_ij()), sSs, std::cerr,
+          " step=",p,"prior=",prior,"Q_dt= ", Q_dt, "  SmD=", SmD)));
 
 
     Derivative<double> delta_emu = sqr(ms + e / N) - sSs / N * 2.0;
 
-    delta_emu.f() = std::max(delta_emu.f(), 0.0);
+    assert((Derivative_correctness_mean_value_test(
+        1e-2, 1e-8,[&u](auto ms_, auto e_, auto N_, auto sSs_) {
+        return
+            sqr(ms_ + e_ / N_) - sSs_ / N_ * 2.0;        },
+        std::forward_as_tuple(ms,e,N,sSs),
+        delta_emu,
+        std::cerr,
+          " step=",p,"prior=",prior,"Q_dt= ", Q_dt, "  SmD=", SmD)));
+
+
+
+    //  delta_emu.f() = std::max(delta_emu.f(), 0.0);
 
 
     Derivative<double> ms0 = (ms - e / N) * 0.5 + sqrt(delta_emu) * 0.5;
+
 
     e_mu = e + N * ms0;
     y_mean =
         N * (prior.P_mean() * Q_dt.gmean_i()).getvalue() - N * 0.5 / e_mu * sSg;
     zeta = N / (2 * sqr(e_mu) + N * sSs);
     y_var =e_mu + N * gSg - N * zeta * sqr(sSg);
-    y_var.f() = std::max(y_var.f(), e.f());
+  //  y_var.f() = std::max(y_var.f(), e.f());
   }
 
   
@@ -1453,13 +1489,13 @@ auto logLikelihood_experiment_calculation_derivative(
         assert((are_Equal_v(post.value(), dpost, std::cerr, "i= ", i,
                             "  position: *it=", *it)));
       }
-      ((Derivative_correctness_mean_value_test(
-          1e-4,
+      assert(Derivative_correctness_mean_value_test(
+          1e-2,1e-6,
           [&a, &it, &os, &i, &aux...](auto mo, auto p) {
             return std::move(a.run(p, mo, *it, os, aux[i]...)).value();
           },
           std::forward_as_tuple(m, prior.value()), post.value(), std::cerr,
-          "i= ", i, "  position: *it=", *it)));
+          "i= ", i, "  position: *it=", *it," aux=",aux[i]..., "\n prior= ", prior.value(),"\n post= ", post.value()));
       f(post.value(), out, i, aux[i]...);
       prior.value() = std::move(post).value();
     }

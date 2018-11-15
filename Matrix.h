@@ -4100,7 +4100,7 @@ myOptional_t<M_Matrix<double>> symm_pinv(const M_Matrix<double> &A) {
     assert(are_Equal_v(Matrix_Generators::eye<double>(A.ncols()), VL * VR, std::cerr," VL *VR =", VL * VR));
     assert(are_Equal_v(A, VR * L * VL, std::cerr));
     auto Lpinv = diagonal_pinv(
-        L, 100 * std::sqrt(std::numeric_limits<double>::epsilon()) * std::abs(L[L.size() - 1]));
+        L,  std::sqrt(std::numeric_limits<double>::epsilon()) * std::abs(L[L.size() - 1]));
     auto Apinv = VR*Lpinv*VL;
     assert((are_Equal_v(A, A * Apinv * A, std::cerr, "\nA =", A, " \nL=", L, " \nLpinv=", Lpinv, " \nVL=", VL, " \nVR=", VR)));
     assert(are_Equal_v(Apinv, Apinv * A * Apinv, std::cerr, "A =", A));
