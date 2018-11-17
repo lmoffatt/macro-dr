@@ -30,31 +30,33 @@ namespace evidence {
  * */
 
 template <class E, class D>
-std::tuple<double, double, double>
+std::tuple<double, double, double, double>
 calculate_Likelihood(const Base_Distribution<E> &p, const D &data) {
   if (std::isfinite(data))
-    return {p.logP(data), p.expected_logP(), p.variance_logP()};
+    return {p.logP(data), p.expected_logP(),
+            sqr(p.logP(data) - p.expected_logP()), p.variance_logP()};
   else
-    return {0.0, 0.0, 0.0};
+    return {0.0, 0.0, 0.0, 0.0};
 }
 
 template <template <class...> class V, template <class> class Distribution,
           class T, class D>
-std::tuple<double, double, double>
+std::tuple<double, double, double, double>
 calculate_Likelihood(const V<Distribution<T>> &P, const D &data) {
 
   assert(P.size() == data.num_measurements());
   double logL = 0;
   double elogL = 0;
   double vlogL = 0;
-
+  double evlogL = 0;
   for (std::size_t i = 0; i < data.num_measurements(); ++i) {
-    auto [lik, elik, vlik] = calculate_Likelihood(P[i], data[i]);
+    auto [lik, elik, vlik, evlik] = calculate_Likelihood(P[i], data[i]);
     logL += lik;
     elogL += elik;
     vlogL += vlik;
+    evlogL += evlik;
   }
-  return {logL, elogL, vlogL};
+  return {logL, elogL, vlogL, evlogL};
 }
 
 template <class E, class D>
@@ -62,6 +64,18 @@ double calculate_Gradient(const Base_Distribution<E> &dn,
                           const Base_Distribution<E> &dp, const D &data) {
   if (std::isfinite(data))
     return dp.logP(data) - dn.logP(data);
+  else
+    return 0;
+}
+
+template <class E, class D>
+double calculate_vGradient(const Base_Distribution<E> &dn,
+                           const Base_Distribution<E> &dp,
+                           const Base_Distribution<E> &dn2,
+                           const Base_Distribution<E> &dp2, const D &data) {
+  if (std::isfinite(data))
+    return (dp.logP(data) - dn.logP(data)) *
+           ((dp2.logP(data) - dn2.logP(data)));
   else
     return 0;
 }
@@ -78,11 +92,34 @@ double calculate_Gradient(const V<Distributions<T>> &dn,
   return out;
 }
 
+template <template <class...> class V, template <class...> class Distributions,
+          typename T, class D>
+double calculate_vGradient(const V<Distributions<T>> &dn,
+                           const V<Distributions<T>> &dp,
+                           const V<Distributions<T>> &dn2,
+                           const V<Distributions<T>> &dp2, const D &data) {
+  assert(dn.size() == dp.size());
+  assert(dn.size() == dp2.size());
+
+  double out = 0;
+  for (std::size_t i = 0; i < dn.size(); ++i) {
+    out += calculate_vGradient(dn[i], dp[i], dn2[i], dp2[i], data[i]);
+  }
+  return out;
+}
+
 template <template <class> class Distributions, typename T, class D>
 double calculate_Gradient(const Distributions<T> &dn,
                           const Distributions<T> &dp, const D &data,
                           double eps) {
   return calculate_Gradient(dn, dp, data) / eps;
+}
+template <template <class> class Distributions, typename T, class D>
+double
+calculate_vGradient(const Distributions<T> &dn, const Distributions<T> &dp,
+                    const Distributions<T> &dn2, const Distributions<T> &dp2,
+                    const D &data, double eps, double eps2) {
+  return calculate_vGradient(dn, dp, dn2, dp2, data) / (eps * eps2);
 }
 
 template <template <class...> class Distributions, typename T, class D>
@@ -99,6 +136,21 @@ M_Matrix<double> calculate_Gradient(const Distributions<T> &d0,
 }
 
 template <template <class...> class Distributions, typename T, class D>
+M_Matrix<double> calculate_vGradient(const Distributions<T> &d0,
+                                     const std::vector<Distributions<T>> &dp,
+                                     const D &data,
+                                     const std::vector<double> &eps) {
+  // typedef myOptional_t<M_Matrix<double>> Op;
+  M_Matrix<double> out(dp.size(), dp.size(), Matrix_TYPE::SYMMETRIC);
+  for (std::size_t i = 0; i < dp.size(); ++i)
+    for (std::size_t j = 0; j <= i; ++j) {
+      out(i, j) =
+          calculate_vGradient(d0, dp[i], d0, dp[j], data) / (eps[i] * eps[j]);
+    }
+  return out;
+}
+
+template <template <class...> class Distributions, typename T, class D>
 M_Matrix<double>
 calculate_Gradient_center(const std::vector<Distributions<T>> &dn,
                           const std::vector<Distributions<T>> &dp,
@@ -108,6 +160,21 @@ calculate_Gradient_center(const std::vector<Distributions<T>> &dn,
   for (std::size_t i = 0; i < dp.size(); ++i) {
     out[i] = calculate_Gradient(dn[i], dp[i], data) / (2.0 * eps[i]);
   }
+  return out;
+}
+
+template <template <class...> class Distributions, typename T, class D>
+M_Matrix<double>
+calculate_vGradient_center(const std::vector<Distributions<T>> &dn,
+                           const std::vector<Distributions<T>> &dp,
+                           const D &data, const std::vector<double> &eps) {
+  // typedef myOptional_t<M_Matrix<double>> Op;
+  M_Matrix<double> out(dp.size(), dp.size(), Matrix_TYPE::SYMMETRIC);
+  for (std::size_t i = 0; i < dp.size(); ++i)
+    for (std::size_t j = 0; j <= i; ++j) {
+      out(i, j) = calculate_vGradient(dn[i], dp[i], dn[j], dp[j], data) /
+                  (4 * eps[i] * eps[j]);
+    }
   return out;
 }
 
@@ -253,23 +320,25 @@ public:
   double logL() const { return logL_; }
   double elogL() const { return elogL_; }
   double vlogL() const { return vlogL_; }
+  double evlogL() const { return evlogL_; }
 
   double chilogL() const { return (logL() - elogL()) / std::sqrt(vlogL()); }
 
   double chi2logL() const { return sqr(logL() - elogL()) / vlogL(); }
 
-  logLikelihood(double value, double elogL, double vlogL)
-      : logL_{value}, elogL_{elogL}, vlogL_{vlogL} {}
-  logLikelihood(std::tuple<double, double, double> logL)
-      : logL_{std::get<0>(logL)}, elogL_{std::get<1>(logL)}, vlogL_{std::get<2>(
-                                                                 logL)} {}
+  logLikelihood(double value, double elogL, double vlogL, double evlogL)
+      : logL_{value}, elogL_{elogL}, vlogL_{vlogL}, evlogL_{evlogL} {}
+  logLikelihood(std::tuple<double, double, double, double> logL)
+      : logL_{std::get<0>(logL)}, elogL_{std::get<1>(logL)},
+        vlogL_{std::get<2>(logL)}, evlogL_{std::get<3>(logL)} {}
 
   logLikelihood() : logL_{std::numeric_limits<double>::quiet_NaN()} {}
   operator bool() const { return std::isfinite(logL_); }
-  void set_logL(double logLik, double elogL, double vlogL) {
+  void set_logL(double logLik, double elogL, double vlogL, double evlogL) {
     logL_ = logLik;
     elogL_ = elogL;
     vlogL_ = vlogL;
+    evlogL_ = evlogL;
   }
 
   template <class DataFrame>
@@ -277,10 +346,11 @@ public:
     d.insert_column(pre + "logL", C<double>{});
     d.insert_column(pre + "elogL", C<double>{});
     d.insert_column(pre + "vlogL", C<double>{});
+    d.insert_column(pre + "evlogL", C<double>{});
     d.insert_column(pre + "chilogL", C<double>{});
   }
   auto data_row(std::size_t) const {
-    return std::tuple(logL(), elogL(), vlogL(), chilogL());
+    return std::tuple(logL(), elogL(), vlogL(), evlogL(), chilogL());
   }
   std::size_t data_size() const { return 1; }
 
@@ -288,6 +358,7 @@ public:
     logL_ += other.logL_;
     elogL_ += other.elogL_;
     vlogL_ += other.vlogL_;
+    evlogL_ += other.evlogL_;
     return *this;
   }
 
@@ -295,6 +366,7 @@ private:
   double logL_;
   double elogL_;
   double vlogL_;
+  double evlogL_;
 };
 } // namespace evidence
 template <> class moments<evidence::logLikelihood> {
@@ -309,62 +381,66 @@ public:
     return std::make_tuple(
         grammar::field(C<self_type>{}, "logL", &self_type::logL),
         grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
-        grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL));
+        grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
+        grammar::field(C<self_type>{}, "evlogL", &self_type::evlogL));
   }
 
   moments<double> logL() const { return logL_; }
   moments<double> elogL() const { return elogL_; }
   moments<double> vlogL() const { return vlogL_; }
+  moments<double> evlogL() const { return evlogL_; }
   moments<double> chilogL() const { return chilogL_; }
 
   moments(const std::vector<evidence::logLikelihood> &l)
       : logL_{l, &evidence::logLikelihood::logL},
         elogL_{l, &evidence::logLikelihood::elogL},
         vlogL_{l, &evidence::logLikelihood::vlogL},
+        evlogL_{l, &evidence::logLikelihood::evlogL},
         chilogL_{l, &evidence::logLikelihood::chilogL} {}
 
   template <class logL>
   moments(const std::vector<logL> &l)
       : logL_{l, &logL::logL}, elogL_{l, &logL::elogL}, vlogL_{l, &logL::vlogL},
-        chilogL_{l, &logL::chilogL} {}
+        evlogL_{l, &logL::evlogL}, chilogL_{l, &logL::chilogL} {}
 
   template <class logL, class Op, typename... Ts>
   moments(const std::vector<logL> &l, const Op &u, Ts... t)
       : logL_{l, [&u, &t...](const logL &d) { return u(d, t...).logL(); }},
         elogL_{l, [&u, &t...](const logL &d) { return u(d, t...).elogL(); }},
         vlogL_{l, [&u, &t...](const logL &d) { return u(d, t...).vlogL(); }},
+        evlogL_{l, [&u, &t...](const logL &d) { return u(d, t...).evlogL(); }},
         chilogL_{l,
                  [&u, &t...](const logL &d) { return u(d, t...).chilogL(); }} {}
 
   moments(moments<double> value, moments<double> elogL, moments<double> vlogL,
-          moments<double> chilogL)
-      : logL_{value}, elogL_{elogL}, vlogL_{vlogL}, chilogL_{chilogL} {}
+          moments<double> evlogL, moments<double> chilogL)
+      : logL_{value}, elogL_{elogL}, vlogL_{vlogL}, evlogL_{evlogL},
+        chilogL_{chilogL} {}
 
   moments() = default;
   operator bool() const { return std::isfinite(logL_.mean()); }
   void set_logL(moments<double> logLik, moments<double> elogL,
-                moments<double> vlogL, moments<double> chilogL) {
+                moments<double> vlogL, moments<double> evlogL,
+                moments<double> chilogL) {
     logL_ = logLik;
     elogL_ = elogL;
     vlogL_ = vlogL;
+    evlogL_ = evlogL;
     chilogL_ = chilogL;
   }
 
   auto data_row(MOMENTS m) const {
-    switch (m) {
-    case MEAN:
-      return std::tuple(logL().mean(), elogL().mean(), vlogL().mean(),
-                        chilogL().mean());
-    default:
-      return std::tuple(logL().variance(), elogL().variance(),
-                        vlogL().variance(), chilogL().variance());
-    }
+    return std::tuple_cat(logL().data_row(m), elogL().data_row(m),
+                          vlogL().data_row(m), evlogL().data_row(m),
+                          chilogL().data_row(m));
   }
 
 private:
   moments<double> logL_;
   moments<double> elogL_;
   moments<double> vlogL_;
+  moments<double> evlogL_;
+
   moments<double> chilogL_;
 };
 
@@ -387,6 +463,7 @@ public:
         grammar::field(C<self_type>{}, "logL", myLogL),
         grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
         grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
+        grammar::field(C<self_type>{}, "evlogL", &self_type::evlogL),
         grammar::field(C<self_type>{}, "Gradient", myG),
         grammar::field(C<self_type>{}, "Hessian", myH));
   }
@@ -403,25 +480,26 @@ public:
     H_ = std::move(hessian);
   }
 
-  DlogLikelihood(double logL, double elogL, double vlogL,
+  DlogLikelihood(double logL, double elogL, double vlogL, double evlogL,
                  const M_Matrix<double> &Gradient,
                  const M_Matrix<double> &Hessian)
-      : logLikelihood(logL, elogL, vlogL), G_{Gradient}, H_{Hessian} {
+      : logLikelihood(logL, elogL, vlogL, evlogL), G_{Gradient}, H_{Hessian} {
     assert(H_.isSymmetric());
   }
-  DlogLikelihood(std::tuple<double, double, double, M_Matrix<double>,
+  DlogLikelihood(std::tuple<double, double, double, double, M_Matrix<double>,
                             M_Matrix<double>> &&logL)
       : DlogLikelihood(std::get<0>(logL), std::get<1>(logL), std::get<2>(logL),
-                       std::move(std::get<3>(logL)),
-                       std::move(std::get<4>(logL))) {}
+                       std::get<3>(logL), std::move(std::get<4>(logL)),
+                       std::move(std::get<5>(logL))) {}
 
-  DlogLikelihood(std::tuple<double, double, double> logL,
+  DlogLikelihood(std::tuple<double, double, double, double> logL,
                  M_Matrix<double> &&Gradient, M_Matrix<double> &&Hessian)
       : DlogLikelihood(std::get<0>(logL), std::get<1>(logL), std::get<2>(logL),
-                       std::move(Gradient), std::move(Hessian)) {}
-  DlogLikelihood(double logL, double elogL, double vlogL,
+                       std::get<3>(logL), std::move(Gradient),
+                       std::move(Hessian)) {}
+  DlogLikelihood(double logL, double elogL, double vlogL, double evlog,
                  M_Matrix<double> &&Gradient, M_Matrix<double> &&Hessian)
-      : logLikelihood(logL, elogL, vlogL), G_{std::move(Gradient)},
+      : logLikelihood(logL, elogL, vlogL, evlog), G_{std::move(Gradient)},
         H_{std::move(Hessian)} {
     assert(H_.isSymmetric());
   }
@@ -459,6 +537,160 @@ private:
   M_Matrix<double> H_;
 };
 
+class DVlogLikelihood : public DlogLikelihood {
+public:
+  typedef DlogLikelihood base_type;
+
+  constexpr static auto const className = my_static_string("DVlogLikelihood");
+  // std::string myClass()const  { return className.str();}
+
+  typedef DVlogLikelihood self_type;
+  static auto get_constructor_fields() {
+    double (logLikelihood::*myLogL)() const = &base_type::logL;
+    M_Matrix<double> const &(self_type::*myG)() const = &self_type::G;
+    const M_Matrix<double> &(self_type::*myH)() const = &self_type::H;
+
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "logL", myLogL),
+        grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
+        grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
+        grammar::field(C<self_type>{}, "evlogL", &self_type::evlogL),
+        grammar::field(C<self_type>{}, "Gradient", myG),
+        grammar::field(C<self_type>{}, "Hessian", myH),
+        grammar::field(C<self_type>{}, "varG", &self_type::vG),
+        grammar::field(C<self_type>{}, "scalingMatrix", &self_type::scaleM),
+        grammar::field(C<self_type>{}, "gradient_chi_value",
+                       &self_type::gradient_chi_value),
+        grammar::field(C<self_type>{}, "gradient_fim_value",
+                       &self_type::gradient_fim_value));
+  }
+  static double calc_chi2_value(const M_Matrix<double> &myG,
+                                const M_Matrix<double> &myH) {
+    auto Hinv = pinv(myH);
+    if (!Hinv)
+      return std::numeric_limits<double>::quiet_NaN();
+    else
+      return xTSigmaX(myG, Hinv.value());
+  }
+  static myOptional_t<M_Matrix<double>> calc_Scale_Matrix(
+      M_Matrix<double> const &vG, M_Matrix<double> const &H,
+      double tol = std::sqrt(std::numeric_limits<double>::epsilon())) {
+    typedef myOptional_t<M_Matrix<double>> Op;
+    auto fim = Matrix_Decompositions::EigenSystem_symm_real_eigenvalue(-H);
+    auto cov = Matrix_Decompositions::EigenSystem_symm_real_eigenvalue(vG);
+    if (fim.has_value() && cov.has_value()) {
+      auto [fVR, fL, fVL] = std::move(fim).value();
+      auto [cVR, cL, cVL] = std::move(cov).value();
+      auto sM = cVR * cL.apply([](auto const &x) {
+        return std::sqrt(x);
+      }) * fL.apply([&tol](auto const &x) {
+        if (x < tol)
+          return 0.0;
+        else
+          return 1.0 / std::sqrt(x);
+      }) * fVL;
+      assert((are_Equal_v(quadraticForm_B_A_BT(-H, sM), vG, std::cerr)));
+      return Op(sM);
+    } else
+      return Op(false, "error calculating the scale Matrix: fim:" +
+                           fim.error() + "  cov:" + cov.error());
+  }
+
+  bool has_Scale_Matrix() const { return hasScaleMatrix_; }
+  void calc(double tol = std::sqrt(std::numeric_limits<double>::epsilon())) {
+    auto sM = calc_Scale_Matrix(vG(), H(), tol);
+    if (sM) {
+      sM_ = std::move(sM).value();
+      gradient_chi_value_ = calc_chi2_value(G(), vG());
+      gradient_fim_value_ = calc_chi2_value(G(), -H());
+
+      hasScaleMatrix_ = true;
+    } else {
+      hasScaleMatrix_ = false;
+    }
+  }
+
+  const M_Matrix<double> &vG() const { return vG_; }
+  const M_Matrix<double> &scaleM() const { return sM_; }
+  double gradient_chi_value() const { return gradient_chi_value_; }
+  double gradient_fim_value() const { return gradient_fim_value_; }
+
+  void set_vG(M_Matrix<double> &&variance_of_gradient) {
+    assert(variance_of_gradient.isSymmetric());
+    vG_ = std::move(variance_of_gradient);
+    hasScaleMatrix_ = false;
+  }
+
+  DVlogLikelihood(double logL, double elogL, double vlogL, double evlogL,
+                  const M_Matrix<double> &Gradient,
+                  const M_Matrix<double> &Hessian,
+                  const M_Matrix<double> &var_Gradient,
+                  const M_Matrix<double> &scale_Matrix,
+                  double gradient_chi_value, double gradient_fim_value)
+      : DlogLikelihood(logL, elogL, vlogL, evlogL, Gradient, Hessian),
+        vG_{var_Gradient}, hasScaleMatrix_(true), sM_{scale_Matrix},
+        gradient_chi_value_{gradient_chi_value}, gradient_fim_value_{
+                                                     gradient_fim_value} {
+    assert(vG_.isSymmetric());
+  }
+  DVlogLikelihood(double logL, double elogL, double vlogL, double evlogL,
+                  const M_Matrix<double> &Gradient,
+                  const M_Matrix<double> &Hessian,
+                  const M_Matrix<double> &var_Gradient)
+      : DlogLikelihood(logL, elogL, vlogL, evlogL, Gradient, Hessian),
+        vG_{var_Gradient}, hasScaleMatrix_(false), sM_{} {
+    assert(vG_.isSymmetric());
+    calc();
+  }
+  DVlogLikelihood(double logL, double elogL, double vlogL, double evlogL,
+                  const M_Matrix<double> &&Gradient,
+                  const M_Matrix<double> &&Hessian,
+                  const M_Matrix<double> &&var_Gradient)
+      : DlogLikelihood(logL, elogL, vlogL, evlogL, std::move(Gradient),
+                       std::move(Hessian)),
+        vG_{std::move(var_Gradient)}, hasScaleMatrix_(false), sM_{} {
+    assert(vG_.isSymmetric());
+  }
+
+  DVlogLikelihood(const std::tuple<double, double, double, double> &logL,
+                  const M_Matrix<double> &&Gradient,
+                  const M_Matrix<double> &&Hessian,
+                  const M_Matrix<double> &&var_Gradient)
+      : DVlogLikelihood(std::get<0>(logL), std::get<1>(logL), std::get<2>(logL),
+                        std::get<3>(logL), std::move(Gradient),
+                        std::move(Hessian), std::move(var_Gradient)) {}
+
+  DVlogLikelihood() = default;
+
+  DVlogLikelihood &operator+=(const DVlogLikelihood &other) {
+    DlogLikelihood::operator+=(other);
+    vG_ += other.vG_;
+    hasScaleMatrix_ = false;
+    return *this;
+  }
+
+  template <class DataFrame> static void insert_col(DataFrame &d) {
+    base_type::insert_col(d, "");
+    d.insert_column("Gradient_Variance", C<double>{});
+    d.insert_column("Scaling_Matrix", C<double>{});
+    d.insert_column("Gradient_chi2_value", C<double>());
+    d.insert_column("Gradient_fim_value", C<double>());
+  }
+  auto data_row(std::size_t i, std::size_t j) const {
+    return std::tuple_cat(base_type::data_row(i, j),
+                          std::tuple(vG()(i, j), scaleM()(i, j),
+                                     gradient_chi_value(),
+                                     gradient_fim_value()));
+  }
+
+private:
+  M_Matrix<double> vG_;
+  bool hasScaleMatrix_;
+  M_Matrix<double> sM_;
+  double gradient_chi_value_;
+  double gradient_fim_value_;
+};
+
 } // namespace evidence
 
 template <>
@@ -489,10 +721,13 @@ public:
   void set_G(moments<M_Matrix<double>> &&gradient) { G_ = std::move(gradient); }
   void set_H(moments_matrix<double> &&hessian) { H_ = std::move(hessian); }
 
-  moments(moments<double> logL, moments<double> elogL, moments<double> vlogL,
-          moments<double> chilogL, const moments<M_Matrix<double>> &Gradient,
+  moments(const moments<double> &logL, moments<double> const &elogL,
+          moments<double> const &vlogL, moments<double> const &evlogL,
+          moments<double> const &chilogL,
+          const moments<M_Matrix<double>> &Gradient,
           const moments_matrix<double> &Hessian)
-      : base_type(logL, elogL, vlogL, chilogL), G_{Gradient}, H_{Hessian} {}
+      : base_type(logL, elogL, vlogL, evlogL, chilogL), G_{Gradient},
+        H_{Hessian} {}
 
   moments(const std::vector<evidence::DlogLikelihood> &l)
       : base_type(l), G_{l, &evidence::DlogLikelihood::G},
@@ -527,33 +762,134 @@ private:
   moments_matrix<double> H_;
 };
 
+template <>
+class moments<evidence::DVlogLikelihood>
+    : public moments<evidence::DlogLikelihood> {
+public:
+  typedef moments<evidence::DlogLikelihood> base_type;
+
+  constexpr static auto const className =
+      my_static_string("DVlogLikelihood_moments");
+  // std::string myClass()const  { return className.str();}
+
+  typedef moments<evidence::DVlogLikelihood> self_type;
+
+  auto &vG() const { return vG_; }
+  auto &scaleM() const { return sM_; }
+  auto &gradient_chi_value() const { return gradient_chi_value_; }
+  auto &gradient_fim_value() const { return gradient_fim_value_; }
+
+  static auto get_constructor_fields() {
+
+    return std::tuple_cat(
+        base_type::get_constructor_fields(),
+        std::tuple(
+            grammar::field(C<self_type>{}, "varG", &self_type::vG),
+            grammar::field(C<self_type>{}, "scalingMatrix", &self_type::scaleM),
+            grammar::field(C<self_type>{}, "gradient_chi_value",
+                           &self_type::gradient_chi_value),
+            grammar::field(C<self_type>{}, "gradient_fim_value",
+                           &self_type::gradient_fim_value))
+
+    );
+  }
+
+  moments(const moments<double> &logL, const moments<double> &elogL,
+          const moments<double> &vlogL, const moments<double> &evlogL,
+          const moments<double> &chilogL,
+          const moments<M_Matrix<double>> &Gradient,
+          const moments_matrix<double> &Hessian,
+          const moments_matrix<double> &var_Gradient,
+          const moments_matrix<double> &scale_Matrix)
+      : base_type(logL, elogL, vlogL, evlogL, chilogL, Gradient, Hessian),
+        vG_{var_Gradient}, sM_{scale_Matrix} {
+   }
+
+  moments(const std::vector<evidence::DVlogLikelihood> &l)
+      : base_type(l), vG_{l, &evidence::DVlogLikelihood::vG},
+        sM_{l, &evidence::DVlogLikelihood::scaleM},
+        gradient_chi_value_{l, &evidence::DVlogLikelihood::gradient_chi_value},
+        gradient_fim_value_{l, &evidence::DVlogLikelihood::gradient_fim_value} {
+  }
+
+  template <class DlogL>
+  moments(const std::vector<DlogL> &l)
+      : base_type(l), vG_{l, &DlogL::vG}, sM_{l, &DlogL::scaleM},
+        gradient_chi_value_{l, &DlogL::gradient_chi_value},
+        gradient_fim_value_{l, &DlogL::gradient_fim_value}
+
+  {}
+
+  template <class logL, class Op, typename... Ts>
+  moments(const std::vector<logL> &l, const Op &u, Ts... t)
+      : base_type(l, u, t...), vG_{l,
+                                   [&u, &t...](const logL &d) {
+                                     return u(d, t...).vG();
+                                   }},
+        sM_{l, [&u, &t...](const logL &d) { return u(d, t...).scaleM(); }},
+        gradient_chi_value_{l,
+                            [&u, &t...](const logL &d) {
+                              return u(d, t...).gradient_chi_value();
+                            }},
+        gradient_fim_value_{l,
+                            [&u, &t...](const logL &d) {
+                              return u(d, t...).gradient_fim_value();
+                            }}
+
+  {}
+
+  moments() = default;
+
+  auto data_row(MOMENTS m, std::size_t i, std::size_t j) const {
+    return std::tuple_cat(base_type::data_row(m, i, j), vG().data_row(m, i, j),
+                          scaleM().data_row(m, i, j),
+                          gradient_chi_value().data_row(m),
+                          gradient_fim_value().data_row(m));
+  }
+
+private:
+  moments_matrix<double> vG_;
+  moments_matrix<double> sM_;
+  moments<double> gradient_chi_value_;
+  moments<double> gradient_fim_value_;
+};
+
 namespace evidence {
 
-template <class... Auxs> class PartialDLogLikelihood : public DlogLikelihood {
+template <class... Auxs> class PartialDLogLikelihood : public DVlogLikelihood {
 public:
-  typedef DlogLikelihood base_type;
+  typedef DVlogLikelihood base_type;
 
   constexpr static bool hasAux = sizeof...(Auxs) > 0;
 
   typedef std::tuple_element_t<0, std::tuple<Auxs...>> Aux;
 
   constexpr static auto const className =
-      my_static_string("DlogLikelihood_") + base_type::className;
+      my_static_string("PartialDLogLikelihood");
   // std::string myClass()const  { return className.str();}
 
   typedef PartialDLogLikelihood self_type;
   static auto get_constructor_fields() {
     double (logLikelihood::*myLogL)() const = &base_type::logL;
-    M_Matrix<double> const &(base_type::*myG)() const = &self_type::G;
-    const M_Matrix<double> &(base_type::*myH)() const = &self_type::H;
+    M_Matrix<double> const &(self_type::*myG)() const = &self_type::G;
+    const M_Matrix<double> &(self_type::*myH)() const = &self_type::H;
+
+
 
     if constexpr (hasAux)
-      return std::make_tuple(
-          grammar::field(C<self_type>{}, "logL", myLogL),
-          grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
-          grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
-          grammar::field(C<self_type>{}, "Gradient", myG),
-          grammar::field(C<self_type>{}, "Hessian", myH),
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "logL", myLogL),
+        grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
+        grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
+        grammar::field(C<self_type>{}, "evlogL", &self_type::evlogL),
+        grammar::field(C<self_type>{}, "Gradient", myG),
+        grammar::field(C<self_type>{}, "Hessian", myH),
+        grammar::field(C<self_type>{}, "varG", &self_type::vG),
+        grammar::field(C<self_type>{}, "scalingMatrix", &self_type::scaleM),
+        grammar::field(C<self_type>{}, "gradient_chi_value",
+                       &self_type::gradient_chi_value),
+        grammar::field(C<self_type>{}, "gradient_fim_value",
+                       &self_type::gradient_fim_value),
           grammar::field(C<self_type>{}, "Partial_DlogL",
                          &self_type::partial_DlogL),
           grammar::field(C<self_type>{}, my_trait<Aux>::className.c_str(),
@@ -563,8 +899,15 @@ public:
           grammar::field(C<self_type>{}, "logL", myLogL),
           grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
           grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
+          grammar::field(C<self_type>{}, "evlogL", &self_type::evlogL),
           grammar::field(C<self_type>{}, "Gradient", myG),
           grammar::field(C<self_type>{}, "Hessian", myH),
+          grammar::field(C<self_type>{}, "varG", &self_type::vG),
+          grammar::field(C<self_type>{}, "scalingMatrix", &self_type::scaleM),
+          grammar::field(C<self_type>{}, "gradient_chi_value",
+                         &self_type::gradient_chi_value),
+          grammar::field(C<self_type>{}, "gradient_fim_value",
+                         &self_type::gradient_fim_value),
           grammar::field(C<self_type>{}, "Partial_DlogL",
                          &self_type::partial_DlogL));
   }
@@ -572,13 +915,12 @@ public:
   template <class DataFrame> static void insert_col(DataFrame &d) {
 
     my_trait<Aux>::insert_col(d, "");
-    base_type::insert_col(d, "");
-    d.insert_column("GHG_chi2_value", C<double>());
+    base_type::insert_col(d);
     DlogLikelihood::insert_col(d, "partial_");
   }
   auto data_row(std::size_t isample, std::size_t i, std::size_t j) const {
     return std::tuple_cat(my_trait<Aux>::data_row(getAuxiliar()[isample]),
-                          base_type::data_row(i, j), std::tuple(chi2_value()),
+                          base_type::data_row(i, j),
                           partial_DlogL()[isample].data_row(i, j));
   }
 
@@ -588,34 +930,45 @@ public:
 
   std::vector<DlogLikelihood> const &partial_DlogL() const { return partial_; }
 
-  PartialDLogLikelihood(DlogLikelihood &&dlogL,
+  PartialDLogLikelihood(DVlogLikelihood &&dlogL,
                         std::vector<DlogLikelihood> &&dist,
                         std::vector<Aux> &&aux)
-      : DlogLikelihood(std::move(dlogL)), chi_value_(getChi2_value(G(), H())),
-        partial_{std::move(dist)}, aux_{std::move(aux)} {}
+      : DVlogLikelihood(std::move(dlogL)), partial_{std::move(dist)},
+        aux_{std::move(aux)} {}
 
-  PartialDLogLikelihood(double logL, double elogL, double vlogL,
+  PartialDLogLikelihood(double logL, double elogL, double vlogL, double evlogL,
                         const M_Matrix<double> &Gradient,
                         const M_Matrix<double> &Hessian,
+                        const M_Matrix<double> &var_Gradient,
+                        const M_Matrix<double> &scale_Matrix,
+                        double gradient_chi_value, double gradient_fim_value,
                         const std::vector<DlogLikelihood> &dist,
                         const std::vector<Aux> &aux)
-      : DlogLikelihood(logL, elogL, vlogL, Gradient, Hessian),
-        chi_value_(getChi2_value(Gradient, Hessian)), partial_{dist},
-        aux_{aux} {}
-  PartialDLogLikelihood(double logL, double elogL, double vlogL,
+      : DVlogLikelihood(logL, elogL, vlogL, evlogL, Gradient, Hessian,
+                        var_Gradient, scale_Matrix, gradient_chi_value,
+                        gradient_fim_value),
+        partial_{dist}, aux_{aux} {}
+  PartialDLogLikelihood(double logL, double elogL, double vlogL, double evlogL,
                         M_Matrix<double> &&Gradient, M_Matrix<double> &&Hessian,
+                        M_Matrix<double> &&var_Gradient,
+                        M_Matrix<double> &&scale_Matrix,
+                        double gradient_chi_value, double gradient_fim_value,
+
                         std::vector<DlogLikelihood> &&dist,
                         std::vector<Aux> &&aux)
-      : DlogLikelihood(logL, elogL, vlogL, std::move(Gradient),
-                       std::move(Hessian)),
-        chi_value_(getChi2_value(G(), H())), partial_{std::move(dist)},
-        aux_{std::move(aux)} {}
+      : DVlogLikelihood(logL, elogL, vlogL, evlogL, std::move(Gradient),
+                        std::move(Hessian), std::move(var_Gradient),
+                        std::move(scale_Matrix), gradient_chi_value,
+                        gradient_fim_value),
+        partial_{std::move(dist)}, aux_{std::move(aux)} {
+    calc();
+  }
   PartialDLogLikelihood() = default;
   PartialDLogLikelihood(std::size_t n)
-      : PartialDLogLikelihood(0, 0, 0, M_Matrix<double>(), M_Matrix<double>(),
-                              std::vector<DlogLikelihood>(n),
-                              std::vector<Aux>(n)) {}
-  double chi2_value() const { return chi_value_; }
+      : PartialDLogLikelihood(
+            0.0, 0.0, 0.0, 0.0, M_Matrix<double>(), M_Matrix<double>(),
+            M_Matrix<double>(), M_Matrix<double>(), 0.0, 0.0,
+            std::vector<DlogLikelihood>(n), std::vector<Aux>(n)) {}
 
   PartialDLogLikelihood &add_one_i(std::size_t i, const DlogLikelihood &other,
                                    Aux a) {
@@ -629,33 +982,23 @@ public:
     DlogLikelihood::operator+=(other);
     partial_[i] = other;
   }
-  void calc_chi2_value()  { chi_value_ = getChi2_value(G(), H()); }
 
 private:
-  double chi_value_;
   std::vector<DlogLikelihood> partial_;
   std::vector<Aux> aux_;
-  static double getChi2_value(const M_Matrix<double> &myG,
-                              const M_Matrix<double> &myH) {
-    auto Hinv = pinv(myH);
-    if (!Hinv)
-      return std::numeric_limits<double>::quiet_NaN();
-    else
-      return xTSigmaX(myG, Hinv.value());
-  }
 };
 
 } // namespace evidence
 
 template <typename Aux>
 class moments<evidence::PartialDLogLikelihood<Aux>>
-    : public moments<evidence::DlogLikelihood> {
+    : public moments<evidence::DVlogLikelihood> {
 public:
-  typedef moments<evidence::DlogLikelihood> base_type;
+  typedef moments<evidence::DVlogLikelihood> base_type;
   typedef evidence::PartialDLogLikelihood<Aux> element_type;
 
   constexpr static auto const className =
-      my_static_string("moments_DlogLikelihood_") + base_type::className;
+      my_static_string("moments_DlogLikelihood_");
   // std::string myClass()const  { return className.str();}
 
   typedef moments self_type;
@@ -663,48 +1006,42 @@ public:
 
     return std::tuple_cat(
         base_type::get_constructor_fields(),
-        std::tuple(
-            grammar::field(C<self_type>{}, "GHG_value", &self_type::GHG_value),
-            grammar::field(C<self_type>{}, "Partial_DlogL",
-                           &self_type::partial_DlogL),
-            grammar::field(C<self_type>{}, "Partial_Auxiliar",
-                           &self_type::partial_Auxiliar)));
+        std::tuple(grammar::field(C<self_type>{}, "Partial_DlogL",
+                                  &self_type::partial_DlogL),
+                   grammar::field(C<self_type>{}, "Partial_Auxiliar",
+                                  &self_type::partial_Auxiliar)));
   }
 
   std::vector<moments<evidence::DlogLikelihood>> const &partial_DlogL() const {
     return partial_;
   }
-  moments<double> const &GHG_value() const { return GHG_value_; }
   std::vector<moments<Aux>> const &partial_Auxiliar() const { return aux_; }
 
   moments(const std::vector<evidence::PartialDLogLikelihood<Aux>> &data)
-      : base_type(data),
-        GHG_value_{data, &evidence::PartialDLogLikelihood<Aux>::chi2_value},
-        partial_(calc_moments(data)), aux_(calc_aux_moments(data)) {}
+      : base_type(data), partial_(calc_moments(data)),
+        aux_(calc_aux_moments(data)) {}
 
   moments(const base_type &base, const moments<double> &GHG,
           const std::vector<moments<evidence::DlogLikelihood>> &dlog,
           const std::vector<moments<Aux>> &newAux)
-      : base_type(base), GHG_value_(GHG), partial_{dlog}, aux_{newAux} {}
+      : base_type(base), partial_{dlog}, aux_{newAux} {}
   moments() = default;
   auto data_row(MOMENTS m, std::size_t isample, std::size_t i,
                 std::size_t j) const {
     return std::tuple_cat(partial_Auxiliar()[isample].data_row(m),
-                          base_type::data_row(m, i, j), GHG_value().data_row(m),
+                          base_type::data_row(m, i, j),
                           partial_DlogL()[isample].data_row(m, i, j));
   }
 
 private:
-  moments<double> GHG_value_;
   std::vector<moments<evidence::DlogLikelihood>> partial_;
   std::vector<moments<Aux>> aux_;
 
   std::vector<moments<evidence::DlogLikelihood>>
   calc_moments(const std::vector<evidence::PartialDLogLikelihood<Aux>> &data) {
-    std::size_t n=0;
-    if (data.size()>0)
-    {
-        n = data[0].partial_DlogL().size();
+    std::size_t n = 0;
+    if (data.size() > 0) {
+      n = data[0].partial_DlogL().size();
     }
     std::vector<moments<evidence::DlogLikelihood>> out(n);
     for (std::size_t i = 0; i < n; ++i) {
@@ -956,6 +1293,33 @@ public:
   }
 
   template <class Distribution>
+  auto compute_DVLikelihood(const Distribution &D0,
+                            const std::vector<Distribution> &D,
+                            std::ostream &os, const Data &data,
+                            const std::vector<double> &eps) const {
+    typedef myOptional_t<DVlogLikelihood> Op;
+
+    auto logL = calculate_Likelihood(D0, data);
+    std::stringstream ss;
+    if (!are_finite<true, double>().test(std::get<0>(logL), ss))
+      return Op(false, " getDLikelihood error for getLikelihood " + ss.str());
+    auto G = calculate_Gradient(D0, D, data, eps);
+    if (!are_finite<true, M_Matrix<double>>().test(G, ss))
+      return Op(false, " getDLikelihood error for gradient " + ss.str());
+    auto vG = calculate_vGradient(D0, D, data, eps);
+    if (!are_finite<true, M_Matrix<double>>().test(vG, ss))
+      return Op(false,
+                " getDLikelihood error for gradient variance" + ss.str());
+
+    auto H = calculate_Hessian(D0, D, data, eps, os);
+    if (!are_finite<true, M_Matrix<double>>().test(H, ss))
+      return Op(false, " getDLikelihood error for Hessian " + ss.str());
+    auto DV = DVlogLikelihood(logL, std::move(G), std::move(H), std::move(vG));
+    DV.calc();
+    return Op(std::move(DV));
+  }
+
+  template <class Distribution>
   auto compute_DLikelihood_center(const Distribution &D0,
                                   const std::vector<Distribution> &Dn,
                                   const std::vector<Distribution> &Dp,
@@ -977,6 +1341,29 @@ public:
     return Op(DlogLikelihood(logL, std::move(G), std::move(H)));
   }
 
+  template <class Distribution>
+  auto compute_DVLikelihood_center(const Distribution &D0,
+                                   const std::vector<Distribution> &Dn,
+                                   const std::vector<Distribution> &Dp,
+                                   std::ostream &os, const Data &data,
+                                   const std::vector<double> &epsG) const {
+    typedef myOptional_t<DVlogLikelihood> Op;
+
+    auto logL = calculate_Likelihood(D0, data);
+    std::stringstream ss;
+    if (!are_finite<true, double>().test(std::get<0>(logL), ss))
+      return Op(false, " getDLikelihood error for getLikelihood " + ss.str());
+    auto G = calculate_Gradient_center(Dn, Dp, data, epsG);
+    if (!are_finite<true, M_Matrix<double>>().test(G, ss))
+      return Op(false, " getDLikelihood error for gradient " + ss.str());
+    auto vG = calculate_vGradient_center(Dn, Dp, data, epsG);
+
+    auto H = calculate_Hessian_center(D0, Dn, Dp, data, epsG, os);
+    if (!are_finite<true, M_Matrix<double>>().test(H, ss))
+      return Op(false, " getDLikelihood error for Hessian " + ss.str());
+    return Op(DVlogLikelihood(logL, std::move(G), std::move(H), std::move(vG)));
+  }
+
   auto compute_PartialDLikelihood_init(const Parameters &p, std::ostream &os,
                                        const Data &data) const {
     std::vector<double> eps(p.size(), eps_);
@@ -995,7 +1382,7 @@ public:
     else {
       auto [D0, D, aux] = std::move(res).value();
 
-      auto Dlik = compute_DLikelihood(D0, D, os, data, epsG);
+      auto Dlik = compute_DVLikelihood(D0, D, os, data, epsG);
       if (!Dlik)
         return Op(false, Dlik.error());
 
@@ -1039,7 +1426,7 @@ public:
     else {
       auto [D0, Dn, Dp, aux] = std::move(res).value();
 
-      auto Dlik = compute_DLikelihood_center(D0, Dn, Dp, os, data, epsG);
+      auto Dlik = compute_DVLikelihood_center(D0, Dn, Dp, os, data, epsG);
       if (!Dlik)
         return Op(false, Dlik.error());
 
@@ -1083,19 +1470,18 @@ private:
   double eps_f_;
 };
 
-
-
-
 template <class Parameters_Distribution, class Parameters_Values,
           class ExperimentData, class logLikelihood>
 class Likelihood_Analisis {
 
 public:
   typedef Likelihood_Analisis self_type;
-  typedef Cs<Parameters_Distribution,Parameters_Values,ExperimentData,logLikelihood> template_types;
+  typedef Cs<Parameters_Distribution, Parameters_Values, ExperimentData,
+             logLikelihood>
+      template_types;
   constexpr static auto const className =
-      my_static_string("Likelihood_Analisis") + my_trait<template_types>::className;
-
+      my_static_string("Likelihood_Analisis") +
+      my_trait<template_types>::className;
 
   static auto get_constructor_fields() {
     return std::make_tuple(
@@ -1517,30 +1903,33 @@ public:
     }
   }
 
-
   template <class Simulation_Model, class der_Model, class Data,
             class ParametersDistributionDerivative, class Parameters>
-  static auto compute_Sample_derivative(std::ostream &os, const Simulation_Model &sim,
-                             const der_Model &dm, const Data &e,
-                             const ParametersDistributionDerivative &dprior,
-                             const Parameters &p,std::mt19937_64 &mt) {
+  static auto
+  compute_Sample_derivative(std::ostream &os, const Simulation_Model &sim,
+                            const der_Model &dm, const Data &e,
+                            const ParametersDistributionDerivative &dprior,
+                            const Parameters &p, std::mt19937_64 &mt) {
     auto data = sim.compute_simulation(e, p, mt);
     typedef std::decay_t<decltype(data.value())> sim_type;
-    typedef std::invoke_result_t<decltype(&ParametersDistributionDerivative::Parameter_to_tr),ParametersDistributionDerivative,Parameters> partype;
-    typedef typename std::invoke_result_t<decltype( &der_Model::template compute_PartialDLikelihood<sim_type>),der_Model,partype,std::ostream&,sim_type>::value_type lik_type;
-    typedef myOptional_t<std::pair<sim_type,lik_type>> Op;
+    typedef std::invoke_result_t<
+        decltype(&ParametersDistributionDerivative::Parameter_to_tr),
+        ParametersDistributionDerivative, Parameters>
+        partype;
+    typedef typename std::invoke_result_t<
+        decltype(&der_Model::template compute_PartialDLikelihood<sim_type>),
+        der_Model, partype, std::ostream &, sim_type>::value_type lik_type;
+    typedef myOptional_t<std::pair<sim_type, lik_type>> Op;
     if (!data.has_value())
       return Op(false, "Simulation failed " + data.error());
     else {
       auto Par = dprior.Parameter_to_tr(p);
-        auto Dlik = dm.compute_PartialDLikelihood(Par, os, data.value());
-        if (!Dlik)
-        {
-          return Op(false, "Likelihood failed!!: " + Dlik.error());
-        }
+      auto Dlik = dm.compute_PartialDLikelihood(Par, os, data.value());
+      if (!Dlik) {
+        return Op(false, "Likelihood failed!!: " + Dlik.error());
+      }
 
-        return Op(std::pair(std::move(data).value(), std::move(Dlik).value()));
-
+      return Op(std::pair(std::move(data).value(), std::move(Dlik).value()));
     }
   }
 
@@ -1580,8 +1969,7 @@ public:
                          const FIM_Model &fim, const Data &e,
                          const ParametersDistribution &prior,
                          const Parameters &p, std::mt19937_64 &mt,
-                         std::size_t nsamples, bool init,
-                         bool centered) {
+                         std::size_t nsamples, bool init, bool centered) {
     typedef std::decay_t<decltype(sim.compute_simulation(e, p, mt).value())>
         sim_type;
 
@@ -1675,18 +2063,19 @@ public:
     return Op(samples);
   }
 
-  template <class Simulation_Model, class Der_Model,
-            class Data, class ParametersDistributionDerivative, class Parameters>
+  template <class Simulation_Model, class Der_Model, class Data,
+            class ParametersDistributionDerivative, class Parameters>
   static auto get_sample_derivative(
-      std::ostream &os, const Simulation_Model &sim,
-      const Der_Model &dm, const Data &e, const ParametersDistributionDerivative &dprior,
-      const Parameters &p, std::mt19937_64 &mt, std::size_t nsamples)
-  {
-    typedef std::decay_t<decltype (compute_Sample_derivative(os,sim,dm,e,dprior,p,mt))> elem_type;
-    typedef typename elem_type::value_type::first_type   sim_type;
-    typedef typename elem_type::value_type::second_type   logL_type;
+      std::ostream &os, const Simulation_Model &sim, const Der_Model &dm,
+      const Data &e, const ParametersDistributionDerivative &dprior,
+      const Parameters &p, std::mt19937_64 &mt, std::size_t nsamples) {
+    typedef std::decay_t<decltype(
+        compute_Sample_derivative(os, sim, dm, e, dprior, p, mt))>
+        elem_type;
+    typedef typename elem_type::value_type::first_type sim_type;
+    typedef typename elem_type::value_type::second_type logL_type;
 
-    typedef myOptional_t<Likelihood_sample<sim_type,logL_type>> Op;
+    typedef myOptional_t<Likelihood_sample<sim_type, logL_type>> Op;
     std::stringstream ss;
     std::vector<sim_type> simuls(nsamples);
     std::vector<logL_type> s(nsamples);
@@ -1695,31 +2084,29 @@ public:
 
     bool succed = true;
 
-      auto mtvec = mts(mt, 8);
-      for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
- #pragma omp parallel for
-        for (std::size_t ni = 0; ni < 8; ++ni) {
-          std::size_t i = nc * 8 + ni;
-          auto logL =
-              compute_Sample_derivative(oss[ni], sim, dm, e, dprior, p, mtvec[ni]);
-          if (!logL.has_value())
-          {
-            std::cerr<<logL.error();
-            assert(false);
-            succed = false;
-          }
-          else {
-            auto pair = std::move(logL).value();
-            s[i] = std::move(pair.second);
-            simuls[i] = std::move(pair.first);
-            //             os<<"\n in sample\n"<<s[i];
-          }
-        }
-        for (auto &ess : oss) {
-          os << ess.str();
-          ess.str("");
+    auto mtvec = mts(mt, 8);
+    for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
+#pragma omp parallel for
+      for (std::size_t ni = 0; ni < 8; ++ni) {
+        std::size_t i = nc * 8 + ni;
+        auto logL = compute_Sample_derivative(oss[ni], sim, dm, e, dprior, p,
+                                              mtvec[ni]);
+        if (!logL.has_value()) {
+          std::cerr << logL.error();
+          assert(false);
+          succed = false;
+        } else {
+          auto pair = std::move(logL).value();
+          s[i] = std::move(pair.second);
+          simuls[i] = std::move(pair.first);
+          //             os<<"\n in sample\n"<<s[i];
         }
       }
+      for (auto &ess : oss) {
+        os << ess.str();
+        ess.str("");
+      }
+    }
     if (!succed)
 
       return Op(false, "failed in one of the samples");
@@ -1796,10 +2183,10 @@ public:
                            const FIM_Model &fim, const Data &e,
                            const ParametersDistribution &prior,
                            const Parameters &p, std::mt19937_64 &mt,
-                           std::size_t nsamples, double pvalue,
-                           bool init, bool centergradient) {
-    auto mysamples = get_sample(os, sim, fim, e, prior, p, mt, nsamples,
-                                 init, centergradient);
+                           std::size_t nsamples, double pvalue, bool init,
+                           bool centergradient) {
+    auto mysamples = get_sample(os, sim, fim, e, prior, p, mt, nsamples, init,
+                                centergradient);
     if constexpr (false) {
       auto Gmean = mysamples.value().mean_Gradient();
       os << "\n Gmean \n" << Gmean;
@@ -1877,15 +2264,16 @@ public:
                                mysamples.value().getLikelihoods());
   }
 
-
   template <class Simulation_Model, class Der_Model, class Data,
             class ParametersDistributionDerivative, class Parameters>
-  static auto compute_test_derivative(std::ostream &os, const Simulation_Model &sim,
-                           const Der_Model &dm, const Data &e,
-                           const ParametersDistributionDerivative &dprior,
-                           const Parameters &p, std::mt19937_64 &mt,
-                                      std::size_t nsamples, double pvalue) {
-    auto mysamples = get_sample_derivative(os, sim, dm, e, dprior, p, mt, nsamples);
+  static auto
+  compute_test_derivative(std::ostream &os, const Simulation_Model &sim,
+                          const Der_Model &dm, const Data &e,
+                          const ParametersDistributionDerivative &dprior,
+                          const Parameters &p, std::mt19937_64 &mt,
+                          std::size_t nsamples, double pvalue) {
+    auto mysamples =
+        get_sample_derivative(os, sim, dm, e, dprior, p, mt, nsamples);
     if constexpr (false) {
       auto Gmean = mysamples.value().mean_Gradient();
       os << "\n Gmean \n" << Gmean;
@@ -1959,10 +2347,11 @@ public:
                           << gradient_variance_test;
     }
     auto par = std::vector({dprior.Parameter_to_tr(p)});
-    return Likelihood_Analisis(dprior.f(), par, mysamples.value().getSimulations(),
+    return Likelihood_Analisis(dprior.f(), par,
+                               mysamples.value().getSimulations(),
                                mysamples.value().getLikelihoods());
   }
-  };
+};
 
 } // namespace evidence
 

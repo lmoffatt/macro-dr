@@ -1519,7 +1519,7 @@ struct Derivative_partialDistribution_function_aux {
       Derivative<Normal_Distribution<double>> n(mp.y_mean(), mp.y_var());
 
       typename PartialDlogLikelihood::base_type logL(
-          mp.plogL().f(), mp.eplogL().f(), 0.5, mp.plogL().dfdx(), n.FIM());
+          mp.plogL().f(), mp.eplogL().f(),sqr(mp.plogL().f()- mp.eplogL().f()), 0.5, mp.plogL().dfdx(), n.FIM(),quadraticForm_XTX(mp.plogL().dfdx()));
       v.add_one_i(i, logL, macror_alg);
       ++i;
     } else { // this fork does not make much sense for derivatives, or it does?
@@ -1541,7 +1541,9 @@ struct Derivative_partialDistribution_function_aux {
   }
 
 
-  void operator()(PartialDlogLikelihood &v)const { v.calc_chi2_value(); }
+  void operator()(PartialDlogLikelihood &v)const {
+    v.calc();
+  }
 
 };
 

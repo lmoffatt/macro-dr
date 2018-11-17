@@ -166,6 +166,15 @@ public:
         return sum;
     }
 
+    virtual double vlogP(const M_Matrix<double> &x)const override {
+      double sum = 0;
+      for (std::size_t i = 0; i < size(); ++i) {
+        sum += dist(i)->vlogP(x[i]);
+      }
+      return sum;
+    }
+
+
     virtual double expected_logP()const override
     {
         double sum=0;

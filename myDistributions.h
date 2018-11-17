@@ -240,6 +240,7 @@ public:
             return xTSigmaX(mean(),covinv.value());
     }
 
+
     moments()=default;
 
     std::size_t size()const {return sum_.size();}
@@ -442,6 +443,9 @@ public:
     virtual double p(const T& x)const =0;
 
     virtual double logP(const T& x)const =0;
+
+    virtual double vlogP(const T& x)const =0;
+
 
     virtual M_Matrix<T> param()const =0;
 
@@ -1074,6 +1078,7 @@ public:
     virtual double p(const double& x)const override { return 1.0/(std::sqrt(2*PI)*stddev())*std::exp(-0.5*sqr((x-mean())/stddev()));}
 
     virtual double logP(const double& x)const override {return -0.5*std::log(2*PI)-std::log(stddev())-0.5*sqr((x-mean())/stddev());}
+    virtual double vlogP(const double& x)const override {return sqr(logP(x)-expected_logP());}
 
 
     /*
@@ -1178,6 +1183,10 @@ public:
         else
             return std::numeric_limits<double>::quiet_NaN();
     }
+    double vlogP(const M_Matrix<E> &x) const override {
+      return sqr(logP(x)-expected_logP());
+    }
+
     double p(const M_Matrix<E>& x)const override
     {
         return std::exp(logP(x));
@@ -1401,6 +1410,10 @@ public:
     {
         return alfa()*std::log(x)+beta()*std::log(1.0-x)-log_beta_f(1.0+alfa(),1.0+beta());
     }
+    virtual double vlogP(const double &x) const override
+    {
+      return sqr(logP(x)-expected_logP());
+    }
 
     double alfa()const{return a_[0];}
     double beta()const{return a_[1];}
@@ -1461,6 +1474,8 @@ public:
     }
     virtual double p(const double &x) const override{ return std::pow(x,-0.5)/Z_;}
     virtual double logP(const double &x) const override { return -0.5*std::log(x)-log(Z_);}
+    virtual double vlogP(const double& x)const override {return sqr(logP(x)-expected_logP());}
+
     virtual  M_Matrix<double> param() const override {return a_;}
     virtual M_Matrix<double> Fisher_Information() const override {
         assert(false);

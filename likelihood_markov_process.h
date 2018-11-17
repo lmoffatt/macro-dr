@@ -1147,9 +1147,9 @@ public:
     double y_mean;
     double y_var;
 
-    std::enable_if_t<variance, double> sSg;
-    std::enable_if_t<variance, double> sSs;
-    std::enable_if_t<variance, double> zeta;
+    double  sSg;
+    double sSs;
+    double zeta;
 
     if constexpr ((!variance) && (!recursive)) {
       e_mu = e + N * ms;
