@@ -1140,6 +1140,8 @@ bool apply_test(const test<output, T> &t, const M_Matrix<T> &one, ostream &os) {
 
 namespace Matrix_Unary_Functions {
 template <typename T> double norm_1(const M_Matrix<T> &x);
+template <typename T> double maxAbs(const M_Matrix<T> &x);
+
 }
 
 template <bool output, typename T> class are_Equal<output, M_Matrix<T>> {
@@ -1757,6 +1759,15 @@ template <typename T> std::size_t size(const M_Matrix<T> &x) {
   return x.size();
 }
 
+template <typename T> std::size_t rank_diag(const M_Matrix<T> &x, double tol=std::sqrt(std::numeric_limits<double>::epsilon())) {
+  assert(x.isDiagonal());
+  double e=Matrix_Unary_Functions::maxAbs(x)*tol;
+  std::size_t r=0;
+  for (std::size_t i=0; i<x.size(); ++i)
+    if (std::abs(x[i])>e) ++r;
+  return r;
+}
+
 } // namespace Matrix_Unary_Size_Functions
 using namespace Matrix_Unary_Size_Functions;
 namespace Matrix_Unary_Transformations {
@@ -2312,7 +2323,7 @@ Parameters
 auto EigenSystem_symm_real_eigenvalue(const M_Matrix<double> &x, std::string kind="lower") {
   typedef myOptional_t<eigensystem_type> Op;
 
-  assert(x.type() == Matrix_TYPE::SYMMETRIC);
+  assert(x.isSymmetric());
   using lapack::dsyevx_;
 
   /** DSYEVX computes the eigenvalues and, optionally, the left and/or right eigenvectors for SY matrices
@@ -3016,6 +3027,10 @@ template <class T> double logProduct(const M_Matrix<T> &x) {
   return accumulate(x, [](double a, const T &b) { return a + logProduct(b); },
                     0.0);
 }
+
+
+
+
 
 inline double maxAbs(double x) { return std::abs(x); }
 

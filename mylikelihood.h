@@ -503,6 +503,8 @@ public:
         H_{std::move(Hessian)} {
     assert(H_.isSymmetric());
   }
+  DlogLikelihood(double) : logLikelihood(0.0, 0.0, 0.0, 0.0), G_{}, H_{} {}
+
   DlogLikelihood() = default;
 
   DlogLikelihood &operator+=(const DlogLikelihood &other) {
@@ -581,15 +583,20 @@ public:
     if (fim.has_value() && cov.has_value()) {
       auto [fVR, fL, fVL] = std::move(fim).value();
       auto [cVR, cL, cVL] = std::move(cov).value();
-      auto sM = cVR * cL.apply([](auto const &x) {
-        return std::sqrt(x);
-      }) * fL.apply([&tol](auto const &x) {
+      auto sqrt_cL = cL.apply([](auto const &x) { return std::sqrt(x); });
+      auto sqrtinv_fL = fL.apply([&tol](auto const &x) {
         if (x < tol)
           return 0.0;
         else
           return 1.0 / std::sqrt(x);
-      }) * fVL;
-      assert((are_Equal_v(quadraticForm_B_A_BT(-H, sM), vG, std::cerr)));
+      });
+      auto sM = cVR * sqrt_cL * sqrtinv_fL * fVL;
+
+      assert((rank_diag(sqrtinv_fL) == fL.size()
+                 ? (are_Equal_v(quadraticForm_B_A_BT(-H, sM), vG, std::cerr,
+                                "\ncL\n", cL, "\n sqrt_cL\n ", sqrt_cL,
+                                "\n fL\n", fL, "\n sqrtinv_fL \n", sqrtinv_fL))
+                  : true));
       return Op(sM);
     } else
       return Op(false, "error calculating the scale Matrix: fim:" +
@@ -633,32 +640,40 @@ public:
                                                      gradient_fim_value} {
     assert(vG_.isSymmetric());
   }
-  DVlogLikelihood(double logL, double elogL, double vlogL, double evlogL,
-                  const M_Matrix<double> &Gradient,
+  DVlogLikelihood(bool do_calc, double logL, double elogL, double vlogL,
+                  double evlogL, const M_Matrix<double> &Gradient,
                   const M_Matrix<double> &Hessian,
                   const M_Matrix<double> &var_Gradient)
       : DlogLikelihood(logL, elogL, vlogL, evlogL, Gradient, Hessian),
         vG_{var_Gradient}, hasScaleMatrix_(false), sM_{} {
     assert(vG_.isSymmetric());
-    calc();
+    if (do_calc)
+      calc();
   }
-  DVlogLikelihood(double logL, double elogL, double vlogL, double evlogL,
-                  const M_Matrix<double> &&Gradient,
+  DVlogLikelihood(bool do_calc, double logL, double elogL, double vlogL,
+                  double evlogL, const M_Matrix<double> &&Gradient,
                   const M_Matrix<double> &&Hessian,
                   const M_Matrix<double> &&var_Gradient)
       : DlogLikelihood(logL, elogL, vlogL, evlogL, std::move(Gradient),
                        std::move(Hessian)),
         vG_{std::move(var_Gradient)}, hasScaleMatrix_(false), sM_{} {
     assert(vG_.isSymmetric());
+    if (do_calc)
+      calc();
   }
+  DVlogLikelihood(double)
+      : DlogLikelihood(0.0), vG_{}, hasScaleMatrix_(false), sM_{},
+        gradient_chi_value_{}, gradient_fim_value_{} {}
 
-  DVlogLikelihood(const std::tuple<double, double, double, double> &logL,
+  DVlogLikelihood(bool do_calc,
+                  const std::tuple<double, double, double, double> &logL,
                   const M_Matrix<double> &&Gradient,
                   const M_Matrix<double> &&Hessian,
                   const M_Matrix<double> &&var_Gradient)
-      : DVlogLikelihood(std::get<0>(logL), std::get<1>(logL), std::get<2>(logL),
-                        std::get<3>(logL), std::move(Gradient),
-                        std::move(Hessian), std::move(var_Gradient)) {}
+      : DVlogLikelihood(do_calc, std::get<0>(logL), std::get<1>(logL),
+                        std::get<2>(logL), std::get<3>(logL),
+                        std::move(Gradient), std::move(Hessian),
+                        std::move(var_Gradient)) {}
 
   DVlogLikelihood() = default;
 
@@ -802,8 +817,7 @@ public:
           const moments_matrix<double> &var_Gradient,
           const moments_matrix<double> &scale_Matrix)
       : base_type(logL, elogL, vlogL, evlogL, chilogL, Gradient, Hessian),
-        vG_{var_Gradient}, sM_{scale_Matrix} {
-   }
+        vG_{var_Gradient}, sM_{scale_Matrix} {}
 
   moments(const std::vector<evidence::DVlogLikelihood> &l)
       : base_type(l), vG_{l, &evidence::DVlogLikelihood::vG},
@@ -874,22 +888,20 @@ public:
     M_Matrix<double> const &(self_type::*myG)() const = &self_type::G;
     const M_Matrix<double> &(self_type::*myH)() const = &self_type::H;
 
-
-
     if constexpr (hasAux)
-    return std::make_tuple(
-        grammar::field(C<self_type>{}, "logL", myLogL),
-        grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
-        grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
-        grammar::field(C<self_type>{}, "evlogL", &self_type::evlogL),
-        grammar::field(C<self_type>{}, "Gradient", myG),
-        grammar::field(C<self_type>{}, "Hessian", myH),
-        grammar::field(C<self_type>{}, "varG", &self_type::vG),
-        grammar::field(C<self_type>{}, "scalingMatrix", &self_type::scaleM),
-        grammar::field(C<self_type>{}, "gradient_chi_value",
-                       &self_type::gradient_chi_value),
-        grammar::field(C<self_type>{}, "gradient_fim_value",
-                       &self_type::gradient_fim_value),
+      return std::make_tuple(
+          grammar::field(C<self_type>{}, "logL", myLogL),
+          grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
+          grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
+          grammar::field(C<self_type>{}, "evlogL", &self_type::evlogL),
+          grammar::field(C<self_type>{}, "Gradient", myG),
+          grammar::field(C<self_type>{}, "Hessian", myH),
+          grammar::field(C<self_type>{}, "varG", &self_type::vG),
+          grammar::field(C<self_type>{}, "scalingMatrix", &self_type::scaleM),
+          grammar::field(C<self_type>{}, "gradient_chi_value",
+                         &self_type::gradient_chi_value),
+          grammar::field(C<self_type>{}, "gradient_fim_value",
+                         &self_type::gradient_fim_value),
           grammar::field(C<self_type>{}, "Partial_DlogL",
                          &self_type::partial_DlogL),
           grammar::field(C<self_type>{}, my_trait<Aux>::className.c_str(),
@@ -965,15 +977,13 @@ public:
   }
   PartialDLogLikelihood() = default;
   PartialDLogLikelihood(std::size_t n)
-      : PartialDLogLikelihood(
-            0.0, 0.0, 0.0, 0.0, M_Matrix<double>(), M_Matrix<double>(),
-            M_Matrix<double>(), M_Matrix<double>(), 0.0, 0.0,
-            std::vector<DlogLikelihood>(n), std::vector<Aux>(n)) {}
+      : DVlogLikelihood(0.0), partial_{std::vector<DlogLikelihood>(n)},
+        aux_{std::vector<Aux>(n)} {}
 
-  PartialDLogLikelihood &add_one_i(std::size_t i, const DlogLikelihood &other,
+  PartialDLogLikelihood &add_one_i(std::size_t i, const DVlogLikelihood &other,
                                    Aux a) {
 
-    DlogLikelihood::operator+=(other);
+    DVlogLikelihood::operator+=(other);
     partial_[i] = other;
     aux_[i] = a;
     return *this;
@@ -1314,7 +1324,8 @@ public:
     auto H = calculate_Hessian(D0, D, data, eps, os);
     if (!are_finite<true, M_Matrix<double>>().test(H, ss))
       return Op(false, " getDLikelihood error for Hessian " + ss.str());
-    auto DV = DVlogLikelihood(logL, std::move(G), std::move(H), std::move(vG));
+    auto DV =
+        DVlogLikelihood(true, logL, std::move(G), std::move(H), std::move(vG));
     DV.calc();
     return Op(std::move(DV));
   }
@@ -1361,7 +1372,8 @@ public:
     auto H = calculate_Hessian_center(D0, Dn, Dp, data, epsG, os);
     if (!are_finite<true, M_Matrix<double>>().test(H, ss))
       return Op(false, " getDLikelihood error for Hessian " + ss.str());
-    return Op(DVlogLikelihood(logL, std::move(G), std::move(H), std::move(vG)));
+    return Op(
+        DVlogLikelihood(true, logL, std::move(G), std::move(H), std::move(vG)));
   }
 
   auto compute_PartialDLikelihood_init(const Parameters &p, std::ostream &os,
@@ -2005,7 +2017,7 @@ public:
 
         auto mtvec = mts(mt, 8);
         for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-#pragma omp parallel for
+          #pragma omp parallel for
           for (std::size_t ni = 0; ni < 8; ++ni) {
             std::size_t i = nc * 8 + ni;
             auto logL = compute_Sample(oss[ni], sim, fim, e, prior, p, eps,
@@ -2029,7 +2041,7 @@ public:
 
       auto mtvec = mts(mt, 8);
       for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-#pragma omp parallel for
+        #pragma omp parallel for
         for (std::size_t ni = 0; ni < 8; ++ni) {
           std::size_t i = nc * 8 + ni;
           auto logL =
@@ -2086,7 +2098,7 @@ public:
 
     auto mtvec = mts(mt, 8);
     for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-#pragma omp parallel for
+      #pragma omp parallel for
       for (std::size_t ni = 0; ni < 8; ++ni) {
         std::size_t i = nc * 8 + ni;
         auto logL = compute_Sample_derivative(oss[ni], sim, dm, e, dprior, p,
