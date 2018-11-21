@@ -8,6 +8,7 @@
 #include "myparameters.h"
 #include "myDistributions.h"
 #include "mytests.h"
+#include "mydynamicfunctions.h"
 #include <vector>
 #include <map>
 #include <set>
@@ -16,6 +17,8 @@
 class Model_Parameter_label : public Parameter_label {
 public:
   using Parameter_label::Parameter_label;
+  using Label::legal_chars;
+
   constexpr static auto className = my_static_string("Model_Parameter_label");
 };
 
@@ -77,19 +80,19 @@ public:
 
 class Conductance_Parameter_label : public Model_Parameter_label {
 public:
+  using Label::legal_chars;
+
   using Model_Parameter_label::Model_Parameter_label;
   constexpr static auto className =
       my_static_string("Conductance_Parameter_label");
 };
 
-typedef rate_Parameter_label::referred_type hiho;
-
-inline static rate_Parameter_label p = {"gsds"};
 
 class Conformational_change;
 class Conformational_change_label : public Label<Conformational_change> {
 public:
   using Label::Label;
+  using Label::legal_chars;
   constexpr static auto className =
       my_static_string("Conformational_change_label");
 };
@@ -189,38 +192,122 @@ public:
 
 class State_Model {
   std::size_t numstates_;
-  std::map<std::pair<std::size_t, std::size_t>, rate_Parameter_label> Q0s_;
-  std::map<std::pair<std::size_t, std::size_t>, rate_Parameter_label> Qas_;
-  std::map<std::size_t, Conductance_Parameter_label> gs_;
+  std::map<std::pair<std::size_t, std::size_t>, std::unique_ptr<Base_Function<double,State_Model>>> Q0s_;
+  std::map<std::pair<std::size_t, std::size_t>, std::unique_ptr<Base_Function<double,State_Model>>> Qas_;
+  std::map<std::size_t, std::unique_ptr<Base_Function<double,State_Model>>> gs_;
+  std::string errors_;
+  bool isValid_;
+
 
 public:
+  bool isValid()const {return isValid_;}
+  std::string error()const { return errors_;}
   std::size_t k() const { return numstates_; }
   auto &transition_rates() const { return Q0s_; }
+  std::map<std::pair<std::size_t,std::size_t>,std::string> transition_rates_text() const { return text_map<double,State_Model>(Q0s_); }
+
   auto &agonist_transitions_rates() const { return Qas_; }
+
+  std::map<std::pair<std::size_t,std::size_t>,std::string> agonist_transitions_rates_text() const { return text_map<double,State_Model>(Qas_); }
   auto &conductances() const { return gs_; }
+  std::map<std::size_t,std::string> conductances_text() const { return text_map(gs_); }
 
   static auto get_constructor_fields() {
     return std::make_tuple(
         grammar::field(C<self_type>{}, "number_of_states", &self_type::k),
-        grammar::field(C<self_type>{}, "transition_rates", &self_type::transition_rates),
-        grammar::field(C<self_type>{}, "agonist_transitions_rates",&self_type::agonist_transitions_rates),
-        grammar::field(C<self_type>{}, "conductances", &self_type::conductances));
+        grammar::field(C<self_type>{}, "transition_rates", &self_type::transition_rates_text),
+        grammar::field(C<self_type>{}, "agonist_transitions_rates",&self_type::agonist_transitions_rates_text),
+        grammar::field(C<self_type>{}, "conductances", &self_type::conductances_text));
   }
   typedef State_Model self_type;
   typedef Model_Parameter_label myParameter_label;
   constexpr static auto className = my_static_string("State_Model");
 
-  State_Model() = default;
+ static myOptional_t<State_Model>
+  evaluate(std::size_t number_of_states,
+           std::map<std::pair<std::size_t, std::size_t>, std::string>
+               mytransition_rates,
+           std::map<std::pair<std::size_t, std::size_t>, std::string>
+               myagonist_transitions,
+           std::map<std::size_t, std::string> myconductances)
+  {
+   typedef myOptional_t<State_Model> Op;
+    auto transition_rates_r=compile_map<double,State_Model>(mytransition_rates);
+    auto agonist_transitions_r=compile_map<double,State_Model>(myagonist_transitions);
+    auto conductances_r=compile_map<double,State_Model>(myconductances);
+
+    if(transition_rates_r.has_value()&&agonist_transitions_r.has_value()&&conductances_r.has_value())
+      return Op(State_Model(number_of_states,std::move(transition_rates_r).value(),std::move(agonist_transitions_r).value(),std::move(conductances_r).value()));
+    else return Op(false,"error building state model: "+transition_rates_r.error()+agonist_transitions_r.error()+conductances_r.error());
+  }
+
+      State_Model() = default;
+
+      State_Model(const State_Model& other):numstates_{other.numstates_}, Q0s_{clone_map(other.Q0s_)},
+                                              Qas_{clone_map(other.Qas_)}, gs_{clone_map(other.gs_)},errors_{other.errors_}, isValid_(other.isValid_) {}
+
+      State_Model( State_Model &&other)
+          : numstates_{other.numstates_}, Q0s_{std::move(other.Q0s_)},
+            Qas_{std::move(other.Qas_)}, gs_{std::move(other.gs_)},
+            errors_{std::move(other.errors_)}, isValid_{other.isValid_} {}
+
+      State_Model& operator=(const State_Model& other)
+      {
+        State_Model tmp(other);
+        *this=std::move(tmp);
+        return *this;
+      }
+      State_Model &operator=(State_Model &&other) {
+        numstates_=other.numstates_;
+        Q0s_=std::move(other.Q0s_);
+        Qas_=std::move(other.Qas_);
+        gs_=std::move(other.gs_);
+        errors_=std::move(other.errors_);
+        isValid_=std::move(other.isValid_);
+        return *this;
+      }
+
+      State_Model(std::size_t number_of_states,
+               const std::map<std::pair<std::size_t, std::size_t>, std::string>&
+                   mytransition_rates,
+               const std::map<std::pair<std::size_t, std::size_t>, std::string>&
+                   myagonist_transitions,
+                 const  std::map<std::size_t, std::string>& myconductances)
+      {
+        auto transition_rates_r =
+            compile_map<double, State_Model>(mytransition_rates);
+        auto agonist_transitions_r =
+            compile_map<double, State_Model>(myagonist_transitions);
+        auto conductances_r = compile_map<double, State_Model>(myconductances);
+
+        if (transition_rates_r.has_value() &&
+            agonist_transitions_r.has_value() && conductances_r.has_value())
+        {
+          numstates_=number_of_states;
+          Q0s_=make_unique_map(std::move(transition_rates_r).value());
+          Qas_=make_unique_map(std::move(agonist_transitions_r).value());
+          gs_=make_unique_map(std::move(conductances_r).value());
+          errors_.clear();
+          isValid_=true;
+
+        } else {
+          errors_=transition_rates_r.error()+agonist_transitions_r.error()+conductances_r.error();
+          isValid_=false;
+        }
+      }
 
   State_Model(
       std::size_t number_of_states,
-      std::map<std::pair<std::size_t, std::size_t>, rate_Parameter_label>
+      std::map<std::pair<std::size_t, std::size_t>, Base_Function<double,State_Model>*>&&
           mytransition_rates,
-      std::map<std::pair<std::size_t, std::size_t>, rate_Parameter_label>
+      std::map<std::pair<std::size_t, std::size_t>, Base_Function<double,State_Model>*>&&
           myagonist_transitions,
-      std::map<std::size_t, Conductance_Parameter_label> myconductances)
-      : numstates_{number_of_states}, Q0s_{mytransition_rates},
-        Qas_{myagonist_transitions}, gs_{myconductances} {}
+      std::map<std::size_t, Base_Function<double,State_Model>*>&& myconductances)
+          : numstates_{number_of_states}, Q0s_{make_unique_map(std::move(mytransition_rates))},
+            Qas_{make_unique_map(std::move(myagonist_transitions))}, gs_{make_unique_map(std::move(myconductances))},errors_{}, isValid_(true) {}
+
+
+
 
   template <class Parameters> auto Qs(const Parameters &p) const {
 
@@ -228,11 +315,11 @@ public:
     M_Matrix<double> Qa(k(), k(), Matrix_TYPE::FULL, 0);
 
     for (auto &e : Q0s_) {
-      Q0(e.first.first, e.first.second) = p.at(e.second);
+      Q0(e.first.first, e.first.second) = (*e.second)(p);
       Q0(e.first.first, e.first.first) -= Q0(e.first.first, e.first.second);
     }
     for (auto &e : Qas_) {
-      Qa(e.first.first, e.first.second) = p.at(e.second);
+      Qa(e.first.first, e.first.second) = (*e.second)(p);
       Qa(e.first.first, e.first.first) -= Qa(e.first.first, e.first.second);
     }
     return std::pair(Q0, Qa);
@@ -241,7 +328,7 @@ public:
   template <class Parameters> auto g(const Parameters &p) const {
     M_Matrix<double> out(k(), 1, 0.0);
     for (auto &e : gs_)
-      out[e.first] = p.at(e.second);
+      out[e.first] = (*e.second)(p);
     return out;
   }
 };

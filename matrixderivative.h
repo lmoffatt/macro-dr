@@ -653,7 +653,7 @@ bool mean_value_test_method_calc(const std::vector<double> &eps,double tol,
     return true;
 
   } else {
-    typedef FieldObject DerFieldObject;
+    //typedef FieldObject DerFieldObject;
     // typedef typename DerFieldObject::IS_DER gege;
 
     auto my = std::invoke(m.access_method, y);

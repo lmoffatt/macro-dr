@@ -15,7 +15,9 @@ class Label
 {
     std::string name_;
 public :
-    typedef T referred_type;
+     constexpr static const char legal_chars[]="abcdefghijklmopqrstuvwxz_0123456789ABCDEFGHIJKLMOPQRSTUVWXYZ";
+
+      typedef T referred_type;
     std::string name()const {return name_;} // unique at all levels
 
     Label(std::string&& label): name_{label}{}
@@ -60,7 +62,8 @@ using LabelMap_t=typename LabelMap<label>::type;
 
 
 class Parameter_label
-        : public Label<double> {public: using Label::Label;  };
+        : public Label<double> {public: using Label::Label;  using Label::legal_chars;
+};
 
 template<typename Model, typename aParameter_label >
 class Parameters_labels
@@ -84,10 +87,15 @@ public:
 template<typename Model>
 class Parameters_values
 {
-    typedef typename Model::myParameter_label par_label;
-    LabelMap_t<par_label> d_;
 public:
+    typedef typename Model::myParameter_label par_label;
 
+  private:
+    LabelMap_t<par_label> d_;
+
+  public:
+
+  //  constexpr static const char legal_chars[]=par_label::legal_chars;
     std::size_t size()const { return d_.size();}
     Parameters_values(LabelMap_t<par_label> values): d_{values}{};
     Parameters_values()=default;

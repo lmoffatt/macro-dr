@@ -15,7 +15,6 @@ int main(int argc, char **argv)
     std::cerr<<argv[1]<<"\n";
 
 
-
     typedef grammar::CommandManager<Objects> CM;
     static_assert (!has_base_type<grammar::Compiled_Statement<CM>>::value,"" );
 

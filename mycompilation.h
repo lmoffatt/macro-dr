@@ -1934,11 +1934,11 @@ myOptional_t<Compiled_Statement<Cm>*>* compile(const Cm* cm,const Statement* id)
     {
         return compile(cm,x);
     }
-    else if(auto x=dynamic_cast<Definition const *>(id); x!=nullptr)
+   /* else if(auto x=dynamic_cast<Definition const *>(id); x!=nullptr)
     {
         return comp::compiler<Cm>::get_Definition(cm,x);
         //get_Definition(x);
-    }
+    }*/
     else return {};
 }
 

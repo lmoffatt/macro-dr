@@ -62,7 +62,8 @@ HEADERS += \
     likelihood_markov_process_derivative.h \
     qlikelihood_derivative.h \
     myparameters_derivative.h \
-    mydistributions_derivative.h
+    mydistributions_derivative.h \
+    mydynamicfunctions.h
 
 DISTFILES += \
     simulation.txt

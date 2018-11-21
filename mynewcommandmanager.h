@@ -91,7 +91,6 @@ class CommandManager<Objects>
     
 public:
 
-
   typedef typename Objects::types Cs_types;
   typedef  typename Objects::commands  Cs_commands;
   typedef typename Objects::templateCommands Cs_template_commands;
@@ -108,7 +107,8 @@ public:
 
 
     //typedef typename myTypes::f jaja;
-    //
+
+        //
     //typedef typename myFuncReturns::f jajaja;
 
     //    typedef typename allTypes::f jaj;

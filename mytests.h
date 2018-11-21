@@ -215,7 +215,7 @@ template <class T, typename...Ts>
 bool are_Equal_v(const T &one, const T &other, std::ostream &os, Ts...context) {
   if (!are_Equal<true, T>(std::sqrt(std::numeric_limits<double>::epsilon()*1e8),std::sqrt(std::numeric_limits<double>::epsilon()*1e8)).test(one, other, os))
   {
-    auto& s=(os<<...<<context);
+    (os<<...<<context);
     return false;
   }
   else return true;

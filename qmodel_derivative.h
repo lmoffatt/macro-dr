@@ -14,14 +14,18 @@ public:
   Derivative() = default;
   Derivative(const base_type &model) : base_type{model} {}
 
-  Derivative(std::size_t number_of_states,
-             std::map<std::pair<std::size_t, std::size_t>, rate_Parameter_label>
-                 mytransition_rates,
-             std::map<std::pair<std::size_t, std::size_t>, rate_Parameter_label>
-                 myagonist_transitions,
-             std::map<std::size_t, Conductance_Parameter_label> myconductances)
-      : base_type(number_of_states, mytransition_rates, myagonist_transitions,
-                  myconductances) {}
+  Derivative(
+      std::size_t number_of_states,
+      std::map<std::pair<std::size_t, std::size_t>,
+              Base_Function<double, State_Model>*>
+          &&mytransition_rates,
+      std::map<std::pair<std::size_t, std::size_t>,
+               Base_Function<double, State_Model>*>
+          &&myagonist_transitions,
+      std::map<std::size_t, Base_Function<double, State_Model>*>
+          &&myconductances)
+      : base_type(number_of_states, std::move(mytransition_rates), std::move(myagonist_transitions),
+                  std::move(myconductances)) {}
 
   template <class Parameters> auto Qs(const Derivative<Parameters> &p) const {
 
@@ -31,11 +35,11 @@ public:
                                     Derivative<double>(p.x()));
 
     for (auto &e : transition_rates()) {
-      Q0(e.first.first, e.first.second) = p.at(e.second);
+      Q0(e.first.first, e.first.second) = (*e.second)(p);
       Q0(e.first.first, e.first.first) -= Q0(e.first.first, e.first.second);
     }
     for (auto &e : agonist_transitions_rates()) {
-      Qa(e.first.first, e.first.second) = p.at(e.second);
+      Qa(e.first.first, e.first.second) = (*e.second)(p);
       Qa(e.first.first, e.first.first) -= Qa(e.first.first, e.first.second);
     }
     //    auto r=Q0*ones<Constant<double>>(Q0.ncols(),1);
@@ -48,7 +52,7 @@ public:
   template <class Parameters> auto g(const Derivative<Parameters> &p) const {
     M_Matrix<Derivative<double>> out(k(), 1, Derivative<double>(p.x()));
     for (auto &e : conductances())
-      out[e.first] = p.at(e.second);
+      out[e.first] = (*e.second)(p);
     return Derivative<M_Matrix<double>>(out);
   }
 };
