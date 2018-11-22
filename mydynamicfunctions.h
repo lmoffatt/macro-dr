@@ -47,6 +47,8 @@ struct compiler_grammar {
 
   inline static const std::string space = " \t";
   inline static const std::string number = "0123456789";
+  inline static const std::string realnumber = "0123456789.eE+-";
+
   inline static const std::string alfa =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
   inline static const std::string alfanum = alfa + number + "_";
@@ -395,9 +397,46 @@ template <typename T, class Model> struct get_compile_function {
     typedef exp_derivative Derivative;
   };
 
-  inline static const std::map<std::string,
+
+  struct log_derivative {
+    constexpr static auto const className = my_static_string("log_derivative");
+    Derivative<double> operator()(const Derivative<double> &x) const {
+      auto f = std::log(x.f());
+      auto dfdx = x.dfdx().apply([&x](auto const &dx) { return (1.0/x.f()) * dx; });
+      return Derivative<double>(f, x.x(), std::move(dfdx));
+    }
+  };
+
+  struct log {
+    constexpr static auto const className = my_static_string("log");
+    double operator()(double x) const { return std::log(x); }
+    typedef log_derivative Derivative;
+  };
+
+  struct log10_derivative {
+    constexpr static auto const className = my_static_string("log10_derivative");
+    Derivative<double> operator()(const Derivative<double> &x) const {
+      auto f = std::log10(x.f());
+      auto dfdx =
+          x.dfdx().apply([&x](auto const &dx) { return (std::log(10.0) / x.f()) * dx; });
+      return Derivative<double>(f, x.x(), std::move(dfdx));
+    }
+  };
+
+  struct log10 {
+    constexpr static auto const className = my_static_string("log10");
+    double operator()(double x) const { return std::log(x); }
+    typedef log10_derivative Derivative;
+  };
+
+inline static const std::map<std::string,
                                std::unique_ptr<Base_Compiler<T, Model>>>
-      function_map = make_unique_map(std::map<std::string,Base_Compiler<T,Model>*>({{exp::className.str(),new compile_function_typed<exp, Cs<double>, T, Model>}}));
+      function_map = make_unique_map(std::map<std::string,Base_Compiler<T,Model>*>({
+    {exp::className.str(),new compile_function_typed<exp, Cs<double>, T, Model>},
+          {log::className.str(),new compile_function_typed<log, Cs<double>, T, Model>},
+          {log10::className.str(),new compile_function_typed<log10, Cs<double>, T, Model>}
+
+      }));
 
   myOptional_t<Base_Compiler<T, Model> const *>
   get_function(const std::string &id) const {
@@ -442,7 +481,7 @@ struct compile_number : public Base_Compiler<T, Model> {
   virtual Op compile(const std::string &s, std::size_t pos) const override {
 
     assert((compiler_grammar::number.find(s[pos] != std::string::npos)));
-    auto end = s.find_last_of(compiler_grammar::number, pos);
+    auto end = s.find_first_not_of(compiler_grammar::realnumber, pos);
     std::stringstream ss(s.substr(pos, end - pos));
     double d;
     if (!(ss >> d))
@@ -585,9 +624,92 @@ template <typename T, class Model> struct get_compile_binary_operator {
     typedef sum_derivative Derivative;
   };
 
+
+  struct substraction_derivative {
+    constexpr static auto const className = my_static_string("sum_derivative");
+    Derivative<double> operator()(const Derivative<double> &x,
+                                  const Derivative<double> &y) const {
+      auto f = x.f() - y.f();
+      auto dfdx = x.dfdx() - y.dfdx();
+      return Derivative<double>(f, x.x(), std::move(dfdx));
+    }
+  };
+
+  struct substraction {
+    constexpr static auto const className = my_static_string("substraction_op");
+    inline constexpr static auto const symbol = compiler_grammar::substraction_operator;
+    inline constexpr static const std::size_t precedence = 6;
+    T operator()(const T &x, const T &y) const { return x - y; }
+    typedef substraction_derivative Derivative;
+  };
+
+  struct product_derivative {
+    constexpr static auto const className = my_static_string("product_derivative");
+    Derivative<double> operator()(const Derivative<double> &x,
+                                  const Derivative<double> &y) const {
+      auto f = x.f() * y.f();
+      auto dfdx = x.dfdx().apply([&y](auto &m){ return m*y.f();}) + y.dfdx().apply([&x](auto &m){ return x.f()*m;});
+      return Derivative<double>(f, x.x(), std::move(dfdx));
+    }
+  };
+
+  struct product {
+    constexpr static auto const className = my_static_string("product_op");
+    inline constexpr static auto const symbol = compiler_grammar::prod_operator;
+    inline constexpr static const std::size_t precedence = 6;
+    T operator()(const T &x, const T &y) const { return x * y; }
+    typedef product_derivative Derivative;
+  };
+
+  struct division_derivative {
+    constexpr static auto const className =
+        my_static_string("product_derivative");
+    Derivative<double> operator()(const Derivative<double> &x,
+                                  const Derivative<double> &y) const {
+      auto f = x.f() / y.f();
+      auto dfdx = x.dfdx().apply([&y](auto &dx) { return dx / y.f(); }) +
+                  y.dfdx().apply([&f,&x,&y](auto &dy) { return f / y.f() * dy; });
+      return Derivative<double>(f, x.x(), std::move(dfdx));
+    }
+  };
+
+  struct division {
+    constexpr static auto const className = my_static_string("div_op");
+    inline constexpr static auto const symbol = compiler_grammar::div_operator;
+    inline constexpr static const std::size_t precedence = 6;
+    T operator()(const T &x, const T &y) const { return x / y; }
+    typedef division_derivative Derivative;
+  };
+
+  struct power_derivative {
+    constexpr static auto const className =
+        my_static_string("product_derivative");
+    Derivative<double> operator()(const Derivative<double> &x,
+                                  const Derivative<double> &y) const {
+      auto f = std::pow(x.f() ,y.f());
+      auto dfdx = x.dfdx().apply([&f,&x,&y](auto &dx) {
+        return y.f()*std::pow(x.f() ,y.f()-1.0)*dx;
+      }) + y.dfdx().apply([&f, &x, &y](auto &dy) { return std::log(x.f())*f * dy; });
+      return Derivative<double>(f, x.x(), std::move(dfdx));
+    }
+  };
+
+  struct power {
+    constexpr static auto const className = my_static_string("div_op");
+    inline constexpr static auto const symbol = compiler_grammar::power_operator;
+    inline constexpr static const std::size_t precedence = 6;
+    T operator()(const T &x, const T &y) const { return std::pow(x ,y); }
+    typedef division_derivative Derivative;
+  };
+
   inline static const std::map<char, std::unique_ptr<Base_Binary_Compiler<T, Model>>>
       operator_map = make_unique_map(std::map<char,Base_Binary_Compiler<T, Model>*>({
-          {sum::symbol,new compile_binary_operator_typed<sum, T, Model>}}));
+          {sum::symbol,new compile_binary_operator_typed<sum, T, Model>},
+          {substraction::symbol,new compile_binary_operator_typed<substraction, T, Model>},
+          {product::symbol,new compile_binary_operator_typed<product, T, Model>},
+          {division::symbol,new compile_binary_operator_typed<division, T, Model>},
+
+      }));
 
   myOptional_t<Base_Binary_Compiler<T, Model> const *>
   get_Operator(char symbol) const {
@@ -652,7 +774,7 @@ struct compile_binary_operator_typed : public Base_Binary_Compiler<T, Model> {
                            " operator :" + res.error());
     else {
       auto [second_term, next] = std::move(res).value();
-      return compile(first_term, second_term, s, pos);
+      return compile(first_term, second_term, s, next);
     }
   }
 
