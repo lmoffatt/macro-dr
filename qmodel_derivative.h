@@ -939,6 +939,7 @@ public:
   typedef SingleLigandModel base_type;
   auto &x() const { return Q0_.x(); }
 
+  Derivative(){};
   SingleLigandModel const &f() const
 
   {
@@ -990,6 +991,18 @@ public:
         Q0_{std::move(Qs.first)}, Qa_{std::move(Qs.second)}, g_{g * Vm},
         N_channels_{N}, noise_variance_{noise}, min_P_{min_P} {}
 
+
+  Derivative(const Derivative<M_Matrix<double>>& Q0,
+                       const Derivative<M_Matrix<double>>&Qa,
+             const Derivative<M_Matrix<double>> &g, const Derivative<double>& N,
+             const Derivative<double>& noise, double min_P)
+      : SingleLigandModel(Q0.f(), Qa.f(), g.f(), N.f(),
+                          noise.f(), min_P),
+        Q0_{Q0}, Qa_{Qa}, g_{g },
+        N_channels_{N}, noise_variance_{noise}, min_P_{min_P} {}
+
+
+
   double min_P() const { return min_P_; }
 
   auto &Q0() const { return Q0_; }
@@ -997,7 +1010,20 @@ public:
   auto &g0() const { return g_; }
   auto &noise_std() const { return noise_variance_; }
 
-private:
+  typedef Derivative self_type;
+
+  constexpr static auto className = my_static_string("SingleLigandModel_derivative");
+  static auto get_constructor_fields() {
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "Q0", &self_type::Q0),
+        grammar::field(C<self_type>{}, "Qa", &self_type::Qa),
+        grammar::field(C<self_type>{}, "g", &self_type::myg),
+        grammar::field(C<self_type>{}, "AverageNumberOfChannels", &self_type::N_channels),
+        grammar::field(C<self_type>{}, "plogL", &self_type::noise_variance_1Hz),
+        grammar::field(C<self_type>{}, "eplogL", &self_type::min_P));
+  }
+
+ private:
   Derivative<M_Matrix<double>> Q0_;
   Derivative<M_Matrix<double>> Qa_;
   Derivative<M_Matrix<double>> g_;
@@ -1005,6 +1031,10 @@ private:
   Derivative<double> noise_variance_;
   double min_P_;
 };
+
+
+
+static_assert (is_field_Object<Derivative<SingleLigandModel>>::value,"" );
 
 inline SingleLigandModel Taylor_first(const Derivative<SingleLigandModel> &dy,
                                       std::size_t i, double eps) {

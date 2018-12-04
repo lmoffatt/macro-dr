@@ -24,7 +24,7 @@ param_0 = State_Model_Parameters ( values = { { "kon"  50 }  { "koff"   20 }  { 
 paramPrior_0 = State_Model_Parameters_Distribution ( values = { {   "kon"  Logarithm_Transformation()  Normal_Distribution ( mean = 1.6989  variance =  1e-1 )  }    {   "koff"  Logarithm_Transformation()  Normal_Distribution ( mean = 1.30102  variance =  1e-1 )  }  {   "beta"  Logarithm_Transformation()  Normal_Distribution ( mean = 2.6989  variance =  1e-1 )  }    {   "alfa"  Logarithm_Transformation()  Normal_Distribution ( mean = 2.30102  variance =  1e-1 )  } { "g"  Logarithm_Transformation ()  Normal_Distribution ( mean = -1.78  variance =  1e-1) }  {"Number_of_Channels"   Logarithm_Transformation ()  Normal_Distribution ( mean = 2  variance =  1e-1 ) }  { "gaussian_noise"   Logarithm_Transformation ()  Normal_Distribution ( mean = -3  variance =  1e-1 ) } }   )
 
 
-experiment = to_experiment (data_frame = data  colname_time = "t"  colname_nsample = "ns"  colname_x = "xATP"  colname_y = "yCurrent" holding_potential = -60.0 frequency_of_sampling = 50E3)
+    experiment = to_experiment (data_frame = data  colname_time = "t"  colname_nsample = "ns"  colname_x = "xATP"  colname_y = "yCurrent" holding_potential = -60.0 frequency_of_sampling = 50E3)
 
 paramInit = Allosteric_Model_Parameters (values = { { "LR"  200 }	    { "LR_L"  0.1 }	  { "LR_R"  0.9 }	  { "RL"  200 }	  { "RLR"  1000 }	  { "RLR_1"  0.9 }	  { "RLR_3"  0.9 }	  { "RLR_L"  0.1 }	  { "RL_L"  0.1 }	  { "RL_R"  0.9 }	  { "RR"  1000 }	  { "RRR"  1000 }	  { "RRR_R"  0.5 }	  { "RR_1"  0.5 }	  { "RR_2"  0.5 }	  { "alpha"  1e6 }	  { "beta"  10 }	  { "g_0"  1e-5 } { "g_1" 1e-4 }	  { "g_2"  1e-3 }	    { "g_3"  16.59e-3 }	  { "koff"  1e7 }	  { "kon"  20000 }   {"Number_of_Channels"  100}  {"gaussian_noise"  1.0e-3 }})
 
@@ -110,11 +110,11 @@ re = write (variable = dlik_der_2 filename ="mySamples_0_MacroDMNR_der.txt" )
 
 re = write (variable = dlik_der_2 filename ="mySamples_0_MacroDVNR_der.txt" )
 
-liktest_der_DMR = likelihoodtest_derivative ( singleLigandExperiment = mySimulation_0  State_Model = Model_0 model_parameters = param_0  model_parameters_distribution = paramPrior_0   algorithm = "MacroDMR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-20 tolerance_error=1e-2  number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
+        liktest_der_DMR = likelihoodtest_derivative ( singleLigandExperiment = mySimulation_0  State_Model = Model_0 model_parameters = param_0  model_parameters_distribution = paramPrior_0   algorithm = "MacroDMR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-20 tolerance_error=1e-2  number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
 
-dlik_der_DMR = to_dataframe ( analysis = liktest_der_DMR )
+        dlik_der_DMR = to_dataframe ( analysis = liktest_der_DMR )
 
-re = write (variable = dlik_der_2 filename ="mySamples_0_MacroDMNR_der.txt" )
+        re = write (variable = dlik_der_2 filename ="mySamples_0_MacroDMNR_der.txt" )
 
 liktest_der_DVR = likelihoodtest_derivative ( singleLigandExperiment = mySimulation_0  State_Model = Model_0 model_parameters = param_0  model_parameters_distribution = paramPrior_0   algorithm = "MacroDVR" Binomial_threshold =5.0 Variance_threshold =1.0  min_probability = 1e-20 tolerance_error=1e-2  number_of_sub_intervals = 1000 max_dt = 1 initseed = 0   nsamples = 64  p_value = 0.05)
 

@@ -115,7 +115,7 @@ template<typename K> std::istream& operator>>(std::istream& s, const std::set<K>
 template<typename K> std::ostream& write_set(std::ostream& s, const std::set<K>& v);
 template<typename K> std::istream& read_set(std::istream& s,  std::set<K>& v);
 
-template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_field_Object<T>::value,std::ostream&>;
+template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_field_Object<std::decay_t<T>>::value,std::ostream&>;
 template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_write_Object<T>::value,std::ostream&>;
 
 template<typename T> auto operator>>(std::istream& s, T & v)->std::enable_if_t<is_read_Object<T>::value,std::istream&>;
@@ -1424,7 +1424,7 @@ template<typename T> auto operator<<(std::ostream& s, std::enable_if_t<std::is_a
 
 
 
-template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_field_Object<T>::value,std::ostream&>
+template<typename T> auto operator<<(std::ostream& s, T const& v)->std::enable_if_t<is_field_Object<std::decay_t<T>>::value,std::ostream&>
 {
     return io::output_operator_on_Object(s,v);
 }

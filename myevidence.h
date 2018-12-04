@@ -1352,9 +1352,9 @@ public:
                                             std::size_t n) {
       std::uniform_int_distribution<typename std::mt19937_64::result_type>
           useed;
-      std::vector<std::mt19937_64> out(n);
+      std::vector<std::mt19937_64> out;
       for (std::size_t i = 0; i < n; ++i)
-        out[i].seed(useed(mt));
+        out.emplace_back(useed(mt));
       return out;
     }
 

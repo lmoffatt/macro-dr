@@ -30,6 +30,15 @@ public:
       return Parameters_values<Model>(m);
     }
 
+    Derivative Directional_Derivative(const M_Matrix<double> &newx, std::size_t i,
+                                                    double eps)const
+    {
+      Derivative_t<LabelMap_t<par_label>> m;
+      for (auto &e : d_)
+        m.emplace(e.first, Derivative<double>(e.second.f()+e.second.dfdx()[i]*eps,newx,M_Matrix<double>(1,1,e.second.dfdx()[i])));
+      return Derivative(m);
+    }
+
 
     std::size_t size()const { return d_.size();}
     Derivative(Derivative_t<LabelMap_t<par_label>> values): d_{values}{};
@@ -93,6 +102,24 @@ public:
     using base_type::tr_to_Parameter;
     Derivative()=default;
 };
+
+template<typename Model>
+inline Parameters_values<Model> Taylor_first(const Derivative<Parameters_values<Model>> &dx, std::size_t i,
+                           double eps) {
+  return dx.f_dfdx(i,eps);
+}
+
+
+
+template<typename Model>
+inline const Derivative<Parameters_values<Model>>  Directional_Derivative(const Derivative<Parameters_values<Model>> &dx,
+                                                 const M_Matrix<double> &new_x,
+                                                 std::size_t i, double eps) {
+
+  return dx.Directional_Derivative(new_x,i,eps);
+}
+
+
 
 
 

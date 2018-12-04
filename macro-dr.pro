@@ -3,7 +3,8 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 CONFIG += c++1z
-QMAKE_CXXFLAGS += -std=c++17 -Werror=return-type -ftemplate-backtrace-limit=0
+#CONFIG += sanitizer sanitize_address
+QMAKE_CXXFLAGS += -std=c++17 -Werror=return-type -ftemplate-backtrace-limit=0  -Wnon-virtual-dtor -Wnull-dereference
 QMAKE_CXXFLAGS_RELEASE += -lpthread
 QMAKE_CXXFLAGS_DEBUG += -lpthread
 
@@ -66,4 +67,5 @@ HEADERS += \
     mydynamicfunctions.h
 
 DISTFILES += \
-    simulation.txt
+    simulation.txt \
+    models.txt

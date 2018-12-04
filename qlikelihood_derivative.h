@@ -111,14 +111,28 @@ public:
                              ) const {
       typedef myOptional_t<evidence::PartialDLogLikelihood<markov::MACROR>> Op;
       auto p = p_.tr_to_Parameter_derivative(parameters);
+
+
       Derivative<SingleLigandModel> SM(
           m.Qs(p), m.g(p), e.Vm(), p.at(Number_of_Channels_Parameter_label()),
           p.at(gaussian_noise_Parameter_label()), min_P_);
+
       Markov_Model_calculations<Derivative<Markov_Transition_step_double>,
                                 Derivative<Markov_Transition_rate>,
                                 Derivative<SingleLigandModel>, Experiment,
                                 double>
           MC(SM, e, 1, tolerance_);
+    assert((Derivative_correctness_mean_value_test(
+        1e-2,1e-8,
+        [this,&e](auto p) {
+            return Derivative<SingleLigandModel>( m.Qs(p), m.g(p), e.Vm(), p.at(Number_of_Channels_Parameter_label()),
+                                                 p.at(gaussian_noise_Parameter_label()), min_P_);
+          },
+          p,SM, std::cerr,
+          "  tolerance=", tolerance_)));
+
+
+
       if (algorithm_ == my_trait<markov::MacroDVR>::className.str())
       {
         return markov::partialDlikelihood_derivative<markov::MACROR,evidence::PartialDLogLikelihood<markov::MACROR>>(

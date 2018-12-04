@@ -1924,7 +1924,7 @@ public:
 
     virtual void reduce(double nmax)=0;
     virtual double nsamples()const =0;
-
+    virtual ~Base_Probability_map(){}
 };
 
 template <class T>
@@ -1964,7 +1964,7 @@ public:
     typedef  Probability_map self_type;
     typedef  Cs<T> template_types;
     constexpr static auto const className=my_static_string("Probability_map")+my_trait<template_types>::className;
-
+    ~Probability_map()override{}
 
 
     T sample(std::mt19937_64& mt)const

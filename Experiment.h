@@ -1156,7 +1156,7 @@ auto Experiment_steps_to_DataFrame(basic_Experiment<point<double,double>,measure
         {
             d.push_back_t(std::tuple_cat(trace_data,it2->data_row()));
          }
-        d.push_back_t(std::tuple_cat(trace_data,it->end()->data_row(),it->end()->begin()->data_row()));
+        d.push_back_t(std::tuple_cat(trace_data,it->end()->data_row()));
     }
     return d;
 }

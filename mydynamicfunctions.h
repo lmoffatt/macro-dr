@@ -88,7 +88,7 @@ public:
 
   ParValue(const std::string &p) : p_{p} {}
 
-  virtual ~ParValue() {}
+   ~ParValue() override {}
 
 private:
   par_label p_;
@@ -116,7 +116,7 @@ public:
 
   double getValue() const { return x_; }
   ConstValue(double x) : x_{x} {}
-  virtual ~ConstValue() {}
+   ~ConstValue() override {}
 
   virtual void putme(std::ostream &os) const { os << getValue(); }
 
@@ -141,7 +141,7 @@ public:
 
   BinaryOperator(Base_Function<T, Model> *one, Base_Function<T, Model> *two)
       : one_{std::move(one)}, two_{std::move(two)} {}
-  virtual ~BinaryOperator() {}
+   ~BinaryOperator() override {}
   auto &first() const { return *one_; }
   auto &second() const { return *two_; }
 
@@ -187,7 +187,7 @@ public:
 
   UnaryOperator(Base_Function<T, Model> *one)
       : one_{std::move(one)} {}
-  virtual ~UnaryOperator() {}
+   ~UnaryOperator() override {}
   auto &first() const { return *one_; }
   virtual void putme(std::ostream &os) const { os << UnOp::symbol << first(); }
 
@@ -219,7 +219,7 @@ public:
   }
   GroupOperator(bool is_negative, Base_Function<T, Model> *one)
       : me_{std::move(one)}, negative_{is_negative} {}
-  virtual ~GroupOperator() {}
+   ~GroupOperator() override{}
   auto const &expression() const { return *me_.value(); }
   virtual void putme(std::ostream &os) const {
     os << start_symbol << expression() << end_symbol;
@@ -249,7 +249,7 @@ public:
   }
 
   Function(Base_Function<Args, Model> *... args) : tu_{args...} {}
-  virtual ~Function() {}
+   ~Function() override {}
   template <std::size_t I> auto &get_Arg() const { return *std::get<I>(tu_); }
   virtual void putme(std::ostream &os) const {
     os << F::className.str() << compiler_grammar::group_start;
@@ -378,7 +378,7 @@ struct compile_function_typed<F, Cs<Args...>, T, Model>
           {f,next});
     }
   }
-  virtual ~compile_function_typed() {}
+   ~compile_function_typed() override{}
 };
 
 template <typename T, class Model> struct get_compile_function {
@@ -470,17 +470,17 @@ struct compile_identifier : public Base_Compiler<T, Model> {
       return Op({new ParValue<T, Model>(id), end});
     }
   }
-  virtual ~compile_identifier() {}
+   ~compile_identifier()override {}
 };
 
 template <typename T, class Model>
 struct compile_number : public Base_Compiler<T, Model> {
   typedef Base_Compiler<T, Model> base_type;
-
+  ~compile_number()override{}
   using typename base_type::Op;
   virtual Op compile(const std::string &s, std::size_t pos) const override {
 
-    assert((compiler_grammar::number.find(s[pos] != std::string::npos)));
+    assert((compiler_grammar::number.find(s[pos]) != std::string::npos));
     auto end = s.find_first_not_of(compiler_grammar::realnumber, pos);
     std::stringstream ss(s.substr(pos, end - pos));
     double d;
@@ -515,6 +515,8 @@ struct compile_group : public Base_Compiler<T, Model> {
         return Op({e, pos + 1});
     }
   }
+  ~compile_group()override{}
+
 };
 
 
@@ -547,7 +549,7 @@ struct compile_unary_operator_typed : public Base_Compiler<T, Model> {
     }
   }
 
-  virtual ~compile_unary_operator_typed() {}
+  virtual ~compile_unary_operator_typed() override{}
 };
 
 template <typename T, class Model> struct get_compile_unary_operator {
@@ -593,6 +595,8 @@ template <typename T, class Model>
 struct compile_unary : public Base_Compiler<T, Model> {
   typedef Base_Compiler<T, Model> base_type;
   using typename base_type::Op;
+  ~compile_unary()override{}
+
   virtual Op compile(const std::string &s, std::size_t pos) const override {
     assert(compiler_grammar::unary_operators.find(s[pos]) != std::string::npos);
     auto symbol = s[pos];
@@ -731,6 +735,8 @@ template <class BinOp, typename T, class Model>
 struct compile_binary_operator_typed : public Base_Binary_Compiler<T, Model> {
   typedef Base_Binary_Compiler<T, Model> base_type;
   using typename base_type::Op;
+  ~compile_binary_operator_typed()override{}
+
   virtual std::size_t operator_precedence() const override {
     return BinOp::precedence;
   }
@@ -778,7 +784,6 @@ struct compile_binary_operator_typed : public Base_Binary_Compiler<T, Model> {
     }
   }
 
-  virtual ~compile_binary_operator_typed() {}
 
   // Base_Binary_Compiler interface
 };
@@ -787,11 +792,11 @@ template <typename T, class Model>
 struct compile_term : public Base_Compiler<T, Model> {
   typedef Base_Compiler<T, Model> base_type;
   using typename base_type::Op;
+  ~compile_term()override{}
 
 
   virtual Op compile(const std::string &s, std::size_t pos0) const override {
     std::size_t pos = s.find_first_not_of(compiler_grammar::space,pos0);
-    Base_Function<T, Model> *first_term;
     if (compiler_grammar::alfa.find(s[pos]) != compiler_grammar::alfa.npos) {
       return compile_identifier<T, Model>().compile(s, pos);
     } else if ((compiler_grammar::number.find(s[pos]) != std::string::npos) ||
@@ -800,7 +805,7 @@ struct compile_term : public Base_Compiler<T, Model> {
       return compile_number<T, Model>().compile(s, pos);
     } else if (s[pos] == compiler_grammar::group_start)
       return compile_group<T, Model>().compile(s, pos);
-    else if (compiler_grammar::unary_operators.find(s[pos] != compiler_grammar::unary_operators.npos))
+    else if (compiler_grammar::unary_operators.find(s[pos]) != compiler_grammar::unary_operators.npos)
       return compile_unary<T, Model>().compile(s, pos);
     else {
       return Op(false, std::string("invalid term : "
@@ -818,7 +823,7 @@ struct compile_expression : public Base_Compiler<T, Model> {
   typedef Base_Compiler<T, Model> base_type;
   using typename base_type::Op;
 
-
+  ~compile_expression()override {}
   virtual Op compile(const std::string &s, std::size_t pos) const override {
     auto term0 = compile_term<T, Model>().compile(s, pos);
     if (!term0)

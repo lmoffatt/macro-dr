@@ -1643,12 +1643,16 @@ operator*=(const Markov_Transition_step_double &x) {
 
 class SingleLigandModel {
 public:
+  SingleLigandModel(){}
   auto &Q0() const { return Q0_; }
   auto &Qa() const { return Qa_; }
 
   auto Q(double x) const { return Q0_ + Qa_ * x; }
 
   auto &g(double) const { return g_; }
+  auto &myg() const { return g_; }
+
+
   auto Qx(double x, double tolerance) const {
     return Markov_Transition_rate::evaluate(Q(x), g(x), tolerance);
   }
@@ -1667,9 +1671,16 @@ public:
     return noise_variance_ * fs / nsamples;
   }
 
+  double noise_variance_1Hz() const {
+    return noise_variance_ ;
+  }
+
+
   double AverageNumberOfChannels() const { return N_channels_; }
 
   std::size_t N_channels() const { return N_channels_; }
+
+
 
   SingleLigandModel(std::pair<M_Matrix<double>, M_Matrix<double>> &&Qs,
                     M_Matrix<double> &&g, double Vm, double N, double noise,
@@ -1682,7 +1693,28 @@ public:
       : Q0_{std::move(Qs.first)}, Qa_{std::move(Qs.second)}, g_{g * Vm},
         N_channels_{N}, noise_variance_{noise}, min_P_{min_P} {}
 
+
+  SingleLigandModel(const M_Matrix<double>& Q0, const M_Matrix<double>& Qa,
+                    const M_Matrix<double> &g,  double N, double noise,
+                    double min_P)
+      : Q0_{Q0}, Qa_{Qa}, g_{g },
+        N_channels_{N}, noise_variance_{noise}, min_P_{min_P} {}
+
   double min_P() const { return min_P_; }
+
+  typedef SingleLigandModel self_type;
+
+  constexpr static auto className = my_static_string("SingleLigandModel");
+  static auto get_constructor_fields() {
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "Q0", &self_type::Q0),
+        grammar::field(C<self_type>{}, "Qa", &self_type::Qa),
+        grammar::field(C<self_type>{}, "g", &self_type::myg),
+        grammar::field(C<self_type>{}, "AverageNumberOfChannels", &self_type::AverageNumberOfChannels),
+        grammar::field(C<self_type>{}, "plogL", &self_type::noise_variance_1Hz),
+        grammar::field(C<self_type>{}, "eplogL", &self_type::min_P));
+  }
+
 
 private:
   M_Matrix<double> Q0_;

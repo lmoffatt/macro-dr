@@ -8,6 +8,7 @@
 
 #include <optional>
 #include <functional>
+#include <cassert>
 
 
 
@@ -50,8 +51,6 @@ public:
     virtual Compiled_Expression* clone()const override    =0;
 
     virtual myOptional<Compiled_Expression<Cm,T>*,derived_ptr_tag>* compile_Assignment(std::string&& id) override;
-
-
 
     virtual ~Compiled_Expression(){}
 };
@@ -175,6 +174,7 @@ class Compiled_Literal: public Compiled_Expression<Cm,T>
 private:
     std::decay_t<T> x_;
 public:
+  virtual ~Compiled_Literal(){}
     typedef  Compiled_Expression<Cm,T> base_type;
 
     typedef myOptional_t<T> oT;
@@ -309,6 +309,7 @@ public:
         return new myOptional_t<Compiled_Array*>(new Compiled_Array(std::move(v)));
     }
 
+    virtual ~Compiled_Array(){}
 };
 
 
@@ -378,6 +379,7 @@ public:
         return new Compiled_Array(*this);
     }
 
+    virtual ~Compiled_Array(){}
 
     static myOptional<Compiled_Array*,derived_ptr_tag>* create(const Cm* cm,ArrayOperation const * l)
     {
@@ -467,6 +469,8 @@ public:
         }
         return true;
     }
+    virtual ~Compiled_Array(){}
+
     virtual Compiled_Array* clone()const override
     {
         return new Compiled_Array(*this);
@@ -544,6 +548,8 @@ public:
     {
         return f_->valid_run(cm)&& s_->valid_run(cm);
     }
+    virtual ~Compiled_Array(){}
+
     virtual Compiled_Array* clone()const override
     {
         return new Compiled_Array(*this);
@@ -625,6 +631,8 @@ public:
         return  std::apply([&cm](auto& ...x)
         {return (x->valid_run(cm)&&...&&true);},c_);
     }
+    virtual ~Compiled_Array(){}
+
     virtual Compiled_Array* clone()const override
     {
         return new Compiled_Array(*this);
@@ -699,6 +707,8 @@ public:
         return true;
 
     }
+    virtual ~Compiled_Array(){}
+
     virtual Compiled_Array* clone()const override
     {
         return new Compiled_Array(*this);
@@ -748,6 +758,8 @@ public:
     {
         return c_->valid_run(cm);
     }
+    virtual ~Compiled_Array(){}
+
     virtual Compiled_Array* clone()const override
     {
         return new Compiled_Array(*this);
@@ -793,6 +805,8 @@ public:
 
     Compiled_Assignment(const Compiled_Assignment& other): id_{other.id_}, c_{other.c_->clone()}{}
 
+    virtual ~Compiled_Assignment(){}
+
     virtual Compiled_Assignment* clone()const override
     {
         return new Compiled_Assignment(*this);
@@ -807,13 +821,12 @@ public:
 
     static myOptional_t<Compiled_Assignment*>* create(const Cm* cm,Assignment const* o )
     {
-        std::unique_ptr<myOptional_t<Compiled_Expression<Cm,T>*>>c (compile<Cm,T>(cm,C<T>{},o->expr()));
+        std::unique_ptr<myOptional_t<Compiled_Expression<Cm,T>*>> c(compile<Cm,T>(cm,C<T>{},o->expr()));
         if (!o->value().empty()&&c->has_value())
             return new myOptional_t<Compiled_Assignment<Cm,T>*>(new Compiled_Assignment<Cm,T>(o->value(),c->release()));
         else
             return new myOptional_t<Compiled_Assignment*>(false,"error in Assignment for "+o->id()->value()+": "+c->error());
     }
-
 
 
     std::string execute(Cm *cm) const override
@@ -841,7 +854,6 @@ public:
 
 
     // Compiled_Statement interface
-public:
     virtual bool valid_execute(Cm *cm) const override
     {
         return valid_run(cm);
@@ -863,7 +875,7 @@ public:
 template<class Cm, class T>
 myOptional<Compiled_Expression<Cm,T>*,derived_ptr_tag> *Compiled_Expression<Cm,T>::compile_Assignment(std::string&& id)
 {
-    return new myOptional_t<Compiled_Expression<Cm,T>*>(new Compiled_Assignment<Cm,T>(std::move(id), this));
+    return new myOptional<Compiled_Expression<Cm,T>*,derived_ptr_tag>(new Compiled_Assignment<Cm,T>(std::move(id), this));
 }
 
 
@@ -874,6 +886,7 @@ private:
     std::string id_;
     std::unique_ptr<Compiled_Expression<Cm,T>> c_;
 public:
+  virtual ~Compiled_Definition() {}
     typedef Compiled_General_Assignment<Cm,T> base_type;
     typedef myOptional_t<T> oT;
     virtual oT run(Cm* cm) const override{ return c_->run(cm);}
@@ -935,6 +948,7 @@ private:
     UnaryOperatorTyped<T> const * op_;
     std::unique_ptr<Compiled_Expression<Cm,T>> c_;
 public:
+  virtual ~Compiled_UnaryOperation(){}
     typedef myOptional_t<T> oT;
     virtual oT run(Cm* cm) const override
     {
@@ -1031,7 +1045,7 @@ public:
             return nullptr;
     }
 
-
+    virtual ~Compiled_BinaryOperation(){}
 };
 
 template <class Cm>
@@ -1292,6 +1306,7 @@ public:
 
     Compiled_Function_Arg(const F& f,args_types&& a):f_{f},a_{std::move(a)}{}
 
+    virtual ~Compiled_Function_Arg(){}
 
     Compiled_Function_Arg(const Compiled_Function_Arg& other): f_{other.f_}, a_{clone(other.a_)}{}
 
@@ -1322,6 +1337,7 @@ public :
     {
         return  new myOptional_t<Compiled_Function_Arg<Cm,T,F>*>(new Compiled_Function_Arg<Cm,T,F>(f_,std::tuple<>()));
     }
+    virtual ~Function_Arg(){}
 
     Function_Arg(C<T>,F f, std::tuple<>&& ):f_{f}{}
 };
@@ -1405,6 +1421,7 @@ public :
         }
     }
 
+    virtual ~Function_Arg(){}
 
     Function_Arg(C<T>,F f, args_types&& a):f_{f},a_{std::move(a)}{}
 };
@@ -1910,6 +1927,7 @@ template <class Cm>
 myOptional_t<Compiled_Statement<Cm>*>* compile(const Cm* cm,const Statement* id)
 
 {
+    //id->clone();
     if(auto x=dynamic_cast<const Identifier*>(id); x!=nullptr)
     {
         return cm->get_Identifier(x->value())->compile_this(cm,x);

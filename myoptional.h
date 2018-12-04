@@ -13,6 +13,8 @@ struct lref_tag {};
 struct const_ref_tag {};
 struct base_ptr_tag {};
 struct derived_ptr_tag {};
+struct const_base_ptr_tag {};
+struct const_derived_ptr_tag {};
 struct void_tag {};
 
 template <typename...> class myOptional;
@@ -26,8 +28,13 @@ template <typename T> struct optional_tag {
                              const_ref_tag, lref_tag>,
           std::conditional_t<
               std::is_pointer_v<T>,
-              std::conditional_t<has_base_type_v<std::remove_pointer_t<T>>,
-                                 derived_ptr_tag, base_ptr_tag>,
+              std::conditional_t<
+                  std::is_same_v<T, std::add_pointer_t<std::add_const_t<
+                                        std::remove_pointer_t<T>>>>,
+                  std::conditional_t<has_base_type_v<std::remove_pointer_t<T>>,
+                                     const_derived_ptr_tag, const_base_ptr_tag>,
+                  std::conditional_t<has_base_type_v<std::remove_pointer_t<T>>,
+                                     derived_ptr_tag, base_ptr_tag>>,
               reg_tag>>>
       type;
 };
@@ -40,6 +47,8 @@ template <typename T> class myOptional<T, lref_tag>;
 template <typename T> class myOptional<T, const_ref_tag>;
 template <typename T> class myOptional<T, derived_ptr_tag>;
 template <typename T> class myOptional<T, base_ptr_tag>;
+template <typename T> class myOptional<T, const_derived_ptr_tag>;
+template <typename T> class myOptional<T, const_base_ptr_tag>;
 template <typename T> class myOptional<T, reg_tag>;
 
 template <typename T>
@@ -81,6 +90,23 @@ public:
   operator bool() { return has_; }
   template <class... Args> static myOptional *make(Args... a) {
     return new myOptional(T(a...));
+  }
+
+  myOptional(const myOptional &other)
+      : x_{other.x_}, has_{other.has_}, error_{other.error_} {}
+  myOptional(myOptional &&other)
+      : x_{std::move(other.x_)}, has_{std::move(other.has_)},
+        error_{std::move(other.error_)} {}
+  myOptional &operator=(const myOptional &other) {
+    myOptional tmp(other);
+    *this = std::move(tmp);
+    return *this;
+  }
+  myOptional &operator=(myOptional &&other) {
+    x_ = std::move(other.x_);
+    has_ = std::move(other.has_);
+    error_ = std::move(other.error_);
+    return *this;
   }
 
   void reset() {
@@ -128,6 +154,22 @@ public:
       : empty_{}, x_{empty_}, has_{false}, error_{std::move(msg)} {}
 
   operator bool() { return has_; }
+  myOptional(const myOptional &other)
+      : x_{other.x_}, has_{other.has_}, error_{other.error_} {}
+  myOptional(myOptional &&other)
+      : x_{other.x_}, has_{std::move(other.has_)}, error_{std::move(
+                                                       other.error_)} {}
+  myOptional &operator=(const myOptional &other) {
+    myOptional tmp(other);
+    *this = std::move(tmp);
+    return *this;
+  }
+  myOptional &operator=(myOptional &&other) {
+    x_ = std::move(other.x_);
+    has_ = std::move(other.has_);
+    error_ = std::move(other.error_);
+    return *this;
+  }
 };
 
 template <typename T> class myOptional<const T &, const_ref_tag> {
@@ -158,6 +200,22 @@ public:
       : x_{std::move(T{})}, has_{false}, error_{msg} {}
   myOptional(bool, std::string &&msg)
       : x_{std::move(T{})}, has_{false}, error_{std::move(msg)} {}
+  myOptional(const myOptional &other)
+      : x_{other.x_}, has_{other.has_}, error_{other.error_} {}
+  myOptional(myOptional &&other)
+      : x_{std::move(other.x_)}, has_{std::move(other.has_)},
+        error_{std::move(other.error_)} {}
+  myOptional &operator=(const myOptional &other) {
+    myOptional tmp(other);
+    *this = std::move(tmp);
+    return *this;
+  }
+  myOptional &operator=(myOptional &&other) {
+    x_ = std::move(other.x_);
+    has_ = std::move(other.has_);
+    error_ = std::move(other.error_);
+    return *this;
+  }
 
   operator bool() { return has_; }
 };
@@ -168,6 +226,7 @@ template <typename T> class myOptional<T *, base_ptr_tag> {
   std::string error_;
 
 public:
+  virtual ~myOptional() {}
   typedef T *value_type;
 
   T *value() & { return x_.get(); }
@@ -197,9 +256,16 @@ public:
   myOptional(const myOptional &other)
       : x_(other.has_value() ? other.value()->clone() : nullptr),
         has_(other.has_value()), error_(other.error()) {}
+  myOptional(myOptional &&other)
+      : x_(std::move(other.x_)), has_(std::move(other.has_)),
+        error_(std::move(other.error_)) {}
   myOptional &operator=(const myOptional &) = default;
-  myOptional(myOptional &&) = default;
-  myOptional &operator=(myOptional &&) = default;
+  myOptional &operator=(myOptional &&other) {
+    x_ = std::move(other.x_);
+    has_ = std::move(other.has_);
+    error_ = std::move(other.error_);
+    return *this;
+  };
 
   operator bool() { return has_; }
 
@@ -220,12 +286,82 @@ public:
   }
 };
 
+template <typename T> class myOptional<T const *, const_base_ptr_tag> {
+  T const * x_;
+  bool has_;
+  std::string error_;
+
+public:
+  virtual ~myOptional() {}
+  typedef T *value_type;
+
+  T const *value() & { return x_; }
+  const T *value() const & { return x_; }
+  T const *value() && { return release(); }
+  const T *value() const && { return release(); }
+  // typename T::test test;
+
+  bool has_value() const { return has_; }
+  std::string error() const { return error_; }
+
+  void setError(std::string &&e) {
+    has_ = false;
+    error_ = std::move(e);
+  }
+  // template<typename U=typename
+  // T::element_type,std::enable_if_t<std::is_same_v<T, std::unique_ptr<U>>,
+  // bool> =true> myOptional(U* x):x_{x},has_{true},error_{}{}
+
+  myOptional(T const  *x) : x_{x}, has_{true}, error_{} {}
+
+  myOptional(bool, const std::string &msg)
+      : x_{nullptr}, has_{false}, error_{msg} {}
+  myOptional(bool, std::string &&msg)
+      : x_{nullptr}, has_{false}, error_{std::move(msg)} {}
+
+  myOptional(const myOptional &other)
+      : x_(other.x_),
+        has_(other.has_value()), error_(other.error()) {}
+  myOptional(myOptional &&other)
+      : x_(std::move(other.x_)), has_(std::move(other.has_)),
+        error_(std::move(other.error_)) {}
+  myOptional &operator=(const myOptional &) = default;
+  myOptional &operator=(myOptional &&other) {
+    x_ = std::move(other.x_);
+    has_ = std::move(other.has_);
+    error_ = std::move(other.error_);
+    return *this;
+  };
+
+  operator bool() { return has_; }
+
+  template <class... Args> static myOptional *make(Args... a) {
+    return new myOptional(new T(a...));
+  }
+
+  void reset() {
+    x_=nullptr;
+    has_ = false;
+    error_.clear();
+  }
+
+  T const *release() {
+    has_ = false;
+    error_.clear();
+    auto out=x_;
+    x_=nullptr;
+    return out;
+  }
+};
+
 template <typename T>
 class myOptional<T *, derived_ptr_tag>
     : public myOptional_t<typename T::base_type *> {
   T *x_;
 
 public:
+  virtual ~myOptional() override {}
+
   typedef myOptional_t<typename T::base_type *> base_type;
   typedef typename T::base_type base_element;
   typedef T *value_type;
@@ -255,6 +391,69 @@ public:
     base_type::release();
     return x_;
   }
+  myOptional(const myOptional &other) : base_type(other), x_{other.x_} {}
+  myOptional(myOptional &&other) : base_type(std::move(other)), x_{other.x_} {}
+  myOptional &operator=(const myOptional &other) {
+    myOptional tmp(other);
+    *this = std::move(tmp);
+    return *this;
+  }
+  myOptional &operator=(myOptional &&other) {
+    base_type::operator=(std::move(other));
+    x_ = std::move(other.x_);
+    return *this;
+  }
+};
+
+template <typename T>
+class myOptional<T const *, const_derived_ptr_tag>
+    : public myOptional_t<typename T::base_type const *> {
+  T const *x_;
+
+public:
+  virtual ~myOptional() override {}
+
+  typedef myOptional_t<typename T::base_type *> base_type;
+  typedef typename T::base_type base_element;
+  typedef T *value_type;
+
+  T const *  value() & { return x_; }
+  T const * /*const*/ value() const & { return x_; }
+  T const *value() && { return release(); }
+  T const * /*const*/ value() const && { return release(); }
+  // typename T::test test;
+
+  myOptional(T const *x) : base_type(x), x_{x} {}
+
+  myOptional(bool, const std::string &msg)
+      : base_type(false, msg), x_{nullptr} {}
+  myOptional(bool, std::string &&msg) : base_type(false, msg), x_{nullptr} {}
+
+  template <class... Args> static myOptional *make(Args... a) {
+    return new myOptional(new T(a...));
+  }
+
+  void reset() {
+    x_ = nullptr;
+    base_type::reset();
+  }
+
+  T *release() {
+    base_type::release();
+    return x_;
+  }
+  myOptional(const myOptional &other) : base_type(other), x_{other.x_} {}
+  myOptional(myOptional &&other) : base_type(std::move(other)), x_{other.x_} {}
+  myOptional &operator=(const myOptional &other) {
+    myOptional tmp(other);
+    *this = std::move(tmp);
+    return *this;
+  }
+  myOptional &operator=(myOptional &&other) {
+    base_type::operator=(std::move(other));
+    x_ = std::move(other.x_);
+    return *this;
+  }
 };
 
 template <> class myOptional<void, void_tag> {
@@ -277,6 +476,7 @@ public:
   myOptional(bool has, std::string &&msg) : has_{has}, error_{std::move(msg)} {}
 
   myOptional() = default;
+
   operator bool() { return has_; }
 
   template <class T> myOptional &operator=(const myOptional_t<T> &other) {
@@ -306,12 +506,10 @@ public:
   }
 };
 
-Op_void operator+(Op_void&& one, Op_void&& other)
-{
-  one+=std::move(other);
+Op_void operator+(Op_void &&one, Op_void &&other) {
+  one += std::move(other);
   return one;
 }
-
 
 template <typename T, typename K>
 myOptional_t<T> &operator<<(myOptional_t<T> &o, const K &x) {

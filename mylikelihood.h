@@ -158,7 +158,7 @@ calculate_Gradient_center(const std::vector<Distributions<T>> &dn,
   // typedef myOptional_t<M_Matrix<double>> Op;
   M_Matrix<double> out(1, dp.size());
   for (std::size_t i = 0; i < dp.size(); ++i) {
-    out[i] = calculate_Gradient(dn[i], dp[i], data) / (2.0 * eps[i]);
+    out[i] = calculate_Gradient(dn[i], dp[i], data) / (eps[i]);
   }
   return out;
 }
@@ -173,7 +173,7 @@ calculate_vGradient_center(const std::vector<Distributions<T>> &dn,
   for (std::size_t i = 0; i < dp.size(); ++i)
     for (std::size_t j = 0; j <= i; ++j) {
       out(i, j) = calculate_vGradient(dn[i], dp[i], dn[j], dp[j], data) /
-                  (4 * eps[i] * eps[j]);
+                  (eps[i] * eps[j]);
     }
   return out;
 }
@@ -263,7 +263,7 @@ auto calculate_Hessian_center(std::size_t i,
   M_Matrix<double> J(npar, k);
   for (std::size_t j = 0; j < k; ++j) {
     auto dpar = (getParameter(dp.at(j).at(i)) - getParameter(dn.at(j).at(i))) *
-                0.5 / eps[j];
+                1.0 / eps[j];
     for (std::size_t jj = 0; jj < npar; ++jj)
       J(jj, j) = dpar[jj];
   }
@@ -1063,8 +1063,7 @@ private:
           i);
     }
     return out;
-  }
-  std::vector<moments<Aux>> calc_aux_moments(
+  }  std::vector<moments<Aux>> calc_aux_moments(
       const std::vector<evidence::PartialDLogLikelihood<Aux>> &data) {
     auto n = data[0].partial_DlogL().size();
     std::vector<moments<Aux>> out(n);
@@ -1205,7 +1204,7 @@ public:
       std::vector<std::decay_t<decltype(D0)>> Dn(p.size());
       for (std::size_t i = 0; i < p.size(); ++i) {
         Parameters xp(p);
-        xp[i] = xp[i] + eps[i];
+        xp[i] = xp[i] + 0.5*eps[i];
         auto OpDp = L::model().compute_Distribution_aux(data, xp, os, aux);
         if (OpDp.has_value())
           Dp[i] = std::move(OpDp).value();
@@ -1213,7 +1212,7 @@ public:
           return Op(false, " getDLikelihood error at i=" + ToString(i) +
                                "th parameter  :" + OpDp.error());
         Parameters xn(p);
-        xn[i] = xn[i] - eps[i];
+        xn[i] = xn[i] - 0.5*eps[i];
         auto OpDn = L::model().compute_Distribution_aux(data, xn, os, aux);
         if (OpDn.has_value())
           Dn[i] = std::move(OpDn).value();
@@ -1969,9 +1968,13 @@ public:
   }
   static std::vector<std::mt19937_64> mts(std::mt19937_64 &mt, std::size_t n) {
     std::uniform_int_distribution<typename std::mt19937_64::result_type> useed;
-    std::vector<std::mt19937_64> out(n);
+    std::vector<std::mt19937_64> out;
     for (std::size_t i = 0; i < n; ++i)
-      out[i].seed(useed(mt));
+    {
+      auto s=useed(mt);
+      std::cerr<<"seed "<<i<<" ="<<s<<"\n";
+      out.emplace_back(s);
+    }
     return out;
   }
 
@@ -1993,6 +1996,7 @@ public:
     std::vector<PartialDLogLikelihood<typename FIM_Model::Aux>> s(nsamples);
 
     std::vector<std::stringstream> oss(8);
+    auto mtvec = mts(mt, 8);
 
     bool succed = true;
     if (!init) {
@@ -2015,9 +2019,8 @@ public:
             succed = false;
         }
 
-        auto mtvec = mts(mt, 8);
         for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-          #pragma omp parallel for
+          //#pragma omp parallel for
           for (std::size_t ni = 0; ni < 8; ++ni) {
             std::size_t i = nc * 8 + ni;
             auto logL = compute_Sample(oss[ni], sim, fim, e, prior, p, eps,
@@ -2041,7 +2044,7 @@ public:
 
       auto mtvec = mts(mt, 8);
       for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (std::size_t ni = 0; ni < 8; ++ni) {
           std::size_t i = nc * 8 + ni;
           auto logL =
@@ -2098,7 +2101,7 @@ public:
 
     auto mtvec = mts(mt, 8);
     for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-      #pragma omp parallel for
+      //#pragma omp parallel for
       for (std::size_t ni = 0; ni < 8; ++ni) {
         std::size_t i = nc * 8 + ni;
         auto logL = compute_Sample_derivative(oss[ni], sim, dm, e, dprior, p,
