@@ -594,8 +594,8 @@ public:
 
       assert((rank_diag(sqrtinv_fL) == fL.size()
                  ? (are_Equal_v(quadraticForm_B_A_BT(-H, sM), vG, std::cerr,
-                                "\ncL\n", cL, "\n sqrt_cL\n ", sqrt_cL,
-                                "\n fL\n", fL, "\n sqrtinv_fL \n", sqrtinv_fL))
+                                 "\ncL\n", cL, "\n sqrt_cL\n ", sqrt_cL,
+                                 "\n fL\n", fL, "\n sqrtinv_fL \n", sqrtinv_fL))
                   : true));
       return Op(sM);
     } else
@@ -678,10 +678,14 @@ public:
   DVlogLikelihood() = default;
 
   DVlogLikelihood &operator+=(const DVlogLikelihood &other) {
-    DlogLikelihood::operator+=(other);
-    vG_ += other.vG_;
-    hasScaleMatrix_ = false;
+    if (other.evlogL()>0)
+    {
+      DlogLikelihood::operator+=(other);
+      vG_ += other.vG_;
+      hasScaleMatrix_ = false;
+    }
     return *this;
+
   }
 
   template <class DataFrame> static void insert_col(DataFrame &d) {
@@ -806,7 +810,7 @@ public:
             grammar::field(C<self_type>{}, "gradient_fim_value",
                            &self_type::gradient_fim_value))
 
-    );
+                );
   }
 
   moments(const moments<double> &logL, const moments<double> &elogL,
@@ -1479,123 +1483,123 @@ public:
 private:
   double eps_;
   double eps_f_;
-};
+  };
 
-template <class Parameters_Distribution, class Parameters_Values,
-          class ExperimentData, class logLikelihood>
-class Likelihood_Analisis {
+  template <class Parameters_Distribution, class Parameters_Values,
+            class ExperimentData, class logLikelihood>
+  class Likelihood_Analisis {
 
-public:
-  typedef Likelihood_Analisis self_type;
-  typedef Cs<Parameters_Distribution, Parameters_Values, ExperimentData,
-             logLikelihood>
-      template_types;
-  constexpr static auto const className =
-      my_static_string("Likelihood_Analisis") +
-      my_trait<template_types>::className;
+  public:
+    typedef Likelihood_Analisis self_type;
+    typedef Cs<Parameters_Distribution, Parameters_Values, ExperimentData,
+               logLikelihood>
+        template_types;
+    constexpr static auto const className =
+        my_static_string("Likelihood_Analisis") +
+        my_trait<template_types>::className;
 
-  static auto get_constructor_fields() {
+    static auto get_constructor_fields() {
     return std::make_tuple(
         grammar::field(C<self_type>{}, "prior",
                        &self_type::get_Parameters_Distribution),
         grammar::field(C<self_type>{}, "simulations",
                        &self_type::get_Parameters),
         grammar::field(C<self_type>{}, "simulations",
-                       &self_type::get_Simulations),
-        grammar::field(C<self_type>{}, "likelihoods",
-                       &self_type::get_Likelihoods));
-  }
-
-  auto size() const { return s_.size(); }
-
-  double mean_logL() const {
-    double out = s_[0].logL();
-    for (std::size_t i = 1; i < s_.size(); ++i)
-      out += s_[i].logL();
-    return out / s_.size();
-  }
-
-  M_Matrix<double> mean_Gradient() const {
-    M_Matrix<double> out = s_[0].G();
-    for (std::size_t i = 1; i < s_.size(); ++i)
-      out += s_[i].G();
-    return out / s_.size();
-  }
-  std::vector<M_Matrix<double>> partial_mean_Gradient() const {
-    auto ns = s_[0].partial_DlogL().size();
-    std::vector<M_Matrix<double>> out(ns);
-    for (std::size_t n = 0; n < ns; ++n) {
-      M_Matrix<double> m = s_[0].partial_DlogL()[n].G();
-      for (std::size_t i = 1; i < s_.size(); ++i)
-        m += s_[i].partial_DlogL()[n].G();
-
-      out[n] = m / s_.size();
+                         &self_type::get_Simulations),
+          grammar::field(C<self_type>{}, "likelihoods",
+                         &self_type::get_Likelihoods));
     }
-    return out;
-  }
-  M_Matrix<double> mean_sqr_Gradient() const {
-    M_Matrix<double> out = quadraticForm_XTX(s_[0].G());
-    for (std::size_t i = 1; i < s_.size(); ++i)
-      out += quadraticForm_XTX(s_[i].G());
-    return out / s_.size();
-  }
-  std::vector<M_Matrix<double>> partial_sqr_Gradient() const {
-    auto ns = s_[0].partial_DlogL().size();
-    std::vector<M_Matrix<double>> out(ns);
-    for (std::size_t n = 0; n < ns; ++n) {
-      M_Matrix<double> m = quadraticForm_XTX(s_[0].partial_DlogL()[n].G());
+
+    auto size() const { return s_.size(); }
+
+    double mean_logL() const {
+      double out = s_[0].logL();
       for (std::size_t i = 1; i < s_.size(); ++i)
-        m += quadraticForm_XTX(s_[i].partial_DlogL()[n].G());
-      out[n] = m / s_.size();
+        out += s_[i].logL();
+      return out / s_.size();
     }
-    return out;
-  }
 
-  M_Matrix<double> mean_Hessian() const {
-    M_Matrix<double> out = s_[0].H();
-    for (std::size_t i = 1; i < s_.size(); ++i)
-      out += s_[i].H();
-    return out / s_.size();
-  }
-
-  std::vector<M_Matrix<double>> partial_mean_Hessian() const {
-    auto ns = s_[0].partial_DlogL().size();
-    std::vector<M_Matrix<double>> out(ns);
-    for (std::size_t n = 0; n < ns; ++n) {
-      M_Matrix<double> m = s_[0].partial_DlogL()[n].H();
+    M_Matrix<double> mean_Gradient() const {
+      M_Matrix<double> out = s_[0].G();
       for (std::size_t i = 1; i < s_.size(); ++i)
-        m += s_[i].partial_DlogL()[n].H();
-
-      out[n] = m / s_.size();
+        out += s_[i].G();
+      return out / s_.size();
     }
-    return out;
-  }
+    std::vector<M_Matrix<double>> partial_mean_Gradient() const {
+      auto ns = s_[0].partial_DlogL().size();
+      std::vector<M_Matrix<double>> out(ns);
+      for (std::size_t n = 0; n < ns; ++n) {
+        M_Matrix<double> m = s_[0].partial_DlogL()[n].G();
+        for (std::size_t i = 1; i < s_.size(); ++i)
+          m += s_[i].partial_DlogL()[n].G();
 
-  auto &get_Parameters_Distribution() const { return prior_; }
-  auto &get_Parameters() const { return p_; }
+        out[n] = m / s_.size();
+      }
+      return out;
+    }
+    M_Matrix<double> mean_sqr_Gradient() const {
+      M_Matrix<double> out = quadraticForm_XTX(s_[0].G());
+      for (std::size_t i = 1; i < s_.size(); ++i)
+        out += quadraticForm_XTX(s_[i].G());
+      return out / s_.size();
+    }
+    std::vector<M_Matrix<double>> partial_sqr_Gradient() const {
+      auto ns = s_[0].partial_DlogL().size();
+      std::vector<M_Matrix<double>> out(ns);
+      for (std::size_t n = 0; n < ns; ++n) {
+        M_Matrix<double> m = quadraticForm_XTX(s_[0].partial_DlogL()[n].G());
+        for (std::size_t i = 1; i < s_.size(); ++i)
+          m += quadraticForm_XTX(s_[i].partial_DlogL()[n].G());
+        out[n] = m / s_.size();
+      }
+      return out;
+    }
 
-  std::vector<ExperimentData> const &get_Simulations() const { return e_; }
+    M_Matrix<double> mean_Hessian() const {
+      M_Matrix<double> out = s_[0].H();
+      for (std::size_t i = 1; i < s_.size(); ++i)
+        out += s_[i].H();
+      return out / s_.size();
+    }
 
-  std::vector<logLikelihood> const &get_Likelihoods() const { return s_; }
+    std::vector<M_Matrix<double>> partial_mean_Hessian() const {
+      auto ns = s_[0].partial_DlogL().size();
+      std::vector<M_Matrix<double>> out(ns);
+      for (std::size_t n = 0; n < ns; ++n) {
+        M_Matrix<double> m = s_[0].partial_DlogL()[n].H();
+        for (std::size_t i = 1; i < s_.size(); ++i)
+          m += s_[i].partial_DlogL()[n].H();
 
-  moments<logLikelihood> get_Likelihood_Moments() const {
-    return moments<logLikelihood>(get_Likelihoods());
-  }
+        out[n] = m / s_.size();
+      }
+      return out;
+    }
 
-  moments<ExperimentData> get_Experiment_Moments() const {
-    return moments<ExperimentData>(get_Simulations());
-  }
+    auto &get_Parameters_Distribution() const { return prior_; }
+    auto &get_Parameters() const { return p_; }
 
-  moments<Parameters_Values> get_Parameters_Moments() const {
-    return moments<Parameters_Values>(get_Parameters());
-  }
+    std::vector<ExperimentData> const &get_Simulations() const { return e_; }
+
+    std::vector<logLikelihood> const &get_Likelihoods() const { return s_; }
+
+    moments<logLikelihood> get_Likelihood_Moments() const {
+      return moments<logLikelihood>(get_Likelihoods());
+    }
+
+    moments<ExperimentData> get_Experiment_Moments() const {
+      return moments<ExperimentData>(get_Simulations());
+    }
+
+    moments<Parameters_Values> get_Parameters_Moments() const {
+      return moments<Parameters_Values>(get_Parameters());
+    }
 
   Likelihood_Analisis(Parameters_Distribution &&prior,
-                      std::vector<Parameters_Values> &&par,
-                      std::vector<ExperimentData> &&e,
-                      std::vector<logLikelihood> &&s)
-      : prior_{std::move(prior)}, p_{std::move(par)}, e_{std::move(e)},
-        s_{std::move(s)} {}
+                        std::vector<Parameters_Values> &&par,
+                        std::vector<ExperimentData> &&e,
+                        std::vector<logLikelihood> &&s)
+        : prior_{std::move(prior)}, p_{std::move(par)}, e_{std::move(e)},
+          s_{std::move(s)} {}
 
   Likelihood_Analisis(const Parameters_Distribution &prior,
                       const std::vector<Parameters_Values> &par,
@@ -1699,195 +1703,195 @@ private:
   std::vector<Parameters_Values> p_;
   std::vector<ExperimentData> e_;
   std::vector<logLikelihood> s_;
-};
+  };
 
-template <class ExperimentSimulation, class PartialDLogLikelihood>
-class Likelihood_sample {
-public:
-  constexpr static auto const className =
-      my_static_string("Likelihood_Test_sample");
+  template <class ExperimentSimulation, class PartialDLogLikelihood>
+  class Likelihood_sample {
+  public:
+    constexpr static auto const className =
+        my_static_string("Likelihood_Test_sample");
 
-  typedef Likelihood_sample self_type;
-  static auto get_constructor_fields() {
+    typedef Likelihood_sample self_type;
+    static auto get_constructor_fields() {
     return std::make_tuple(grammar::field(C<self_type>{}, "simulations",
                                           &self_type::getSimulations),
-                           grammar::field(C<self_type>{}, "likelihoods",
-                                          &self_type::getLikelihoods));
-  }
+                             grammar::field(C<self_type>{}, "likelihoods",
+                                            &self_type::getLikelihoods));
+    }
 
-  auto size() const { return s_.size(); }
-  M_Matrix<double> mean_Gradient() const {
-    M_Matrix<double> out = s_[0].G();
-    for (std::size_t i = 1; i < s_.size(); ++i)
-      out += s_[i].G();
-    return out / s_.size();
-  }
-  std::vector<M_Matrix<double>> partial_mean_Gradient() const {
-    auto ns = s_[0].partial_DlogL().size();
-    std::vector<M_Matrix<double>> out(ns);
-    for (std::size_t n = 0; n < ns; ++n) {
-      M_Matrix<double> m = s_[0].partial_DlogL()[n].G();
+    auto size() const { return s_.size(); }
+    M_Matrix<double> mean_Gradient() const {
+      M_Matrix<double> out = s_[0].G();
       for (std::size_t i = 1; i < s_.size(); ++i)
-        m += s_[i].partial_DlogL()[n].G();
-
-      out[n] = m / s_.size();
+        out += s_[i].G();
+      return out / s_.size();
     }
-    return out;
-  }
-  M_Matrix<double> mean_sqr_Gradient() const {
-    M_Matrix<double> out = quadraticForm_XTX(s_[0].G());
-    for (std::size_t i = 1; i < s_.size(); ++i)
-      out += quadraticForm_XTX(s_[i].G());
-    return out / s_.size();
-  }
-  std::vector<M_Matrix<double>> partial_sqr_Gradient() const {
-    auto ns = s_[0].partial_DlogL().size();
-    std::vector<M_Matrix<double>> out(ns);
-    for (std::size_t n = 0; n < ns; ++n) {
-      M_Matrix<double> m = quadraticForm_XTX(s_[0].partial_DlogL()[n].G());
-      for (std::size_t i = 1; i < s_.size(); ++i)
-        m += quadraticForm_XTX(s_[i].partial_DlogL()[n].G());
-      out[n] = m / s_.size();
-    }
-    return out;
-  }
+    std::vector<M_Matrix<double>> partial_mean_Gradient() const {
+      auto ns = s_[0].partial_DlogL().size();
+      std::vector<M_Matrix<double>> out(ns);
+      for (std::size_t n = 0; n < ns; ++n) {
+        M_Matrix<double> m = s_[0].partial_DlogL()[n].G();
+        for (std::size_t i = 1; i < s_.size(); ++i)
+          m += s_[i].partial_DlogL()[n].G();
 
-  M_Matrix<double> mean_Hessian() const {
-    M_Matrix<double> out = s_[0].H();
-    for (std::size_t i = 1; i < s_.size(); ++i)
-      out += s_[i].H();
-    return out / s_.size();
-  }
-
-  std::vector<M_Matrix<double>> partial_mean_Hessian() const {
-    auto ns = s_[0].partial_DlogL().size();
-    std::vector<M_Matrix<double>> out(ns);
-    for (std::size_t n = 0; n < ns; ++n) {
-      M_Matrix<double> m = s_[0].partial_DlogL()[n].H();
-      for (std::size_t i = 1; i < s_.size(); ++i)
-        m += s_[i].partial_DlogL()[n].H();
-
-      out[n] = m / s_.size();
-    }
-    return out;
-  }
-
-  std::vector<ExperimentSimulation> const &getSimulations() const { return e_; }
-
-  std::vector<PartialDLogLikelihood> const &getLikelihoods() const {
-    return s_;
-  }
-
-  Likelihood_sample(std::vector<ExperimentSimulation> &&e,
-                    std::vector<PartialDLogLikelihood> &&s)
-      : e_{std::move(e)}, s_{std::move(s)} {}
-
-  Likelihood_sample(const std::vector<ExperimentSimulation> &e,
-                    const std::vector<PartialDLogLikelihood> &s)
-      : e_{e}, s_{s} {}
-
-  Likelihood_sample() = default;
-
-private:
-  std::vector<ExperimentSimulation> e_;
-  std::vector<PartialDLogLikelihood> s_;
-};
-
-class Likelihood_Test {
-public:
-  static myOptional_t<std::pair<double, std::size_t>>
-  chitest(const M_Matrix<double> &mean, const M_Matrix<double> &Cov,
-          std::size_t nsamples, std::ostream &os) {
-    typedef myOptional_t<std::pair<double, std::size_t>> Op;
-    auto Cov_inv = inv(Cov);
-    if (!Cov_inv) {
-      return Op(false, "Covariance matrix is not inversible");
-    } else {
-      double chi2 = xTSigmaX(mean, Cov_inv.value()) * nsamples;
-      os << "\nchi2 =" << chi2 << " df=" << mean.size();
-
-      return Op({chi2, nsamples * mean.size()});
-    }
-  }
-
-  static std::pair<std::vector<double>, std::size_t>
-  t_test(const M_Matrix<double> &mean, const M_Matrix<double> &Cov,
-         std::size_t nsamples, std::ostream &os) {
-
-    std::vector<double> out(mean.size());
-    for (std::size_t i = 0; i < mean.size(); ++i)
-      if (mean[i] == 0)
-        out[i] = 0;
-      else
-        out[i] = mean[i] / std::sqrt(Cov(i, i) / nsamples);
-    os << "\nt test =" << out << " df=" << nsamples;
-    return {out, nsamples};
-  }
-
-  static myOptional_t<std::pair<double, std::size_t>>
-  Cov_test_1(const M_Matrix<double> &Cov, const M_Matrix<double> &CovExp,
-             std::size_t n, std::ostream &os) {
-    typedef myOptional_t<std::pair<double, std::size_t>> Op;
-    auto p = CovExp.ncols();
-    auto Cov_inv = inv(CovExp);
-    if (!Cov_inv.has_value())
-      return Op(false, "singular target covariance");
-    auto S = Cov * Cov_inv.value();
-    auto chol_S = chol(S, "lower");
-    double logdet = logDiagProduct(chol_S.value());
-
-    double TLR = n * (p * std::log(1) - logdet + Trace(S) - p);
-    os << "\n Trace(S)=" << Trace(S) << " logdet=" << logdet;
-    os << " TLR=" << TLR;
-    TLR = (1.0 - 1.0 / (6 * n - 1) * (2 * p + 1 - 2.0 / (p + 1))) * TLR;
-    os << " TLRc=" << TLR << " df=" << (p * (p + 1)) / 2;
-    return {{TLR, (p * (p + 1)) / 2}};
-  }
-
-  static myOptional_t<std::pair<double, std::size_t>>
-  Cov_test_2(const M_Matrix<double> &Cov, const M_Matrix<double> &CovExp,
-             std::size_t, std::ostream &os) {
-    typedef myOptional_t<std::pair<double, std::size_t>> Op;
-    auto p = CovExp.ncols();
-    auto Cov_inv = inv(CovExp);
-    if (!Cov_inv.has_value())
-      return Op(false, "singular target covariance");
-    auto S = Cov * Cov_inv.value();
-    auto TJn = 1.0 / p *
-               Trace(sqr(S / (1.0 / p * Trace(S)) -
-                         Matrix_Generators::eye<double>(p)));
-    os << "\nTJn= " << TJn - 1 << " df=" << (p * (p + 1)) / 2;
-
-    return {{TJn, (p * (p + 1)) / 2 - 1}};
-  }
-
-  static auto sample_Cov(std::mt19937_64 &mt, const M_Matrix<double> &Cov,
-                         std::size_t nsamples) {
-    typedef myOptional_t<std::pair<M_Matrix<double>, M_Matrix<double>>> Op;
-    auto k = Cov.ncols();
-    M_Matrix<double> mean(1, k, 0.0);
-    auto normal = Normal_Distribution<M_Matrix<double>>::make(mean, Cov);
-    if (!normal.has_value()) {
-      return Op(false, "\nsingular Covariance!!\n");
-    } else {
-      M_Matrix<double> S(k, k, Matrix_TYPE::SYMMETRIC, 0.0);
-      M_Matrix<double> m(1, k, 0.0);
-      for (std::size_t i = 0; i < nsamples; ++i) {
-        auto x = normal.value().sample(mt);
-        S += quadraticForm_XTX(x);
-        m += x;
+        out[n] = m / s_.size();
       }
-      return Op(std::pair(m / nsamples, S / nsamples));
+      return out;
     }
-  }
+    M_Matrix<double> mean_sqr_Gradient() const {
+      M_Matrix<double> out = quadraticForm_XTX(s_[0].G());
+      for (std::size_t i = 1; i < s_.size(); ++i)
+        out += quadraticForm_XTX(s_[i].G());
+      return out / s_.size();
+    }
+    std::vector<M_Matrix<double>> partial_sqr_Gradient() const {
+      auto ns = s_[0].partial_DlogL().size();
+      std::vector<M_Matrix<double>> out(ns);
+      for (std::size_t n = 0; n < ns; ++n) {
+        M_Matrix<double> m = quadraticForm_XTX(s_[0].partial_DlogL()[n].G());
+        for (std::size_t i = 1; i < s_.size(); ++i)
+          m += quadraticForm_XTX(s_[i].partial_DlogL()[n].G());
+        out[n] = m / s_.size();
+      }
+      return out;
+    }
+
+    M_Matrix<double> mean_Hessian() const {
+      M_Matrix<double> out = s_[0].H();
+      for (std::size_t i = 1; i < s_.size(); ++i)
+        out += s_[i].H();
+      return out / s_.size();
+    }
+
+    std::vector<M_Matrix<double>> partial_mean_Hessian() const {
+      auto ns = s_[0].partial_DlogL().size();
+      std::vector<M_Matrix<double>> out(ns);
+      for (std::size_t n = 0; n < ns; ++n) {
+        M_Matrix<double> m = s_[0].partial_DlogL()[n].H();
+        for (std::size_t i = 1; i < s_.size(); ++i)
+          m += s_[i].partial_DlogL()[n].H();
+
+        out[n] = m / s_.size();
+      }
+      return out;
+    }
+
+    std::vector<ExperimentSimulation> const &getSimulations() const { return e_; }
+
+    std::vector<PartialDLogLikelihood> const &getLikelihoods() const {
+      return s_;
+    }
+
+    Likelihood_sample(std::vector<ExperimentSimulation> &&e,
+                      std::vector<PartialDLogLikelihood> &&s)
+        : e_{std::move(e)}, s_{std::move(s)} {}
+
+    Likelihood_sample(const std::vector<ExperimentSimulation> &e,
+                      const std::vector<PartialDLogLikelihood> &s)
+        : e_{e}, s_{s} {}
+
+    Likelihood_sample() = default;
+
+  private:
+    std::vector<ExperimentSimulation> e_;
+    std::vector<PartialDLogLikelihood> s_;
+  };
+
+  class Likelihood_Test {
+  public:
+    static myOptional_t<std::pair<double, std::size_t>>
+    chitest(const M_Matrix<double> &mean, const M_Matrix<double> &Cov,
+            std::size_t nsamples, std::ostream &os) {
+      typedef myOptional_t<std::pair<double, std::size_t>> Op;
+      auto Cov_inv = inv(Cov);
+      if (!Cov_inv) {
+        return Op(false, "Covariance matrix is not inversible");
+      } else {
+        double chi2 = xTSigmaX(mean, Cov_inv.value()) * nsamples;
+        os << "\nchi2 =" << chi2 << " df=" << mean.size();
+
+        return Op({chi2, nsamples * mean.size()});
+      }
+    }
+
+    static std::pair<std::vector<double>, std::size_t>
+    t_test(const M_Matrix<double> &mean, const M_Matrix<double> &Cov,
+           std::size_t nsamples, std::ostream &os) {
+
+      std::vector<double> out(mean.size());
+      for (std::size_t i = 0; i < mean.size(); ++i)
+        if (mean[i] == 0)
+          out[i] = 0;
+        else
+          out[i] = mean[i] / std::sqrt(Cov(i, i) / nsamples);
+      os << "\nt test =" << out << " df=" << nsamples;
+      return {out, nsamples};
+    }
+
+    static myOptional_t<std::pair<double, std::size_t>>
+    Cov_test_1(const M_Matrix<double> &Cov, const M_Matrix<double> &CovExp,
+               std::size_t n, std::ostream &os) {
+      typedef myOptional_t<std::pair<double, std::size_t>> Op;
+      auto p = CovExp.ncols();
+      auto Cov_inv = inv(CovExp);
+      if (!Cov_inv.has_value())
+        return Op(false, "singular target covariance");
+      auto S = Cov * Cov_inv.value();
+      auto chol_S = chol(S, "lower");
+      double logdet = logDiagProduct(chol_S.value());
+
+      double TLR = n * (p * std::log(1) - logdet + Trace(S) - p);
+      os << "\n Trace(S)=" << Trace(S) << " logdet=" << logdet;
+      os << " TLR=" << TLR;
+      TLR = (1.0 - 1.0 / (6 * n - 1) * (2 * p + 1 - 2.0 / (p + 1))) * TLR;
+      os << " TLRc=" << TLR << " df=" << (p * (p + 1)) / 2;
+      return {{TLR, (p * (p + 1)) / 2}};
+    }
+
+    static myOptional_t<std::pair<double, std::size_t>>
+    Cov_test_2(const M_Matrix<double> &Cov, const M_Matrix<double> &CovExp,
+               std::size_t, std::ostream &os) {
+      typedef myOptional_t<std::pair<double, std::size_t>> Op;
+      auto p = CovExp.ncols();
+      auto Cov_inv = inv(CovExp);
+      if (!Cov_inv.has_value())
+        return Op(false, "singular target covariance");
+      auto S = Cov * Cov_inv.value();
+      auto TJn = 1.0 / p *
+                 Trace(sqr(S / (1.0 / p * Trace(S)) -
+                           Matrix_Generators::eye<double>(p)));
+      os << "\nTJn= " << TJn - 1 << " df=" << (p * (p + 1)) / 2;
+
+      return {{TJn, (p * (p + 1)) / 2 - 1}};
+    }
+
+    static auto sample_Cov(std::mt19937_64 &mt, const M_Matrix<double> &Cov,
+                           std::size_t nsamples) {
+      typedef myOptional_t<std::pair<M_Matrix<double>, M_Matrix<double>>> Op;
+      auto k = Cov.ncols();
+      M_Matrix<double> mean(1, k, 0.0);
+      auto normal = Normal_Distribution<M_Matrix<double>>::make(mean, Cov);
+      if (!normal.has_value()) {
+        return Op(false, "\nsingular Covariance!!\n");
+      } else {
+        M_Matrix<double> S(k, k, Matrix_TYPE::SYMMETRIC, 0.0);
+        M_Matrix<double> m(1, k, 0.0);
+        for (std::size_t i = 0; i < nsamples; ++i) {
+          auto x = normal.value().sample(mt);
+          S += quadraticForm_XTX(x);
+          m += x;
+        }
+        return Op(std::pair(m / nsamples, S / nsamples));
+      }
+    }
 
   template <class Simulation_Model, class FIM_Model, class Data,
             class ParametersDistribution, class Parameters>
   static auto compute_Sample(std::ostream &os, const Simulation_Model &sim,
                              const FIM_Model &fim, const Data &e,
                              const ParametersDistribution &prior,
-                             const Parameters &p, std::vector<double> &epsG,
-                             bool centered, std::mt19937_64 &mt) {
+                               const Parameters &p, std::vector<double> &epsG,
+                               bool centered, std::mt19937_64 &mt) {
     auto data = sim.compute_simulation(e, p, mt);
     typedef std::decay_t<decltype(data.value())> sim_type;
     typedef myOptional_t<
@@ -2020,7 +2024,7 @@ public:
         }
 
         for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-          //#pragma omp parallel for
+#pragma omp parallel for
           for (std::size_t ni = 0; ni < 8; ++ni) {
             std::size_t i = nc * 8 + ni;
             auto logL = compute_Sample(oss[ni], sim, fim, e, prior, p, eps,
@@ -2044,7 +2048,7 @@ public:
 
       auto mtvec = mts(mt, 8);
       for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-        //#pragma omp parallel for
+#pragma omp parallel for
         for (std::size_t ni = 0; ni < 8; ++ni) {
           std::size_t i = nc * 8 + ni;
           auto logL =
@@ -2101,7 +2105,7 @@ public:
 
     auto mtvec = mts(mt, 8);
     for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
-      //#pragma omp parallel for
+#pragma omp parallel for
       for (std::size_t ni = 0; ni < 8; ++ni) {
         std::size_t i = nc * 8 + ni;
         auto logL = compute_Sample_derivative(oss[ni], sim, dm, e, dprior, p,
@@ -2366,8 +2370,8 @@ public:
                                mysamples.value().getSimulations(),
                                mysamples.value().getLikelihoods());
   }
-};
+  };
 
-} // namespace evidence
+  } // namespace evidence
 
 #endif // MYLIKELIHOOD_H

@@ -15,15 +15,16 @@ class Derivative<markov::mp_state_information> {
   Derivative<double> y_var_;
   Derivative<double> plogL_;
   Derivative<double> eplogL_;
+  double vplogL_;
 
 public:
   Derivative(Derivative<M_Matrix<double>> &&P_mean__,
              Derivative<M_Matrix<double>> &&P_cov__,
              Derivative<double> &&y_mean__, Derivative<double> &&y_var__,
-             Derivative<double> &&plogL__, Derivative<double> &&eplogL__)
+             Derivative<double> &&plogL__, Derivative<double> &&eplogL__, double vplogL__)
       : P_mean_{std::move(P_mean__)}, P_cov_{std::move(P_cov__)},
         y_mean_{std::move(y_mean__)}, y_var_{std::move(y_var__)},
-        plogL_{std::move(plogL__)}, eplogL_{std::move(eplogL__)} {}
+        plogL_{std::move(plogL__)}, eplogL_{std::move(eplogL__)}, vplogL_{vplogL__} {}
 
   Derivative() = default;
   auto &P_mean() const { return P_mean_; }
@@ -33,6 +34,8 @@ public:
   auto &y_var() const { return y_var_; }
   auto &plogL() const { return plogL_; }
   auto &eplogL() const { return eplogL_; }
+  auto vplogL() const { return vplogL_; }
+
   auto &x() const { return y_mean().x(); }
   typedef Derivative self_type;
   constexpr static auto className =
@@ -44,14 +47,15 @@ public:
         grammar::field(C<self_type>{}, "y_mean", &self_type::y_mean),
         grammar::field(C<self_type>{}, "y_var", &self_type::y_var),
         grammar::field(C<self_type>{}, "plogL", &self_type::plogL),
-        grammar::field(C<self_type>{}, "eplogL", &self_type::eplogL));
+        grammar::field(C<self_type>{}, "eplogL", &self_type::eplogL),
+        grammar::field(C<self_type>{}, "vplogL", &self_type::vplogL));
   }
 
   static Derivative<markov::mp_state_information>
   adjust(Derivative<M_Matrix<double>> &&P_mean__,
          Derivative<M_Matrix<double>> &&P_cov__, Derivative<double> &&y_mean__,
          Derivative<double> &&y_var__, Derivative<double> &&plogL__,
-         Derivative<double> &&eplogL__, double min_p, double min_var) {
+         Derivative<double> &&eplogL__, double vplogL__,double min_p, double min_var) {
     return Derivative<markov::mp_state_information>(
         Derivative<Probability_distribution>::normalize(std::move(P_mean__),
                                                         min_p),
@@ -59,7 +63,7 @@ public:
             std::move(P_cov__), min_p),
         std::move(y_mean__),
         Derivative<variance_value>::adjust(std::move(y_var__), min_var),
-        std::move(plogL__), std::move(eplogL__));
+        std::move(plogL__), std::move(eplogL__), vplogL__);
   }
 
   static Op_void test(const Derivative<M_Matrix<double>> &P_mean__,
@@ -221,6 +225,7 @@ public:
                                prior.y_mean().x());
       Derivative<double> eplogL(0.0,
                                 prior.y_mean().x());
+      double vplogL=0;
       auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
       assert(are_Equal_v(P__cov,
                          Incremental_ratio(1e-4,
@@ -247,7 +252,7 @@ public:
       if (test.has_value())
         return Op(Derivative<markov::mp_state_information>::adjust(
             std::move(P_mean), std::move(P__cov), std::move(y_mean),
-            std::move(y_var), std::move(plogL), std::move(eplogL), Q_dt.min_P(),
+            std::move(y_var), std::move(plogL), std::move(eplogL), vplogL,Q_dt.min_P(),
             e.f()));
       else
         return Op(false, "fails at intertrace prediction!!: " + test.error());
@@ -286,6 +291,7 @@ public:
                                 Constant(-0.5); // e_mu+N*gSg"-N*zeta*sqr(sSg)"
     // double chilogL=(eplogL-plogL)/std::sqrt(0.5);
 
+    double vplogL=0.5;
     auto test = markov::mp_state_information::test(
         P_mean.f(), P__cov.f(), y_mean.f(), y_var.f(), plogL.f(), eplogL.f(),
         e.f(), tolerance());
@@ -300,7 +306,7 @@ public:
     } else
       return Op(Derivative<markov::mp_state_information>::adjust(
           std::move(P_mean), std::move(P__cov), std::move(y_mean),
-          std::move(y_var), std::move(plogL), std::move(eplogL), Q_dt.min_P(),
+          std::move(y_var), std::move(plogL), std::move(eplogL), vplogL,Q_dt.min_P(),
           e.f()));
   }
 
@@ -470,6 +476,7 @@ public:
                                 Constant(-0.5); // e_mu+N*gSg"-N*zeta*sqr(sSg)"
     // double chilogL=(eplogL-plogL)/std::sqrt(0.5);
 
+    double vplogL=0.5;
     //      std::cerr<<" \n\n----test----\n"<<test.error()<<"\n";
     auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
     auto P_mean = prior.P_mean() * Q_dt.P();
@@ -499,7 +506,7 @@ public:
     } else
       return Op(Derivative<markov::mp_state_information>::adjust(
           std::move(P_mean), std::move(P__cov), std::move(y_mean),
-          std::move(y_var), std::move(plogL), std::move(eplogL), Q_dt.min_P(),
+          std::move(y_var), std::move(plogL), std::move(eplogL),vplogL, Q_dt.min_P(),
           e.f()));
   }
 
@@ -1281,6 +1288,7 @@ public:
                              prior.y_mean().x());
     Derivative<double> eplogL(0.0,
                               prior.y_mean().x());
+    double vplogL=0.0;
     auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
       assert(are_Equal_v(P__cov,
                          Incremental_ratio(1e-4,
@@ -1307,7 +1315,7 @@ public:
       if (test.has_value())
         return Op(Derivative<markov::mp_state_information>::adjust(
             std::move(P_mean), std::move(P__cov), std::move(y_mean),
-            std::move(y_var), std::move(plogL), std::move(eplogL), Q_dt.min_P(),
+            std::move(y_var), std::move(plogL), std::move(eplogL), vplogL,Q_dt.min_P(),
             e.f()));
       else
         return Op(false, "fails at intertrace prediction!!: " + test.error());
@@ -1397,6 +1405,7 @@ public:
   else
     plogL.f() = std::numeric_limits<double>::infinity();
 
+  double vplogL=0.5;
     assert((Derivative_correctness_mean_value_test(
       1e-2, 1e-8,[](auto y_var_, auto chi2_) {
         return
@@ -1427,12 +1436,12 @@ public:
   } else if constexpr (false)
     return Op(Derivative<markov::mp_state_information>::adjust(
         std::move(P_mean), std::move(P__cov), std::move(y_mean),
-        std::move(y_var), std::move(plogL), std::move(eplogL), Q_dt.min_P(),
+        std::move(y_var), std::move(plogL), std::move(eplogL), vplogL,Q_dt.min_P(),
         e.f()));
   else {
     return Op(Derivative<markov::mp_state_information>(
         std::move(P_mean), std::move(P__cov), std::move(y_mean),
-        std::move(y_var), std::move(plogL), std::move(eplogL)));
+        std::move(y_var), std::move(plogL),std::move(eplogL),vplogL));
 
   }
   }
@@ -1453,7 +1462,7 @@ public:
       return Op(Derivative<markov::mp_state_information>::adjust(
           std::move(P_mean).value(), std::move(P_cov),
           Derivative<double>(nan, x), Derivative<double>(nan, x),
-          Derivative<double>(nan, x), Derivative<double>(nan, x), min_p, 0));
+          Derivative<double>(nan, x), Derivative<double>(nan, x), 0.0,min_p, 0));
     }
   }
   Derivative(double tolerance, double binomial_magical, double variance_magical)
@@ -1519,7 +1528,7 @@ struct Derivative_partialDistribution_function_aux {
       Derivative<Normal_Distribution<double>> n(mp.y_mean(), mp.y_var());
 
       typename PartialDlogLikelihood::base_type logL(false,
-          mp.plogL().f(), mp.eplogL().f(),sqr(mp.plogL().f()- mp.eplogL().f()), 0.5, mp.plogL().dfdx(), -n.FIM(),quadraticForm_XTX(mp.plogL().dfdx()));
+                                                     mp.plogL().f(), mp.eplogL().f(),sqr(mp.plogL().f()- mp.eplogL().f()), mp.vplogL(), mp.plogL().dfdx(), -n.FIM(),quadraticForm_XTX(mp.plogL().dfdx()));
       v.add_one_i(i, logL, macror_alg);
       ++i;
     } else { // this fork does not make much sense for derivatives, or it does?

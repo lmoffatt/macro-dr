@@ -19,6 +19,8 @@ class mp_state_information {
   double y_var_;
   double plogL_;
   double eplogL_;
+  double vplogL_;
+
 
 public:
   typedef mp_state_information self_type;
@@ -30,7 +32,8 @@ public:
         grammar::field(C<self_type>{}, "y_mean", &self_type::y_mean),
         grammar::field(C<self_type>{}, "y_var", &self_type::y_var),
         grammar::field(C<self_type>{}, "plogL", &self_type::plogL),
-        grammar::field(C<self_type>{}, "eplogL", &self_type::eplogL));
+        grammar::field(C<self_type>{}, "eplogL", &self_type::eplogL),
+        grammar::field(C<self_type>{}, "vplogL", &self_type::vplogL));
   }
 
   static Op_void close_to_zero_test(const M_Matrix<double> &P_mean__,
@@ -109,26 +112,26 @@ public:
   static mp_state_information adjust(M_Matrix<double> &&P_mean__,
                                      M_Matrix<double> &&P_cov__,
                                      double y_mean__, double y_var__,
-                                     double plogL__, double eplogL__,
+                                     double plogL__, double eplogL__, double vplogL__,
                                      double min_p, double min_var) {
     return mp_state_information(
         Probability_distribution::normalize(std::move(P_mean__), min_p),
         Probability_distribution_covariance::normalize(std::move(P_cov__),
                                                        min_p),
-        y_mean__, variance_value::adjust(y_var__, min_var), plogL__, eplogL__);
+        y_mean__, variance_value::adjust(y_var__, min_var), plogL__, eplogL__,vplogL__);
   }
   mp_state_information(M_Matrix<double> &&P_mean__, M_Matrix<double> &&P_cov__,
                        double y_mean__, double y_var__, double plogL__,
-                       double eplogL__)
+                       double eplogL__, double vplogL__)
       : P_mean_{std::move(P_mean__)}, P_cov_{std::move(P_cov__)},
-        y_mean_{y_mean__}, y_var_{y_var__}, plogL_{plogL__}, eplogL_{eplogL__} {
+        y_mean_{y_mean__}, y_var_{y_var__}, plogL_{plogL__}, eplogL_{eplogL__}, vplogL_{vplogL__} {
   }
 
   mp_state_information(const M_Matrix<double> &P_mean__,
                        const M_Matrix<double> &P_cov__, double y_mean__,
-                       double y_var__, double plogL__, double eplogL__)
+                       double y_var__, double plogL__, double eplogL__, double vplogL__)
       : P_mean_{P_mean__}, P_cov_{P_cov__}, y_mean_{y_mean__}, y_var_{y_var__},
-        plogL_{plogL__}, eplogL_{eplogL__} {}
+        plogL_{plogL__}, eplogL_{eplogL__}, vplogL_{vplogL__} {}
 
   mp_state_information() = default;
   const M_Matrix<double> &P_mean() const { return P_mean_; }
@@ -138,6 +141,7 @@ public:
   double y_var() const { return y_var_; }
   double plogL() const { return plogL_; }
   double eplogL() const { return eplogL_; }
+  double vplogL() const { return vplogL_; }
 };
 
 } // namespace markov
@@ -346,6 +350,7 @@ public:
     auto y_mean = N * (prior.P_mean() * Q_dt.gmean_i()).getvalue();
     auto y_var = e_mu + N * gSg;
     if (std::isnan(y)) {
+      double vplogL=0.0;
       double plogL = std::numeric_limits<double>::quiet_NaN();
       double eplogL = std::numeric_limits<double>::quiet_NaN();
       auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
@@ -357,7 +362,7 @@ public:
       if (test.has_value())
         return Op(mp_state_information::adjust(std::move(P_mean),
                                                std::move(P__cov), y_mean, y_var,
-                                               plogL, eplogL, Q_dt.min_P(), e));
+                                               plogL, eplogL, vplogL,Q_dt.min_P(), e));
       else
         return Op(false, "fails at intertrace prediction!!: " + test.error());
     }
@@ -379,6 +384,8 @@ public:
         -0.5 * log(2 * PI * y_var) - 0.5; // e_mu+N*gSg"-N*zeta*sqr(sSg)"
     // double chilogL=(eplogL-plogL)/std::sqrt(0.5);
 
+    double vplogL=0.5;
+
     auto test = mp_state_information::test(P_mean, P__cov, y_mean, y_var, plogL,
                                            eplogL, e, tolerance());
     if (!test) {
@@ -392,7 +399,7 @@ public:
     } else
       return Op(mp_state_information::adjust(std::move(P_mean),
                                              std::move(P__cov), y_mean, y_var,
-                                             plogL, eplogL, Q_dt.min_P(), e));
+                                             plogL, eplogL, vplogL,Q_dt.min_P(), e));
   }
 
   template <class Model, class Step>
@@ -546,6 +553,7 @@ public:
 
     auto chi2 = dy * chi;
 
+
     double plogL;
     if (y_var > 0)
       plogL = -0.5 * log(2 * PI * y_var) - 0.5 * chi2;
@@ -556,6 +564,7 @@ public:
         -0.5 * log(2 * PI * y_var) - 0.5; // e_mu+N*gSg"-N*zeta*sqr(sSg)"
     // double chilogL=(eplogL-plogL)/std::sqrt(0.5);
 
+    double vplogL=0.5;
     //      std::cerr<<" \n\n----test----\n"<<test.error()<<"\n";
     auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
     auto P_mean = prior.P_mean() * Q_dt.P();
@@ -584,7 +593,7 @@ public:
     } else
       return Op(mp_state_information::adjust(std::move(P_mean),
                                              std::move(P__cov), y_mean, y_var,
-                                             plogL, eplogL, Q_dt.min_P(), e));
+                                             plogL, eplogL,vplogL, Q_dt.min_P(), e));
   }
 
   template <class Model, class Step>
@@ -1187,8 +1196,10 @@ public:
       y_var = std::max(e_mu + N * gSg - N * zeta * sqr(sSg), e);
     }
     if (std::isnan(y)) {
+
       double plogL = std::numeric_limits<double>::quiet_NaN();
       double eplogL = std::numeric_limits<double>::quiet_NaN();
+      double vplogL=0.0;
       auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
       auto P_mean = prior.P_mean() * Q_dt.P();
       P__cov += diag(P_mean);
@@ -1198,7 +1209,7 @@ public:
       if (test.has_value())
         return Op(mp_state_information::adjust(std::move(P_mean),
                                                std::move(P__cov), y_mean, y_var,
-                                               plogL, eplogL, Q_dt.min_P(), e));
+                                               plogL, eplogL,vplogL, Q_dt.min_P(), e));
       else
         return Op(false, "fails at intertrace prediction!!: " + test.error());
     }
@@ -1249,6 +1260,7 @@ public:
         -0.5 * log(2 * PI * y_var) - 0.5; // e_mu+N*gSg"-N*zeta*sqr(sSg)"
     // double chilogL=(eplogL-plogL)/std::sqrt(0.5);
 
+    double vplogL=0.5;
     auto test = mp_state_information::test(P_mean, P__cov, y_mean, y_var, plogL,
                                            eplogL, e, tolerance());
     if (!test) {
@@ -1262,7 +1274,7 @@ public:
     } else
       return Op(mp_state_information::adjust(std::move(P_mean),
                                              std::move(P__cov), y_mean, y_var,
-                                             plogL, eplogL, Q_dt.min_P(), e));
+                                             plogL, eplogL,vplogL, Q_dt.min_P(), e));
   }
 
   template <class Model, class Step>
@@ -1276,9 +1288,10 @@ public:
     else {
       auto P_cov = diag(P_mean.value()) - quadraticForm_XTX(P_mean.value());
       double nan = std::numeric_limits<double>::quiet_NaN();
+
       return Op(mp_state_information::adjust(std::move(P_mean).value(),
-                                             std::move(P_cov), nan, nan, nan,
-                                             nan, min_p, 0));
+                                             std::move(P_cov), nan, nan, nan,nan,0.0,
+                                             min_p, 0));
     }
   }
   double tolerance() const { return tolerance_; }
@@ -1370,6 +1383,7 @@ public:
     if (std::isnan(y)) {
       double plogL = std::numeric_limits<double>::quiet_NaN();
       double eplogL = std::numeric_limits<double>::quiet_NaN();
+      double vplogL=0.0;
       auto P__cov = quadraticForm_BT_A_B(SmD, Q_dt.P());
       auto P_mean = prior.P_mean() * Q_dt.P();
       P__cov += diag(P_mean);
@@ -1379,7 +1393,7 @@ public:
       if (test.has_value())
         return Op(mp_state_information::adjust(std::move(P_mean),
                                                std::move(P__cov), y_mean, y_var,
-                                               plogL, eplogL, Q_dt.min_P(), e));
+                                               plogL, eplogL,vplogL, Q_dt.min_P(), e));
       else
         return Op(false, "fails at intertrace prediction!!: " + test.error());
     } else {

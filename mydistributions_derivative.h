@@ -340,7 +340,7 @@ public:
              quadraticForm_XXT(variance().dfdx()) * d2logL_dvariance2();
     else
       return quadraticForm_XTX(mean().dfdx()) * d2logL_dmean2() +
-             quadraticForm_XXT(variance().dfdx()) * d2logL_dvariance2();
+             quadraticForm_XTX(variance().dfdx()) * d2logL_dvariance2();
   }
 
 protected:

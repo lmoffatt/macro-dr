@@ -281,6 +281,14 @@ inline M_Matrix<double> Taylor_first(const Derivative<M_Matrix<double>> &dx,
   return dx.f() + dx.dfdx()[i] * eps;
 }
 
+
+inline double Directional_Derivative(const double &dx,
+                                                 const M_Matrix<double> &,
+                                                 std::size_t , double ) {
+  return dx;
+}
+
+
 inline Derivative<double> Directional_Derivative(const Derivative<double> &dx,
                                                  const M_Matrix<double> &new_x,
                                                  std::size_t i, double eps) {
