@@ -224,7 +224,7 @@ public:
       bool equal_dfdx_i = are_Equal<output, M_Matrix<T>>(absolute_, relative_)
                               .test_prod(one.dfdx()[i], two.dfdx()[i], ss_df);
       if (!equal_dfdx_i)
-        os << " \n error in the" << i << "th derivative function!!!\n "
+      os << " \n error in the" << i << "th derivative function!!!\n "
            << ss_df.str() << " error in the" << i
            << "\n th derivative function "
               "END-------------------------------!!!\n";
@@ -260,9 +260,14 @@ private:
   double relative_;
 };
 
+
 inline double Taylor_first(const Derivative<double> &dx, std::size_t i,
                            double eps) {
   return dx.f() + dx.dfdx()[i] * eps;
+}
+
+inline bool isnan(const Derivative<double> &dx) {
+  return std::isnan(dx.f());
 }
 
 template <class F>
@@ -281,10 +286,13 @@ inline M_Matrix<double> Taylor_first(const Derivative<M_Matrix<double>> &dx,
   return dx.f() + dx.dfdx()[i] * eps;
 }
 
+inline bool isnan(const Derivative<M_Matrix<double>> &dx) {
+  return isnan(dx.f());
+}
 
 inline double Directional_Derivative(const double &dx,
-                                                 const M_Matrix<double> &,
-                                                 std::size_t , double ) {
+                                     const M_Matrix<double> &,
+                                     std::size_t , double ) {
   return dx;
 }
 
@@ -491,6 +499,9 @@ C Taylor_first(const Derivative<C> &dy, std::size_t i, double eps) {
       fields);
 }
 
+
+
+
 template <class C>
 Derivative<C> Directional_Derivative(const Derivative<C> &dy,
                                      const M_Matrix<double> &new_x,
@@ -506,9 +517,9 @@ Derivative<C> Directional_Derivative(const Derivative<C> &dy,
 
 template <class C>
 auto Incremental_ratio_calc(const std::vector<double> &eps, const C &f,
-                            const M_Matrix<double> &x,
-                            const std::vector<C> &fpos,
-                            const std::vector<C> &fneg)
+                                const M_Matrix<double> &x,
+                                const std::vector<C> &fpos,
+                                const std::vector<C> &fneg)
     -> std::enable_if_t<is_field_Object<C>::value &&
                             is_field_Object<Derivative<C>>::value,
                         Derivative<C>> {
@@ -589,8 +600,9 @@ auto Incremental_ratio_object(double eps, const F &fun,
 inline bool mean_value_test(
     double eps, double tol,double f, double feps, double df, double dfeps,
     std::ostream &os) {
-  if (std::abs((feps - f) - (df + dfeps) * eps / 2.0) >
-      200.0* std::abs((dfeps - df) * eps) + tol) {
+  if (std::isnan(f+feps+df+dfeps)||
+      (std::abs((feps - f) - (df + dfeps) * eps / 2.0) >
+       (200.0* std::abs((dfeps - df) * eps)+std::sqrt(std::numeric_limits<double>::epsilon()) / tol))){
     double deltaf = (feps - f) / eps;
     double dfm = (df + dfeps) / 2;
     double dferr = std::abs(dfeps - df);
@@ -678,7 +690,7 @@ bool mean_value_test_method_calc(const std::vector<double> &eps,double tol,
 template <class DerivativeObject>
 auto mean_value_test_calc(const std::vector<double> &eps,
                               double tol,
-                          const DerivativeObject &y,
+                              const DerivativeObject &y,
                           const std::vector<DerivativeObject> &yeps,
                           std::ostream &os)
     -> std::enable_if_t<is_field_Object<DerivativeObject>::value, bool> {
@@ -744,6 +756,21 @@ bool Derivative_correctness_mean_value_test(double eps, double tol,const Diff &D
                              Directional_Derivative(t, new_x, i, e[i])...);
         },
         x0);
+    if constexpr (std::is_same_v<Y,double>|| std::is_same_v<Y,M_Matrix<double >>)
+    {
+      while(!isnan(y)&&isnan(yeps[i]))
+      {
+        e[i] *=0.125;
+        M_Matrix<double> new_x(1, 1, y.x()[i] + e[i]);
+      yeps[i] = std::apply(
+        [&Dfunction, &i, &eps, &new_x, &e](auto const &... t) {
+              return std::invoke(Dfunction,
+                                 Directional_Derivative(t, new_x, i, e[i])...);
+            },
+            x0);
+      }
+    }
+
   }
   std::stringstream ss;
   bool out = mean_value_test_calc(e, tol,y, yeps, os);
@@ -793,7 +820,7 @@ auto log(const Derivative<double> &x) {
 
 auto sqrt(const Derivative<double> &x) {
   return Derivative<double>(std::sqrt(x.f()), x.x(),
-                            0.5*x.dfdx() / std::sqrt(x.f()));
+                            (0.5 / std::sqrt(x.f()))*x.dfdx());
 }
 
 auto exp(const Derivative<M_Matrix<double>> &x) {

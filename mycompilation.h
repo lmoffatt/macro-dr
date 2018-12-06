@@ -846,7 +846,7 @@ public:
             if (o)
             {
                 cm->set(C<std::decay_t<T>>{},id_,o.value());
-                return {};
+                return o.error();
             }
             else return o.error();
         }
@@ -1161,6 +1161,7 @@ private:
 public:
     virtual myOptional_t<T> run(Cm* cm) const override
     {
+      typedef myOptional_t<T> Op;
         F f(f_);
 
         auto tu= std::apply([&cm](auto&...x){
@@ -1176,46 +1177,46 @@ public:
             },tu);
             if (!res)
                 return std::apply([](auto&...x){
-                    return myOptional_t<T>{false,"error in function"+((x.error()+"  ")+...)};
+                    return myOptional_op<T>{false,"error in function"+((x.error()+"  ")+...)};
                 },tu);
         }
 
         if constexpr (contains_constructor<F>::value)
                 return std::apply([](auto&&...x){
-            return myOptional_t<T>(T(std::move(x).value()...));   // std::move(x).value() so it uses value()&& ->makes unique_ptr to use release()
+            return Op(T(std::move(x).value()...));   // std::move(x).value() so it uses value()&& ->makes unique_ptr to use release()
         },std::move(tu));
         else if constexpr (contains_derived_constructor<F>::value)
                 return std::apply([](auto&&...x){
-            return myOptional_t<T>(new typename F::derived_type(std::move(x).value()...));
+            return Op(new typename F::derived_type(std::move(x).value()...));
         },std::move(tu));
         else if constexpr (contains_loader<F>::value)
         {
             auto f=std::get<myOptional_t<std::string>>(tu);
             if (!f.has_value())
             {
-                return {false,"filename was not provided"};
+              return Op(false,"filename was not provided");
             }
             else {
                 std::ifstream fe;
                 fe.open(f.value().c_str());
                 if (!fe)
-                    return myOptional_t<T>(false,"file" + f.value()+" not found");
+                    return Op(false,"file" + f.value()+" not found");
                 else
                 {
                     std::decay_t<T> x;
                     x.read(fe);
                     if (fe.good()||fe.eof())
-                        return myOptional_t<T>(std::move(x));
-                    else return myOptional_t<T>(false,"error in reading the file");
+                        return Op(std::move(x));
+                    else return Op(false,"error in reading the file");
                 }
             }
         }
         else if constexpr (contains_valuer<F>::value)
         {
-            return std::get<myOptional_t<T>>(tu);
+            return std::get<Op>(tu);
         }
         else    return std::apply([&f](auto&&...x){
-            return myOptional_t<T>(f(std::move(x).value()...));
+            return Op(f(std::move(x).value()...));
         },std::move(tu));
 
     }
@@ -1224,9 +1225,10 @@ public:
 
     virtual myOptional_t<T> run(const Cm* cm) const override
     {
+      typedef myOptional_t<T> Op;
         F f(f_);
         if constexpr(is_variable_ref<T>::value|| has_variable_ref)
-                return myOptional_t<T>(false," try to change a constant command Manager");
+                return Op(false," try to change a constant command Manager");
         else
         {
             auto tu= std::apply([&cm](auto&...x){return std::make_tuple(x->run(cm)...); },a_);
@@ -1239,18 +1241,18 @@ public:
 
                 if(!res)
                     return std::apply([](auto&...x){
-                        return myOptional_t<T>{false,"error in function"+((x.error()+"  ")+...)};
+                    return Op(false,"error in function"+((x.error()+"  ")+...));
                     },tu);
             }
 
             if constexpr (contains_constructor<F>::value)
                     return std::apply([](auto&&...x){
-                return myOptional_t<T>(T(std::move(x).value()...));
+                return Op(T(std::move(x).value()...));
             },std::move(tu));
 
             else if constexpr (contains_derived_constructor<F>::value)
                     return std::apply([](auto&&...x){
-                return myOptional_t<T>(new typename F::derived_type(std::move(x).value()...));
+                return Op(new typename F::derived_type(std::move(x).value()...));
             },std::move(tu));
 
             else if constexpr (contains_loader<F>::value)

@@ -263,6 +263,14 @@ struct is_optional<std::optional<T>> : public std::true_type {};
 template <typename T>
 struct is_optional<std::optional<T> &> : public std::true_type {};
 
+
+template <class> struct is_myoptional : public std::false_type {};
+
+template <typename T, typename tag>
+struct is_myoptional<myOptional<T, tag>> : public std::true_type {};
+
+
+
 template <class> struct is_optional_ref : public std::false_type {};
 
 template <typename T>
@@ -270,7 +278,7 @@ struct is_optional_ref<std::optional<std::reference_wrapper<T>>>
     : public std::true_type {};
 
 template <typename T>
-using is_optional_v = typename is_optional<std::decay_t<T>>::value;
+static constexpr inline bool is_optional_v = is_myoptional<std::decay_t<T>>::value;
 
 template <class T> struct is_container : public std::false_type {};
 

@@ -79,6 +79,9 @@ bool all(const V<Ts...> &x) {
   return true;
 }
 
+
+
+
 template <template <typename...> class V, class... Ts>
 bool any(const V<bool, Ts...> &x) {
   for (std::size_t i = 0; i < x.size(); ++i)

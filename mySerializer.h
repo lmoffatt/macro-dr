@@ -311,7 +311,7 @@ template<typename T> std::istream& read(std::istream& is, T*& e)
     return is;
 }
 
-template<typename T> std::istream& read_optional(std::istream& is, myOptional_t<T>& e)
+template<typename T, class arg> std::istream& read_optional(std::istream& is, myOptional_t<T>& e)
 {
     T x;
     if (read(is,x))

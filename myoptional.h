@@ -51,10 +51,30 @@ template <typename T> class myOptional<T, const_derived_ptr_tag>;
 template <typename T> class myOptional<T, const_base_ptr_tag>;
 template <typename T> class myOptional<T, reg_tag>;
 
+template< class T>
+struct myOptional_impl
+{
+  typedef myOptional<T, typename optional_tag<T>::type> type;
+};
+
+template< class... Ts>
+struct myOptional_impl<myOptional<Ts...>>
+{
+  typedef myOptional<Ts ...> type;
+};
+
+
+
 template <typename T>
 using myOptional_t = myOptional<T, typename optional_tag<T>::type>;
 
+template <typename T>
+using myOptional_op = std::conditional_t<is_optional_v<T>,T,myOptional_t<T>>;
+
+
+
 typedef myOptional_t<void> Op_void;
+
 
 template <typename T> class myOptional<T, reg_tag> {
   T x_;
@@ -479,7 +499,7 @@ public:
 
   operator bool() { return has_; }
 
-  template <class T> myOptional &operator=(const myOptional_t<T> &other) {
+  template <class T, class arg> myOptional &operator=(const myOptional<T,arg> &other) {
     has_ = other.has_value();
     error_ = other.error();
     return *this;
@@ -562,6 +582,19 @@ Op_void consolidate(V<std::pair<Op_void, Op_void>> &&v) {
   }
   return Op_void(res, error);
 }
+
+
+
+template <template <typename...> class V>
+ std::string consolidate(const V<std::string>& errors)
+{
+  std::string out;
+  for (auto& e: errors)
+    out+=e;
+  return out;
+}
+
+
 
 template <class T> struct remove_myOptional { typedef T type; };
 

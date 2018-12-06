@@ -123,7 +123,7 @@ public:
                                 double>
           MC(SM, e, 1, tolerance_);
     assert((Derivative_correctness_mean_value_test(
-        1e-2,1e-8,
+        1e-2,1e-3,
         [this,&e](auto p) {
             return Derivative<SingleLigandModel>( m.Qs(p), m.g(p), e.Vm(), p.at(Number_of_Channels_Parameter_label()),
                                                  p.at(gaussian_noise_Parameter_label()), min_P_);

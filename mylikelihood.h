@@ -1033,7 +1033,7 @@ public:
 
   moments(const std::vector<evidence::PartialDLogLikelihood<Aux>> &data)
       : base_type(data), partial_(calc_moments(data)),
-        aux_(calc_aux_moments(data)) {}
+                                            aux_(calc_aux_moments(data)) {}
 
   moments(const base_type &base, const moments<double> &GHG,
           const std::vector<moments<evidence::DlogLikelihood>> &dlog,
@@ -2002,11 +2002,10 @@ private:
     std::vector<std::stringstream> oss(8);
     auto mtvec = mts(mt, 8);
 
-    bool succed = true;
     if (!init) {
       auto logL = compute_Sample_init(os, sim, fim, e, prior, p, mt);
       if (!logL.has_value())
-        succed = false;
+        return Op(false, "erron in get_sample"+logL.error());
       else {
         std::vector<double> eps(p.size());
         for (std::size_t i = 0; i < 1; ++i) {
@@ -2020,8 +2019,10 @@ private:
           auto logL =
               compute_Sample(os, sim, fim, e, prior, p, eps, centered, mt);
           if (!logL.has_value())
-            succed = false;
+            return Op(false, "erron in get_sample"+logL.error());
         }
+        std::vector<bool> succed(8,true);
+        std::vector<std::string> error(8,"");
 
         for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
 #pragma omp parallel for
@@ -2030,7 +2031,9 @@ private:
             auto logL = compute_Sample(oss[ni], sim, fim, e, prior, p, eps,
                                        centered, mtvec[ni]);
             if (!logL.has_value())
-              succed = false;
+            {
+              succed[ni] = false; error[ni]="in i=" +ToString(ni)+"  "+logL.error()+"\n";
+            }
             else {
               auto pair = std::move(logL).value();
               s[i] = std::move(pair.second);
@@ -2042,11 +2045,15 @@ private:
             os << ess.str();
             ess.str("");
           }
+          if(!all(succed))
+            return  Op(false, consolidate(error));
         }
       }
     } else {
 
       auto mtvec = mts(mt, 8);
+      std::vector<bool> succed(8,true);
+      std::vector<std::string> error(8,"");
       for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
 #pragma omp parallel for
         for (std::size_t ni = 0; ni < 8; ++ni) {
@@ -2054,7 +2061,7 @@ private:
           auto logL =
               compute_Sample_init(oss[ni], sim, fim, e, prior, p, mtvec[ni]);
           if (!logL.has_value())
-            succed = false;
+          {succed[ni] = false; error[ni]="in i=" +ToString(ni)+"  "+logL.error()+"\n";}
           else {
             auto pair = std::move(logL).value();
             s[i] = std::move(pair.second);
@@ -2066,17 +2073,13 @@ private:
           os << ess.str();
           ess.str("");
         }
+        if(!all(succed))
+          return  Op(false, consolidate(error));
+
       }
     }
-    if (!succed)
-      return Op(false, "failed in one of the samples");
     os << "\n successfully obtained " + ToString(nsamples) +
               " samples for Gradient_Expectancy_Test \n";
-    for (std::size_t i = 0; i < nsamples; ++i) {
-      os << "\n"
-         << s[i].logL() << "\t"
-         << sqr(s[i].logL() - s[i].elogL()) / s[i].vlogL() << "\t" << s[i].G();
-    }
 
     auto samples = Likelihood_sample(std::move(simuls), std::move(s));
     return Op(samples);
@@ -2203,9 +2206,15 @@ private:
                            const ParametersDistribution &prior,
                            const Parameters &p, std::mt19937_64 &mt,
                            std::size_t nsamples, double pvalue, bool init,
+
                            bool centergradient) {
+
+
     auto mysamples = get_sample(os, sim, fim, e, prior, p, mt, nsamples, init,
                                 centergradient);
+
+
+
     if constexpr (false) {
       auto Gmean = mysamples.value().mean_Gradient();
       os << "\n Gmean \n" << Gmean;
@@ -2279,8 +2288,15 @@ private:
                           << gradient_variance_test;
     }
     auto par = std::vector({prior.Parameter_to_tr(p)});
-    return Likelihood_Analisis(prior, par, mysamples.value().getSimulations(),
-                               mysamples.value().getLikelihoods());
+
+
+    auto out=Likelihood_Analisis(prior, par, mysamples.value().getSimulations(),
+                                  mysamples.value().getLikelihoods());
+    typedef myOptional_t<std::decay_t<decltype(out)>> Op;
+    if (!mysamples)
+      return Op(false, "Sampling failed!! \n"+mysamples.error());
+    else return Op(out);
+
   }
 
   template <class Simulation_Model, class Der_Model, class Data,
