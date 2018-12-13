@@ -213,7 +213,7 @@ private:
 
 template <class T, typename...Ts>
 bool are_Equal_v(const T &one, const T &other, std::ostream &os, Ts...context) {
-  if (!are_Equal<true, T>(std::sqrt(std::numeric_limits<double>::epsilon()*1e8),std::sqrt(std::numeric_limits<double>::epsilon()*1e8)).test(one, other, os))
+  if (!are_Equal<true, T>(std::sqrt(std::numeric_limits<double>::epsilon()*1e10),std::sqrt(std::numeric_limits<double>::epsilon()*1e10)).test(one, other, os))
   {
     (os<<...<<context);
     return false;

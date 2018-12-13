@@ -134,7 +134,30 @@ public:
 
 
 
+class Range
+{
+public:
+  constexpr static auto const className = my_static_string("Range");
+  typedef Range self_type;
+  static auto get_constructor_fields() {
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "min", &self_type::min),
+        grammar::field(C<self_type>{}, "max", &self_type::max));
+  }
 
+  Range (double minValue, double  maxValue ): min_{minValue}, max_{maxValue}{}
+
+  Range()=default;
+
+  bool operator()(double x)const {return x>min_&&x<max_;}
+
+ double min()const {return min_;}
+  double max()const {return max_;}
+
+private:
+  double min_=-std::numeric_limits<double>::infinity();
+  double max_=+std::numeric_limits<double>::infinity();
+};
 
 
 
@@ -148,6 +171,8 @@ public:
     std::string myClass()const override { return className.str();}
 
     typedef typename Model::myParameter_label par_label;
+    typedef std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>,Range> tuple;
+    typedef std::tuple<std::string,Base_Transformation<double>*, Base_Distribution<double>*,Range> tuple_ptr;
 
     // Base_Distribution interface
 public:
@@ -265,15 +290,24 @@ public:
 
 
 
-    virtual Parameters_values<Model> tr_to_Parameter(const M_Matrix<double>& val)const
+    virtual myOptional_t<Parameters_values<Model>> tr_to_Parameter(const M_Matrix<double>& val)const
     {
+      typedef myOptional_t<Parameters_values<Model>> Op;
         assert(val.size()==tu_.size());
         LabelMap_t<par_label> m;
+        std::vector<Op_void> res;
         for ( std::size_t i=0; i<val.size(); ++i)
         {
+          res.emplace_back(is_in_range(i,val[i]));
+          if (res[i])
+          {
             m[name(i)]=tr(i)->apply_inv(val[i]);
+          }
         }
-        return Parameters_values<Model>(m);
+        auto r=consolidate(std::move(res));
+        if (r)
+           return Op(Parameters_values<Model>(m));
+        else return Op(false,r.error());
     }
     virtual double tr_to_Parameter(double val, std::size_t ipar)const
     {
@@ -303,12 +337,18 @@ public:
 
     Base_Distribution<double> * dist(std::size_t i)const {return std::get<2>(tu_[i]).get();}
 
+    Range const & range(std::size_t i)const {return std::get<3>(tu_[i]);}
+
+    Op_void is_in_range(std::size_t i, double x)const { if (range(i)(x)) return Op_void(true,"");
+      else return Op_void(false,name(i)+"("+ToString(i)+"th parameter)="+ToString(x)+ "is outside "+ToString(range(i)));
+    }
+
     std::size_t size()const { return tu_.size();}
     
     auto getParameterDistributionMap()const {
-        std::vector<std::tuple<std::string,Base_Transformation<double>*, Base_Distribution<double>*>> out;
+        std::vector<tuple_ptr> out;
         for (std::size_t i=0; i<size(); ++i)
-            out[i]={name(i),tr(i),dist(i)};
+          out[i]={name(i),tr(i),dist(i),range(i)};
         return out;}
     typedef  Parameters_distribution<Model> self_type;
     constexpr static auto  className=my_trait<Model>::className+my_static_string("_Parameters_Distribution");
@@ -318,7 +358,7 @@ public:
                     grammar::field(C<self_type>{},"values",&self_type::getParameterDistributionMap));
     }
 
-    Parameters_distribution(const std::vector<std::tuple<std::string,Base_Transformation<double>*, Base_Distribution<double>*>>& in)
+    Parameters_distribution(const std::vector<tuple_ptr>& in)
         :tu_{tu2tp(in)}{}
 
     Parameters_distribution()=default;
@@ -334,28 +374,31 @@ public:
 
 
   protected:
-    ::std::vector<std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>>> tu_;
+
+    std::vector<tuple> tu_;
+
 
     static
-    std::vector<std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>>>
-    tu2tp(const std::vector<std::tuple<std::string,Base_Transformation<double>*, Base_Distribution<double>*>>& in)
+    std::vector<tuple>
+        tu2tp(const std::vector<tuple_ptr>& in)
     {
-        std::vector<std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>>> out;
+        std::vector<tuple> out;
         for (auto& e:in)
-            out.emplace_back(std::get<0>(e),std::get<1>(e), std::get<2>(e));
+          out.emplace_back(std::get<0>(e),std::get<1>(e), std::get<2>(e),std::get<3>(e));
         return out;
 
     }
 
-    std::vector<std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>>>
-    tucopy(const std::vector<std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>>>& in
+    std::vector<tuple>
+    tucopy(const std::vector<tuple>& in
            )
     {
-        std::vector<std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>>> out;
+        std::vector<tuple> out;
         for (auto& e:in)
             out.emplace_back(std::get<0>(e),
                              std::unique_ptr<Base_Transformation<double>>(std::get<1>(e)->clone()),
-                             std::unique_ptr<Base_Distribution<double>>(std::get<2>(e)->clone()));
+                           std::unique_ptr<Base_Distribution<double>>(std::get<2>(e)->clone()),
+                           std::get<3>(e));
         return out;
 
     }
@@ -383,15 +426,20 @@ public:
         return className.str();
     }
 
-    virtual Parameters_values<Model> tr_to_Parameter(const M_Matrix<double>& val)const override
+    virtual myOptional_t<Parameters_values<Model>> tr_to_Parameter(const M_Matrix<double>& val)const override
     {
-
+      typedef myOptional_t<Parameters_values<Model>> Op;
         assert(val.size()==base_type::size());
 
         auto out=fixed_values_;
         auto var=base_type::tr_to_Parameter(val);
-
-        return out<<var;
+        if (var)
+        {
+          auto v=std::move(var).value();
+          return Op(out<<v);
+        }
+        else
+          return var;
     }
 
     Parameters_distribution<Model> const & variable_parameters()const { return *this;}

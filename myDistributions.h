@@ -471,6 +471,8 @@ public:
 };
 
 
+
+
 template <>
 struct Derived_types<Base_Distribution<double>>
 {
@@ -1486,6 +1488,7 @@ public:
     double alpha()const {return a_[0];}
 
 private:
+  /// parameter alpha between 1 an infinity, 2 is good.
     M_Matrix<double> a_;
     double Z_;
 
@@ -1984,8 +1987,8 @@ public:
 
     }
 
-    template<template<typename...>class V>
-    Probability_map(const V<T>& x):p_(Uniform(x)),rev_(cumulative_reverse_map(p_)), nsamples_(0)
+    template<template<typename...>class V, typename...As>
+    Probability_map(const V<T,As...>& x):p_(Uniform(x)),rev_(cumulative_reverse_map(p_)), nsamples_(0)
     {}
     Probability_map()=default;
 
@@ -2137,6 +2140,19 @@ private:
     double nsamples_;
 
 };
+template<class Likelihood, class Data, typename T>
+std::pair<Probability_map<T>,double>
+Bayes_rule(const Likelihood& lik, const Data& data, const Probability_map<T>& prior)
+{
+  auto p=prior.p();
+  for (auto& e:p)
+  {
+    double l=lik(e.first,data);
+    e.second*=l;
+  }
+  double nsamples=prior.nsamples()+1;
+  return Probability_map<T>::normalize(p,nsamples);
+}
 
 
 template<typename T>
@@ -2160,7 +2176,9 @@ public:
         }
     }
 
-    static Beta_map UniformPrior(const std::map<T,double> a)
+
+
+    static Beta_map UniformPrior(const std::map<T,double>& a)
     {
         std::map<T,Beta_Distribution> o;
         for (auto& e:a)
@@ -2169,12 +2187,29 @@ public:
     }
 
 
-    static Beta_map UnInformativePrior(const std::map<T,double> a)
+    static Beta_map UnInformativePrior(const std::map<T,double>& a)
     {
         std::map<T,Beta_Distribution> o;
         for (auto& e:a)
             o[e.first]=Beta_Distribution::UnInformativePrior();
         return Beta_map(o);
+    }
+
+    static Beta_map UniformPrior(const std::vector<T>& a)
+    {
+      std::map<T,Beta_Distribution> o;
+      for (auto& e:a)
+        o[e]=Beta_Distribution::UniformPrior();
+      return Beta_map(o);
+    }
+
+
+    static Beta_map UnInformativePrior(const std::vector<T>& a)
+    {
+      std::map<T,Beta_Distribution> o;
+      for (auto& e:a)
+        o[e]=Beta_Distribution::UnInformativePrior();
+      return Beta_map(o);
     }
 
 
@@ -2249,9 +2284,9 @@ public:
 
     Probability_map<T> Distribute_on_p(double p)const
     {
-        auto prior= Probability_map<T>::Uniform(a_);
-        auto& d=a_;
-        return Bayes_rule([&d](const T& x,double target){return d[x].p(target);},p,prior);
+      auto prior= Probability_map<T>(a_);
+        auto const & d=a_;
+        return Bayes_rule([&d](const T& x,double target){return d.at(x).p(target);},p,prior).first;
     }
 
 private:
@@ -2276,19 +2311,6 @@ logBayes_rule(const logLikelihood& loglik, const Data& data, const logLikelihood
 
 
 
-template<class Likelihood, class Data, typename T>
-std::pair<Probability_map<T>,double>
-Bayes_rule(const Likelihood& lik, const Data& data, const Probability_map<T>& prior)
-{
-    auto p=prior.p();
-    for (auto& e:p)
-    {
-        double l=lik(e.first,data);
-        e.second*=l;
-    }
-    double nsamples=prior.nsamples()+1;
-    return Probability_map<T>::normalize(p,nsamples);
-}
 
 
 

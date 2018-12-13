@@ -362,6 +362,15 @@ public:
     return *this;
   }
 
+  logLikelihood &operator/=(std::size_t n) {
+    logL_ /=n;
+    elogL_ /=n;
+    vlogL_ /=n;
+    evlogL_ /=n;
+    return *this;
+  }
+
+
 private:
   double logL_;
   double elogL_;
@@ -1686,7 +1695,7 @@ private:
                     prior_.name(i_parT)),
                 parmom.data_row(m, i_parT, i_par),
                 std::tuple(prior_.tr_to_Parameter(
-                    std::get<0>(parmom.data_row(m, i_parT, i_parT)), i_parT)));
+                                     std::get<0>(parmom.data_row(m, i_parT, i_parT)), i_parT)));
             auto data_t =
                 std::tuple_cat(data_sample, data_exp, data_par, data_lik);
             d.push_back_t(data_t);

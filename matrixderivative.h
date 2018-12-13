@@ -602,7 +602,7 @@ inline bool mean_value_test(
     std::ostream &os) {
   if (std::isnan(f+feps+df+dfeps)||
       (std::abs((feps - f) - (df + dfeps) * eps / 2.0) >
-       (200.0* std::abs((dfeps - df) * eps)+std::sqrt(std::numeric_limits<double>::epsilon()) / tol))){
+       (200.0* std::abs((dfeps - df) * eps)+std::sqrt(std::numeric_limits<double>::epsilon())) * tol)){
     double deltaf = (feps - f) / eps;
     double dfm = (df + dfeps) / 2;
     double dferr = std::abs(dfeps - df);

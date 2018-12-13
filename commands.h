@@ -559,11 +559,11 @@ struct Evidence{
     {
 
         std::cerr<<"\nPriorParameters\n";
-        std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean());
+        std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean()).value();
 
         Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber, epsf);
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
-        std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt));
+        std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt)).value();
         evidence::OutputGenerator out(std::cerr,parameters,gradient);
 
         return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,out).error();
@@ -598,6 +598,142 @@ struct Evidence{
 
 
 
+template<class Experiment,class Model, class ParametersDistribution>
+struct Evidence_Derivative{
+
+
+  static constexpr auto className=my_static_string("evidence_derivative");
+
+    static auto run(const Experiment& e,
+                    const Model& m ,
+                    const ParametersDistribution& prior,
+                    std::string algorithm,
+                    double pjump,
+                    double min_P,
+                    double tolerance,
+                    double BiNumber,
+                    double VaNumber,
+                    std::mt19937_64::result_type initseed,
+                    std::vector<double> betas,
+                    std::vector<double>landa,
+                    std::vector<std::vector<double>>landa_50_hill,
+                  double gain_moment,
+                  std::size_t nSamples,
+                  bool parameters,
+                  bool gradient)
+  {
+
+      std::cerr<<"\nPriorParameters\n";
+      std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<prior.tr_to_Parameter(prior.mean()).value();
+      std::mt19937_64 mt=init_mt(initseed, std::cerr);
+      auto dm=Derivative<Model>(m);
+      auto dprior=Derivative<ParametersDistribution>(prior);
+      Derivative<Markov_Model_Likelihood<Model,ParametersDistribution,Experiment>> lik(e,
+                                                                                         Derivative<Markov_Model_Likelihood<Model,ParametersDistribution>>(dm,dprior,algorithm,min_P, tolerance,BiNumber,VaNumber));
+
+      evidence::OutputGenerator out(std::cerr,parameters,gradient);
+
+      return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model,ParametersDistribution>(prior),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,out).error();
+    }
+
+    static auto get_arguments()
+    {
+        return std::make_tuple(
+                    grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
+                    grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
+                    grammar::argument(C<const ParametersDistribution&>{},"model_parameters_distribution"),
+                    grammar::argument(C<std::string>{},"algorithm"),
+                    grammar::argument(C<double>{},"p_jump"),
+                    grammar::argument(C<double>{},"min_probability"),
+                    grammar::argument(C<double>{},"tolerance_error"),
+                    grammar::argument(C<double>{},"Binomial_threshold",5.0),
+                    grammar::argument(C<double>{},"Variance_threshold",1.0),
+                    grammar::argument(C<std::mt19937_64::result_type>{},"initseed"),
+                    grammar::argument(C<std::vector<double>>{},"betas"),
+                    grammar::argument(C<std::vector<double>>{},"landas"),
+                    grammar::argument(C<std::vector<std::vector<double>>>{},"landa_50_hill"),
+                    grammar::argument(C<double>{},"gain_moment"),
+                    grammar::argument(C<std::size_t>{},"nSamples"),
+                    grammar::argument(C<bool>{},"parameters_output"),
+          grammar::argument(C<double>{},"gradient_output")
+
+                                  );
+    }
+};
+
+
+
+
+template<class Experiment,class Model, class ParametersDistribution>
+struct Evidence_emcee{
+
+
+  static constexpr auto className=my_static_string("evidence_emcee");
+
+    static auto run(const Experiment& e,
+                    const Model& m ,
+                    const ParametersDistribution& p,
+                    std::string algorithm,
+                    double pjump,
+                    double min_P,
+                    double tolerance,
+                    double BiNumber,
+                    double VaNumber,
+                    std::mt19937_64::result_type initseed,
+                    std::vector<double> betas,
+                    std::vector<double>alfas,
+                  std::size_t nSamples,
+                  bool parameters,
+                  bool gradient,
+                  std::size_t numWalkers,
+                  double target_prob,
+                  std::size_t ntrials)
+  {
+
+      std::cerr<<"\nPriorParameters\n";
+      std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean()).value();
+      Markov_Model_Likelihood<Model,ParametersDistribution,Experiment> lik(m,p,e,algorithm,min_P, tolerance,BiNumber,VaNumber);
+      std::mt19937_64 mt=init_mt(initseed, std::cerr);
+      std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt)).value();
+      evidence::OutputGenerator out(std::cerr,parameters,gradient);
+      return evidence::run_Thermo_emcee(evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,numWalkers,alfas,pjump,target_prob,nSamples,ntrials,out).error();
+
+
+
+    }
+
+    static auto get_arguments()
+    {
+        return std::make_tuple(
+                    grammar::argument(C<const Experiment&>{},my_trait<Experiment>::className.c_str()),
+                    grammar::argument(C< Model&>{},my_trait<Model>::className.c_str()),
+                    grammar::argument(C<const ParametersDistribution&>{},"model_parameters_distribution"),
+                    grammar::argument(C<std::string>{},"algorithm"),
+                    grammar::argument(C<double>{},"p_jump"),
+                    grammar::argument(C<double>{},"min_probability"),
+                    grammar::argument(C<double>{},"tolerance_error"),
+                    grammar::argument(C<double>{},"Binomial_threshold",5.0),
+                    grammar::argument(C<double>{},"Variance_threshold",1.0),
+                    grammar::argument(C<std::mt19937_64::result_type>{},"initseed"),
+                    grammar::argument(C<std::vector<double>>{},"betas"),
+                    grammar::argument(C<std::vector<double>>{},"alfas"),
+                    grammar::argument(C<std::size_t>{},"nSamples"),
+                    grammar::argument(C<bool>{},"parameters_output"),
+          grammar::argument(C<bool>{},"gradient_output"),
+          grammar::argument(C<std::size_t>{},"numWalkers"),
+          grammar::argument(C<double>{},"target_prob"),
+          grammar::argument(C<std::size_t>{},"n_trials_at_init")
+
+                                  );
+//evidence_works = evidence_emcee ( singleLigandExperiment = mySimulation  State_Model = Model_1   model_parameters_distribution = paramPrior_1   algorithm = "MacroDMR"  Binomial_threshold =5.0 Variance_threshold =1.0  p_jump = 0.5   min_probability = 1e-14 tolerance_error=1e-2 initseed = 3034446629   betas = { 1.0 0.5 0.3 0.1 1e-2 1e-3 1e-4 0}  alfas = {2 1.5 1.2 1.1 1.05 1.02 1.01 1.005  1.002  1.001 1.0005  1.0002 1.0001 }  nSamples = 10000  parameters_output = 0  gradient_output = 0  numWalkers = 8  target_prob = 0.2  n_trials_at_init = 100 )
+
+
+    }
+};
+
+
+
+
 
 struct Objects
 {
@@ -608,8 +744,9 @@ struct Objects
     simulate<singleLigandExperiment,Allosteric_Model>,
       likelihood<singleLigandExperiment,Allosteric_Model>,
     likelihood_detail<singleLigandExperiment,Allosteric_Model>,
-    Evidence<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
-    Evidence<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
+      Evidence<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
+      Evidence_Derivative<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
+       Evidence_emcee<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
     likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
     likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
     likelihoodtest_derivative<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
@@ -619,6 +756,9 @@ struct Objects
       likelihood_detail<singleLigandExperiment, State_Model>,
       Evidence<singleLigandExperiment, State_Model,
                Parameters_distribution<State_Model>>,
+      Evidence_Derivative<singleLigandExperiment, State_Model,
+               Parameters_distribution<State_Model>>,
+      Evidence_emcee<singleLigandExperiment, State_Model,                          Parameters_distribution<State_Model>>,
       Evidence<singleLigandExperiment, State_Model,
                Parameters_partial_distribution<State_Model>>,
       likelihoodtest<singleLigandExperiment, State_Model,

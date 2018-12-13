@@ -85,19 +85,32 @@ public:
 
      base_type const& f()const { return static_cast<base_type const &>(*this);}
      Derivative (const base_type& p): base_type(p){}
-     Derivative<Parameters_values<Model>> tr_to_Parameter_derivative(const M_Matrix<double>& val)const
+     myOptional_t<Derivative<Parameters_values<Model>>> tr_to_Parameter_derivative(const M_Matrix<double>& val)const
     {
         assert(val.size()==base_type::tu_.size());
+
+        typedef myOptional_t<Derivative<Parameters_values<Model>>> Op;
         Derivative_t<LabelMap_t<typename base_type::par_label>> m;
+        std::vector<Op_void> res;
         for ( std::size_t i=0; i<val.size(); ++i)
         {
+          res.emplace_back(base_type::is_in_range(i,val[i]));
+          if (res[i])
+          {
             M_Matrix<double> d(val.nrows(),val.ncols(),val.type(),0.0);
             d[i]=base_type::tr(i)->dapply_inv(val[i]);
 
             m[base_type::name(i)]=Derivative<double>(base_type::tr(i)->apply_inv(val[i]),val,
                                                      std::move(d));
+          }
         }
-        return Derivative<Parameters_values<Model>>(m);
+        auto r=consolidate(std::move(res));
+        if (r)
+
+          return Op(Derivative<Parameters_values<Model>>(m));
+        else {
+          return Op(false,r.error());
+        }
     }
     using base_type::tr_to_Parameter;
     Derivative()=default;

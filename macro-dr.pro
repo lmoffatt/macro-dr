@@ -68,4 +68,6 @@ HEADERS += \
 
 DISTFILES += \
     simulation.txt \
-    models.txt
+    models.txt \
+    mode_1.txt \
+    model_1_Evidence.txt

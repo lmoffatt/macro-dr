@@ -1263,7 +1263,7 @@ public:
     double vplogL=0.5;
     auto test = mp_state_information::test(P_mean, P__cov, y_mean, y_var, plogL,
                                            eplogL, e, tolerance());
-    if (!test) {
+    if constexpr(false){if (!test) {
       std::stringstream ss;
 
       ss << "\nP_mean \n" << P_mean;
@@ -1271,7 +1271,8 @@ public:
       // ss<<"\nprior=\n"<<prior<<"\nQ_dt \n"<<Q_dt;
 
       return Op(false, "\nfails in trace!!!; error=" + test.error() + ss.str());
-    } else
+      }
+    }else
       return Op(mp_state_information::adjust(std::move(P_mean),
                                              std::move(P__cov), y_mean, y_var,
                                              plogL, eplogL,vplogL, Q_dt.min_P(), e));
@@ -1900,7 +1901,7 @@ template <class MacroDR, class Model, class Experiment>
 myOptional_t<std::vector<Normal_Distribution<double>>>
 partialDistribution(const MacroDR &a, Model &m, const Experiment e) {
   return logLikelihood_experiment_calculation(partialDistribution_function(), a,
-                                              m, e);
+                                              m, e,std::cerr);
 }
 
 template <class MacroDR, class Model, class Experiment>
