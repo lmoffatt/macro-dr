@@ -83,6 +83,17 @@ class Derivative<Parameters_distribution<Model>>: public Parameters_distribution
 public:
   typedef Parameters_distribution<Model> base_type;
 
+  typedef  Derivative self_type;
+  constexpr static auto  className=my_trait<Model>::className+my_static_string("_Parameters_Distribution_Derivative");
+  static auto get_constructor_fields()
+  {
+    return std::make_tuple(
+        grammar::field(C<self_type>{},"values",&self_type::getParameterDistributionMap));
+  }
+
+  using base_type::getParameterDistributionMap;
+
+
      base_type const& f()const { return static_cast<base_type const &>(*this);}
      Derivative (const base_type& p): base_type(p){}
      myOptional_t<Derivative<Parameters_values<Model>>> tr_to_Parameter_derivative(const M_Matrix<double>& val)const

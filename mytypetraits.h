@@ -63,12 +63,12 @@ template <class> struct Derived_types {
 template <class T>
 using Derived_types_t = typename Derived_types<std::decay_t<T>>::type;
 template <class T>
-constexpr bool static Derived_types_v = Derived_types<T>::value;
+constexpr bool static is_derived_type_v = Derived_types<T>::value;
 
 template <class T> struct Derived_types<T *> {
 
   typedef Derived_types_t<T> type;
-  constexpr static bool value = Derived_types_v<T>;
+  constexpr static bool value = is_derived_type_v<T>;
 };
 
 template <class T, class = void> struct Base_type {
@@ -498,7 +498,7 @@ template <class T> struct my_tag {
       std::conditional_t<
           is_field_Object<dT>::value, object_tag,
           std::conditional_t<
-              Derived_types_v<dT>, base_tag,
+              is_derived_type_v<dT>, base_tag,
               std::conditional_t<
                   is_arg_Command<dT>::value, command_tag,
                   std::conditional_t<

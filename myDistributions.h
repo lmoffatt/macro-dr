@@ -5,8 +5,75 @@
 #include "mymath.h"
 # include "mytests.h"
 #include "myoperators.h"
+#include "mySerializer.h"
 #include <random>
 #include <cmath>
+
+class Data_Index_scheme
+{
+  std::string value_name_;
+  std::vector<std::string> index_names_;
+public:
+
+  typedef   Data_Index_scheme self_type;
+
+  auto& value_name()const {return value_name_;}
+  void  set_value_name(std::string&& newname) {value_name_=newname;}
+  auto & index_names()const {return index_names_;}
+
+  void insert_Index(std::vector<std::string>&& index)
+  {
+    index_names_.insert(index_names_.begin(),index.begin(), index.end());
+  }
+
+  static auto get_constructor_fields()
+  {
+    return std::make_tuple(
+        grammar::field(C<self_type>{},"value_name",&self_type::value_name),
+        grammar::field(C<self_type>{},"index_names",&self_type::index_names));
+  }
+
+
+  Data_Index_scheme(const std::string& name, const std::vector<std::string>& indexes)
+      :value_name_{name},index_names_{indexes}{}
+
+  Data_Index_scheme( std::string&& name,  std::vector<std::string>&& indexes)
+      :value_name_{std::move(name)},index_names_{std::move(indexes)}{}
+
+  Data_Index_scheme()=default;
+
+
+
+
+};
+
+Data_Index_scheme Insert_Index(Data_Index_scheme&& d, std::vector<std::string>&& indexes)
+{
+  d.insert_Index(std::move(indexes));
+  return d;
+}
+
+std::vector<Data_Index_scheme> Insert_Index(std::vector<Data_Index_scheme>&& v, std::vector<std::string>&& indexes)
+{
+  for (auto& d:v)
+  {
+    d.insert_Index(std::move(indexes));
+  }
+  return v;
+}
+
+std::vector<Data_Index_scheme> concatenate_add_prefix_if_same(std::vector<Data_Index_scheme>&& one, std::vector<Data_Index_scheme>&& two, const std::string& prefix)
+{
+  for (auto& e: two)
+  {
+    for (auto& f: one)
+      if (e.value_name()==f.value_name())
+        e.set_value_name(prefix+e.value_name());
+  }
+  one.insert(one.end(),two.begin(),two.end());
+  return one;
+}
+
 
 
 
@@ -434,6 +501,7 @@ class Base_Distribution
 {
 public:
     virtual Base_Distribution* clone()const=0;
+    virtual std::ostream& put(std::ostream& os)const=0;
 
     constexpr static auto const className=my_static_string("Base_Distribution_")+my_trait<T>::className;
     virtual std::string myClass()const=0;
@@ -470,6 +538,72 @@ public:
     virtual ~Base_Distribution(){}
 };
 
+
+template<bool output,typename X>
+class are_Equal<output,X,std::void_t<std::enable_if_t<std::is_base_of_v<Base_Distribution<double>,X >,void>>>
+{
+
+  double absolute_;
+  double relative_;
+
+public:
+  are_Equal(double abs, double rel) : absolute_{abs},relative_{rel}{}
+  are_Equal(){}
+  bool test(const X& x, const X& y, std::ostream &os ) const
+  {
+    if (x.myClass()!=y.myClass())
+    {
+      os<<"Differ in Transformation :"<<x.myClass()<<" vs "<<y.myClass();
+      return false;
+    }
+    else return are_Equal_v(x.param(),y.param(),absolute_,relative_,os);
+  }
+  bool test(const X* x, const X* y, std::ostream &os ) const
+  {
+    if (x->myClass()!=y->myClass())
+    {
+      os<<"Differ in Transformation :"<<x->myClass()<<" vs "<<y->myClass();
+      return false;
+    }
+    else return are_Equal_v(x->param(),y->param(),absolute_,relative_,os);
+  }
+
+
+};
+
+
+
+template<bool output,typename X>
+class are_Equal<output,X,std::void_t<std::enable_if_t<!is_field_Object<X>::value&&std::is_base_of_v<Base_Distribution<M_Matrix<double>>,X >,void>>>
+{
+
+  double absolute_;
+  double relative_;
+
+public:
+  are_Equal(double abs, double rel) : absolute_{abs},relative_{rel}{}
+  are_Equal(){}
+  bool test(const X& x, const X& y, std::ostream &os ) const
+  {
+    if (x.myClass()!=y.myClass())
+    {
+      os<<"Differ in Transformation :"<<x.myClass()<<" vs "<<y.myClass();
+      return false;
+    }
+    else return are_Equal_v(x.param(),y.param(),absolute_,relative_,os);
+  }
+  bool test(const X* x, const X* y, std::ostream &os ) const
+  {
+    if (x->myClass()!=y->myClass())
+    {
+      os<<"Differ in Transformation :"<<x->myClass()<<" vs "<<y->myClass();
+      return false;
+    }
+    else return are_Equal_v(x->param(),y->param(),absolute_,relative_,os);
+  }
+
+
+};
 
 
 
@@ -514,6 +648,7 @@ public:
     virtual std::string myClass()const=0;
 
     virtual Base_Transformation* clone()const =0;
+    virtual std::ostream& put(std::ostream& os)const=0;
 
     virtual T apply(const T& x)const =0;
     virtual T apply_inv(const T& x)const =0;
@@ -524,6 +659,36 @@ public:
 
     virtual ~Base_Transformation(){}
 };
+
+template<bool output,typename X>
+class are_Equal<output,X,std::void_t<std::enable_if_t<std::is_base_of_v<Base_Transformation<double>,X >,void>>>
+{
+public:
+  are_Equal(double,double){}
+  are_Equal(){}
+  bool test(const X& x, const X& y, std::ostream &os ) const
+  {
+    if (x.myClass()!=y.myClass())
+    {
+      os<<"Differ in Transformation :"<<x.myClass()<<" vs "<<y.myClass();
+      return false;
+    }
+    else return true;
+  }
+  bool test(const X* x, const X* y, std::ostream &os ) const
+  {
+    if (x->myClass()!=y->myClass())
+    {
+      os<<"Differ in Transformation :"<<x->myClass()<<" vs "<<y->myClass();
+      return false;
+    }
+    else return true;
+  }
+
+
+};
+
+
 
 template<>
 struct Derived_types<Base_Transformation<double>>{
@@ -537,8 +702,13 @@ class Identity_Transformation: public Base_Transformation<T>
 {
 public:
     typedef  Base_Transformation<T> base_type;
+    typedef T value_type;
     static std::tuple<> get_constructor_fields() {return std::tuple<>();}
     virtual std::string myClass()const override{return className.str();}
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+      return io::output_operator_on_Object (os,*this);
+    }
 
 
     constexpr static auto const className=my_static_string("Identity_Transformation")+my_trait<T>::className;
@@ -567,6 +737,10 @@ public:
     typedef  Base_Transformation<double> base_type;
     static std::tuple<> get_constructor_fields() {return std::tuple<>();}
     virtual std::string myClass()const override{return className.str();}
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+      return io::output_operator_on_Object (os,*this);
+    }
 
     constexpr static auto const className=my_static_string("Logarithm_Transformation");
 
@@ -589,6 +763,10 @@ public:
     typedef  Base_Transformation<double> base_type;
     static std::tuple<> get_constructor_fields() {return std::tuple<>();}
     virtual std::string myClass()const override{return className.str();}
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+      return io::output_operator_on_Object (os,*this);
+    }
 
     constexpr static auto const className=my_static_string("Logit_Transformation");
 
@@ -1072,6 +1250,10 @@ public:
                     );
     }
 
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+      return io::output_operator_on_Object (os,*this);
+    }
 
     virtual Normal_Distribution<double>* clone()const override{ return new Normal_Distribution<double>(*this);};
 
@@ -1155,8 +1337,14 @@ public:
     {
         return std::make_tuple(
                     grammar::field(C<self_type>{},"mean",&self_type::mean),
-                    grammar::field(C<self_type>{},"Cov",&self_type::Cov)
+                    grammar::field(C<self_type>{},"Cov",&self_type::Cov),
+              grammar::field(C<self_type>{},"CovInv",&self_type::CovInv),
+                  grammar::field(C<self_type>{},"cholesky",&self_type::Chol)
                     );
+    }
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+      return io::output_operator_on_Object (os,*this);
     }
 
 
@@ -1245,6 +1433,8 @@ public:
         assert(!cho_cov_.empty());
 
     }
+
+
     Normal_Distribution(M_Matrix<E> &&mean,
                         M_Matrix<E>&& cov,
                         M_Matrix<E>&& covInv,
@@ -1325,6 +1515,8 @@ public:
     }
 
 
+
+
 protected:
     M_Matrix<M_Matrix<E>> param_;
     M_Matrix<E> covinv_;
@@ -1373,6 +1565,10 @@ public:
     static Beta_Distribution UnInformativePrior()
     {
         return Beta_Distribution(0.5,0.5);
+    }
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+      return os<<*this;
     }
 
 
@@ -1466,7 +1662,17 @@ public:
                     grammar::field(C<self_type>{},"alpha",&self_type::alpha)
                     );
     }
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+      return os<<*this;
+    }
 
+    static std::vector<Data_Index_scheme> data_index()
+    {
+      std::vector<Data_Index_scheme> out;
+      out.push_back(Data_Index_scheme("alpha", {}));
+      return out;
+    }
     stretch_move_Distribution()=default;
     virtual double sample(std::mt19937_64 &mt) const override
     {
@@ -1924,6 +2130,7 @@ public:
     virtual T sample(std::mt19937_64& mt)const=0;
 
     virtual const std::map<T,double>& p() const=0;
+    virtual std::ostream& put(std::ostream& os)const=0;
 
     virtual void reduce(double nmax)=0;
     virtual double nsamples()const =0;
@@ -1969,7 +2176,6 @@ public:
     constexpr static auto const className=my_static_string("Probability_map")+my_trait<template_types>::className;
     ~Probability_map()override{}
 
-
     T sample(std::mt19937_64& mt)const
     {
         return sample_rev_map(rev_,mt);
@@ -1991,6 +2197,7 @@ public:
     Probability_map(const V<T,As...>& x):p_(Uniform(x)),rev_(cumulative_reverse_map(p_)), nsamples_(0)
     {}
     Probability_map()=default;
+
 
     template<template<typename...>class V>
     static
@@ -2045,6 +2252,11 @@ public:
                     grammar::field(C<self_type>{},"reverse_map",&self_type::reverse),
                     grammar::field(C<self_type>{},"nsamples",&self_type::nsamples));
     }
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+      return io::output_operator_on_Object (os,*this);
+    }
+
     std::map<double,T> const & reverse()const {return rev_;}
 
     Probability_map(const std::map<T,double>& myNormalized_map, const std::map<double,T>& reverseMap, double nsamples)
@@ -2056,7 +2268,6 @@ public:
 
 
 private:
-
     std::map<T,double> p_;
     std::map<double,T> rev_;
     double nsamples_;
@@ -2070,6 +2281,10 @@ public:
     typedef  Cs<T> template_types;
     constexpr static auto const className=my_static_string("logLikelihood_map")+my_trait<template_types>::className;
 
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+      return io::output_operator_on_Object (os,*this);
+    }
 
     T sample(std::mt19937_64& mt) const override
     {
@@ -2160,7 +2375,16 @@ class Beta_map //: public Base_Probability_map<T>
 {
 
 public:
-    Beta_map(const std::map<T,Beta_Distribution> a):a_(a){}
+  typedef   Beta_map self_type;
+  Beta_map(const std::map<T,Beta_Distribution> a):a_(a){}
+
+
+    auto &get_Map()const{return a_;}
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+                    grammar::field(C<self_type>{},"probability_map",&self_type::get_Map));
+    }
 
     void reduce(double nmax)
     {

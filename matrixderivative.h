@@ -170,6 +170,24 @@ public:
   }
 };
 
+template <bool output>
+class are_Equal<output, Derivative<double> >{
+  double absolute_;
+  double relative_;
+public:
+  are_Equal(double abs, double rel):absolute_{abs},relative_{rel}{}
+
+  bool test(const Derivative<double>& x, const Derivative<double>& y, std::ostream& os)
+  {
+    bool res=true;
+    if (!are_Equal_v(x.f(),y.f(),absolute_,relative_,os)) {os<<" failed in f()"; res=false;}
+    if (!are_Equal_v(x.x(),y.x(),absolute_,relative_,os)) {os<<" failed in x()"; res=false;}
+    if (!are_Equal_v(x.dfdx(),y.dfdx(),absolute_,relative_,os)) {os<<" failed in x()"; res=false;}
+    return res;
+  }
+};
+
+
 template <bool output, typename T>
 class are_Equal<output, Derivative<M_Matrix<T>>> {
 public:

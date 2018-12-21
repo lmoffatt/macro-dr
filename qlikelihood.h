@@ -153,6 +153,29 @@ public:
 
 
   Markov_Model_Likelihood(const Model& m, const Parameters_distribution& p, const std::string& algorithm, double min_P, double tolerance, double BiNumber,double VaNumber): m{m},p_{p}, algorithm_{algorithm}, min_P_{min_P}, tolerance_{tolerance}, BiNumber_(BiNumber),VaNumber_{VaNumber}{}
+  Markov_Model_Likelihood()=default;
+
+  static auto get_constructor_fields() {
+      return std::make_tuple(
+        grammar::field(C<self_type>{}, "Model", &self_type::get_Model),
+        grammar::field(C<self_type>{}, "ParametersDistribution", &self_type::get_ParametersDistribution),
+        grammar::field(C<self_type>{}, "Algorithm", &self_type::get_Algorithm),
+        grammar::field(C<self_type>{}, "min_P", &self_type::min_P),
+        grammar::field(C<self_type>{}, "min_P", &self_type::tolerance),
+            grammar::field(C<self_type>{}, "min_P", &self_type::BiNumber),
+                grammar::field(C<self_type>{}, "VaNumber", &self_type::VaNumber)
+
+                                                                                    );
+  }
+
+  auto& get_Model()const {return m;}
+  auto& get_ParametersDistribution()const {return p_;}
+  auto& get_Algorithm()const {return algorithm_;}
+  auto min_P()const {return min_P_;}
+  auto tolerance()const {return tolerance_;}
+  auto BiNumber()const {return BiNumber_;}
+  auto VaNumber()const {return VaNumber_;}
+
 private:
   Model m;
   Parameters_distribution p_;
@@ -207,8 +230,22 @@ public:
 
 
   Markov_Model_Likelihood(const Model& m, const Parameters_distribution& p,const Experiment& e, const std::string& algorithm, double min_P, double tolerance, double BiNumber,double VaNumber): e_{e},l_{m,p,algorithm,min_P,tolerance,BiNumber,VaNumber}{}
+  Markov_Model_Likelihood()=default;
+  Markov_Model_Likelihood(const Markov_Model_Likelihood<Model,Parameters_distribution>&l, const Experiment& e):e_{e},l_{l}{}
+
+
+  static auto get_constructor_fields() {
+      return std::make_tuple(
+        grammar::field(C<self_type>{}, "ModelLikelihood", &self_type::get_Model),
+        grammar::field(C<self_type>{}, "Experiment", &self_type::get_Experiment)
+                                                                        );
+  }
+
+  auto& get_Model()const {return l_;}
+  auto& get_Experiment()const {return e_;}
+
 private:
-  Experiment  const &e_;
+  Experiment  e_;
   Markov_Model_Likelihood<Model,Parameters_distribution> l_;
 
 };
@@ -227,17 +264,28 @@ class Markov_Model_DLikelihood: public evidence::FIM_Model<Markov_Model_Likeliho
 {
 public:
   typedef  Markov_Model_DLikelihood self_type;
+  typedef  evidence::FIM_Model<Markov_Model_Likelihood<Model, Parameters_Distribution>,Experiment> base_type;
   typedef  Cs<Model,Experiment> template_types;
   constexpr static auto const className=my_static_string("Markov_Model_DLikelihood")+my_trait<template_types>::className;
 
 
     Markov_Model_DLikelihood(const Model& m, const Parameters_Distribution& p, const Experiment& e, const std::string& algorithm, double eps_G,double min_P, double tolerance, double BiNumber, double VaNumber, double epsf)
         :evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>(Markov_Model_Likelihood<Model,Parameters_Distribution>(m,p,algorithm,min_P,tolerance,BiNumber,VaNumber),e, eps_G, epsf){}
+    Markov_Model_DLikelihood(const base_type& fim):base_type{fim}{}
+
+    base_type const & get_FIM()const {return *this;}
 
     using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>::compute_DLikelihood;
     using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>::compute_Likelihood;
     using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>::set_Data;
     //using evidence::FIM_Model<Markov_Model_Likelihood<Model>,Experiment>::getikelihood;
+    //using evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>::FIM_Model;
+
+    Markov_Model_DLikelihood()=default;
+    static auto get_constructor_fields() {
+      return std::make_tuple(
+        grammar::field(C<self_type>{}, "FIM_Model", &self_type::get_FIM)                            );
+    }
 
 };
 

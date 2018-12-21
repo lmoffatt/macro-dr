@@ -9,6 +9,27 @@ public:
   typedef Derivative self_type;
   typedef Model_Parameter_label myParameter_label;
   typedef State_Model base_type;
+  using base_type::k;
+  using base_type::transition_rates_text;
+  using base_type::agonist_transitions_rates_text;
+  using base_type::conductances_text;
+
+  static auto get_constructor_fields() {
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "number_of_states", &self_type::k),
+        grammar::field(C<self_type>{}, "transition_rates", &self_type::transition_rates_text),
+        grammar::field(C<self_type>{}, "agonist_transitions_rates",&self_type::agonist_transitions_rates_text),
+        grammar::field(C<self_type>{}, "conductances", &self_type::conductances_text));
+  }
+  Derivative(std::size_t number_of_states,
+               const std::map<std::pair<std::size_t, std::size_t>, std::string>&
+                   mytransition_rates,
+                        const std::map<std::pair<std::size_t, std::size_t>, std::string>&
+                   myagonist_transitions,
+                 const  std::map<std::size_t, std::string>& myconductances)
+
+      : base_type(number_of_states,mytransition_rates,myagonist_transitions,myconductances){}
+
 
 public:
   Derivative() = default;
@@ -18,12 +39,12 @@ public:
       std::size_t number_of_states,
       std::map<std::pair<std::size_t, std::size_t>,
               Base_Function<double, State_Model>*>
-          &&mytransition_rates,
+          mytransition_rates,
       std::map<std::pair<std::size_t, std::size_t>,
                Base_Function<double, State_Model>*>
-          &&myagonist_transitions,
+          myagonist_transitions,
       std::map<std::size_t, Base_Function<double, State_Model>*>
-          &&myconductances)
+          myconductances)
       : base_type(number_of_states, std::move(mytransition_rates), std::move(myagonist_transitions),
                   std::move(myconductances)) {}
 
@@ -107,6 +128,19 @@ public:
   typedef Derivative self_type;
   typedef Model_Parameter_label myParameter_label;
   typedef Allosteric_Model base_type;
+  static auto get_constructor_fields() {
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "number_of_units",
+                       &self_type::number_of_units),
+        grammar::field(C<self_type>{}, "conformational_changes",
+                       &self_type::conformational_changes),
+        grammar::field(C<self_type>{}, "unit_of_conformational_changes",
+                       &self_type::unit_of_conformational_changes),
+        grammar::field(C<self_type>{}, "conformational_interactions",
+                       &self_type::conformational_interactions),
+        grammar::field(C<self_type>{}, "conductance_names",
+                       &self_type::conductance_names));
+  }
 
 public:
   Derivative() = default;

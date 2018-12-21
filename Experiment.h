@@ -44,6 +44,14 @@ struct point{
     std::size_t nsamples_;
     X x_;
     Y y_;
+    bool operator==(const point& other)const {
+      if (!(t_==other.t_)) return false;
+      if (!(nsamples_==other.nsamples_)) return false;
+      if (!(x_==other.x_)) return false;
+      if (!(y_==other.y_)) return false;
+      return true;
+
+    }
 
     auto data_row()const {return std::tuple(t(),double(nsamples()),x());}
     template<class DataFrame>
@@ -67,7 +75,8 @@ struct point{
     std::istream& operator>>(std::istream& is)
     {
 
-        return   is>>t_>>io::separator{}>>nsamples_>>io::separator{}>>x_>>io::separator{}>>y_>>io::separator{};
+       is>>t_>>io::separator{}>>nsamples_>>io::separator{}>>x_>>io::separator{};
+       return io::extract_double(is,y_)>>io::separator{};
     }
 
 
@@ -155,7 +164,23 @@ struct moments<experiment::point<X,Y>>
 };
 
 
+template<bool output,typename X, typename Y>
+class are_Equal<output,experiment::point<X,Y>>
+{
+  double absolute_; double relative_;
+public:
+  are_Equal(double abs, double rel):absolute_{abs},relative_{rel}{}
+  bool test(const experiment::point<X,Y>& x, const experiment::point<X,Y>& y, std::ostream &os ) const
+  {
+    bool res=true;
+    if (!are_Equal_v(x.t(),y.t(),absolute_,relative_,os)) {os<<"in t "; res=false;}
+    if (!are_Equal_v(x.x(),y.x(),absolute_,relative_,os)) {os<<"in x "; res=false;}
+    if (!are_Equal_v(x.y(),y.y(),absolute_,relative_,os)) {os<<"in y "; res=false;}
+    return res;
+  }
 
+
+};
 
 
 namespace experiment {
@@ -555,19 +580,19 @@ public:
         frequency_of_sampling_=std::move(other.frequency_of_sampling_);
         Vm_=other.Vm();
         points_=std::move(other.points_);
-        steps_=std::move(other.steps_);
-        traces_=std::move(other.traces_);
+        steps_=move(this,std::move(other.steps_));
+        traces_=move(this,std::move(other.traces_));
         return *this;
 
     }
 
     basic_Experiment& operator=(const basic_Experiment& other){
-        frequency_of_sampling_=other.frequency_of_sampling_;
-        Vm_=other.Vm();
-        points_=other.points_;
-        steps_=other.steps_;
-        traces_=other.traces_;
-        return *this;
+      frequency_of_sampling_=std::move(other.frequency_of_sampling_);
+      Vm_=other.Vm();
+      points_=other.points_;
+      steps_=copy(this,other.steps_);
+      traces_=copy(this,other.traces_);
+      return *this;
 
     }
 

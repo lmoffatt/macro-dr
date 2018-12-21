@@ -95,6 +95,7 @@ public:
   using Label::legal_chars;
   constexpr static auto className =
       my_static_string("Conformational_change_label");
+
 };
 
 class Conformational_change {
@@ -1896,7 +1897,7 @@ private:
   double fs_;
   std::size_t n_sub_samples_;
   double tolerance_;
-  const Experiment &e_;
+  Experiment e_;
   mutable X current_x_;
   mutable std::size_t current_nsamples_;
   Markov_Transition_step *current_P_;

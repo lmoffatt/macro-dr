@@ -183,6 +183,16 @@ template <> struct my_trait<markov::MACROR> {
       d.insert_column(pre + markov::MACROR_string[e].c_str(), C<double>{});
   }
 
+  static std::vector<Data_Index_scheme> data_index()
+  {
+    std::vector<Data_Index_scheme> out;
+    for (auto e : markov::MACROR_VALUES)
+    {
+      out.push_back(Data_Index_scheme(markov::MACROR_string[e].c_str(), {}));
+    }
+    return out;
+  }
+
   static auto data_row(markov::MACROR d) {
     switch (d) {
     case markov::MACRO_DMNR:

@@ -31,12 +31,40 @@ public :
     {
         return name()<other.name();
     }
-
+    bool operator==(const Label& other){return name()==other.name();}
 
     std::ostream& write(std::ostream& os)const { return os<<name_;}
     std::istream& read(std::istream& is) { return is>>name_;}
 
 };
+
+template<bool output,typename X>
+    class are_Equal<output,X,std::void_t<decltype(std::declval<X>().name())>>
+{
+
+
+public:
+  are_Equal(double, double)  {}
+  are_Equal(){}
+  bool test(const X& x, const X& y, std::ostream &os ) const
+  {
+    if (x.name()!=y.name())
+    {
+      os<<"Differ in Label :"<<x.name()<<" vs "<<y.name();
+      return false;
+    }
+    else return true;
+  }
+
+
+};
+
+
+
+template< typename T>
+bool operator==(const Label<T>& one,const Label<T>& other){return one.name()==other.name();}
+
+
 template<class T>
 std::ostream& operator<<(std::ostream& os, const Label<T>& x)
 {
@@ -346,7 +374,7 @@ public:
     std::size_t size()const { return tu_.size();}
     
     auto getParameterDistributionMap()const {
-        std::vector<tuple_ptr> out;
+      std::vector<tuple_ptr> out(size());
         for (std::size_t i=0; i<size(); ++i)
           out[i]={name(i),tr(i),dist(i),range(i)};
         return out;}
@@ -356,6 +384,10 @@ public:
     {
         return std::make_tuple(
                     grammar::field(C<self_type>{},"values",&self_type::getParameterDistributionMap));
+    }
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+      return io::output_operator_on_Object (os,*this);
     }
 
     Parameters_distribution(const std::vector<tuple_ptr>& in)
@@ -472,9 +504,13 @@ private:
 
 template<class Model>
 struct Derived_types<Parameters_distribution<Model>>{
-    typedef Cs<Parameters_partial_distribution<Model>> type;
+  typedef Cs<Parameters_distribution<Model>,Parameters_partial_distribution<Model>> type;
     constexpr bool static value=true;
 
 };
+
+
+
+
 
 #endif // MYPARAMETERS_H

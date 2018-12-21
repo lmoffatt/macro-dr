@@ -10,7 +10,7 @@ struct invariant {};
 
 template <class...> struct class_Invariants;
 
-template <bool, class, typename = void> struct are_Equal;
+template <bool, class, class =void> struct are_Equal;
 template <bool, class> struct are_zero;
 template <bool, class> struct are_finite;
 template <bool, class> struct are_non_negative;
@@ -220,6 +220,28 @@ bool are_Equal_v(const T &one, const T &other, std::ostream &os, Ts...context) {
   }
   else return true;
 }
+template <class T, typename...Ts>
+auto are_Equal_v(const T &one, const T &other, double eps, double epsf,std::ostream &os, Ts...context)->std::enable_if_t<!std::is_pointer_v<T>,bool>
+{
+  if (!are_Equal<true, T>(eps,epsf).test(one, other, os))
+  {
+    (os<<...<<context);
+    return false;
+  }
+  else return true;
+}
+
+template <class T, typename...Ts>
+bool are_Equal_v(const T *one, const T * other, double eps, double epsf,std::ostream &os, Ts...context) {
+  if (!are_Equal<true, T>(eps,epsf).test(one, other, os))
+  {
+    (os<<...<<context);
+    return false;
+  }
+  else return true;
+}
+
+
 
 template <bool output, class Object, class method>
 bool field_test(const grammar::field<Object, method> &m, const Object &one,
@@ -235,6 +257,22 @@ bool field_test(const grammar::field<Object, method> &m, const Object &one,
   return res;
 }
 
+
+template <bool output, class Object, class method>
+bool field_test(const grammar::field<Object, method> &m, const Object &one,
+                const Object &other, double eps, double epsf,std::ostream &os) {
+  std::stringstream ss;
+  bool res = are_Equal_v(std::invoke(m.access_method, one),
+                         std::invoke(m.access_method, other), eps,epsf,ss);
+  if constexpr (output)
+    if (!res) {
+      os << "\nEquality test failed for field " << m.idField
+         << " details: " << ss.str();
+    }
+  return res;
+}
+
+
 template <bool output, class Object>
 class are_Equal<
     output, Object,
@@ -244,11 +282,14 @@ class are_Equal<
 public:
   are_Equal(double absolute, double relative):absolute_{absolute},relative_{relative}{}
   bool test(const Object &one, const Object &other, std::ostream &os) {
+    return test(one,other,absolute_,relative_,os);
+  }
+  bool test(const Object &one, const Object &other, double abs,double rel,std::ostream &os) {
     auto fields = one.get_constructor_fields();
     std::stringstream ss;
     bool res = std::apply(
-        [&one, &other, &ss](auto &... f) {
-          return (field_test<output>(f, one, other, ss) * ...);
+        [&one, &other, &ss,&abs,&rel](auto &... f) {
+          return (field_test<output>(f, one, other,abs,rel, ss) * ...);
         },
         fields);
     if constexpr (output)
@@ -265,9 +306,6 @@ template <bool output, class Int>
 class are_Equal<
     output, Int,std::enable_if_t<std::is_integral_v<Int>,void>> {
 
-  double absolute_;
-  double relative_;
-
 public:
   are_Equal(double, double ) {}
   bool test(const Int &one, const Int &other, std::ostream &os) {
@@ -280,5 +318,79 @@ public:
     return res;
   }
 };
+
+template <bool output, class C>
+class are_Equal<
+    output, C,std::enable_if_t<is_std_container<C>::value,void>> {
+
+  double absolute_;
+  double relative_;
+
+public:
+  are_Equal(double abs, double rel) : absolute_{abs},relative_{rel}{}
+  bool test(const C &one, const C &two, double abs, double rel,std::ostream &os) {
+    bool res=true;
+    auto it1=one.begin();
+    auto it2=two.begin();
+    std::size_t pos=0;
+    for (; (it1!=one.end())&&(it2!=two.end()); ++it1,++it2)
+    {
+
+      if (!are_Equal_v(*it1,*it2,abs,rel,os))
+      {
+        os<<"differ at pos: "<<pos<<"\t";
+        res=false;
+      }
+      ++pos;
+    }
+    if (it1!=one.end()|| it2!=two.end())
+    {
+      os<<"Differ in size!!: "<<one.size()<<" vs "<<two.size()<<"\n";
+      res=false;
+    }
+    return res;
+  }
+  bool test(const C &one, const C &two, std::ostream &os) {
+    return test(one,two,absolute_,relative_,os);
+  }
+};
+
+
+
+template <bool output, class...Ts>
+class are_Equal<output,std::tuple<Ts...>>
+{
+    double absolute_;
+double relative_;
+
+public:
+  are_Equal(double abs, double rel) : absolute_{abs},relative_{rel}{}
+  template<std::size_t...Is>
+  bool test(const std::tuple<Ts...> &one, const std::tuple<Ts...> &two, std::ostream &os, std::index_sequence<Is...>)
+  {
+    return (are_Equal_v(std::get<Is>(one),std::get<Is>(two),absolute_,relative_,os)&&...);
+  }
+
+  bool test(const std::tuple<Ts...> &one, const std::tuple<Ts...> &two, std::ostream &os) {
+
+    return test(one,two,os,std::index_sequence_for<Ts...>());
+  }
+};
+
+template <bool output, class T, class K>
+class are_Equal<output,std::pair<T,K>>
+{
+  double absolute_;
+  double relative_;
+
+public:
+  are_Equal(double abs, double rel) : absolute_{abs},relative_{rel}{}
+
+  bool test(const std::pair<T,K> &one, const  std::pair<T,K> &two, std::ostream &os) {
+
+    return are_Equal_v(one.first,two.first,absolute_,relative_,os)&&are_Equal_v(one.second,two.second,absolute_,relative_,os);
+  }
+};
+
 
 #endif // MYTESTS_H

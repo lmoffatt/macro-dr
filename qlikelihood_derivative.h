@@ -179,7 +179,30 @@ public:
     };
 
     Derivative(const Derivative<Model>& m, const Derivative<Parameters_distribution>& p, const std::string& algorithm, double min_P, double tolerance, double BiNumber,double VaNumber): m{m},p_{p}, algorithm_{algorithm}, min_P_{min_P}, tolerance_{tolerance}, BiNumber_(BiNumber),VaNumber_{VaNumber}{}
-private:
+    Derivative()=default;
+
+    auto& get_Model()const {return m;}
+    auto& get_Parameters_Distribution()const {return p_;}
+    auto get_Algorithm()const { return algorithm_;}
+    auto min_P()const {return min_P_;}
+    double tolerance()const {return tolerance_;}
+    double BiNumber()const {return BiNumber_;}
+    double VaNumber()const {return VaNumber_;}
+
+
+    static auto get_constructor_fields() {
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "Model", &self_type::get_Model),
+          grammar::field(C<self_type>{}, "Parameters_Distribution", &self_type::get_Parameters_Distribution),
+          grammar::field(C<self_type>{}, "Algorithm", &self_type::get_Algorithm),
+          grammar::field(C<self_type>{}, "min_P", &self_type::min_P),
+          grammar::field(C<self_type>{}, "tolerance", &self_type::tolerance),
+          grammar::field(C<self_type>{}, "BiNumber", &self_type::BiNumber),
+          grammar::field(C<self_type>{}, "VaNumber", &self_type::VaNumber)
+                                                  );
+    }
+
+  private:
     Derivative<Model> m;
     Derivative<Parameters_distribution> p_;
     std::string algorithm_;
@@ -204,13 +227,25 @@ public:
 
   Derivative(const Experiment& e,Derivative<Markov_Model_Likelihood<Model,Parameters_distribution>>&& d
                         ):d_{std::move(d)},e_{e}{}
+  Derivative(const Experiment& e,const Derivative<Markov_Model_Likelihood<Model,Parameters_distribution>>& d
+                                                              ):d_{d},e_{e}{}
 
+  Derivative()=default;
   template <class mySample>
   auto compute_DLikelihood(const Parameters &p, const mySample &,
                                std::ostream &os) const
   {
     return d_.compute_DLikelihood( p, os,e_);
 
+  }
+  auto& get_ModelLikelihood()const {return d_;}
+  auto& get_Experiment()const {return e_;}
+
+
+  static auto get_constructor_fields() {
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "Experiment", &self_type::get_Experiment),
+          grammar::field(C<self_type>{}, "Model_DLikelihood", &self_type::get_ModelLikelihood));
   }
 
 
@@ -223,7 +258,7 @@ public:
 
 private:
   Derivative<Markov_Model_Likelihood<Model,Parameters_distribution>> d_;
-  Experiment const & e_;
+  Experiment e_;
 };
 
 

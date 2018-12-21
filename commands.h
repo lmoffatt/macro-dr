@@ -553,20 +553,31 @@ struct Evidence{
                     std::vector<std::vector<double>>landa_50_hill,
                     double gain_moment,
                     std::size_t nSamples,
+                    std::size_t ntrials,
                     bool parameters,
                     bool gradient,
-                    double epsf)
+                    double epsf,
+                    std::string idfile
+                        )
     {
 
-        std::cerr<<"\nPriorParameters\n";
-        std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean()).value();
+      typedef Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> Likelihood_Model;
+      typedef evidence::Prior_Model<Model,ParametersDistribution> PriorModel;
+      typedef evidence::Thermodynamic_Model<PriorModel, Likelihood_Model> ThModel;
 
-        Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber, epsf);
+      typedef std::vector<std::mt19937> RG;
+      typedef  std::vector<
+          evidence::Adaptive_Parameterized_Distribution_Generator<evidence::LevenbergMarquardt<ThModel>>>
+          Adaptive;
+      typedef  evidence::Thermodynamic_Model_Series<PriorModel, Likelihood_Model> Th_Models;
+      typedef evidence::Parallel_Tempering<true> MCMC;
+
+      Likelihood_Model lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber, epsf);
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
-        std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt)).value();
-        evidence::OutputGenerator out(std::cerr,parameters,gradient);
+        std::string info="";
 
-        return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,out).error();
+        evidence::OutputGenerator<RG,MCMC,Th_Models,Adaptive> out(std::cerr,parameters,gradient);
+        return evidence::run_Thermo_Levenberg_ProbVel(idfile,info,evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,ntrials,out).error();
     }
 
     static auto get_arguments()
@@ -588,9 +599,11 @@ struct Evidence{
                     grammar::argument(C<std::vector<std::vector<double>>>{},"landa_50_hill"),
                     grammar::argument(C<double>{},"gain_moment"),
                     grammar::argument(C<std::size_t>{},"nSamples"),
+                    grammar::argument(C<std::size_t>{},"ntrials"),
                     grammar::argument(C<bool>{},"parameters_output"),
                     grammar::argument(C<double>{},"gradient_output"),
-                    grammar::argument(C<double>{},"eps_factor")
+          grammar::argument(C<double>{},"eps_factor"),
+              grammar::argument(C<std::string>{},"id_file")
 
                     );
     }
@@ -619,21 +632,33 @@ struct Evidence_Derivative{
                     std::vector<std::vector<double>>landa_50_hill,
                   double gain_moment,
                   std::size_t nSamples,
+                  std::size_t n_trials,
                   bool parameters,
-                  bool gradient)
+                  bool gradient,
+                  std::string id_file)
   {
+      typedef Derivative<Markov_Model_Likelihood<Model,ParametersDistribution,Experiment>> Likelihood_Model;
+      typedef evidence::Prior_Model<Model,ParametersDistribution> PriorModel;
+      typedef evidence::Thermodynamic_Model<PriorModel, Likelihood_Model> ThModel;
 
-      std::cerr<<"\nPriorParameters\n";
-      std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<prior.tr_to_Parameter(prior.mean()).value();
+      typedef std::vector<std::mt19937> RG;
+      typedef  std::vector<
+          evidence::Adaptive_Parameterized_Distribution_Generator<evidence::LevenbergMarquardt<ThModel>>>
+          Adaptive;
+      typedef  evidence::Thermodynamic_Model_Series<PriorModel, Likelihood_Model> Th_Models;
+      typedef evidence::Parallel_Tempering<true> MCMC;
+
+
       std::mt19937_64 mt=init_mt(initseed, std::cerr);
       auto dm=Derivative<Model>(m);
       auto dprior=Derivative<ParametersDistribution>(prior);
       Derivative<Markov_Model_Likelihood<Model,ParametersDistribution,Experiment>> lik(e,
                                                                                          Derivative<Markov_Model_Likelihood<Model,ParametersDistribution>>(dm,dprior,algorithm,min_P, tolerance,BiNumber,VaNumber));
 
-      evidence::OutputGenerator out(std::cerr,parameters,gradient);
+      evidence::OutputGenerator<RG,MCMC,Th_Models,Adaptive> out(std::cerr,parameters,gradient);
 
-      return evidence::run_Thermo_Levenberg_ProbVel(evidence::Prior_Model<Model,ParametersDistribution>(prior),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,out).error();
+      std::string info;
+      return evidence::run_Thermo_Levenberg_ProbVel(id_file,info,evidence::Prior_Model<Model,ParametersDistribution>(prior),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,n_trials,out).error();
     }
 
     static auto get_arguments()
@@ -654,8 +679,10 @@ struct Evidence_Derivative{
                     grammar::argument(C<std::vector<std::vector<double>>>{},"landa_50_hill"),
                     grammar::argument(C<double>{},"gain_moment"),
                     grammar::argument(C<std::size_t>{},"nSamples"),
+                    grammar::argument(C<std::size_t>{},"n_trials"),
                     grammar::argument(C<bool>{},"parameters_output"),
-          grammar::argument(C<double>{},"gradient_output")
+          grammar::argument(C<double>{},"gradient_output"),
+          grammar::argument(C<std::string>{},"id_file")
 
                                   );
     }
@@ -687,16 +714,26 @@ struct Evidence_emcee{
                   bool gradient,
                   std::size_t numWalkers,
                   double target_prob,
-                  std::size_t ntrials)
+                  std::size_t ntrials,
+                  std::string n_file)
   {
+      typedef Markov_Model_Likelihood<Model,ParametersDistribution,Experiment> Likelihood_Model;
+      typedef evidence::Ensemble_Parallel_Tempering MCMC;
 
-      std::cerr<<"\nPriorParameters\n";
-      std::cerr<<"\np.tr_to_Parameter(p.mean())\n"<<p.tr_to_Parameter(p.mean()).value();
-      Markov_Model_Likelihood<Model,ParametersDistribution,Experiment> lik(m,p,e,algorithm,min_P, tolerance,BiNumber,VaNumber);
+      typedef evidence::Prior_Model<Model,ParametersDistribution> PriorModel;
+      typedef evidence::Thermodynamic_Model<PriorModel, Likelihood_Model> ThModel;
+
+      typedef std::vector<std::mt19937> RG;
+      typedef  evidence::Thermodynamic_Model_Series<PriorModel, Likelihood_Model> Th_Models;
+      typedef std::vector<typename evidence::Ensemble_Metropolis_Hastings::adaptive_stretch_mover<ThModel>> Adaptive;
+
+
+      Likelihood_Model lik(m,p,e,algorithm,min_P, tolerance,BiNumber,VaNumber);
       std::mt19937_64 mt=init_mt(initseed, std::cerr);
       std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt)).value();
-      evidence::OutputGenerator out(std::cerr,parameters,gradient);
-      return evidence::run_Thermo_emcee(evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,numWalkers,alfas,pjump,target_prob,nSamples,ntrials,out).error();
+      evidence::OutputGenerator<RG,MCMC,Th_Models,Adaptive> out(std::cerr,parameters,gradient);
+      std::string info="";
+      return evidence::run_Thermo_emcee(n_file,info,PriorModel(p),lik,mt,betas,numWalkers,alfas,pjump,target_prob,nSamples,ntrials,out).error();
 
 
 
@@ -722,8 +759,8 @@ struct Evidence_emcee{
           grammar::argument(C<bool>{},"gradient_output"),
           grammar::argument(C<std::size_t>{},"numWalkers"),
           grammar::argument(C<double>{},"target_prob"),
-          grammar::argument(C<std::size_t>{},"n_trials_at_init")
-
+          grammar::argument(C<std::size_t>{},"n_trials_at_init"),
+grammar::argument(C<std::string>{},"id_file ")
                                   );
 //evidence_works = evidence_emcee ( singleLigandExperiment = mySimulation  State_Model = Model_1   model_parameters_distribution = paramPrior_1   algorithm = "MacroDMR"  Binomial_threshold =5.0 Variance_threshold =1.0  p_jump = 0.5   min_probability = 1e-14 tolerance_error=1e-2 initseed = 3034446629   betas = { 1.0 0.5 0.3 0.1 1e-2 1e-3 1e-4 0}  alfas = {2 1.5 1.2 1.1 1.05 1.02 1.01 1.005  1.002  1.001 1.0005  1.0002 1.0001 }  nSamples = 10000  parameters_output = 0  gradient_output = 0  numWalkers = 8  target_prob = 0.2  n_trials_at_init = 100 )
 

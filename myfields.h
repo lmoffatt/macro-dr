@@ -272,6 +272,22 @@ struct extract_types<Cs<types...>,Cs<commands...>,CCs<templateCommands...>>
 
 };
 
+template <class Object,class Method>
+bool equality_operator_on_Field(const grammar::field<Object,Method>& myField, const Object& x, const Object& y){
+  if (std::invoke(myField.access_method,x)==std::invoke(myField.access_method,y))
+    return true;
+  else
+    return false;
+}
+
+
+
+template<class FieldObject>
+auto operator==(const FieldObject& x,const FieldObject& y)->decltype (x.get_constructor_fields(),true)
+{
+  auto fields=x.get_constructor_fields();
+  return std::apply([&x, &y](const auto&... v){return (equality_operator_on_Field(v,x,y)&&...&&true);},fields);
+}
 
 
 

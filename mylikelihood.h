@@ -314,7 +314,8 @@ public:
     return std::make_tuple(
         grammar::field(C<self_type>{}, "logL", myLogL),
         grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
-        grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL));
+        grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
+        grammar::field(C<self_type>{}, "evlogL", &self_type::evlogL));
   }
 
   double logL() const { return logL_; }
@@ -328,7 +329,7 @@ public:
 
   logLikelihood(double value, double elogL, double vlogL, double evlogL)
       : logL_{value}, elogL_{elogL}, vlogL_{vlogL}, evlogL_{evlogL} {}
-  logLikelihood(std::tuple<double, double, double, double> logL)
+  logLikelihood(const std::tuple<double, double, double, double>& logL)
       : logL_{std::get<0>(logL)}, elogL_{std::get<1>(logL)},
         vlogL_{std::get<2>(logL)}, evlogL_{std::get<3>(logL)} {}
 
@@ -352,6 +353,18 @@ public:
   auto data_row(std::size_t) const {
     return std::tuple(logL(), elogL(), vlogL(), evlogL(), chilogL());
   }
+
+  static std::vector<Data_Index_scheme> data_index()
+  {
+    std::vector<Data_Index_scheme> out;
+    out.push_back(Data_Index_scheme("logL", {}));
+    out.push_back(Data_Index_scheme("elogL", {}));
+    out.push_back(Data_Index_scheme("vlogL", {}));
+    out.push_back(Data_Index_scheme("evlogL", {}));
+    out.push_back(Data_Index_scheme("chilogL", {}));
+    return out;
+  }
+
   std::size_t data_size() const { return 1; }
 
   logLikelihood &operator+=(const logLikelihood &other) {
@@ -529,6 +542,15 @@ public:
     d.insert_column(pre + "Gradient", C<double>{});
     d.insert_column(pre + "Hessian", C<double>{});
   }
+
+  static std::vector<Data_Index_scheme> data_index()
+  {
+    std::vector<Data_Index_scheme> out=base_type::data_index();
+    out.push_back(Data_Index_scheme("Gradient", {"Parameter"}));
+    out.push_back(Data_Index_scheme("chilogL", {"Parameter","ParameterT"}));
+    return out;
+  }
+
   auto data_row(std::size_t i, std::size_t j) const {
     return std::tuple_cat(base_type::data_row(i), std::tuple(G_[i], H_(i, j)));
   }
@@ -711,6 +733,17 @@ public:
                                      gradient_fim_value()));
   }
 
+  static std::vector<Data_Index_scheme> data_index()
+  {
+    std::vector<Data_Index_scheme> out=base_type::data_index();
+    out.push_back(Data_Index_scheme("Gradient_Variance", {"Parameter","ParameterT"}));
+    out.push_back(Data_Index_scheme("Scaling_Matrix", {"Parameter","ParameterT"}));
+    out.push_back(Data_Index_scheme("Gradient_chi2_value", {}));
+    out.push_back(Data_Index_scheme("Gradient_fim_value", {}));
+
+    return out;
+  }
+
 private:
   M_Matrix<double> vG_;
   bool hasScaleMatrix_;
@@ -819,7 +852,7 @@ public:
             grammar::field(C<self_type>{}, "gradient_fim_value",
                            &self_type::gradient_fim_value))
 
-                );
+                                        );
   }
 
   moments(const moments<double> &logL, const moments<double> &elogL,
@@ -943,6 +976,17 @@ public:
     base_type::insert_col(d);
     DlogLikelihood::insert_col(d, "partial_");
   }
+  static std::vector<Data_Index_scheme> data_index()
+  {
+    std::vector<Data_Index_scheme> out=base_type::data_index();
+    auto vAux=Insert_Index(my_trait<Aux>::data_index(),{"i_measure"});
+    out=concatenate_add_prefix_if_same(std::move(out),std::move(vAux),"partial_");
+    auto vDlog=Insert_Index(DlogLikelihood::data_index(),{"i_measure"});;
+    out=concatenate_add_prefix_if_same(std::move(out),std::move(vDlog),"partial_");
+    return out;
+  }
+
+
   auto data_row(std::size_t isample, std::size_t i, std::size_t j) const {
     return std::tuple_cat(my_trait<Aux>::data_row(getAuxiliar()[isample]),
                           base_type::data_row(i, j),
@@ -1042,7 +1086,7 @@ public:
 
   moments(const std::vector<evidence::PartialDLogLikelihood<Aux>> &data)
       : base_type(data), partial_(calc_moments(data)),
-                                            aux_(calc_aux_moments(data)) {}
+        aux_(calc_aux_moments(data)) {}
 
   moments(const base_type &base, const moments<double> &GHG,
           const std::vector<moments<evidence::DlogLikelihood>> &dlog,
@@ -1092,22 +1136,27 @@ private:
 
 namespace evidence {
 
-class Distribution_Function_Model {
 
-  template <class Data, class Parameters>
-  auto compute_Distribution(const Data &d, const Parameters &p) {}
-  template <class Data, class Parameters>
-  auto compute_Distribution_aux(const Data &data, const Parameters &p,
-                                std::ostream &os) {}
 
-  template <class Data, class Parameters, class Aux>
-  auto compute_Distribution_aux(const Data &data, const Parameters &p,
-                                std::ostream &os, const Aux &aux) {}
-};
 
-/// Aproximacion por Fisher Information Matrix al Hessiano
-///
-///
+template <class Distribution_Model, class Data, class Parameters>
+myOptional_t<logLikelihood>
+compute_likelihood(const Distribution_Model& l, const Data& d, const Parameters& p)
+{
+  typedef myOptional_t<logLikelihood> Op;
+  auto D0 = l.compute_Distribution(d, p);
+  if (D0.has_value()) {
+    auto logL = calculate_Likelihood(D0, d);
+    std::stringstream ss;
+    if (are_finite<true, double>().test(logL, ss))
+      return Op(logLikelihood(logL));
+    else
+      return Op(false, ss.str());
+  } else
+    return Op(false, "fails to compute model data" + D0.error());
+
+}
+
 
 template <class Distribution_Model, class Data> class Likelihood_Model {
 public:
@@ -1118,24 +1167,23 @@ public:
   constexpr static auto const className = my_static_string("Likelihood_Model") +
                                           my_trait<template_types>::className;
 
-  myOptional_t<logLikelihood> compute_Likelihood(const Parameters &p) const {
-    typedef myOptional_t<logLikelihood> Op;
-    auto D0 = l_.compute_Distribution(d_, p);
-    if (D0.has_value()) {
-      auto logL = calculate_Likelihood(D0, d_);
-      std::stringstream ss;
-      if (are_finite<true, double>().test(logL, ss))
-        return Op(logLikelihood(logL));
-      else
-        return Op(false, ss.str());
-    } else
-      return Op(false, "fails to compute model data" + D0.error());
+  auto compute_Likelihood(const Parameters &p) const {
+    return compute_Likelihood(l_,d_,p);
   }
   Likelihood_Model(const Distribution_Model &l, const Data &d) : l_{l}, d_{d} {}
 
+  static auto get_constructor_fields() {
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "Distribution_Model", &self_type::model),
+        grammar::field(C<self_type>{}, "Data", &self_type::data));
+  }
+
+  Likelihood_Model()=default;
   const Distribution_Model &model() const { return l_; }
   const Data &data() const { return d_; }
   void set_Data(Data &&d) { d_ = std::move(d); }
+
+
 
 protected:
   Distribution_Model l_;
@@ -1238,17 +1286,24 @@ public:
   }
 
   template <class mySample>
-  auto compute_DLikelihood(const Parameters &p, const mySample &current,
-                           std::ostream &os, const Data &data) const
-
+   auto compute_eps(const Parameters& p, const mySample& current,const Data& data)const
   {
     std::vector<double> eps(p.size());
     for (std::size_t i = 0; i < p.size(); ++i)
       eps[i] = 2.0 * std::sqrt(eps_f() * data.size() *
                                std::numeric_limits<double>::epsilon() *
                                std::abs(current.logL() / current.H()(i, i)));
+    return eps;
 
-    return compute_DLikelihood(p, os, data, eps);
+  }
+
+
+  template <class mySample>
+  auto compute_DLikelihood(const Parameters &p, const mySample &current,
+                           std::ostream &os, const Data &data) const
+
+  {
+       return compute_DLikelihood(p, os, data, compute_eps(p,current,data));
   }
 
   auto compute_DLikelihood(const Parameters &p, std::ostream &os,
@@ -1485,10 +1540,19 @@ public:
       : Likelihood_Model<Distribution_Model, Data>(l, d), eps_{eps},
         eps_f_{epsf} {}
 
+  static auto get_constructor_fields() {
+    return std::make_tuple(
+        grammar::field(C<self_type>{}, "Distribution_Model", &self_type::model),
+        grammar::field(C<self_type>{}, "Data", &self_type::data),
+        grammar::field(C<self_type>{}, "eps", &self_type::eps),
+        grammar::field(C<self_type>{}, "epsilon_factor", &self_type::eps_f)
+        );
+  }
+
   void set_Data(Data &&d) { base_type::set_Data(std::move(d)); }
-
+  double eps()const {return  eps_;}
   double eps_f() const { return eps_f_; }
-
+  FIM_Model()=default;
 private:
   double eps_;
   double eps_f_;
@@ -1695,7 +1759,7 @@ private:
                     prior_.name(i_parT)),
                 parmom.data_row(m, i_parT, i_par),
                 std::tuple(prior_.tr_to_Parameter(
-                                     std::get<0>(parmom.data_row(m, i_parT, i_parT)), i_parT)));
+                    std::get<0>(parmom.data_row(m, i_parT, i_parT)), i_parT)));
             auto data_t =
                 std::tuple_cat(data_sample, data_exp, data_par, data_lik);
             d.push_back_t(data_t);
@@ -2300,7 +2364,7 @@ private:
 
 
     auto out=Likelihood_Analisis(prior, par, mysamples.value().getSimulations(),
-                                  mysamples.value().getLikelihoods());
+                                   mysamples.value().getLikelihoods());
     typedef myOptional_t<std::decay_t<decltype(out)>> Op;
     if (!mysamples)
       return Op(false, "Sampling failed!! \n"+mysamples.error());

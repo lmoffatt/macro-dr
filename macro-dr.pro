@@ -2,16 +2,16 @@ TEMPLATE = app
 CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
-CONFIG += c++1z
+CONFIG += c++17
 #CONFIG += sanitizer sanitize_address
 QMAKE_CXXFLAGS += -std=c++17 -Werror=return-type -ftemplate-backtrace-limit=0  -Wnon-virtual-dtor -Wnull-dereference
 QMAKE_CXXFLAGS_RELEASE += -lpthread
 QMAKE_CXXFLAGS_DEBUG += -lpthread
 
 
-QMAKE_CXXFLAGS += -fopenmp
-QMAKE_LFLAGS +=  -fopenmp
-LIBS += -lpthread
+QMAKE_CXXFLAGS += -fopenmp -lstdc++fs
+QMAKE_LFLAGS +=  -fopenmp  -lstdc++fs
+LIBS += -lpthread -lstdc++fs
 LIBS +=  -lblas  -llapack
 
 #QMAKE_CC = /usr/bin/clang-6.0
