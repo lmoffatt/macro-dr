@@ -51,7 +51,7 @@ template<class F, class... Args, class... Args2, std::size_t ...Is>
 auto
 myApply(const F &f, std::tuple<Args...> &&t1, std::tuple<Args2...>&& t2, std::index_sequence<Is...>) {
 
-  return std::invoke(f,std::pair(std::get<Is>(t1),std::get<Is>(t2))...);
+  return std::invoke(f,std::make_pair(std::get<Is>(t1),std::get<Is>(t2))...);
 }
 
   template <class F, class...Args, class...Args2>

@@ -82,6 +82,8 @@ inline  myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss);
 template<char... cs>
 inline  myOptional_t<io::token<cs...>> get(C<io::token<cs...>>,std::stringstream& ss)
 {
+    std::string line=ss.str();
+
     io::token<cs...> t;
     if (!ss>>t)
         return {false," invalid token"};
@@ -206,6 +208,8 @@ myOptional_t<std::variant<T0s...,T,Ts...>> get(Cs<T0s...>,Cs<T,Ts...>,std::strin
 template<class...Ts>
 myOptional_t<std::variant<Ts...>> get_variant(C<std::variant<Ts...>>,std::stringstream& ss)
 {
+    auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     return get_variant_templ_impl::get(Cs<>{},Cs<Ts...>{},ss,"");
 
 }
@@ -395,6 +399,7 @@ public:
     virtual myOptional_t<void> get(std::stringstream& ss)override
     {
         auto pos=ss.tellg();
+        std::string line=ss.str().substr(pos);
         if (ss>>symbol{})
             return {true,""};
         else
@@ -788,6 +793,8 @@ public:
 
 myOptional_t<GroupOperation*> get(C<GroupOperation*>, std::stringstream& ss)
 {
+    auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     auto g=std::unique_ptr<GroupOperation>(new GroupOperation);
     auto res=g->get(ss);
     if (res) return g.release();
@@ -796,6 +803,7 @@ myOptional_t<GroupOperation*> get(C<GroupOperation*>, std::stringstream& ss)
 
 myOptional_t<ArrayOperation*> get(C<ArrayOperation*>, std::stringstream& ss)
 {
+    std::string line=ss.str();
     auto g=std::unique_ptr<ArrayOperation>(new ArrayOperation);
     auto res=g->get(ss);
     if (res) return g.release();
@@ -975,8 +983,8 @@ public:
     }
     virtual myOptional_t<void> get(std::stringstream &ss) override
     {
-        auto line=ss.str();
         auto pos=ss.tellg();
+        std::string line=ss.str().substr(pos);
         if (!(ss>>label_start{}))
         {
             ss.clear();
@@ -987,7 +995,7 @@ public:
         else
         {
             std::string out;
-            std::string end=label_end{}.value;
+            std::string end=label_end{}.str();
             auto n=end.size();
             char c;
             ss.get(c);
@@ -1086,6 +1094,8 @@ myOptional_t<void> Function::get(std::stringstream &ss)
 myOptional_t<typename Function::arg_map> Function::getArguments(C<typename Function::arg_map>,std::stringstream& ss){
     typename Function::arg_map out;
     typedef std::variant<arg_end,Generic_Assignment*> init_type;
+    auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     while (true)
     {
         auto v=get_variant(C<init_type>{},ss);
@@ -1186,6 +1196,8 @@ myOptional_t<BinaryOperation*> resolve_operator_order(C<BinaryOperation*>,std::s
 inline
 myOptional_t<Term*> get_term_from_identifier(C<Term*>,std::stringstream& ss, std::unique_ptr<Identifier>&& id)
 {
+    auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     if (get(ss,Function::start_symbol{}))
     {
         auto out=Function::getArguments(C<typename Function::arg_map>{},ss);
@@ -1239,7 +1251,7 @@ inline
 myOptional_t<Term*> get(C<Term*>,std::stringstream& ss)
 {
     auto pos=ss.tellg();
-    auto line=ss.str();
+    std::string line=ss.str().substr(pos);
     auto ofirst=get_variant(C<valid_start>{},ss);
     if (!ofirst) { ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+ "invalid start of term:"+ofirst.error()}; }
     else
@@ -1286,6 +1298,7 @@ inline
 myOptional_t<Expression*> get(C<Expression*>,std::stringstream& ss)
 {
     auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     auto ot=get(C<Term*>{},ss);
     if (!ot)
     { ss.clear(); ss.seekg(pos); return {false, print_pos(pos)+"error in Term :"+ot.error()}; }
@@ -1301,6 +1314,8 @@ myOptional_t<Expression*> get(C<Expression*>,std::stringstream& ss)
 myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss)
 {
     auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
+
     auto ofirst=get_variant(C<valid_start>{},ss);
     if (!ofirst)
     { ss.clear(); ss.seekg(pos); return {false,print_pos(pos)+"Statement failed start: "+ofirst.error()}; }
@@ -1359,6 +1374,7 @@ inline
 myOptional_t<Generic_Assignment*> get(C<Generic_Assignment*>,std::stringstream& ss)
 {
     auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     auto oid=get(C<Identifier*>{},ss);
     if (!oid) {ss.clear(); ss.seekg(pos);return {false,print_pos(pos)+"assignment with invalid identifier: "+oid.error()};}
     auto oop=get_variant(C<std::variant<AssignmentGenericOperator*,DefinitionGenericOperator*>>{},ss);
@@ -1390,12 +1406,16 @@ myOptional_t<Generic_Assignment*> get(C<Generic_Assignment*>,std::stringstream& 
 inline
 myOptional_t<Identifier*> get(C<Identifier*>,std::stringstream& ss)
 {
+    auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     return get_Derived(Cs<Identifier, Identifier>{},ss,"");
 }
 
 inline
 myOptional_t<AssignmentGenericOperator*> get(C<AssignmentGenericOperator*>,std::stringstream& ss)
 {
+    auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     return get_Derived(Cs<AssignmentGenericOperator,AssignmentOperator>{},ss,"");
 }
 
@@ -1406,22 +1426,30 @@ myOptional_t<AssignmentGenericOperator*> get(C<AssignmentGenericOperator*>,std::
 inline
 myOptional_t<DefinitionGenericOperator*> get(C<DefinitionGenericOperator*>,std::stringstream& ss)
 {
+    auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     return get_Derived(Cs<DefinitionGenericOperator>{},ss,"");
 }
 inline
 myOptional_t<UnaryOperator*> get(C<UnaryOperator*>,std::stringstream& ss)
 {
+    auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     return get_Derived(Cs<UnaryOperator>{},ss,"");
 }
 inline
 myOptional_t<BinaryOperator*> get(C<BinaryOperator*>,std::stringstream& ss)
 {
+    auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     return get_Derived(Cs<BinaryOperator>{},ss,"");
 }
 
 
 myOptional_t<LiteralGeneric*> get(C<LiteralGeneric*>,std::stringstream& ss)
 {
+    auto pos=ss.tellg();
+    std::string line=ss.str().substr(pos);
     return get_Derived(Cs<LiteralGeneric,Literal<std::string>, Literal<double>, Literal<std::size_t>,Literal<std::mt19937_64::result_type>, Literal<int>, Literal<bool>>{},ss,"");
 }
 

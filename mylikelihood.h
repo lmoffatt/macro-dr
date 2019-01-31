@@ -354,16 +354,34 @@ public:
     return std::tuple(logL(), elogL(), vlogL(), evlogL(), chilogL());
   }
 
-  static std::vector<Data_Index_scheme> data_index()
+  static Data_Index_scheme data_index()
   {
-    std::vector<Data_Index_scheme> out;
-    out.push_back(Data_Index_scheme("logL", {}));
-    out.push_back(Data_Index_scheme("elogL", {}));
-    out.push_back(Data_Index_scheme("vlogL", {}));
-    out.push_back(Data_Index_scheme("evlogL", {}));
-    out.push_back(Data_Index_scheme("chilogL", {}));
+    Data_Index_scheme out;
+    out.push_back("logL", {});
+    out.push_back("elogL", {});
+    out.push_back("vlogL", {});
+    out.push_back("evlogL", {});
+    out.push_back("chilogL", {});
     return out;
   }
+
+  static auto
+  get_data_index()
+  {
+      return std::tuple(
+          Data_Index(Cs<self_type>(),"logL",&self_type::logL),
+          Data_Index(Cs<self_type>(),"elogL",&self_type::elogL),
+          Data_Index(Cs<self_type>(),"vlogL",&self_type::vlogL),
+          Data_Index(Cs<self_type>(),"evlogL",&self_type::evlogL),
+          Data_Index(Cs<self_type>(),"chilogL",&self_type::chilogL)
+      );
+  }
+  auto
+  getIndexedData(const std::set<std::string>& ,const std::set<std::string>& )
+  {
+      Data_Index_point out;
+  }
+
 
   std::size_t data_size() const { return 1; }
 
@@ -543,13 +561,46 @@ public:
     d.insert_column(pre + "Hessian", C<double>{});
   }
 
-  static std::vector<Data_Index_scheme> data_index()
+  static Data_Index_scheme data_index()
   {
-    std::vector<Data_Index_scheme> out=base_type::data_index();
-    out.push_back(Data_Index_scheme("Gradient", {"Parameter"}));
-    out.push_back(Data_Index_scheme("chilogL", {"Parameter","ParameterT"}));
+    Data_Index_scheme out=base_type::data_index();
+    out.push_back("Gradient", {"i_Parameter"});
+    out.push_back("Hessian", {"i_Parameter","i_Parameter_T"});
     return out;
   }
+
+  static auto
+  get_data_index()
+  {
+      using namespace std::literals::string_literals;
+      return std::tuple_cat(
+          Insert_tuple(Cs<self_type>(),[](const self_type& self)->base_type const& {return self;},base_type::get_data_index()),
+    std::tuple(
+          Data_Index(Cs<self_type>(),"Gradient"s,
+                     [](const self_type& s,std::size_t i){return s.G()[i];},
+                     std::pair (std::string("i_Parameter"),[](const self_type& self){return self.G().size();} ) ),
+          Data_Index(Cs<self_type>(),"Hessian"s,
+                     [](const self_type& s,std::size_t i, std::size_t j){return s.H()(i,j);},
+                     std::pair (std::string("i_Parameter"),[](const self_type& self){return self.H().nrows();} ),
+                         std::pair (std::string("i_Parameter_T"),[](const self_type& self, std::size_t){return self.H().ncols();} )
+                      )
+                  ));
+  }
+
+
+
+
+
+  auto
+  getIndexedData(const std::set<std::string>& ,const std::set<std::string>& )
+  {
+      Data_Index_point out;
+      out.push_back("i_Parameter",H_.nrows());
+      out.push_back("i_Parameter_T",H_.ncols());
+      return out;
+   //   base_type& l=*this;
+  }
+
 
   auto data_row(std::size_t i, std::size_t j) const {
     return std::tuple_cat(base_type::data_row(i), std::tuple(G_[i], H_(i, j)));
@@ -733,16 +784,53 @@ public:
                                      gradient_fim_value()));
   }
 
-  static std::vector<Data_Index_scheme> data_index()
+  static Data_Index_scheme data_index()
   {
-    std::vector<Data_Index_scheme> out=base_type::data_index();
-    out.push_back(Data_Index_scheme("Gradient_Variance", {"Parameter","ParameterT"}));
-    out.push_back(Data_Index_scheme("Scaling_Matrix", {"Parameter","ParameterT"}));
-    out.push_back(Data_Index_scheme("Gradient_chi2_value", {}));
-    out.push_back(Data_Index_scheme("Gradient_fim_value", {}));
+    auto out=base_type::data_index();
+    out.push_back("Gradient_Variance", {"i_Parameter","i_Parameter_T"});
+    out.push_back("Scaling_Matrix", {"i_Parameter","i_Parameter_T"});
+    out.push_back("Gradient_chi2_value", {});
+    out.push_back("Gradient_fim_value", {});
 
     return out;
   }
+
+  static auto
+  get_data_index()
+  {
+      using namespace std::literals::string_literals;
+
+      return std::tuple_cat(
+          Insert_tuple(Cs<self_type>(),[](const self_type& self)->base_type const& {return self;},base_type::get_data_index()),
+          std::tuple(
+              Data_Index(Cs<self_type>(),"Gradient_Variance"s,
+                         [](const self_type& s,std::size_t i, std::size_t j){return s.vG()(i,j);},
+                         std::pair ("i_Parameter"s,[](const self_type& self){return self.vG().nrows();} ),
+                         std::pair ("i_Parameter_T"s,[](const self_type& self){return self.vG().ncols();} )
+                             ),
+              Data_Index(Cs<self_type>(),"Scaling_Matrix"s,
+                         [](const self_type& s,std::size_t i, std::size_t j){return s.scaleM()(i,j);},
+                         std::pair ("i_Parameter"s,[](const self_type& self){return self.scaleM().nrows();} ),
+                         std::pair ("i_Parameter_T"s,[](const self_type& self){return self.scaleM().ncols();} )
+                             ),
+              Data_Index(Cs<self_type>(),"Gradient_chi2_value",&self_type::gradient_chi_value),
+              Data_Index(Cs<self_type>(),"Gradient_fim_value",&self_type::gradient_fim_value)
+
+                  ));
+  }
+
+
+  auto
+  getIndexedData(const std::set<std::string>& ,const std::set<std::string>& )
+  {
+      Data_Index_point out;
+      out.push_back("i_Parameter",vG_.nrows());
+      out.push_back("i_Parameter_T",vG_.ncols());
+      return out;
+      //base_type& l=*this;
+    ///  auto ind=l.getIndexedData(index,names);
+  }
+
 
 private:
   M_Matrix<double> vG_;
@@ -976,14 +1064,45 @@ public:
     base_type::insert_col(d);
     DlogLikelihood::insert_col(d, "partial_");
   }
-  static std::vector<Data_Index_scheme> data_index()
+  static Data_Index_scheme data_index()
   {
-    std::vector<Data_Index_scheme> out=base_type::data_index();
+    Data_Index_scheme out=base_type::data_index();
     auto vAux=Insert_Index(my_trait<Aux>::data_index(),{"i_measure"});
-    out=concatenate_add_prefix_if_same(std::move(out),std::move(vAux),"partial_");
+    out=concatenate(std::move(out),std::move(vAux));
     auto vDlog=Insert_Index(DlogLikelihood::data_index(),{"i_measure"});;
-    out=concatenate_add_prefix_if_same(std::move(out),std::move(vDlog),"partial_");
+    out=concatenate(std::move(out),std::move(vDlog));
     return out;
+
+  }
+
+  static auto
+  get_data_index()
+  {
+      using namespace std::literals::string_literals;
+      typedef typename std::decay_t<decltype (std::declval<self_type>().partial_DlogL())>::value_type  Dlik;
+      return std::tuple_cat(
+          Insert_tuple(Cs<self_type>(),[](const self_type& self)->base_type const& {return self;},base_type::get_data_index()),
+          std::tuple(
+              Data_Index(Cs<self_type>(),my_trait<Aux>::data_index(),
+                         [](const self_type& s,std::size_t imeasure){return s.getAuxiliar()[imeasure];},
+                         std::make_pair ("i_measure"s,[](const self_type& self){return self.getAuxiliar().size();} )
+                                                          )
+              ),
+          Insert_tuple(Cs<self_type>(),
+                       [](const self_type& self, std::size_t i_meas) {return self.partial_DlogL()[i_meas];},
+                       Cs<std::size_t>(),Dlik::get_data_index(),
+                       std::make_pair("i_measures"s,[](const self_type& self){return self.partial_DlogL().size();})
+                                    )
+              );
+  }
+
+  auto
+  getIndexedData(const std::set<std::string>& index,const std::set<std::string>& names)
+  {
+      Data_Index_point out;
+      out.push_back("i_measure",partial_.size());
+       base_type& l=*this;
+      auto ind=l.getIndexedData(index,names);
   }
 
 
@@ -1088,7 +1207,7 @@ public:
       : base_type(data), partial_(calc_moments(data)),
         aux_(calc_aux_moments(data)) {}
 
-  moments(const base_type &base, const moments<double> &GHG,
+  moments(const base_type &base, const moments<double> &/*GHG*/,
           const std::vector<moments<evidence::DlogLikelihood>> &dlog,
           const std::vector<moments<Aux>> &newAux)
       : base_type(base), partial_{dlog}, aux_{newAux} {}

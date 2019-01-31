@@ -8,73 +8,733 @@
 #include "mySerializer.h"
 #include <random>
 #include <cmath>
+#include <algorithm>
 
-class Data_Index_scheme
+
+
+
+template<class Object, class Fun,class... Sizes >
+class Data_Index
 {
-  std::string value_name_;
-  std::vector<std::string> index_names_;
 public:
 
-  typedef   Data_Index_scheme self_type;
+    Data_Index(Cs<Object>,const std::string& fieldname,const Fun& data ,const std::pair<std::string,Sizes>&... indexes)
+        :fieldname_{fieldname},indexes_{indexes...},datafun_{data}{}
 
-  auto& value_name()const {return value_name_;}
-  void  set_value_name(std::string&& newname) {value_name_=newname;}
-  auto & index_names()const {return index_names_;}
+    auto getFieldName()const { return fieldname_;}
+    auto dataFun()const { return datafun_;}
+    auto& indexes()const {return indexes_;}
 
-  void insert_Index(std::vector<std::string>&& index)
-  {
-    index_names_.insert(index_names_.begin(),index.begin(), index.end());
-  }
+    template<class... Ints>
+    auto get_Index_Size(const Object& x, Ints... is)const {
+        static_assert((true&&...&&std::is_arithmetic_v<Ints>),"sizes!!");
+        return std::invoke(std::get<sizeof...(Sizes)>(indexes()).second,x,is...);
+    }
 
-  static auto get_constructor_fields()
-  {
-    return std::make_tuple(
-        grammar::field(C<self_type>{},"value_name",&self_type::value_name),
-        grammar::field(C<self_type>{},"index_names",&self_type::index_names));
-  }
+    std::vector<std::string> indexed_by()const {
+        return std::apply([](auto&... t){ return  std::vector<std::string> {t.first...};},indexes_);
+    }
+
+    static constexpr std::size_t IndexNumber=sizeof...(Sizes);
 
 
-  Data_Index_scheme(const std::string& name, const std::vector<std::string>& indexes)
-      :value_name_{name},index_names_{indexes}{}
 
-  Data_Index_scheme( std::string&& name,  std::vector<std::string>&& indexes)
-      :value_name_{std::move(name)},index_names_{std::move(indexes)}{}
+    template<std::size_t... Is>
+    bool sameIndexes(const std::vector<std::string>& ind, std::index_sequence<Is...>)const
+    {
+        if (ind.size()!=IndexNumber) return false;
+        else
+            return (bool((ind[Is])==(std::get<Is>(indexes()).first))&&...&&true);
+    }
 
-  Data_Index_scheme()=default;
+    bool isAnIndex(const std::vector<std::string>& ind)const
+    {
+        return std::find(ind.begin(),ind.end(),getFieldName())<ind.end();
+    }
 
+    std::ostream& put(std::ostream& os, const Object& x,const  std::array<std::size_t, IndexNumber>& ind)const
+    {
+
+        return std::apply([&os,&x,this](auto&... i)->std::ostream&
+                          {
+            return os<<std::invoke(dataFun(),x,i...);
+        }, ind);
+
+    }
+
+    std::vector<std::size_t> start(const Object& )const{
+        return std::vector<std::size_t>(IndexNumber,0ul);
+    }
+
+    std::vector<std::size_t> end(const Object& x)const{
+        std::vector<std::size_t> out(IndexNumber,0ul);
+        out[0]=std::invoke(std::get<0>(indexes()).second,x);
+        return out;
+    }
+
+
+    template<std::size_t I>
+    std::size_t size(const Object& x,const std::vector<std::size_t>& is)const
+    {
+        if constexpr (I>0)
+        return std::apply([this,&x](auto&&... i){return std::invoke(std::get<I>(indexes()).second,x,i...);}, to_subarray<I>(is));
+        else return std::invoke(std::get<I>(indexes()).second,x);
+
+    }
+
+    template<std::size_t I>
+    std::vector<std::size_t>& next(const Object& x,std::vector<std::size_t>& i)const
+    {
+        auto n=size<I>(x,i);
+        i[I]++;
+        if(i[I]<n)
+            return i;
+        else
+        {
+            if constexpr (I>0)
+            {
+                i[I]=0;
+                return next<I-1>(x,i);
+            }
+            else
+                return i;
+        }
+
+    }
+    std::vector<std::size_t>& next(const Object& x,std::vector<std::size_t>& i)const
+    {
+        return next<IndexNumber-1>(x,i);
+    }
+
+    std::ostream& put(std::ostream& os,const Object& x, const std::vector<std::string>& index_names , const std::vector<std::size_t>& is, const std::string& sep)const
+    {
+        if (isAnIndex(index_names))
+            return put(os,x,to_array(index_names,is,std::make_index_sequence<IndexNumber>()))<<sep;
+        else if(sameIndexes(index_names, std::make_index_sequence<IndexNumber>()))
+            return put(os,x,to_array(is))<<sep;
+        else
+            return os;
+    }
+
+    std::ostream& put_title(std::ostream& os, const std::vector<std::string>& index_names , const std::string& sep)const
+    {
+        if (isAnIndex(index_names))
+            return os<<getFieldName()<<sep;
+        else if(sameIndexes(index_names, std::make_index_sequence<IndexNumber>()))
+            return os<<getFieldName()<<sep;
+        else
+            return os;
+    }
+
+
+    bool next_if_same(const Object& x, const std::vector<std::string>& indexes , std::vector<std::size_t>& is)const
+    {
+        if (sameIndexes(indexes, std::make_index_sequence<IndexNumber>()))
+        {
+            next(x,is);
+            return true;
+        }
+        else
+            return false;
+    }
+    bool start_if_same(const Object& x, const std::vector<std::string>& indexes , std::vector<std::size_t>& is)const
+    {
+        if (sameIndexes(indexes, std::make_index_sequence<IndexNumber>()))
+        {
+            is=start(x);
+            return true;
+        }
+        else
+            return false;
+    }
+    bool end_if_same(const Object& x, const std::vector<std::string>& indexes , std::vector<std::size_t>& is)const
+    {
+        if (sameIndexes(indexes, std::make_index_sequence<IndexNumber>()))
+        {
+            is=end(x);
+            return true;
+        }
+        else
+            return false;
+    }
+
+
+private:
+    template<std::size_t I>
+    static std::array<std::size_t,I> to_subarray(const std::vector<std::size_t>& is)
+    {
+        assert(is.size()==IndexNumber);
+        std::array<std::size_t,I> ind;
+        for (std::size_t i=0; i<I; ++i) ind[i]=is[i];
+        return ind;
+    }
+
+    static std::array<std::size_t,IndexNumber> to_array(const std::vector<std::size_t>& is)
+    {
+        assert(is.size()==IndexNumber);
+        std::array<std::size_t,IndexNumber> ind;
+        std::copy(is.begin(),is.end(),ind.begin());
+        return ind;
+    }
+
+    static std::size_t name_to_i(const std::string& name,const std::vector<std::string>& names,const std::vector<std::size_t>& is)
+    {
+        std::size_t i=std::find(names.begin(),names.end(),name)-names.begin();
+        assert(i<is.size());
+        return is[i];
+    }
+
+    template<std::size_t... Is>
+    std::array<std::size_t,IndexNumber> to_array(const std::vector<std::string>& names,const std::vector<std::size_t>& is, std::index_sequence<Is...>)const
+    {
+        return std::array<std::size_t,IndexNumber>{name_to_i(std::get<Is>(indexes()).first,names,is)...};
+    }
+
+    std::string fieldname_;
+    std::tuple<std::pair<std::string,Sizes>...> indexes_;
+    Fun datafun_;
+};
+
+
+
+
+
+template<class Parent, class getObject, class F, class... Size_t>
+struct Inner_Composition{
+    Inner_Composition(Cs<Parent>,const getObject& get, Cs<Size_t...>, const F& childFunc): g_{get},data_{childFunc} {}
+    template<class... Ts>
+    auto operator()(const Parent& p,Size_t...is, Ts...x)const
+    {
+        return std::invoke(data_,std::invoke(g_,p,is...),x...);
+    }
+    getObject g_;
+    F data_;
+
+
+};
+template<class Parent, class getObject>
+auto Inner_Composition_tuple(Cs<Parent>,const getObject& ,Cs<>,const std::tuple<>& )
+{
+    return std::tuple<>();
+}
+
+template<class Parent, class getObject, class... Size_t, class... Sizes >
+auto Inner_Composition_tuple(Cs<Parent>,const getObject& get,Cs<Size_t...>,const std::tuple<Sizes...>& indexes)
+{
+    return std::apply([&get](auto& ...p){
+        return std::make_tuple(std::make_pair(p.first,
+                                              Inner_Composition(Cs<Parent>(),get,Cs<Size_t...>(),p.second ))...);
+    },indexes);
+}
+
+
+template<class Object, class getSub,class DataIndex >
+auto Insert(Cs<Object>,const getSub& sub,const DataIndex& v)
+{
+
+    auto sizes=Inner_Composition_tuple(Cs<Object>(),sub,Cs<>(),v.indexes());
+    if constexpr (std::tuple_size_v<decltype(sizes)> >0)
+    {
+
+        return std::apply([&sub,&v](auto&...x){
+            return Data_Index(Cs<Object>(),v.getFieldName(),
+                              Inner_Composition(Cs<Object>(),sub,Cs<>(),v.dataFun()),x...);},
+                          sizes);
+    }
+    else {
+        return Data_Index(Cs<Object>(),v.getFieldName(),
+                          Inner_Composition(Cs<Object>(),sub,Cs<>(),v.dataFun()));
+    }
+}
+
+template<class Object, class getSub,class... Size_t,class DataIndex,class OuterSizes >
+auto Insert(Cs<Object>,const getSub& sub,Cs<Size_t...>,const DataIndex& v,const OuterSizes  indexes)
+{
+    auto tu=Inner_Composition_tuple(Cs<Object>(),sub,Cs<Size_t...>(),v.indexes());
+    return std::apply([&sub,&v,&indexes](auto&...x){
+        return Data_Index(Cs<Object>(),v.getFieldName(),
+                          Inner_Composition(Cs<Object>(),sub,Cs<Size_t...>(),v.dataFun()),indexes,x...);},
+                      tu);
+}
+
+
+template<class Object, class getSub,class... Size_t,class DataIndex,class OuterS,class... OuterSizes >
+auto Insert(Cs<Object>,const getSub& sub,Cs<Size_t...>,const DataIndex& v,const OuterS& ind,const OuterSizes&... indexes)
+{
+    return std::apply([&sub,&v,&ind,&indexes...](auto&...x){
+        return Data_Index(Cs<Object>(),v.getFieldName(),
+                          Inner_Composition(Cs<Object>(),sub,Cs<Size_t...>(),v.dataFun()),ind,indexes...,x...);},
+                      Inner_Composition_tuple(Cs<Object>(),sub,Cs<Size_t...>(),v.indexes()));
+}
+
+
+template<class Object, class getSub,class... Data_Indexes >
+auto Insert_tuple(Cs<Object>,const getSub& sub,const std::tuple<Data_Indexes...>& v)
+{
+    return std::apply([&sub](auto&...d){return std::tuple(Insert(Cs<Object>(),sub,d)...);},v);
+}
+
+
+
+template<class Object, class getSub,class... S,class Data_Tuple, class OuterSizes>
+auto Insert_tuple(Cs<Object>,const getSub& sub,Cs<S...>,const Data_Tuple& v,const OuterSizes& indexes)
+{
+    return std::apply([&sub, &indexes](auto&...d){return std::make_tuple(Insert(Cs<Object>{},sub,Cs<S...>{},d,indexes)...);},v);
+}
+
+template<class Object, class getSub,class... S,class Data_Tuple, class OuterS, class... OuterSizes>
+auto Insert_tuple(Cs<Object>,const getSub& sub,Cs<S...>,const Data_Tuple& v,const OuterS ind,const OuterSizes&... indexes)
+{
+    return std::apply([&sub,&ind, &indexes...](auto&...d){return std::make_tuple(Insert(Cs<Object>(),sub,Cs<S...>(),d,ind,indexes...)...);},v);
+}
+
+
+
+template< std::size_t I,class Object,typename... Data_Indexes >
+std::vector<std::size_t> start_index(const Object& x,const std::tuple<Data_Indexes...>& tu,  const std::vector<std::string>& index)
+{
+    std::vector<std::size_t> i;
+    if constexpr (I<sizeof... (Data_Indexes))
+    {
+        if (std::get<I>(tu).start_if_same(x,index,i))
+            return i;
+        else
+            return start_index<I+1>(x,tu,index);
+    }
+    else
+    {
+        assert(false);
+        return i;
+    }
+ }
+
+ template< std::size_t I,class Object,typename... Data_Indexes >
+ std::vector<std::size_t> end_index(const Object& x,const std::tuple<Data_Indexes...>& tu,  const std::vector<std::string>& index)
+ {
+     std::vector<std::size_t> i;
+     if constexpr (I<sizeof... (Data_Indexes))
+     {
+         if (std::get<I>(tu).end_if_same(x,index,i))
+             return i;
+         else
+             return end_index<I+1>(x,tu,index);
+     }
+     else
+     {
+         assert(false);
+         return i;
+     }
+ }
+
+
+ template< std::size_t I,class Object,typename... Data_Indexes >
+ std::vector<std::size_t> next_index(const Object& x,const std::tuple<Data_Indexes...>& tu,  const std::vector<std::string>& index, std::vector<std::size_t>& i)
+ {
+     if constexpr (I<sizeof... (Data_Indexes))
+     {
+         if (std::get<I>(tu).next_if_same(x,index,i))
+             return i;
+         else
+             return next_index<I+1>(x,tu,index,i);
+     }
+     else
+     {
+         assert(false);
+         return i;
+     }
+ }
+
+ template< std::size_t I,class Object,typename... Data_Indexes >
+ std::ostream& put_index(std::ostream& os,const Object& x,const std::tuple<Data_Indexes...>& tu,  const std::vector<std::string>& index, const std::vector<std::size_t>& i,const std::string& sep)
+ {
+     if constexpr (I<sizeof... (Data_Indexes))
+     {
+         std::get<I>(tu).put(os,x,index,i,sep);
+         return put_index<I+1>(os,x,tu,index,i,sep);
+     }
+     else
+     {
+         return os;
+     }
+ }
+
+ template< std::size_t I,typename... Data_Indexes >
+ std::ostream& put_index_title(std::ostream& os,const std::tuple<Data_Indexes...>& tu,  const std::vector<std::string>& index,const std::string& sep)
+ {
+     if constexpr (I<sizeof... (Data_Indexes))
+     {
+         std::get<I>(tu).put_title(os,index,sep);
+         return put_index_title<I+1>(os,tu,index,sep);
+     }
+     else
+     {
+         return os;
+     }
+ }
+
+
+
+
+ template<typename... Data_Indexes >
+std::map<std::vector<std::string>, std::vector<std::string>>&
+get_index_map(const std::tuple<Data_Indexes...>& ,  std::map<std::vector<std::string>, std::vector<std::string>>& map, std::index_sequence<>)
+{
+    return map;
+}
+
+
+template<std::size_t I,std::size_t...Is,typename... Data_Indexes >
+std::map<std::vector<std::string>, std::vector<std::string>>&
+get_index_map(const std::tuple<Data_Indexes...>& tu,  std::map<std::vector<std::string>, std::vector<std::string>>& map, std::index_sequence<I,Is...>)
+{
+    map[std::get<I>(tu).indexed_by()].push_back(std::get<I>(tu).getFieldName());
+    return get_index_map(tu, map, std::index_sequence<Is...>());
+}
+
+
+template<typename... Data_Indexes>
+auto get_index_titles(const std::tuple<Data_Indexes...>& tu)
+{
+    std::map<std::vector<std::string>, std::vector<std::string>> map;
+    map=get_index_map(tu,map,std::index_sequence_for<Data_Indexes...>());
+
+
+
+    std::vector<std::string> set_titles(map.size());
+
+    std::size_t i=0;
+    for (auto& e: map)
+    {
+
+        for (auto& in:e.first)
+            set_titles[i]+="_"+in;
+        ++i;
+
+    }
+
+    std::vector<std::vector<std::string>> names_titles(map.size());
+    i=0;
+    for (auto it=map.begin(); it!=map.end(); ++it,++i)
+    {
+        names_titles[i]=it->second;
+    }
+    return std::make_pair(set_titles,names_titles);
+
+}
+
+template<typename... Data_Indexes>
+auto get_index_files(const std::tuple<Data_Indexes...>& tu)
+{
+    std::map<std::vector<std::string>, std::vector<std::string>> map;
+    map=get_index_map(tu,map,std::index_sequence_for<Data_Indexes...>());
+
+
+
+    std::vector<std::string> set_titles(map.size());
+
+    std::size_t i=0;
+    for (auto& e: map)
+    {
+
+        for (auto& in:e.first)
+            set_titles[i]+="_"+in;
+        ++i;
+
+    }
+
+    std::vector<std::vector<std::string>> index_names(map.size());
+    i=0;
+    for (auto it=map.begin(); it!=map.end(); ++it,++i)
+    {
+        index_names[i]=it->first;
+    }
+    return std::make_pair(set_titles,index_names);
+
+}
+
+
+template<class Object,typename... Data_Indexes>
+std::ostream& put_index_sample(std::ostream& os, const Object& x,const std::tuple<Data_Indexes...>& tu,const std::vector<std::string>& indexes, const std::string& sep)
+{
+        std::vector<std::size_t> is=start_index<0>(x,tu,indexes);
+        std::vector<std::size_t> end=end_index<0>(x,tu,indexes);
+        while (is<end)
+        {
+
+            put_index<0>(os,x,tu,indexes,is,sep)<<"\n";
+            next_index<0>(x,tu,indexes,is);
+        }
+        return os;
+}
+
+template<typename... Data_Indexes>
+std::ostream& put_index_title(std::ostream& os, const std::tuple<Data_Indexes...>& tu,const std::vector<std::string>& indexes, const std::string& sep)
+{
+    put_index_title<0>(os,tu,indexes,sep)<<"\n";
+    return os;
+}
+
+
+
+
+
+
+
+class Data_Index_point
+{
+    std::map<std::string, std::pair<std::size_t, std::size_t>> pos_;
+
+public:
+
+    void push_back(std::string&& name, std::size_t n)
+    {
+        pos_[std::move(name)]=std::pair(0ul,n);
+    }
+
+    Data_Index_point begin(){
+        Data_Index_point out(*this);
+        for (auto& e:out.pos_) e.second.first=0;
+        return out;
+    }
+
+    bool isEnd()const
+    {
+        return ! (pos_.rbegin()->second.first<pos_.rbegin()->second.second);
+    }
+
+    Data_Index_point& operator++(){
+        auto it=pos_.begin();
+        while (true)
+        {
+            ++(it->second.first);
+            if ( it->second.first<it->second.second)
+                return *this;
+            else {
+                auto it2=it;
+                it2++;
+                if ((it2) !=pos_.end()){
+                    it->second.first=0;
+                    ++it;
+                }
+                else return *this;
+            }
+        }
+    }
 
 
 
 };
 
-Data_Index_scheme Insert_Index(Data_Index_scheme&& d, std::vector<std::string>&& indexes)
+
+class Data_Index_scheme
 {
-  d.insert_Index(std::move(indexes));
-  return d;
+    std::map<std::set<std::string>, std::vector<std::string> > d_;
+
+
+    static std::set<std::string> intersects(const std::set<std::string>& one, std::set<std::string>& two)
+    {
+        std::set<std::string> out;
+        std::set_intersection(one.begin(),one.end(),two.begin(),two.end(),std::inserter(out,out.begin()));
+        return out;
+    }
+
+    static std::set<std::string> set_difference(const std::set<std::string>& one, std::set<std::string>& two)
+    {
+        std::set<std::string> out;
+        std::set_difference(one.begin(),one.end(),two.begin(),two.end(),std::inserter(out,out.begin()));
+        return out;
+    }
+
+
+    template<class inputIter>
+    static std::set<std::string> intersects(inputIter it, inputIter end)
+    {
+        auto init=it->first;
+        ++it;
+        for (; it!=end; ++it)
+        {
+            init=intersects(init,it->first);
+        }
+        return init;
+    }
+
+public:
+
+    auto & self_map()const {return d_;}
+
+    std::set<std::string> first_index()const {return d_.begin()->first;}
+
+
+
+    typedef   Data_Index_scheme self_type;
+
+    void push_back(std::string&& name, std::set<std::string>&& new_indexes)
+    {
+        d_[new_indexes].push_back(std::move(name));
+    }
+
+
+
+
+    friend Data_Index_scheme concatenate_impl( Data_Index_scheme&& one, const Data_Index_scheme& two)
+    {
+        for (auto& e:two.d_)
+        {
+            auto& p=one.d_[e.first];
+            p.insert(p.end(),e.second.begin(),e.second.end());
+        }
+        return std::move(one);
+    }
+
+    friend Data_Index_scheme concatenate( Data_Index_scheme&& one){return std::move(one);}
+    template<class... Data_Index>
+    friend Data_Index_scheme concatenate( Data_Index_scheme&& one, const Data_Index_scheme&  two, const Data_Index&... three)
+    {
+        return concatenate(concatenate_impl(std::move(one),two),three...);
+    }
+
+
+
+
+
+    template<class ...T>
+    static Data_Index_scheme data_index();
+
+
+
+    std::size_t size()const { return d_.size();}
+
+
+    std::vector<std::string> set_titles()const
+    {
+        std::vector<std::string> out(d_.size());
+
+        std::size_t i=0;
+        for (auto& e: d_)
+        {
+
+            for (auto& in:e.first)
+                out[i]+="_"+in;
+            ++i;
+
+        }
+        return out;
+    }
+
+    std::vector<std::vector<std::string>> index_titles()const
+    {
+        std::vector<std::vector<std::string>> out(size());
+        std::size_t i=0;
+        for (auto it=d_.begin(); it!=d_.end(); ++it,++i)
+        {
+            std::vector<std::string> e;
+            e.insert(e.end(),it->first.begin(),it->first.end());
+            out[i]=e;
+        }
+        return out;
+
+    }
+
+    std::vector<std::vector<std::string>> names_titles()const
+    {
+        std::vector<std::vector<std::string>> out(size());
+        std::size_t i=0;
+        for (auto it=d_.begin(); it!=d_.end(); ++it,++i)
+        {
+            out[i]=it->second;
+        }
+        return out;
+
+    }
+
+
+
+    void insert_index(std::string&& new_index_name)
+    {
+        std::map<std::set<std::string>, std::vector<std::string> > new_d;
+        for (auto& e:d_)
+        {
+            auto i=e.first;
+            i.insert(new_index_name);
+            new_d[std::move(i)]=std::move(e.second);
+        }
+        d_=std::move(new_d);
+    }
+    Data_Index_scheme& insert_indexes(const std::vector<std::string>& new_index_name)
+    {
+        std::map<std::set<std::string>, std::vector<std::string> > new_d;
+        for (auto& e:d_)
+        {
+            auto i=e.first;
+            i.insert(new_index_name.begin(), new_index_name.end());
+            new_d[std::move(i)]=std::move(e.second);
+        }
+        d_=std::move(new_d);
+        return *this;
+    }
+
+    Data_Index_scheme operator*(std::vector<std::string>&& new_index_names)const &
+    {
+        Data_Index_scheme out(*this);
+        return out.insert_indexes(std::move(new_index_names));
+    }
+
+    Data_Index_scheme operator*(std::vector<std::string>&& new_index_names)&&
+    {
+        insert_indexes(std::move(new_index_names));
+        return *this;
+    }
+
+
+
+
+
+
+    /*
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+            grammar::field(C<self_type>{},"value_name",&self_type::value_name),
+            grammar::field(C<self_type>{},"index_names",&self_type::index_names));
+    }
+
+
+    Data_Index_scheme(const std::string& name, const std::vector<std::string>& indexes)
+        :value_name_{name},index_names_{indexes}{}
+
+    Data_Index_scheme( std::string&& name,  std::vector<std::string>&& indexes)
+        :value_name_{std::move(name)},index_names_{std::move(indexes)}{}
+
+    Data_Index_scheme()=default;
+
+*/
+
+
+};
+
+
+
+
+Data_Index_scheme Insert_Index(Data_Index_scheme&& v, std::vector<std::string>&& indexes)
+{
+    v.insert_indexes(std::move(indexes));
+    return std::move(v);
 }
 
-std::vector<Data_Index_scheme> Insert_Index(std::vector<Data_Index_scheme>&& v, std::vector<std::string>&& indexes)
+
+template<class T>
+struct myData_Index
 {
-  for (auto& d:v)
-  {
-    d.insert_Index(std::move(indexes));
-  }
-  return v;
-}
+    static Data_Index_scheme data_index(){ return T::data_index();}
+};
 
-std::vector<Data_Index_scheme> concatenate_add_prefix_if_same(std::vector<Data_Index_scheme>&& one, std::vector<Data_Index_scheme>&& two, const std::string& prefix)
+
+
+template<class ...T>
+Data_Index_scheme Data_Index_scheme::data_index()
 {
-  for (auto& e: two)
-  {
-    for (auto& f: one)
-      if (e.value_name()==f.value_name())
-        e.set_value_name(prefix+e.value_name());
-  }
-  one.insert(one.end(),two.begin(),two.end());
-  return one;
+    return concatenate(myData_Index<T>::data_index()...);
 }
-
-
 
 
 template <typename T, typename S,template <typename> class C>
@@ -111,8 +771,8 @@ M_Matrix<T> emptyCopy(const M_Matrix<S>& x, const T& e)
 
 std::mt19937_64
 init_mt(
-        std::mt19937_64::result_type initseed,
-        std::ostream& os)
+    std::mt19937_64::result_type initseed,
+    std::ostream& os)
 {
     if (initseed==0)
     {
@@ -150,10 +810,10 @@ public:
     static auto get_constructor_fields()
     {
         return std::make_tuple(
-                    grammar::field(C<self_type>{},"count",&self_type::count),
-                    grammar::field(C<self_type>{},"sum",&self_type::sum),
-                    grammar::field(C<self_type>{},"sum_sqr",&self_type::sum_sqr)
-                    );
+            grammar::field(C<self_type>{},"count",&self_type::count),
+            grammar::field(C<self_type>{},"sum",&self_type::sum),
+            grammar::field(C<self_type>{},"sum_sqr",&self_type::sum_sqr)
+                                                                                                                    );
     }
 
     moments(std::size_t count, double sum, double sum_sqr):count_(count),sum_{sum},sum_sqr_{sum_sqr}{};
@@ -161,11 +821,11 @@ public:
 
 
     moments(const std::vector<double>& data):
-        count_(data.size()),sum_(op::sum(data)),sum_sqr_(op::sum_sqr(data)){}
+                                               count_(data.size()),sum_(op::sum(data)),sum_sqr_(op::sum_sqr(data)){}
 
     template<class C,class F>
     moments(const std::vector<C>& data, const F& f):
-        count_(data.size()),sum_(op::sum(data,f)),sum_sqr_(op::sum_sqr(data,f)){}
+                                                      count_(data.size()),sum_(op::sum(data,f)),sum_sqr_(op::sum_sqr(data,f)){}
 
 
     std::size_t data_size()const { return 1;}
@@ -236,23 +896,23 @@ public:
     static auto get_constructor_fields()
     {
         return std::make_tuple(
-                    grammar::field(C<self_type>{},"count",&self_type::count),
-                    grammar::field(C<self_type>{},"sum",&self_type::sum),
-                    grammar::field(C<self_type>{},"sum_sqr",&self_type::sum_sqr)
-                    );
+            grammar::field(C<self_type>{},"count",&self_type::count),
+            grammar::field(C<self_type>{},"sum",&self_type::sum),
+            grammar::field(C<self_type>{},"sum_sqr",&self_type::sum_sqr)
+                                                                                                                    );
     }
 
     moments(std::size_t count, M_Matrix<T> sum, M_Matrix<T> sum_sqr):count_(count),sum_{sum},sum_sqr_{sum_sqr},
-        mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}{};
+                                                                       mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}{};
 
     moments(const std::vector<M_Matrix<T>>& data):
-        count_(data.size()),sum_(op::sum(data)),sum_sqr_(op::sum_sqr(data)),
-        mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}{}
+                                                    count_(data.size()),sum_(op::sum(data)),sum_sqr_(op::sum_sqr(data)),
+                                                    mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}{}
 
     template<class C,class F>
     moments(const std::vector<C>& data, const F& f):
-        count_(data.size()),sum_(op::sum(data,f)),sum_sqr_(op::sum_sqr(data,f)),
-        mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}{}
+                                                      count_(data.size()),sum_(op::sum(data,f)),sum_sqr_(op::sum_sqr(data,f)),
+                                                      mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}{}
 
 
     std::size_t data_size()const { return size();}
@@ -312,7 +972,7 @@ public:
 
     std::size_t size()const {return sum_.size();}
     moments& operator+=(const moments& other){count_+=other.count(); sum_+=other.sum(); sum_sqr_+=other.sum_sqr();
-                                              mean_=calc_mean();variance_=calc_variance();chi_value_=calc_chi_value();t_value_=calc_t_value();}
+        mean_=calc_mean();variance_=calc_variance();chi_value_=calc_chi_value();t_value_=calc_t_value();}
 
 private:
     std::size_t count_;
@@ -339,24 +999,24 @@ public:
     static auto get_constructor_fields()
     {
         return std::make_tuple(
-                    grammar::field(C<self_type>{},"count",&self_type::count),
-                    grammar::field(C<self_type>{},"sum",&self_type::sum),
-                    grammar::field(C<self_type>{},"sum_sqr",&self_type::sum_elem_sqr)
-                    );
+            grammar::field(C<self_type>{},"count",&self_type::count),
+            grammar::field(C<self_type>{},"sum",&self_type::sum),
+            grammar::field(C<self_type>{},"sum_sqr",&self_type::sum_elem_sqr)
+                                                                                                                    );
     }
 
     moments_matrix(std::size_t count, M_Matrix<T> sum, M_Matrix<T> sum_elem_sqr):count_(count),sum_{sum},sum_elem_sqr_{sum_elem_sqr},
-        mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}
-    {};
+                                                                                   mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}
+                                                                                   {};
 
     moments_matrix(const std::vector<M_Matrix<T>>& data):
-        count_(data.size()),sum_(op::sum(data)),sum_elem_sqr_(op::sum_sqr_elem(data)),
-        mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}
+                                                           count_(data.size()),sum_(op::sum(data)),sum_elem_sqr_(op::sum_sqr_elem(data)),
+                                                           mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}
     {}
 
     template<class C,class F>
     moments_matrix(const std::vector<C>& data, const F& f):
-        count_(data.size()),sum_(op::sum(data,f)),sum_elem_sqr_(op::sum_sqr_elem(data,f)),        mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}
+                                                             count_(data.size()),sum_(op::sum(data,f)),sum_elem_sqr_(op::sum_sqr_elem(data,f)),        mean_{calc_mean()},variance_{calc_variance()},chi_value_{calc_chi_value()},t_value_{calc_t_value()}
     {}
 
 
@@ -412,7 +1072,7 @@ public:
 
     std::size_t size()const {return sum_.size();}
     moments_matrix& operator+=(const moments_matrix& other){count_+=other.count(); sum_+=other.sum(); sum_elem_sqr_+=other.sum_sqr();
-                                                            mean_=calc_mean();variance_=calc_variance();chi_value_=calc_chi_value();t_value_=calc_t_value();}
+        mean_=calc_mean();variance_=calc_variance();chi_value_=calc_chi_value();t_value_=calc_t_value();}
 
 
 private:
@@ -518,15 +1178,15 @@ public:
     virtual M_Matrix<T> param()const =0;
 
     // virtual M_Matrix<T> Score(const T& x)const =0;    // V(x)
-    
+
     virtual M_Matrix<T> Fisher_Information()const =0;    //I()
-    
-    
+
+
     virtual T dlogL_dx(const T& x)const =0;
 
     virtual T dlogL_dx2(const T& x)const =0;
 
-    
+
     virtual T mean()const =0;
 
     virtual T stddev()const =0;
@@ -540,33 +1200,33 @@ public:
 
 
 template<bool output,typename X>
-class are_Equal<output,X,std::void_t<std::enable_if_t<std::is_base_of_v<Base_Distribution<double>,X >,void>>>
+struct are_Equal<output,X,std::enable_if_t<std::is_base_of_v<Base_Distribution<double>,X >,void>>
 {
-
-  double absolute_;
-  double relative_;
+private :
+    double absolute_;
+    double relative_;
 
 public:
-  are_Equal(double abs, double rel) : absolute_{abs},relative_{rel}{}
-  are_Equal(){}
-  bool test(const X& x, const X& y, std::ostream &os ) const
-  {
-    if (x.myClass()!=y.myClass())
+    are_Equal(double abs, double rel) : absolute_{abs},relative_{rel}{}
+    are_Equal(){}
+    bool test(const X& x, const X& y, std::ostream &os ) const
     {
-      os<<"Differ in Transformation :"<<x.myClass()<<" vs "<<y.myClass();
-      return false;
+        if (x.myClass()!=y.myClass())
+        {
+            os<<"Differ in Transformation :"<<x.myClass()<<" vs "<<y.myClass();
+            return false;
+        }
+        else return are_Equal_v(x.param(),y.param(),absolute_,relative_,os);
     }
-    else return are_Equal_v(x.param(),y.param(),absolute_,relative_,os);
-  }
-  bool test(const X* x, const X* y, std::ostream &os ) const
-  {
-    if (x->myClass()!=y->myClass())
+    bool test(const X* x, const X* y, std::ostream &os ) const
     {
-      os<<"Differ in Transformation :"<<x->myClass()<<" vs "<<y->myClass();
-      return false;
+        if (x->myClass()!=y->myClass())
+        {
+            os<<"Differ in Transformation :"<<x->myClass()<<" vs "<<y->myClass();
+            return false;
+        }
+        else return are_Equal_v(x->param(),y->param(),absolute_,relative_,os);
     }
-    else return are_Equal_v(x->param(),y->param(),absolute_,relative_,os);
-  }
 
 
 };
@@ -574,33 +1234,33 @@ public:
 
 
 template<bool output,typename X>
-class are_Equal<output,X,std::void_t<std::enable_if_t<!is_field_Object<X>::value&&std::is_base_of_v<Base_Distribution<M_Matrix<double>>,X >,void>>>
+struct are_Equal<output,X,std::enable_if_t<!is_field_Object<X>::value&&std::is_base_of_v<Base_Distribution<M_Matrix<double>>,X >,void>>
 {
-
-  double absolute_;
-  double relative_;
+private :
+    double absolute_;
+    double relative_;
 
 public:
-  are_Equal(double abs, double rel) : absolute_{abs},relative_{rel}{}
-  are_Equal(){}
-  bool test(const X& x, const X& y, std::ostream &os ) const
-  {
-    if (x.myClass()!=y.myClass())
+    are_Equal(double abs, double rel) : absolute_{abs},relative_{rel}{}
+    are_Equal(){}
+    bool test(const X& x, const X& y, std::ostream &os ) const
     {
-      os<<"Differ in Transformation :"<<x.myClass()<<" vs "<<y.myClass();
-      return false;
+        if (x.myClass()!=y.myClass())
+        {
+            os<<"Differ in Transformation :"<<x.myClass()<<" vs "<<y.myClass();
+            return false;
+        }
+        else return are_Equal_v(x.param(),y.param(),absolute_,relative_,os);
     }
-    else return are_Equal_v(x.param(),y.param(),absolute_,relative_,os);
-  }
-  bool test(const X* x, const X* y, std::ostream &os ) const
-  {
-    if (x->myClass()!=y->myClass())
+    bool test(const X* x, const X* y, std::ostream &os ) const
     {
-      os<<"Differ in Transformation :"<<x->myClass()<<" vs "<<y->myClass();
-      return false;
+        if (x->myClass()!=y->myClass())
+        {
+            os<<"Differ in Transformation :"<<x->myClass()<<" vs "<<y->myClass();
+            return false;
+        }
+        else return are_Equal_v(x->param(),y->param(),absolute_,relative_,os);
     }
-    else return are_Equal_v(x->param(),y->param(),absolute_,relative_,os);
-  }
 
 
 };
@@ -661,29 +1321,29 @@ public:
 };
 
 template<bool output,typename X>
-class are_Equal<output,X,std::void_t<std::enable_if_t<std::is_base_of_v<Base_Transformation<double>,X >,void>>>
+struct are_Equal<output,X,std::enable_if_t<std::is_base_of_v<Base_Transformation<double>,X >,void>>
 {
 public:
-  are_Equal(double,double){}
-  are_Equal(){}
-  bool test(const X& x, const X& y, std::ostream &os ) const
-  {
-    if (x.myClass()!=y.myClass())
+    are_Equal(double,double){}
+    are_Equal(){}
+    bool test(const X& x, const X& y, std::ostream &os ) const
     {
-      os<<"Differ in Transformation :"<<x.myClass()<<" vs "<<y.myClass();
-      return false;
+        if (x.myClass()!=y.myClass())
+        {
+            os<<"Differ in Transformation :"<<x.myClass()<<" vs "<<y.myClass();
+            return false;
+        }
+        else return true;
     }
-    else return true;
-  }
-  bool test(const X* x, const X* y, std::ostream &os ) const
-  {
-    if (x->myClass()!=y->myClass())
+    bool test(const X* x, const X* y, std::ostream &os ) const
     {
-      os<<"Differ in Transformation :"<<x->myClass()<<" vs "<<y->myClass();
-      return false;
+        if (x->myClass()!=y->myClass())
+        {
+            os<<"Differ in Transformation :"<<x->myClass()<<" vs "<<y->myClass();
+            return false;
+        }
+        else return true;
     }
-    else return true;
-  }
 
 
 };
@@ -707,7 +1367,7 @@ public:
     virtual std::string myClass()const override{return className.str();}
     virtual std::ostream& put(std::ostream& os)const override
     {
-      return io::output_operator_on_Object (os,*this);
+        return io::output_operator_on_Object (os,*this);
     }
 
 
@@ -739,7 +1399,7 @@ public:
     virtual std::string myClass()const override{return className.str();}
     virtual std::ostream& put(std::ostream& os)const override
     {
-      return io::output_operator_on_Object (os,*this);
+        return io::output_operator_on_Object (os,*this);
     }
 
     constexpr static auto const className=my_static_string("Logarithm_Transformation");
@@ -765,7 +1425,7 @@ public:
     virtual std::string myClass()const override{return className.str();}
     virtual std::ostream& put(std::ostream& os)const override
     {
-      return io::output_operator_on_Object (os,*this);
+        return io::output_operator_on_Object (os,*this);
     }
 
     constexpr static auto const className=my_static_string("Logit_Transformation");
@@ -800,7 +1460,7 @@ public:
         friend class multinomial_distribution<My_vec,_IntType>;
 
         explicit
-        param_type(_IntType _N, My_vec<double> P )
+            param_type(_IntType _N, My_vec<double> P )
             : N_(_N), P_(P)
         {
             _M_initialize();
@@ -847,8 +1507,8 @@ public:
 
     // constructors and member function
     explicit
-    multinomial_distribution(_IntType __t,
-                             My_vec<double> __p )
+        multinomial_distribution(_IntType __t,
+                                 My_vec<double> __p )
         : _M_param(__t, __p)
     { }
 
@@ -925,7 +1585,7 @@ public:
     }
 
     static
-    double logP(const result_type& x,const param_type& __p)
+        double logP(const result_type& x,const param_type& __p)
     {
         assert(sum(x)==__p.N());
         assert(x.size()==__p.P().size());
@@ -945,7 +1605,7 @@ public:
     }
 
     static
-    double P(const result_type& x,const param_type& __p)
+        double P(const result_type& x,const param_type& __p)
     {
         return std::exp(logP(x,__p));
     }
@@ -984,7 +1644,7 @@ public:
 
         param_type()=default;
         explicit
-        param_type(const M_Matrix<T>& _N, const M_Matrix<double>& P )
+            param_type(const M_Matrix<T>& _N, const M_Matrix<double>& P )
             : N_(_N), P_(P),cP_(M_Matrix<double>(nrows(P),ncols(P)))
 
         {
@@ -996,7 +1656,7 @@ public:
         { return N_; }
 
         void set_P(M_Matrix<double>&&
-                   _P)
+                       _P)
         {
             P_=std::move(_P);
             _M_initialize();
@@ -1046,8 +1706,8 @@ public:
 
     // constructors and member function
     explicit
-    markov_process(const M_Matrix<T>& __t,
-                   const M_Matrix<double>& __p)
+        markov_process(const M_Matrix<T>& __t,
+                       const M_Matrix<double>& __p)
         : _M_param(__t, __p)
     { }
 
@@ -1172,1569 +1832,1721 @@ private:
 
     param_type _M_param;
 
-};
-
-
-class white_noise
-{
-public:
-    double operator()(std::mt19937_64& mt, double dt)const
-    {
-        return std::normal_distribution<double>(0,std::sqrt(noise_at_1_Hz_/dt))(mt);
-    }
-    double variance(double dt)const
-    {
-        return noise_at_1_Hz_/dt;
     };
 
-    white_noise(double noise_at_1Hz):noise_at_1_Hz_{noise_at_1Hz}{}
-private:
-    double noise_at_1_Hz_;
-};
 
-
-
-M_Matrix<double> normalize_to_prob(M_Matrix<double>&& P)
-{
-    if (P.nrows()==1)
+    class white_noise
     {
-        double sum=0;
-        for (std::size_t i=0; i<P.ncols(); ++i)
-            sum+=std::abs(P(0,i));
-        for (std::size_t i=0; i<P.ncols(); ++i)
-            P(0,i)=std::abs(P(0,i))/sum;
-    }
-    else if (P.ncols()==1)
-    {      double sum=0;
-        for (std::size_t i=0; i<P.nrows(); ++i)
-            sum+=std::abs(P(i,0));
-        for (std::size_t i=0; i<P.nrows(); ++i)
-            P(i,0)=std::abs(P(i,0))/sum;
-    }
-    else
+    public:
+        double operator()(std::mt19937_64& mt, double dt)const
+        {
+            return std::normal_distribution<double>(0,std::sqrt(noise_at_1_Hz_/dt))(mt);
+        }
+        double variance(double dt)const
+        {
+            return noise_at_1_Hz_/dt;
+        };
+
+        white_noise(double noise_at_1Hz):noise_at_1_Hz_{noise_at_1Hz}{}
+    private:
+        double noise_at_1_Hz_;
+    };
+
+
+
+    M_Matrix<double> normalize_to_prob(M_Matrix<double>&& P)
     {
-        for (std::size_t j=0; j<P.ncols();++j)
+        if (P.nrows()==1)
         {
             double sum=0;
-            for (std::size_t i=0; i<P.nrows(); ++i)
-                sum+=std::abs(P(i,j));
-            for (std::size_t i=0; i<P.nrows(); ++i)
-                P(i,j)=std::abs(P(i,j))/sum;
-
+            for (std::size_t i=0; i<P.ncols(); ++i)
+                sum+=std::abs(P(0,i));
+            for (std::size_t i=0; i<P.ncols(); ++i)
+                P(0,i)=std::abs(P(0,i))/sum;
         }
+        else if (P.ncols()==1)
+        {      double sum=0;
+            for (std::size_t i=0; i<P.nrows(); ++i)
+                sum+=std::abs(P(i,0));
+            for (std::size_t i=0; i<P.nrows(); ++i)
+                P(i,0)=std::abs(P(i,0))/sum;
+        }
+        else
+        {
+            for (std::size_t j=0; j<P.ncols();++j)
+            {
+                double sum=0;
+                for (std::size_t i=0; i<P.nrows(); ++i)
+                    sum+=std::abs(P(i,j));
+                for (std::size_t i=0; i<P.nrows(); ++i)
+                    P(i,j)=std::abs(P(i,j))/sum;
+
+            }
+        }
+        return std::move(P);
     }
-    return std::move(P);
-}
 
 
 
-template<typename T>
-class Normal_Distribution;
+    template<typename T>
+    class Normal_Distribution;
 
 
-template<>
-class Normal_Distribution<double>: public Base_Distribution<double>
-{
-public:
-    typedef  Base_Distribution<double> base_type;
-
-    constexpr static auto const className=my_static_string("Normal_Distribution");
-    std::string myClass()const override { return className.str();}
-
-    typedef   Normal_Distribution<double> self_type ;
-    static auto get_constructor_fields()
+    template<>
+    class Normal_Distribution<double>: public Base_Distribution<double>
     {
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"mean",&self_type::mean),
-                    grammar::field(C<self_type>{},"variance",&self_type::variance)
-                    );
-    }
+    public:
+        typedef  Base_Distribution<double> base_type;
 
-    virtual std::ostream& put(std::ostream& os)const override
-    {
-      return io::output_operator_on_Object (os,*this);
-    }
+        constexpr static auto const className=my_static_string("Normal_Distribution");
+        std::string myClass()const override { return className.str();}
 
-    virtual Normal_Distribution<double>* clone()const override{ return new Normal_Distribution<double>(*this);};
+        typedef   Normal_Distribution<double> self_type ;
+        static auto get_constructor_fields()
+        {
+            return std::make_tuple(
+                grammar::field(C<self_type>{},"mean",&self_type::mean),
+                grammar::field(C<self_type>{},"variance",&self_type::variance)
+                                                                                                                                            );
+        }
 
-    virtual double sample(std::mt19937_64& mt) const override{ return std::normal_distribution<double> {param_[0],param_[1]}(mt);}
+        virtual std::ostream& put(std::ostream& os)const override
+        {
+            return io::output_operator_on_Object (os,*this);
+        }
 
-    virtual double p(const double& x)const override { return 1.0/(std::sqrt(2*PI)*stddev())*std::exp(-0.5*sqr((x-mean())/stddev()));}
+        virtual Normal_Distribution<double>* clone()const override{ return new Normal_Distribution<double>(*this);};
 
-    virtual double logP(const double& x)const override {return -0.5*std::log(2*PI)-std::log(stddev())-0.5*sqr((x-mean())/stddev());}
-    virtual double vlogP(const double& x)const override {return sqr(logP(x)-expected_logP());}
+        virtual double sample(std::mt19937_64& mt) const override{ return std::normal_distribution<double> {param_[0],param_[1]}(mt);}
+
+        virtual double p(const double& x)const override { return 1.0/(std::sqrt(2*PI)*stddev())*std::exp(-0.5*sqr((x-mean())/stddev()));}
+
+        virtual double logP(const double& x)const override {return -0.5*std::log(2*PI)-std::log(stddev())-0.5*sqr((x-mean())/stddev());}
+        virtual double vlogP(const double& x)const override {return sqr(logP(x)-expected_logP());}
 
 
-    /*
+        /*
     virtual M_Matrix<double> Score(const double& x) const override
     { return M_Matrix<double>(1,2,std::vector<double>{dlogL_dmean(x),dlogL_dstddev(x)});};
 */
-    virtual  M_Matrix<double> Fisher_Information()const override{
-        return M_Matrix<double>(2,2,Matrix_TYPE::DIAGONAL,std::vector<double>{d2logL_dmean2(),d2logL_dvariance2()});};
+        virtual  M_Matrix<double> Fisher_Information()const override{
+            return M_Matrix<double>(2,2,Matrix_TYPE::DIAGONAL,std::vector<double>{d2logL_dmean2(),d2logL_dvariance2()});};
 
-    virtual double mean()const override {return param_[0];}
+        virtual double mean()const override {return param_[0];}
 
-    virtual double stddev()const override  {return std::sqrt(param_[1]);};
+        virtual double stddev()const override  {return std::sqrt(param_[1]);};
 
-    virtual double variance()const {return param_[1];}
+        virtual double variance()const {return param_[1];}
 
-    virtual M_Matrix<double> param()const override{return param_;}
+        virtual M_Matrix<double> param()const override{return param_;}
 
-    Normal_Distribution<double>(double mean, double variance)
-        :param_(1,2,std::vector<double>{mean,variance}){}
+        Normal_Distribution<double>(double mean, double variance)
+            :param_(1,2,std::vector<double>{mean,variance}){}
 
-    Normal_Distribution()=default;
-    virtual ~Normal_Distribution(){}
-    virtual double dlogL_dx(const double& x)const override
-    {
-        return (mean()-x)/variance();
-    }
-
-    virtual double dlogL_dx2(const double& )const override
-    {
-        return -1.0/variance();
-    }
-
-
-    virtual double expected_logP()const override
-    {
-        return -0.5*(1.0+log(2*PI*variance()));
-    }
-
-    virtual double variance_logP()const override
-    {
-        return 0.5;
-    }
-
-    Normal_Distribution(const Normal_Distribution&)=default;
-    Normal_Distribution(Normal_Distribution&&)=default;
-    Normal_Distribution&operator=(const Normal_Distribution&)=default;
-    Normal_Distribution&operator=(Normal_Distribution&&)=default;
-
-
-protected:
-    M_Matrix<double> param_;
-
-
-    double d2logL_dmean2()const {return 1.0/variance();}
-
-    double d2logL_dvariance2()const {return  0.5/sqr(variance());}
-
-};
-
-
-
-template<typename E>
-class Normal_Distribution<M_Matrix<E>>: public Base_Distribution<M_Matrix<E>>
-{
-public:
-    constexpr static auto const className=my_static_string("Normal_Distribution_")+my_trait<M_Matrix<E>>::className;
-    std::string myClass()const override { return className.str();}
-    virtual Normal_Distribution* clone()const override{ return new Normal_Distribution(*this);};
-
-    typedef   Normal_Distribution<M_Matrix<E>> self_type ;
-    static auto get_constructor_fields()
-    {
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"mean",&self_type::mean),
-                    grammar::field(C<self_type>{},"Cov",&self_type::Cov),
-              grammar::field(C<self_type>{},"CovInv",&self_type::CovInv),
-                  grammar::field(C<self_type>{},"cholesky",&self_type::Chol)
-                    );
-    }
-    virtual std::ostream& put(std::ostream& os)const override
-    {
-      return io::output_operator_on_Object (os,*this);
-    }
-
-
-    M_Matrix<E> sample(std::mt19937_64& mt)const override
-    {
-        M_Matrix<E> r;
-        std::normal_distribution<> normal;
-        if (param_.size()>0)
+        Normal_Distribution()=default;
+        virtual ~Normal_Distribution(){}
+        virtual double dlogL_dx(const double& x)const override
         {
-            auto z=Rand(mean(),normal,mt);
-            r=mean()+multTransp(z,Chol());
+            return (mean()-x)/variance();
         }
-        return r;
-    }
 
-
-    virtual  M_Matrix<M_Matrix<E>> Fisher_Information()const override{
-        return M_Matrix<M_Matrix<E>>(2,2,Matrix_TYPE::DIAGONAL,
-                                     std::vector<M_Matrix<E>>{d2logL_dmean2(),d2logL_dCov2()});}
-
-
-    double logP(const M_Matrix<E> &x) const override
-    {
-        if (param_.size()>0)
-            return -0.5*(mean().size()*log(PI)+logDetCov()+chi2(x));
-        else
-            return std::numeric_limits<double>::quiet_NaN();
-    }
-    double vlogP(const M_Matrix<E> &x) const override {
-      return sqr(logP(x)-expected_logP());
-    }
-
-    double p(const M_Matrix<E>& x)const override
-    {
-        return std::exp(logP(x));
-    }
-
-    virtual M_Matrix<M_Matrix<E>>  param()const override {return param_;}
-
-    const M_Matrix<E>& CovInv()const  {   return covinv_;  }
-
-    const M_Matrix<E>& Chol()const{return cho_cov_;}
-
-    double logDetCov()const {return logDetCov_;}
-
-
-    virtual ~Normal_Distribution(){}
-
-    M_Matrix<E> mean()const override {return param_[0];};
-    M_Matrix<E> Cov()const {return param_[1];};
-    M_Matrix<E> stddev()const override{return cho_cov_;}
-
-    double chi2(const M_Matrix<E> &x) const
-    {
-        if (!param_.empty())
-            return xTSigmaX(x-mean(),covinv_);
-        else return std::numeric_limits<double>::quiet_NaN();
-    }
-
-
-    static    myOptional_t<Normal_Distribution> make(const M_Matrix<E> &mean,
-                                                     const M_Matrix<E>& cov)
-    {
-        typedef myOptional_t<Normal_Distribution> Op;
-        auto covinv=inv(cov);
-        auto cho_cov=chol(cov,"lower");
-        if (covinv.has_value()&&cho_cov.has_value())
-            return Op(Normal_Distribution(mean,cov,std::move(covinv).value(),std::move(cho_cov).value()));
-        else
-            return Op(false,"singular matrix: inverse error:"+covinv.error()+ " and cholesky error: "+cho_cov.error());
-    }
-
-    Normal_Distribution(const M_Matrix<E> &mean,
-                        const M_Matrix<E>& cov,
-                        const M_Matrix<E>& covInv,
-                        const M_Matrix<E>& cho):
-        param_(M_Matrix<M_Matrix<E>>(1,2,std::vector<M_Matrix<E>>{mean,cov})),
-        covinv_(covInv),
-        cho_cov_(cho),
-        logDetCov_(logDiagProduct(cho_cov_))
-    {
-        assert(cov.isSymmetric());
-        assert(Cov().isSymmetric());
-        assert(covinv_.isSymmetric());
-
-        assert(!cho_cov_.empty());
-
-    }
-
-
-    Normal_Distribution(M_Matrix<E> &&mean,
-                        M_Matrix<E>&& cov,
-                        M_Matrix<E>&& covInv,
-                        M_Matrix<E>&& cho):
-        param_(M_Matrix<M_Matrix<E>>(1,2,std::vector<M_Matrix<E>>{std::move(mean),std::move(cov)})),
-        covinv_(std::move(covInv)),
-        cho_cov_(std::move(cho)),
-        logDetCov_(logDiagProduct(cho_cov_))
-    {
-        assert(cov.isSymmetric());
-        assert(Cov().isSymmetric());
-        assert(covinv_.isSymmetric());
-
-        assert(!cho_cov_.empty());
-
-    }
-
-    Normal_Distribution()=default;
-    const M_Matrix<E>& d2logL_dmean2()const
-    {
-        return CovInv();
-    }
-
-    M_Matrix<E> d2logL_dCov2()const
-    {
-        std::size_t n=CovInv().size();
-        M_Matrix<E> out(n,n,Matrix_TYPE::DIAGONAL);
-        for (std::size_t i=0; i<n; ++i)
-            for (std::size_t j=0; j<i+1; ++j)
-            {
-                out(i,j)=0.5*CovInv()[i]*CovInv()[j];
-            }
-
-        return out;
-
-    }
-
-    void autoTest(std::mt19937_64& mt,std::size_t n)const
-    {
-        //  std::cerr<<"\n chi test n="<<mean().size()<<" chis\n";
-        double chisum=0;
-        double chisqr=0;
-        for (std::size_t i=0; i<n; ++i)
+        virtual double dlogL_dx2(const double& )const override
         {
-            auto s=sample(mt);
-            auto chi=chi2(s);
-            //  std::cerr<<chi<<" ";
-            chisum+=chi;
-            chisqr+=chi*chi;
+            return -1.0/variance();
         }
-        chisum/=n;
-        chisqr-=n*chisum*chisum;
-        chisqr/=(n-1);
-        std::cerr<<"\n chi test n="<<mean().size()<<" chimean="<<chisum<<" chisqr="<<chisqr<<"\n";
-    }
-    bool isValid()const
-    {
-        return !cho_cov_.empty();
-    }
 
-    virtual M_Matrix<E> dlogL_dx(const M_Matrix<E>& x)const override
-    {
-        return CovInv()*(mean()-x);
-    }
 
-    virtual M_Matrix<E> dlogL_dx2(const M_Matrix<E>& )const override
-    {
-        return -CovInv();
-    }
-    virtual double expected_logP()const override
-    {
-        return -0.5*(mean().size()*(log(PI)+1.0)+logDetCov());
-    }
-
-    virtual double variance_logP()const override
-    {
-        return 0.5*mean().size();
-    }
-
-
-
-
-protected:
-    M_Matrix<M_Matrix<E>> param_;
-    M_Matrix<E> covinv_;
-    M_Matrix<E> cho_cov_;
-    double logDetCov_=std::numeric_limits<double>::quiet_NaN();
-};
-
-
-inline double BetaDistribution(double p, std::size_t success, std::size_t failures)
-{
-    return std::pow(p,success)*std::pow(1.0-p,failures)/std::exp(log_beta_f(1.0+success,1.0+failures));
-}
-
-
-
-class Beta_Distribution:public Base_Distribution<double>
-{
-public:
-    typedef  Base_Distribution<double> base_type;
-    constexpr static auto const className=my_static_string("Beta_Distribution");
-    std::string myClass()const override { return className.str();}
-    typedef   Beta_Distribution self_type ;
-    static auto get_constructor_fields()
-    {
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"alfa",&self_type::alfa),
-                    grammar::field(C<self_type>{},"beta",&self_type::beta)
-                    );
-    }
-
-
-    virtual Base_Distribution* clone()const override{ return new Beta_Distribution(*this);};
-
-    Beta_Distribution(double alfa, double beta):
-        a_(1,2,std::vector<double>{alfa,beta}){}
-
-    Beta_Distribution():Beta_Distribution(0.5,0.5){}
-
-
-    double count()const {return alfa()+beta();}
-
-    static Beta_Distribution UniformPrior()
-    {
-        return Beta_Distribution(1.0,1.0);
-    }
-    static Beta_Distribution UnInformativePrior()
-    {
-        return Beta_Distribution(0.5,0.5);
-    }
-    virtual std::ostream& put(std::ostream& os)const override
-    {
-      return os<<*this;
-    }
-
-
-    double p()const {return mean();}
-
-    void push_accept()
-    {
-        ++a_[0];
-    }
-    void push_reject()
-    {
-        ++a_[1];
-    }
-
-
-    double sample(std::mt19937_64& mt)const override
-    {
-        std::gamma_distribution<double> ga(alfa(),2.0);
-        std::gamma_distribution<double> gb(beta(),2.0);
-
-        double a=ga(mt);
-        double b=gb(mt);
-        return a/(a+b);
-    }
-
-
-private:
-    M_Matrix<double> a_;
-
-
-    // Base_Distribution interface
-public:
-    virtual double p(const double &x) const override{
-        return std::exp(logP(x));
-    }
-    virtual double logP(const double &x) const override
-    {
-        return alfa()*std::log(x)+beta()*std::log(1.0-x)-log_beta_f(1.0+alfa(),1.0+beta());
-    }
-    virtual double vlogP(const double &x) const override
-    {
-      return sqr(logP(x)-expected_logP());
-    }
-
-    double alfa()const{return a_[0];}
-    double beta()const{return a_[1];}
-
-    virtual  M_Matrix<double> param() const override{ return a_;}
-    virtual M_Matrix<double> Fisher_Information() const override
-    { return M_Matrix<double>(2,2,std::vector<double>{d2logLik_dalfa2(),d2logLik_dalfadbeta(),d2logLik_dalfadbeta(),d2logLik_dbeta2()});}
-
-    virtual double mean() const override { return alfa()/(alfa()+beta());}
-    virtual double stddev() const override { return std::sqrt(variance());}
-    double variance() const {return alfa()*beta()/(sqr(alfa()+beta())*(alfa()+beta()+1));}
-
-    double d2logLik_dalfadbeta()const { return -digamma(alfa()+beta());}
-
-    double d2logLik_dalfa2()const { return digamma(alfa())+d2logLik_dalfadbeta();}
-    double d2logLik_dbeta2()const { return digamma(beta())+d2logLik_dalfadbeta();}
-
-    virtual double dlogL_dx(const double& x)const override
-    {
-        return alfa()/x-beta()/(1.0-x);
-
-    }
-
-    virtual double dlogL_dx2(const double& x)const override
-    {
-        return -alfa()/sqr(x)+ beta()/sqr(1-x);
-
-    }
-
-
-};
-
-
-
-class stretch_move_Distribution: public Base_Distribution<double>
-{
-
-
-    // Base_Distribution interface
-public:
-    virtual stretch_move_Distribution* clone()const override{ return new stretch_move_Distribution(*this);};
-    constexpr static auto const className=my_static_string("stretch_move_Distribution");
-    std::string myClass()const override { return className.str();}
-    typedef   stretch_move_Distribution self_type ;
-    static auto get_constructor_fields()
-    {
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"alpha",&self_type::alpha)
-                    );
-    }
-    virtual std::ostream& put(std::ostream& os)const override
-    {
-      return os<<*this;
-    }
-
-    static std::vector<Data_Index_scheme> data_index()
-    {
-      std::vector<Data_Index_scheme> out;
-      out.push_back(Data_Index_scheme("alpha", {}));
-      return out;
-    }
-    stretch_move_Distribution()=default;
-    virtual double sample(std::mt19937_64 &mt) const override
-    {
-        std::uniform_real_distribution<double> U(std::sqrt(1.0/a_[0]),std::sqrt(a_[0]));
-        double z=sqr(U(mt));
-        return z;
-    }
-    virtual double p(const double &x) const override{ return std::pow(x,-0.5)/Z_;}
-    virtual double logP(const double &x) const override { return -0.5*std::log(x)-log(Z_);}
-    virtual double vlogP(const double& x)const override {return sqr(logP(x)-expected_logP());}
-
-    virtual  M_Matrix<double> param() const override {return a_;}
-    virtual M_Matrix<double> Fisher_Information() const override {
-        assert(false);
-        return {};}
-    virtual double mean() const override {assert(false); return{};};
-    virtual double stddev() const override {assert(false); return{};};
-    stretch_move_Distribution(double a): a_{1,1,std::vector<double>{a}}, Z_(2*(std::sqrt(a)-std::pow(a,-0.5))) {}
-    double alpha()const {return a_[0];}
-
-private:
-  /// parameter alpha between 1 an infinity, 2 is good.
-    M_Matrix<double> a_;
-    double Z_;
-
-    // Base_Distribution interface
-public:
-    virtual double dlogL_dx(const double &x) const override
-    {
-        return -0.5/x;
-    }
-    virtual double dlogL_dx2(const double &x) const override{
-        return 0.5/sqr(x);
-    }
-};
-
-
-template<class P>
-struct complement_prob
-{
-    complement_prob(const P& p):p_{p}{}
-    template<typename... Ts>
-    double operator()(Ts... xs)const
-    {
-        return 1.0-p_(xs...);
-    }
-private:
-    const P& p_;
-};
-
-template<class P>
-complement_prob<P>
-Complement_prob(const P& p){return complement_prob<P>(p);}
-
-
-template<class P>
-struct log_of
-{
-    log_of(const P& p):p_{p}{}
-    template<typename... Ts>
-    double operator()(Ts... xs)const
-    {
-        return std::log(p_(xs...));
-    }
-private:
-    const P& p_;
-};
-
-
-template<class P>
-log_of<P> Log_of(const P& p){return log_of<P>(p);}
-
-template<class P>
-struct exp_of
-{
-    exp_of(const P& p):p_{p}{}
-    template<typename... Ts>
-    double operator()(Ts... xs)const
-    {
-        return std::exp(p_(xs...));
-    }
-private:
-    const P& p_;
-};
-
-
-
-template <class T>
-std::pair<std::map<T,double>,double>
-logLik_to_p(const std::map<T,double>& logLikelihoods)
-{
-    std::map<T,double> out(logLikelihoods);
-    double Evidence=0;
-    double maxlog=out.begin()->second;
-    for (auto& e:out)
-    {
-        if (e.second>maxlog) maxlog=e.second;
-    }
-    for (auto& e:out)
-    {
-        e.second=std::exp(e.second-maxlog);
-        Evidence+=e.second;
-    }
-
-    for (auto& e:out) e.second/=Evidence;
-
-    return {out,Evidence};
-}
-
-template <typename T,typename _UniformRandomNumberGenerator>
-T sample_rev_map(const std::map<double,T>& reverse_prior,_UniformRandomNumberGenerator& mt)
-{
-    std::uniform_real_distribution<> u;
-    double r= u(mt);
-    auto it=reverse_prior.lower_bound(r);
-    return it->second;
-
-}
-
-
-template< typename T, class F, class Likelihood,class P_map>
-double Expectance(const F& f, const Likelihood& lik,const P_map& pm, const T& landa  )
-{
-    auto p=pm;
-    double sum=0;
-    for (auto& e:p)
-        sum+=e.second*lik(e.first,landa)*f(landa);
-    return sum;
-}
-struct Probability: public invariant{};
-
-
-struct variable_value: public invariant
-{
-    template<bool output>
-    static Op_void test(double value)
-    {
-        if (std::isfinite(value))
-            return Op_void(true,"");
-        else if constexpr (output)
-                return Op_void(false," not finite value: "+std::to_string(value));
-        else
-        return Op_void(true,"");
-    }
-};
-struct variance_value: public invariant
-{
-    template<bool output>
-    static Op_void test(double value, double min_variance,double tolerance)
-    {
-        if (!std::isfinite(value))
-            return Op_void(false," not finite value: "+std::to_string(value));
-        else if (value+tolerance>min_variance)
-            return Op_void(true,"");
-        else if (value<0)
-            return Op_void(false,"negative variance!! value="+std::to_string(value));
-        else if (value==0)
-            return Op_void(false,"zero variance!! value="+std::to_string(value));
-        else    return Op_void(false,"variance too small!! value="+std::to_string(value)+ "min variance="+std::to_string(min_variance)+ "tolerance="+std::to_string(tolerance));
-
-    }
-
-
-    static double adjust(double value, double min_variance)
-    {
-        return std::max(value,min_variance);
-    }
-
-};
-
-struct logLikelihood_value: public invariant
-{
-    template<bool output>
-    static Op_void test(double value)
-    {
-        if (std::isfinite(value))
-            return Op_void(true,"");
-        else
-            return Op_void(false," not finite value: "+std::to_string(value));
-    }
-};
-
-struct Probability_value: public Probability
-{
-    template <bool output,class C>
-    static Op_void test(const C& e, double tolerance)
-    {
-        if (!std::isfinite(e))
-        {    if constexpr(output)
-                    return  Op_void(false," not finite value="+ToString(e)+"\n");
-            else return Op_void(false,"");
-        }
-        else if (e+tolerance<0)
+        virtual double expected_logP()const override
         {
-            if constexpr(output)
-                    return  Op_void(false," negative prob="+ToString(e)+"\n");
-            else return Op_void(false,"");
+            return -0.5*(1.0+log(2*PI*variance()));
         }
-        else if (e-tolerance>1)
+
+        virtual double variance_logP()const override
         {
-            if constexpr(output)
-                    return  Op_void(false,"  prob greater than one" +ToString(e)+ " 1- prob="+ToString(1-e)+"\n");
-            else return Op_void(false,"");
-
-        }
-        else return Op_void(true,"");
-    }
-};
-
-
-
-struct Probability_distribution: public Probability
-{
-    template<bool output,class P>
-    static myOptional_t<void> test(const P& p,double tolerance)
-    {
-        double sum=0;
-        std::stringstream ss;
-        for (std::size_t i=0; i<p.size(); ++i)
-            if (auto ch=Probability_value::test<output>(p[i],tolerance);!ch.has_value())
-            {
-                if constexpr(output)
-                        return Op_void(false,"p=\n"+ToString(p)+" value test on p[i] i="+std::to_string(i)+ch.error());
-                else
-                return Op_void(false,"");
-            }
-            else sum+=p[i];
-        if  (std::abs(sum-1.0)<tolerance)
-            return Op_void(true,"");
-        else
-        {
-            if constexpr(output)
-                    return Op_void(false," p=\n"+ToString(p)+" sum test sum="+ToString(sum)+"\n");
-            return Op_void(false,"");
+            return 0.5;
         }
 
-    }
+        Normal_Distribution(const Normal_Distribution&)=default;
+        Normal_Distribution(Normal_Distribution&&)=default;
+        Normal_Distribution&operator=(const Normal_Distribution&)=default;
+        Normal_Distribution&operator=(Normal_Distribution&&)=default;
 
-    template<class P>
-    P static normalize(P&& p, double min_p)
-    {
-        double sum=0;
-        for (std::size_t i=0; i<p.size(); ++i)
-        {
-            if (p[i]<min_p)
-            {
-                p[i]=0;
-            }
-            else
-            {
-                if (p[i]+min_p>1)
-                {
-                    p[i]=1;
-                }
-                sum+=p[i];
-            }
-        }
-        for (std::size_t i=0; i<p.size(); ++i)
-            p[i]=p[i]/sum;
-        return p;
-    }
-};
 
+    protected:
+        M_Matrix<double> param_;
 
 
-struct Probability_transition: public Probability
-{
+        double d2logL_dmean2()const {return 1.0/variance();}
 
-    template<bool output>
-    static bool test(const M_Matrix<double>& p,double tolerance)
-    {
-        for (std::size_t i=0; i<p.nrows(); ++i)
-        {
-            double sum=0;
-            for (std::size_t j=0; j<p.ncols(); ++j)
-                if (!Probability_value::test<output>(p(i,j),tolerance))
-                {
-                    if constexpr(output)
-                            std::cerr<<" p=\n"<<p<<"\n tolerance="<<tolerance<<" i="<<i<<"j="<<j<<" p(i,j)="<<p(i,j)<<" \n";
-                    return false;
+        double d2logL_dvariance2()const {return  0.5/sqr(variance());}
 
-                }
-                else sum+=p(i,j);
-            if (std::abs(sum-1.0)>tolerance)
-            {
-                if constexpr(output)
-                        std::cerr<<" p=\n"<<p<<"\n i="<<i<<" sum ="<<sum<<" 1-sum"<<1-sum<<" tolerance="<<tolerance<<"\n";
-                return false;
-            }
-        }
-        return true;
-
-    }
-
-    M_Matrix<double> static normalize(M_Matrix<double>&& p, double min_p)
-    {
-        for (std::size_t i=0; i<p.nrows(); ++i)
-        {
-            if (p(i,i)>1-min_p)
-            {
-                for (std::size_t j=0; j<p.ncols(); ++j)
-                    p(i,j)=0;
-                p(i,i)=1;
-            }
-            else
-            {
-                double sum=0;
-                for (std::size_t j=0; j<p.ncols(); ++j)
-                {
-                    if (p(i,j)<min_p)
-                        p(i,j)=0;
-                    else
-                        sum+=p(i,j);
-                }
-                if (sum!=1)
-                    for (std::size_t j=0; j<p.ncols(); ++j) p(i,j)=p(i,j)/sum;
-            }
-        }
-        return p;
-    }
-
-
-
-};
-
-struct Probability_distribution_covariance: public Probability
-{
-
-    static Op_void test_correlation(const M_Matrix<double>& p, std::size_t i, std::size_t j, double eps=std::sqrt(std::numeric_limits<double>::epsilon())*1000)
-    {
-        double corr=sqr(p(i,j))/p(i,i)/p(j,j);
-        if ((corr+eps<0)||(corr-eps>1))
-        {
-            std::stringstream ss;
-            ss<<"p: \n"<<p<<"\n p(ij)"<<p(i,j)<<"\n p(ii)"<<p(i,i)<<"\n p(jj)"<<p(j,j)<<"\n corr"<<corr<<" i="<<i<<" j="<<j;
-            return Op_void(false,ss.str());
-        }
-        else
-            return Op_void(true,"");
-
-    }
-
-    static M_Matrix<double> normalize(M_Matrix<double>&& p,double min_p)
-    {
-        std::set<std::size_t> non_zero_i;
-
-        for (std::size_t i=0; i<p.nrows(); ++i) {
-            if(p(i,i)<min_p)
-            {
-                for (std::size_t j=0; j<p.ncols(); ++j)
-                    p(i,j)=0;
-            }
-            else if(p(i,i)+min_p>1.0)
-            {
-                for (std::size_t n=0; n<p.size(); ++n) p[n]=0;
-                p(i,i)=1;
-                return p;
-            }
-            else
-                non_zero_i.insert(i);
-        }
-        for (auto i:non_zero_i)
-        {
-
-            double sum=0;
-            for (auto j: non_zero_i)
-                if (j!=i)
-                    sum+=p(i,j);
-
-            if (-sum!=p(i,i))
-            {
-                auto sum_new=(sum-p(i,i))*0.5;
-                double f=sum_new/sum;
-                p(i,i)=-sum_new;
-                for (auto j: non_zero_i)
-                    if (i!=j)
-                        p(i,j)*=f;
-
-            }
-        }
-
-        return p;
-    }
-
-
-    template<bool output,class P>
-    static Op_void test(const P& p,double tolerance)
-    {
-
-        for (std::size_t i=0; i<p.nrows(); ++i)
-        {
-            if (!Probability_value::test<output>(p(i,i),tolerance))
-            {
-                if constexpr(output)
-                {
-                    std::stringstream ss;
-                    ss<<"\ntolerance="<<tolerance<<"\n";
-                    ss<<" pcov=\n"<<p<<"\n i="<<i<<" pcov(i,i)="<<p(i,i)<<"\n";
-                    return Op_void(false,ss.str());
-                }
-                return Op_void(false,"");
-
-            }double sum=0;
-            for (std::size_t j=0; j<p.ncols(); ++j)
-            {
-
-                if (i!=j)
-                {
-                    if ((p(i,i)*p(j,j)-sqr(p(i,j))+tolerance<0)
-                            &&(p(i,i)>tolerance*tolerance)&&(p(j,j)>tolerance*tolerance))
-                    {
-                        if constexpr(output){
-                            double corr=sqr(p(i,j))/p(i,i)/p(j,j);
-                            std::stringstream ss;
-                            ss<<"tolerance="<<tolerance<<"\n";
-                            ss<<" pcov=\n"<<p<<"\n i="<<i<<"j="<<j<<" pcov(i,j)="<<p(i,j)<<" corr="<<corr<<" pcov(i,i)"<<p(i,i)<<" pcov(j,j)"<<p(j,j)<<"\n";
-                            return  Op_void(false, ss.str());
-                        }
-                        return Op_void(false,"");
-                    }
-                    else
-                        sum+=p(i,j);
-                }
-            }
-            if (std::abs(p(i,i)+sum)>tolerance)
-            {
-                if constexpr(output)
-                {
-                    std::stringstream ss;
-                    ss<<"tolerance="<<tolerance<<"\n";
-                    ss<<" p=\n"<<p<<"\n i="<<i<<" p(i,j)="<<p(i,i)<<" sum="<<sum<<"\n";
-                    return  Op_void(false, ss.str());
-
-                }
-                return Op_void(false,"");
-            }
-        }
-        return Op_void(true,"");
-    }
-
-};
-
-
-
-
-
-
-
-
-
-template<typename T>
-class Base_Probability_map
-{
-public:
-    virtual T sample(std::mt19937_64& mt)const=0;
-
-    virtual const std::map<T,double>& p() const=0;
-    virtual std::ostream& put(std::ostream& os)const=0;
-
-    virtual void reduce(double nmax)=0;
-    virtual double nsamples()const =0;
-    virtual ~Base_Probability_map(){}
-};
-
-template <class T>
-std::map<double,T>
-cumulative_reverse_map(const std::map<T,double>& normalized_map)
-{
-    std::map<double,T> out;
-    double sump=0;
-    for (auto& e:normalized_map)
-    {
-        sump+=e.second;
-        out[sump]=e.first;
-    }
-    return out;
-}
-
-template <class T>
-std::pair<std::map<T,double>,double>
-normalize_map(const std::map<T,double>& unnormalized_map)
-{
-    std::map<T,double> out(unnormalized_map);
-    double Evidence=0;
-    for (auto& e:out)
-    {
-        Evidence+=e.second;
-    }
-    for (auto& e:out) e.second/=Evidence;
-
-    return {out,Evidence};
-}
-
-
-template<typename T>
-class Probability_map: public Base_Probability_map<T>
-{
-public:
-    typedef  Probability_map self_type;
-    typedef  Cs<T> template_types;
-    constexpr static auto const className=my_static_string("Probability_map")+my_trait<template_types>::className;
-    ~Probability_map()override{}
-
-    T sample(std::mt19937_64& mt)const
-    {
-        return sample_rev_map(rev_,mt);
-    }
-
-    const std::map<T,double>& p() const
-    {
-        return p_;
-    }
-
-    Probability_map(const std::map<T,double>& myNormalized_map, double nsamples)
-        :
-          p_{myNormalized_map},rev_{cumulative_reverse_map(p_)}, nsamples_(nsamples)
-    {
-
-    }
-
-    template<template<typename...>class V, typename...As>
-    Probability_map(const V<T,As...>& x):p_(Uniform(x)),rev_(cumulative_reverse_map(p_)), nsamples_(0)
-    {}
-    Probability_map()=default;
-
-
-    template<template<typename...>class V>
-    static
-    std::map<T,double> Uniform(const V<T>& x)
-    {
-        std::map<T,double> out;
-        std::size_t n=x.size();
-        double p=1.0/n;
-        for (std::size_t i=0; i<n;++i )
-            out[x[i]]+=p;
-        return out;
-    }
-
-    template<class K>
-    static
-    std::map<T,double> Uniform(const std::map<T,K>& x)
-    {
-        std::map<T,double> out;
-        std::size_t n=x.size();
-        double p=1.0/n;
-        for (auto& e:x )
-            out[e.first]+=p;
-        return out;
-    }
-
-
-
-
-    void reduce(double nmax)
-    {
-        double f=nsamples_/nmax;
-        if (f<1.0)
-        {
-            auto o=p_;
-            for (auto& e:o) e.second=std::pow(e.second,f);
-            *this=normalize(o,nmax).first;
-        }
-
-    }
-    double nsamples()const {return nsamples_;}
-
-    static std::pair<Probability_map,double> normalize(const std::map<T,double>& myposterior , double nsamples)
-    {
-        auto out= normalize_map(myposterior);
-        return {Probability_map(out.first,nsamples),out.second};
-    }
-
-    static auto get_constructor_fields()
-    {
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"probability_map",&self_type::p),
-                    grammar::field(C<self_type>{},"reverse_map",&self_type::reverse),
-                    grammar::field(C<self_type>{},"nsamples",&self_type::nsamples));
-    }
-    virtual std::ostream& put(std::ostream& os)const override
-    {
-      return io::output_operator_on_Object (os,*this);
-    }
-
-    std::map<double,T> const & reverse()const {return rev_;}
-
-    Probability_map(const std::map<T,double>& myNormalized_map, const std::map<double,T>& reverseMap, double nsamples)
-        :
-          p_{myNormalized_map},rev_{reverseMap}, nsamples_(nsamples)
-    {
-
-    }
-
-
-private:
-    std::map<T,double> p_;
-    std::map<double,T> rev_;
-    double nsamples_;
-};
-
-template<typename T>
-class logLikelihood_map: public Base_Probability_map<T>
-{
-public:
-    typedef  logLikelihood_map self_type;
-    typedef  Cs<T> template_types;
-    constexpr static auto const className=my_static_string("logLikelihood_map")+my_trait<template_types>::className;
-
-    virtual std::ostream& put(std::ostream& os)const override
-    {
-      return io::output_operator_on_Object (os,*this);
-    }
-
-    T sample(std::mt19937_64& mt) const override
-    {
-        return sample_rev_map(rev_,mt);
-    }
-
-    const std::map<T,double>& logLik() const
-    {
-        return logLik_;
-    }
-
-    std::map<T,double>const & p()const override
-    {
-        return p_;
-    }
-
-    logLikelihood_map(const std::map<T,double>& mylogLikelihood_Map, double nsamples)
-        :
-          logLik_{mylogLikelihood_Map}
-    {
-        auto p=logLik_to_p(mylogLikelihood_Map);
-        p_=std::move(p.first);
-        Evidence_=p.second;
-        rev_=cumulative_reverse_map(p_);
-        nsamples_=nsamples;
-    }
-
-    logLikelihood_map()=default;
-    void reduce(double nmax) override
-    {
-        double f=nmax/nsamples_;
-        if (f<1.0)
-        {
-            auto o=logLik_;
-            for (auto& e:o) e.second*=f;
-            *this=logLikelihood_map(o,nmax);
-        }
-    }
-
-
-    double nsamples()const override {return nsamples_;}
-    static auto get_constructor_fields()
-    {
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"log_probability_map",&self_type::logLik),
-                    grammar::field(C<self_type>{},"probability_map",&self_type::p),
-                    grammar::field(C<self_type>{},"reverse_map",&self_type::reverse),
-                    grammar::field(C<self_type>{},"evidence",&self_type::Evidence),
-                    grammar::field(C<self_type>{},"nsamples",&self_type::nsamples));
-    }
-    std::map<double,T> const & reverse()const {return rev_;}
-
-    double Evidence()const {return Evidence_;}
-
-    logLikelihood_map(const std::map<T,double>& mylogLikelihood_Map, const std::map<T,double>& myNormalized_map, const std::map<double,T>& reverseMap, double evidence, double nsamples)
-        : logLik_{myNormalized_map},
-          p_{myNormalized_map},rev_{reverseMap}, Evidence_{evidence},nsamples_(nsamples)
-    {
-
-    }
-
-
-private:
-    std::map<T,double> logLik_;
-    std::map<T,double>p_;
-    std::map<double,T> rev_;
-    double Evidence_;
-    double nsamples_;
-
-};
-template<class Likelihood, class Data, typename T>
-std::pair<Probability_map<T>,double>
-Bayes_rule(const Likelihood& lik, const Data& data, const Probability_map<T>& prior)
-{
-  auto p=prior.p();
-  for (auto& e:p)
-  {
-    double l=lik(e.first,data);
-    e.second*=l;
-  }
-  double nsamples=prior.nsamples()+1;
-  return Probability_map<T>::normalize(p,nsamples);
-}
-
-
-template<typename T>
-class Beta_map //: public Base_Probability_map<T>
-{
-
-public:
-  typedef   Beta_map self_type;
-  Beta_map(const std::map<T,Beta_Distribution> a):a_(a){}
-
-
-    auto &get_Map()const{return a_;}
-    static auto get_constructor_fields()
-    {
-        return std::make_tuple(
-                    grammar::field(C<self_type>{},"probability_map",&self_type::get_Map));
-    }
-
-    void reduce(double nmax)
-    {
-        double f=nmax/count();
-        if (f<1.0)
-        {
-            for (auto& e:a_)
-            {
-                e.second.Parameters()[0]*=f;
-                e.second.Parameters()[0]*=f;
-
-            }
-        }
-    }
-
-
-
-    static Beta_map UniformPrior(const std::map<T,double>& a)
-    {
-        std::map<T,Beta_Distribution> o;
-        for (auto& e:a)
-            o[e.first]=Beta_Distribution::UniformPrior();
-        return Beta_map(o);
-    }
-
-
-    static Beta_map UnInformativePrior(const std::map<T,double>& a)
-    {
-        std::map<T,Beta_Distribution> o;
-        for (auto& e:a)
-            o[e.first]=Beta_Distribution::UnInformativePrior();
-        return Beta_map(o);
-    }
-
-    static Beta_map UniformPrior(const std::vector<T>& a)
-    {
-      std::map<T,Beta_Distribution> o;
-      for (auto& e:a)
-        o[e]=Beta_Distribution::UniformPrior();
-      return Beta_map(o);
-    }
-
-
-    static Beta_map UnInformativePrior(const std::vector<T>& a)
-    {
-      std::map<T,Beta_Distribution> o;
-      for (auto& e:a)
-        o[e]=Beta_Distribution::UnInformativePrior();
-      return Beta_map(o);
-    }
-
-
-
-
-    Beta_map()=default;
-
-    std::size_t size()const {return a_.size();}
-
-    double count()const {
-        double sum=0;
-        for (auto& e:a_) sum+=e.second.count();
-        return sum;
-    }
-
-
-    std::map<T,double> sample(std::mt19937_64& mt)
-    {
-        std::map<T,double> out;
-        double sum=0;
-
-        for (auto it=a_.begin(); it!=a_.end(); ++it)
-        {
-            std::gamma_distribution<double> g(it->second);
-            out[it->first]=g(mt);
-            sum+=out[it->first];
-        }
-        for (auto& o:out)
-            o.second/=sum;
-        return out;
-    }
-
-    Beta_map& operator+=(const Beta_map& other)
-    {
-        for (auto& e:a_)
-        {
-            auto it=other.a_.find(e.first);
-            if (it!=other.a_.end())
-                e.second.Parameters()+=it->second.Parameters();
-        }
-        return *this;
-    }
-
-    Beta_map operator+(const Beta_map& other)const
-    {
-        Beta_map out(a_);
-        out+=other;
-        return out;
-    }
-
-    std::map<T,double> p()const
-    {
-        std::map<T,double> out;
-        for (auto& e:a_)
-            out[e.first]=e.second.p();
-        return out;
-    }
-
-    Beta_Distribution& operator[](const T& x)
-    {
-        return a_[x];
-    }
-
-    Beta_Distribution operator[](const T& x)const
-    {
-        auto it=a_.find(x);
-        if (it!=a_.end())
-            return it.second;
-        else
-            return {};
-    }
-
-    Probability_map<T> Distribute_on_p(double p)const
-    {
-      auto prior= Probability_map<T>(a_);
-        auto const & d=a_;
-        return Bayes_rule([&d](const T& x,double target){return d.at(x).p(target);},p,prior).first;
-    }
-
-private:
-    std::map<T,Beta_Distribution> a_;
-};
-
-
-template<class logLikelihood, class Data, typename T>
-logLikelihood_map<T>
-logBayes_rule(const logLikelihood& loglik, const Data& data, const logLikelihood_map<T>& prior)
-{
-    auto logP=prior.logLik();
-    for (auto& e:logP)
-    {
-        double logL=loglik(e.first,data);
-        e.second+=logL;
-    }
-    double nsamples=prior.nsamples()+1;
-    return logLikelihood_map<T>(logP,nsamples);
-}
-
-
-
-
-
-
-
-struct TargetProb
-{
-    double operator()(const std::pair<std::size_t, std::size_t>& p)const
-    {
-        return BetaDistribution(p_target_,p.first,p.second);
-    }
-    TargetProb(double p_target):p_target_(p_target){}
-    TargetProb(){}
-private:
-    double p_target_;
-
-};
-
-struct PascalProb
-{
-    double operator()(const std::pair<std::size_t, std::size_t>& p)const
-    {
-        return (1.0+p.first)/(2.0+p.first+p.second);
-    }
-};
-
-
-
-template<class AP>
-struct One
-{
-    double operator()(const AP& )const {return 1.0;}
-};
-
-
-
-template<typename T>
-class markov_process
-{
-
-public:
-    markov_process(){};
-
-    /*  * The type of the range of the distribution. */
-    typedef T result_type;
-
-    /** Parameter type. */
-    struct param_type
-    {
-        typedef markov_process<T> distribution_type;
-        friend class markov_process<T>;
-
-        param_type()=default;
-        explicit
-        param_type(T _N, const M_Matrix<double>& P )
-            : N_(_N), P_(P),rm_(P.nrows())
-
-        {
-            _M_initialize();
-        }
-
-        T
-        N() const
-        { return N_; }
-
-        void set_P(M_Matrix<double>&&
-                   _P)
-        {
-            P_=std::move(_P);
-            _M_initialize();
-        }
-
-        void set_N(T _N)
-        {  N_=_N; }
-
-        const M_Matrix<double>&
-        P() const
-        { return P_; }
-
-
-        friend bool
-        operator==(const param_type& __p1, const param_type& __p2)
-        { return __p1.N_ == __p2.N_ && __p1.P_ == __p2.P_; }
-
-    private:
-        void
-        _M_initialize()
-        {
-
-            std::size_t n=P_.nrows();
-            for (std::size_t i=0; i<n; ++i)
-            {
-                double sum=0;
-                std::vector<std::pair<double, std::size_t>> o(n);
-                for (std::size_t j=0; j<n; ++j)
-                {o[j].second=j; o[j].first=P_(i,j);}
-                std::sort(o.begin(),o.end());
-                //  std::cerr<<" \n--- o---\n"<<o;
-                for (std::size_t j=0; j<n; ++j)
-                {
-                    sum+=o[j].first;
-                    rm_[i][sum]=o[j].second;
-                }
-            }
-            //     std::cerr<<"\n mapa inverso -----------------\n"<<rm_;
-        }
-
-        T N_;
-        M_Matrix<double> P_;
-        std::vector<std::map<double,T>> rm_;
     };
 
 
 
-    // constructors and member function
+    template<typename E>
+    class Normal_Distribution<M_Matrix<E>>: public Base_Distribution<M_Matrix<E>>
+    {
+    public:
+        constexpr static auto const className=my_static_string("Normal_Distribution_")+my_trait<M_Matrix<E>>::className;
+        std::string myClass()const override { return className.str();}
+        virtual Normal_Distribution* clone()const override{ return new Normal_Distribution(*this);}
 
-    markov_process(T __t,
-                   const M_Matrix<double>& __p)
-        : _M_param(__t, __p)
-    { }
+        typedef   Normal_Distribution<M_Matrix<E>> self_type ;
+        static auto get_constructor_fields()
+        {
+            return std::make_tuple(
+                grammar::field(C<self_type>{},"mean",&self_type::mean),
+                grammar::field(C<self_type>{},"Cov",&self_type::Cov),
+                grammar::field(C<self_type>{},"CovInv",&self_type::CovInv),
+                grammar::field(C<self_type>{},"cholesky",&self_type::Chol)
+                                                                                                                                            );
+        }
+        virtual std::ostream& put(std::ostream& os)const override
+        {
+            return io::output_operator_on_Object (os,*this);
+        }
+
+
+        M_Matrix<E> sample(std::mt19937_64& mt)const override
+        {
+            M_Matrix<E> r;
+            std::normal_distribution<> normal;
+            if (param_.size()>0)
+            {
+                auto z=Rand(mean(),normal,mt);
+                r=mean()+multTransp(z,Chol());
+            }
+            return r;
+        }
+
+
+        virtual  M_Matrix<M_Matrix<E>> Fisher_Information()const override{
+            return M_Matrix<M_Matrix<E>>(2,2,Matrix_TYPE::DIAGONAL,
+                                         std::vector<M_Matrix<E>>{d2logL_dmean2(),d2logL_dCov2()});}
+
+
+        double logP(const M_Matrix<E> &x) const override
+        {
+            if (param_.size()>0)
+                return -0.5*(mean().size()*log(PI)+logDetCov()+chi2(x));
+            else
+                return std::numeric_limits<double>::quiet_NaN();
+        }
+        double vlogP(const M_Matrix<E> &x) const override {
+            return sqr(logP(x)-expected_logP());
+        }
+
+        double p(const M_Matrix<E>& x)const override
+        {
+            return std::exp(logP(x));
+        }
+
+        virtual M_Matrix<M_Matrix<E>>  param()const override {return param_;}
+
+        const M_Matrix<E>& CovInv()const  {   return covinv_;  }
+
+        const M_Matrix<E>& Chol()const{return cho_cov_;}
+
+        double logDetCov()const {return logDetCov_;}
+
+
+        virtual ~Normal_Distribution(){}
+
+        M_Matrix<E> mean()const override {return param_[0];}
+        M_Matrix<E> Cov()const {return param_[1];}
+        M_Matrix<E> stddev()const override{return cho_cov_;}
+
+        double chi2(const M_Matrix<E> &x) const
+        {
+            if (!param_.empty())
+                return xTSigmaX(x-mean(),covinv_);
+            else return std::numeric_limits<double>::quiet_NaN();
+        }
+
+
+        static    myOptional_t<Normal_Distribution> make(const M_Matrix<E> &mean,
+                                                      const M_Matrix<E>& cov)
+        {
+            typedef myOptional_t<Normal_Distribution> Op;
+            auto covinv=inv(cov);
+            auto cho_cov=chol(cov,"lower");
+            if (covinv.has_value()&&cho_cov.has_value())
+                return Op(Normal_Distribution(mean,cov,std::move(covinv).value(),std::move(cho_cov).value()));
+            else
+                return Op(false,"singular matrix: inverse error:"+covinv.error()+ " and cholesky error: "+cho_cov.error());
+        }
+
+        Normal_Distribution(const M_Matrix<E> &mean,
+                            const M_Matrix<E>& cov,
+                            const M_Matrix<E>& covInv,
+                            const M_Matrix<E>& cho):
+                                                      param_(M_Matrix<M_Matrix<E>>(1,2,std::vector<M_Matrix<E>>{mean,cov})),
+                                                      covinv_(covInv),
+                                                      cho_cov_(cho),
+                                                      logDetCov_(logDiagProduct(cho_cov_))
+        {
+            assert(cov.isSymmetric());
+            assert(Cov().isSymmetric());
+            assert(covinv_.isSymmetric());
+
+            assert(!cho_cov_.empty());
+
+        }
+
+
+        Normal_Distribution(M_Matrix<E> &&mean,
+                            M_Matrix<E>&& cov,
+                            M_Matrix<E>&& covInv,
+                            M_Matrix<E>&& cho):
+                                                 param_(M_Matrix<M_Matrix<E>>(1,2,std::vector<M_Matrix<E>>{std::move(mean),std::move(cov)})),
+                                                 covinv_(std::move(covInv)),
+                                                 cho_cov_(std::move(cho)),
+                                                 logDetCov_(logDiagProduct(cho_cov_))
+        {
+            assert(cov.isSymmetric());
+            assert(Cov().isSymmetric());
+            assert(covinv_.isSymmetric());
+
+            assert(!cho_cov_.empty());
+
+        }
+
+        Normal_Distribution()=default;
+        const M_Matrix<E>& d2logL_dmean2()const
+        {
+            return CovInv();
+        }
+
+        M_Matrix<E> d2logL_dCov2()const
+        {
+            std::size_t n=CovInv().size();
+            M_Matrix<E> out(n,n,Matrix_TYPE::DIAGONAL);
+            for (std::size_t i=0; i<n; ++i)
+                for (std::size_t j=0; j<i+1; ++j)
+                {
+                    out(i,j)=0.5*CovInv()[i]*CovInv()[j];
+                }
+
+            return out;
+
+        }
+
+        void autoTest(std::mt19937_64& mt,std::size_t n)const
+        {
+            //  std::cerr<<"\n chi test n="<<mean().size()<<" chis\n";
+            double chisum=0;
+            double chisqr=0;
+            for (std::size_t i=0; i<n; ++i)
+            {
+                auto s=sample(mt);
+                auto chi=chi2(s);
+                //  std::cerr<<chi<<" ";
+                chisum+=chi;
+                chisqr+=chi*chi;
+            }
+            chisum/=n;
+            chisqr-=n*chisum*chisum;
+            chisqr/=(n-1);
+            std::cerr<<"\n chi test n="<<mean().size()<<" chimean="<<chisum<<" chisqr="<<chisqr<<"\n";
+        }
+        bool isValid()const
+        {
+            return !cho_cov_.empty();
+        }
+
+        virtual M_Matrix<E> dlogL_dx(const M_Matrix<E>& x)const override
+        {
+            return CovInv()*(mean()-x);
+        }
+
+        virtual M_Matrix<E> dlogL_dx2(const M_Matrix<E>& )const override
+        {
+            return -CovInv();
+        }
+        virtual double expected_logP()const override
+        {
+            return -0.5*(mean().size()*(log(PI)+1.0)+logDetCov());
+        }
+
+        virtual double variance_logP()const override
+        {
+            return 0.5*mean().size();
+        }
 
 
 
-    /**
+
+    protected:
+        M_Matrix<M_Matrix<E>> param_;
+        M_Matrix<E> covinv_;
+        M_Matrix<E> cho_cov_;
+        double logDetCov_=std::numeric_limits<double>::quiet_NaN();
+    };
+
+
+    inline double BetaDistribution(double p, std::size_t success, std::size_t failures)
+    {
+        return std::pow(p,success)*std::pow(1.0-p,failures)/std::exp(log_beta_f(1.0+success,1.0+failures));
+    }
+
+
+
+    class Beta_Distribution:public Base_Distribution<double>
+    {
+    public:
+        typedef  Base_Distribution<double> base_type;
+        constexpr static auto const className=my_static_string("Beta_Distribution");
+        std::string myClass()const override { return className.str();}
+        typedef   Beta_Distribution self_type ;
+        static auto get_constructor_fields()
+        {
+            return std::make_tuple(
+                grammar::field(C<self_type>{},"alfa",&self_type::alfa),
+                grammar::field(C<self_type>{},"beta",&self_type::beta)
+                                                                                                                                            );
+        }
+
+        static Data_Index_scheme data_index(const std::string variable_name)
+        {
+            Data_Index_scheme out;
+            out.push_back(variable_name+"_alfa", {});
+            out.push_back(variable_name+"_beta", {});
+
+            return out;
+
+        }
+
+        static auto
+        get_data_index(const std::string variable_name)
+        {
+            using namespace std::literals::string_literals;
+            return std::make_tuple(
+                Data_Index(Cs<self_type>(),variable_name+"_alfa"s,&self_type::alfa),
+                Data_Index(Cs<self_type>(),variable_name+"_beta"s,&self_type::beta)
+                                                                        );
+        }
+
+
+        virtual Base_Distribution* clone()const override{ return new Beta_Distribution(*this);}
+
+        Beta_Distribution(double alfa, double beta):
+                                                      a_(1,2,std::vector<double>{alfa,beta}){}
+
+        Beta_Distribution():Beta_Distribution(0.5,0.5){}
+
+
+        double count()const {return alfa()+beta();}
+
+        static Beta_Distribution UniformPrior()
+        {
+            return Beta_Distribution(1.0,1.0);
+        }
+        static Beta_Distribution UnInformativePrior()
+        {
+            return Beta_Distribution(0.5,0.5);
+        }
+        virtual std::ostream& put(std::ostream& os)const override
+        {
+            return os<<*this;
+        }
+
+
+        double p()const {return mean();}
+
+        void push_accept()
+        {
+            ++a_[0];
+        }
+        void push_reject()
+        {
+            ++a_[1];
+        }
+
+
+        double sample(std::mt19937_64& mt)const override
+        {
+            std::gamma_distribution<double> ga(alfa(),2.0);
+            std::gamma_distribution<double> gb(beta(),2.0);
+
+            double a=ga(mt);
+            double b=gb(mt);
+            return a/(a+b);
+        }
+
+
+    private:
+        M_Matrix<double> a_;
+
+
+        // Base_Distribution interface
+    public:
+        virtual double p(const double &x) const override{
+            return std::exp(logP(x));
+        }
+        virtual double logP(const double &x) const override
+        {
+            return alfa()*std::log(x)+beta()*std::log(1.0-x)-log_beta_f(1.0+alfa(),1.0+beta());
+        }
+        virtual double vlogP(const double &x) const override
+        {
+            return sqr(logP(x)-expected_logP());
+        }
+
+        double alfa()const{return a_[0];}
+        double beta()const{return a_[1];}
+
+        virtual  M_Matrix<double> param() const override{ return a_;}
+        virtual M_Matrix<double> Fisher_Information() const override
+        { return M_Matrix<double>(2,2,std::vector<double>{d2logLik_dalfa2(),d2logLik_dalfadbeta(),d2logLik_dalfadbeta(),d2logLik_dbeta2()});}
+
+        virtual double mean() const override { return alfa()/(alfa()+beta());}
+        virtual double stddev() const override { return std::sqrt(variance());}
+        double variance() const {return alfa()*beta()/(sqr(alfa()+beta())*(alfa()+beta()+1));}
+
+        double d2logLik_dalfadbeta()const { return -digamma(alfa()+beta());}
+
+        double d2logLik_dalfa2()const { return digamma(alfa())+d2logLik_dalfadbeta();}
+        double d2logLik_dbeta2()const { return digamma(beta())+d2logLik_dalfadbeta();}
+
+        virtual double dlogL_dx(const double& x)const override
+        {
+            return alfa()/x-beta()/(1.0-x);
+
+        }
+
+        virtual double dlogL_dx2(const double& x)const override
+        {
+            return -alfa()/sqr(x)+ beta()/sqr(1-x);
+
+        }
+
+
+    };
+
+
+
+    class stretch_move_Distribution: public Base_Distribution<double>
+    {
+
+
+        // Base_Distribution interface
+    public:
+        virtual stretch_move_Distribution* clone()const override{ return new stretch_move_Distribution(*this);};
+        constexpr static auto const className=my_static_string("stretch_move_Distribution");
+        std::string myClass()const override { return className.str();}
+        typedef   stretch_move_Distribution self_type ;
+        static auto get_constructor_fields()
+        {
+            return std::make_tuple(
+                grammar::field(C<self_type>{},"alpha_stretch",&self_type::alpha)
+                                                                                                                    );
+        }
+        virtual std::ostream& put(std::ostream& os)const override
+        {
+            return os<<*this;
+        }
+
+        static Data_Index_scheme data_index()
+        {
+            Data_Index_scheme out;
+            out.push_back("alpha_stretch", {});
+            return out;
+        }
+        static auto
+        get_data_index()
+        {
+            using namespace std::literals::string_literals;
+            return std::make_tuple(
+                Data_Index(Cs<self_type>(),"alpha_stretch"s,&self_type::alpha)
+                                                                                    );
+        }
+
+        stretch_move_Distribution()=default;
+        virtual double sample(std::mt19937_64 &mt) const override
+        {
+            std::uniform_real_distribution<double> U(std::sqrt(1.0/a_[0]),std::sqrt(a_[0]));
+            double z=sqr(U(mt));
+            return z;
+        }
+        virtual double p(const double &x) const override{ return std::pow(x,-0.5)/Z_;}
+        virtual double logP(const double &x) const override { return -0.5*std::log(x)-log(Z_);}
+        virtual double vlogP(const double& x)const override {return sqr(logP(x)-expected_logP());}
+
+        virtual  M_Matrix<double> param() const override {return a_;}
+        virtual M_Matrix<double> Fisher_Information() const override {
+            assert(false);
+            return {};}
+        virtual double mean() const override {assert(false); return{};};
+        virtual double stddev() const override {assert(false); return{};};
+        stretch_move_Distribution(double a): a_{1,1,std::vector<double>{a}}, Z_(2*(std::sqrt(a)-std::pow(a,-0.5))) {}
+        double alpha()const {return a_[0];}
+
+    private:
+        /// parameter alpha between 1 an infinity, 2 is good.
+        M_Matrix<double> a_;
+        double Z_;
+
+        // Base_Distribution interface
+    public:
+        virtual double dlogL_dx(const double &x) const override
+        {
+            return -0.5/x;
+        }
+        virtual double dlogL_dx2(const double &x) const override{
+            return 0.5/sqr(x);
+        }
+    };
+
+
+    template<class P>
+    struct complement_prob
+    {
+        complement_prob(const P& p):p_{p}{}
+        template<typename... Ts>
+        double operator()(Ts... xs)const
+        {
+            return 1.0-p_(xs...);
+        }
+    private:
+        const P& p_;
+    };
+
+    template<class P>
+    complement_prob<P>
+    Complement_prob(const P& p){return complement_prob<P>(p);}
+
+
+    template<class P>
+    struct log_of
+    {
+        log_of(const P& p):p_{p}{}
+        template<typename... Ts>
+        double operator()(Ts... xs)const
+        {
+            return std::log(p_(xs...));
+        }
+    private:
+        const P& p_;
+    };
+
+
+    template<class P>
+    log_of<P> Log_of(const P& p){return log_of<P>(p);}
+
+    template<class P>
+    struct exp_of
+    {
+        exp_of(const P& p):p_{p}{}
+        template<typename... Ts>
+        double operator()(Ts... xs)const
+        {
+            return std::exp(p_(xs...));
+        }
+    private:
+        const P& p_;
+    };
+
+
+
+    template <class T>
+    std::pair<std::map<T,double>,double>
+    logLik_to_p(const std::map<T,double>& logLikelihoods)
+    {
+        std::map<T,double> out(logLikelihoods);
+        double Evidence=0;
+        double maxlog=out.begin()->second;
+        for (auto& e:out)
+        {
+            if (e.second>maxlog) maxlog=e.second;
+        }
+        for (auto& e:out)
+        {
+            e.second=std::exp(e.second-maxlog);
+            Evidence+=e.second;
+        }
+
+        for (auto& e:out) e.second/=Evidence;
+
+        return {out,Evidence};
+    }
+
+    template <typename T,typename _UniformRandomNumberGenerator>
+    T sample_rev_map(const std::map<double,T>& reverse_prior,_UniformRandomNumberGenerator& mt)
+    {
+        std::uniform_real_distribution<> u;
+        double r= u(mt);
+        auto it=reverse_prior.lower_bound(r);
+        return it->second;
+
+    }
+
+
+    template< typename T, class F, class Likelihood,class P_map>
+    double Expectance(const F& f, const Likelihood& lik,const P_map& pm, const T& landa  )
+    {
+        auto p=pm;
+        double sum=0;
+        for (auto& e:p)
+            sum+=e.second*lik(e.first,landa)*f(landa);
+        return sum;
+    }
+    struct Probability: public invariant{};
+
+
+    struct variable_value: public invariant
+    {
+        template<bool output>
+        static Op_void test(double value)
+        {
+            if (std::isfinite(value))
+                return Op_void(true,"");
+            else if constexpr (output)
+                return Op_void(false," not finite value: "+std::to_string(value));
+            else
+                return Op_void(true,"");
+        }
+    };
+    struct variance_value: public invariant
+    {
+        template<bool output>
+        static Op_void test(double value, double min_variance,double tolerance)
+        {
+            if (!std::isfinite(value))
+                return Op_void(false," not finite value: "+std::to_string(value));
+            else if (value+tolerance>min_variance)
+                return Op_void(true,"");
+            else if (value<0)
+                return Op_void(false,"negative variance!! value="+std::to_string(value));
+            else if (value==0)
+                return Op_void(false,"zero variance!! value="+std::to_string(value));
+            else    return Op_void(false,"variance too small!! value="+std::to_string(value)+ "min variance="+std::to_string(min_variance)+ "tolerance="+std::to_string(tolerance));
+
+        }
+
+
+        static double adjust(double value, double min_variance)
+        {
+            return std::max(value,min_variance);
+        }
+
+    };
+
+    struct logLikelihood_value: public invariant
+    {
+        template<bool output>
+        static Op_void test(double value)
+        {
+            if (std::isfinite(value))
+                return Op_void(true,"");
+            else
+                return Op_void(false," not finite value: "+std::to_string(value));
+        }
+    };
+
+    struct Probability_value: public Probability
+    {
+        template <bool output,class C>
+        static Op_void test(const C& e, double tolerance)
+        {
+            if (!std::isfinite(e))
+            {    if constexpr(output)
+                    return  Op_void(false," not finite value="+ToString(e)+"\n");
+                else return Op_void(false,"");
+            }
+            else if (e+tolerance<0)
+            {
+                if constexpr(output)
+                    return  Op_void(false," negative prob="+ToString(e)+"\n");
+                else return Op_void(false,"");
+            }
+            else if (e-tolerance>1)
+            {
+                if constexpr(output)
+                    return  Op_void(false,"  prob greater than one" +ToString(e)+ " 1- prob="+ToString(1-e)+"\n");
+                else return Op_void(false,"");
+
+            }
+            else return Op_void(true,"");
+        }
+    };
+
+
+
+    struct Probability_distribution: public Probability
+    {
+        template<bool output,class P>
+        static myOptional_t<void> test(const P& p,double tolerance)
+        {
+            double sum=0;
+            std::stringstream ss;
+            for (std::size_t i=0; i<p.size(); ++i)
+                if (auto ch=Probability_value::test<output>(p[i],tolerance);!ch.has_value())
+                {
+                    if constexpr(output)
+                        return Op_void(false,"p=\n"+ToString(p)+" value test on p[i] i="+std::to_string(i)+ch.error());
+                    else
+                        return Op_void(false,"");
+                }
+                else sum+=p[i];
+            if  (std::abs(sum-1.0)<tolerance)
+                return Op_void(true,"");
+            else
+            {
+                if constexpr(output)
+                    return Op_void(false," p=\n"+ToString(p)+" sum test sum="+ToString(sum)+"\n");
+                return Op_void(false,"");
+            }
+
+        }
+
+        template<class P>
+        P static normalize(P&& p, double min_p)
+        {
+            double sum=0;
+            for (std::size_t i=0; i<p.size(); ++i)
+            {
+                if (p[i]<min_p)
+                {
+                    p[i]=0;
+                }
+                else
+                {
+                    if (p[i]+min_p>1)
+                    {
+                        p[i]=1;
+                    }
+                    sum+=p[i];
+                }
+            }
+            for (std::size_t i=0; i<p.size(); ++i)
+                p[i]=p[i]/sum;
+            return p;
+        }
+    };
+
+
+
+    struct Probability_transition: public Probability
+    {
+
+        template<bool output>
+        static bool test(const M_Matrix<double>& p,double tolerance)
+        {
+            for (std::size_t i=0; i<p.nrows(); ++i)
+            {
+                double sum=0;
+                for (std::size_t j=0; j<p.ncols(); ++j)
+                    if (!Probability_value::test<output>(p(i,j),tolerance))
+                    {
+                        if constexpr(output)
+                            std::cerr<<" p=\n"<<p<<"\n tolerance="<<tolerance<<" i="<<i<<"j="<<j<<" p(i,j)="<<p(i,j)<<" \n";
+                        return false;
+
+                    }
+                    else sum+=p(i,j);
+                if (std::abs(sum-1.0)>tolerance)
+                {
+                    if constexpr(output)
+                        std::cerr<<" p=\n"<<p<<"\n i="<<i<<" sum ="<<sum<<" 1-sum"<<1-sum<<" tolerance="<<tolerance<<"\n";
+                    return false;
+                }
+            }
+            return true;
+
+        }
+
+        M_Matrix<double> static normalize(M_Matrix<double>&& p, double min_p)
+        {
+            for (std::size_t i=0; i<p.nrows(); ++i)
+            {
+                if (p(i,i)>1-min_p)
+                {
+                    for (std::size_t j=0; j<p.ncols(); ++j)
+                        p(i,j)=0;
+                    p(i,i)=1;
+                }
+                else
+                {
+                    double sum=0;
+                    for (std::size_t j=0; j<p.ncols(); ++j)
+                    {
+                        if (p(i,j)<min_p)
+                            p(i,j)=0;
+                        else
+                            sum+=p(i,j);
+                    }
+                    if (sum!=1)
+                        for (std::size_t j=0; j<p.ncols(); ++j) p(i,j)=p(i,j)/sum;
+                }
+            }
+            return std::move(p);
+        }
+
+
+
+    };
+
+    struct Probability_distribution_covariance: public Probability
+    {
+
+        static Op_void test_correlation(const M_Matrix<double>& p, std::size_t i, std::size_t j, double eps=std::sqrt(std::numeric_limits<double>::epsilon())*1000)
+        {
+            double corr=sqr(p(i,j))/p(i,i)/p(j,j);
+            if ((corr+eps<0)||(corr-eps>1))
+            {
+                std::stringstream ss;
+                ss<<"p: \n"<<p<<"\n p(ij)"<<p(i,j)<<"\n p(ii)"<<p(i,i)<<"\n p(jj)"<<p(j,j)<<"\n corr"<<corr<<" i="<<i<<" j="<<j;
+                return Op_void(false,ss.str());
+            }
+            else
+                return Op_void(true,"");
+
+        }
+
+        static M_Matrix<double> normalize(M_Matrix<double>&& p,double min_p)
+        {
+            std::set<std::size_t> non_zero_i;
+
+            for (std::size_t i=0; i<p.nrows(); ++i) {
+                if(p(i,i)<min_p)
+                {
+                    for (std::size_t j=0; j<p.ncols(); ++j)
+                        p(i,j)=0;
+                }
+                else if(p(i,i)+min_p>1.0)
+                {
+                    for (std::size_t n=0; n<p.size(); ++n) p[n]=0;
+                    p(i,i)=1;
+                    return std::move(p);
+                }
+                else
+                    non_zero_i.insert(i);
+            }
+            for (auto i:non_zero_i)
+            {
+
+                double sum=0;
+                for (auto j: non_zero_i)
+                    if (j!=i)
+                        sum+=p(i,j);
+
+                if (-sum!=p(i,i))
+                {
+                    auto sum_new=(sum-p(i,i))*0.5;
+                    double f=sum_new/sum;
+                    p(i,i)=-sum_new;
+                    for (auto j: non_zero_i)
+                        if (i!=j)
+                            p(i,j)*=f;
+
+                }
+            }
+
+            return std::move(p);
+        }
+
+
+        template<bool output,class P>
+        static Op_void test(const P& p,double tolerance)
+        {
+
+            for (std::size_t i=0; i<p.nrows(); ++i)
+            {
+                if (!Probability_value::test<output>(p(i,i),tolerance))
+                {
+                    if constexpr(output)
+                    {
+                        std::stringstream ss;
+                        ss<<"\ntolerance="<<tolerance<<"\n";
+                        ss<<" pcov=\n"<<p<<"\n i="<<i<<" pcov(i,i)="<<p(i,i)<<"\n";
+                        return Op_void(false,ss.str());
+                    }
+                    return Op_void(false,"");
+
+                }double sum=0;
+                for (std::size_t j=0; j<p.ncols(); ++j)
+                {
+
+                    if (i!=j)
+                    {
+                        if ((p(i,i)*p(j,j)-sqr(p(i,j))+tolerance<0)
+                            &&(p(i,i)>tolerance*tolerance)&&(p(j,j)>tolerance*tolerance))
+                        {
+                            if constexpr(output){
+                                double corr=sqr(p(i,j))/p(i,i)/p(j,j);
+                                std::stringstream ss;
+                                ss<<"tolerance="<<tolerance<<"\n";
+                                ss<<" pcov=\n"<<p<<"\n i="<<i<<"j="<<j<<" pcov(i,j)="<<p(i,j)<<" corr="<<corr<<" pcov(i,i)"<<p(i,i)<<" pcov(j,j)"<<p(j,j)<<"\n";
+                                return  Op_void(false, ss.str());
+                            }
+                            return Op_void(false,"");
+                        }
+                        else
+                            sum+=p(i,j);
+                    }
+                }
+                if (std::abs(p(i,i)+sum)>tolerance)
+                {
+                    if constexpr(output)
+                    {
+                        std::stringstream ss;
+                        ss<<"tolerance="<<tolerance<<"\n";
+                        ss<<" p=\n"<<p<<"\n i="<<i<<" p(i,j)="<<p(i,i)<<" sum="<<sum<<"\n";
+                        return  Op_void(false, ss.str());
+
+                    }
+                    return Op_void(false,"");
+                }
+            }
+            return Op_void(true,"");
+        }
+
+    };
+
+
+
+
+
+
+
+
+
+    template<typename T>
+    class Base_Probability_map
+    {
+    public:
+        virtual T sample(std::mt19937_64& mt)const=0;
+
+        virtual const std::map<T,double>& p() const=0;
+        virtual std::ostream& put(std::ostream& os)const=0;
+
+        virtual void reduce(double nmax)=0;
+        virtual double nsamples()const =0;
+        virtual ~Base_Probability_map(){}
+    };
+
+    template <class T>
+    std::map<double,T>
+    cumulative_reverse_map(const std::map<T,double>& normalized_map)
+    {
+        std::map<double,T> out;
+        double sump=0;
+        for (auto& e:normalized_map)
+        {
+            sump+=e.second;
+            out[sump]=e.first;
+        }
+        return out;
+    }
+
+    template <class T>
+    std::pair<std::map<T,double>,double>
+    normalize_map(const std::map<T,double>& unnormalized_map)
+    {
+        std::map<T,double> out(unnormalized_map);
+        double Evidence=0;
+        for (auto& e:out)
+        {
+            Evidence+=e.second;
+        }
+        for (auto& e:out) e.second/=Evidence;
+
+        return {out,Evidence};
+    }
+
+
+    template<typename T>
+    class Probability_map: public Base_Probability_map<T>
+    {
+        static std::vector<T> to_vec(const std::map<T,double>& m)
+        {
+            std::vector<T> out(m.size());
+            std::size_t i=0;
+            for (auto& e: m) {out[i]=e.first; ++i;}
+            return out;
+        }
+
+    public:
+        typedef  Probability_map self_type;
+        typedef  Cs<T> template_types;
+        constexpr static auto const className=my_static_string("Probability_map")+my_trait<template_types>::className;
+        ~Probability_map()override{}
+
+        T sample(std::mt19937_64& mt)const override
+        {
+            return sample_rev_map(rev_,mt);
+        }
+
+        auto & x()const { return x_;}
+
+        const std::map<T,double>& p() const override
+        {
+            return p_;
+        }
+
+        Probability_map(const std::map<T,double>& myNormalized_map, double nsamples)
+            :
+              p_{myNormalized_map},rev_{cumulative_reverse_map(p_)},x_{to_vec(myNormalized_map)}, nsamples_(nsamples)
+        {
+
+        }
+
+        template<template<typename...>class V, typename...As>
+        Probability_map(const V<T,As...>& x):p_(Uniform(x)),rev_(cumulative_reverse_map(p_)), nsamples_(0)
+        {}
+        Probability_map()=default;
+
+
+        template<template<typename...>class V>
+        static
+            std::map<T,double> Uniform(const V<T>& x)
+        {
+            std::map<T,double> out;
+            std::size_t n=x.size();
+            double p=1.0/n;
+            for (std::size_t i=0; i<n;++i )
+                out[x[i]]+=p;
+            return out;
+        }
+
+        template<class K>
+        static
+            std::map<T,double> Uniform(const std::map<T,K>& x)
+        {
+            std::map<T,double> out;
+            std::size_t n=x.size();
+            double p=1.0/n;
+            for (auto& e:x )
+                out[e.first]+=p;
+            return out;
+        }
+
+
+
+
+        void reduce(double nmax) override
+        {
+            double f=nsamples_/nmax;
+            if (f<1.0)
+            {
+                auto o=p_;
+                for (auto& e:o) e.second=std::pow(e.second,f);
+                *this=normalize(o,nmax).first;
+            }
+
+        }
+        double nsamples()const override{return nsamples_;}
+
+        static std::pair<Probability_map,double> normalize(const std::map<T,double>& myposterior , double nsamples)
+        {
+            auto out= normalize_map(myposterior);
+            return {Probability_map(out.first,nsamples),out.second};
+        }
+
+        static auto get_constructor_fields()
+        {
+            return std::make_tuple(
+                grammar::field(C<self_type>{},"probability_map",&self_type::p),
+                grammar::field(C<self_type>{},"reverse_map",&self_type::reverse),
+                grammar::field(C<self_type>{},"nsamples",&self_type::nsamples));
+        }
+        virtual std::ostream& put(std::ostream& os)const override
+        {
+            return io::output_operator_on_Object (os,*this);
+        }
+
+        std::map<double,T> const & reverse()const {return rev_;}
+
+        Probability_map(const std::map<T,double>& myNormalized_map, const std::map<double,T>& reverseMap, double nsamples)
+            :
+              p_{myNormalized_map},rev_{reverseMap}, x_{to_vec(myNormalized_map)},nsamples_(nsamples)
+        {
+
+        }
+
+        static Data_Index_scheme data_index(std::string&& index_name, const std::string& variable_name)
+        {
+            Data_Index_scheme out;
+            out.push_back("prob_"+variable_name,{index_name});
+            out.push_back("rev_prob_"+variable_name,{index_name});
+            out.push_back("nsamples_"+variable_name,{});
+
+            return out;
+
+        }
+
+        static auto
+
+        get_data_index(const std::string& variable_name, const std::string& index_name)
+        {
+            using namespace std::literals::string_literals;
+
+
+            return std::make_tuple(
+                Data_Index(Cs<self_type>(),"prob_"+variable_name,
+                           [](const self_type& s, std::size_t i_x){return s.p().at(s.x()[i_x]);},
+                           std::make_pair(index_name,[](const self_type& s){return s.x().size();})
+                                                                                             ),
+                Data_Index(Cs<self_type>(),"nsamples"s+variable_name,&self_type::nsamples)
+                                                            );
+        }
+
+    private:
+        std::map<T,double> p_;
+        std::map<double,T> rev_;
+        std::vector<T> x_;
+        double nsamples_;
+    };
+    template <typename T, typename K>
+    std::vector<T> to_vec(const std::map<T,K>& m)
+    {
+        std::vector<T> out(m.size());
+        std::size_t i=0;
+        for (auto& e: m) {out[i]=e.first; ++i;}
+        return out;
+    }
+
+    template<typename T>
+    class logLikelihood_map: public Base_Probability_map<T>
+    {
+
+    public:
+        typedef  logLikelihood_map self_type;
+        typedef  Cs<T> template_types;
+        constexpr static auto const className=my_static_string("logLikelihood_map")+my_trait<template_types>::className;
+
+        virtual std::ostream& put(std::ostream& os)const override
+        {
+            return io::output_operator_on_Object (os,*this);
+        }
+
+        T sample(std::mt19937_64& mt) const override
+        {
+            return sample_rev_map(rev_,mt);
+        }
+
+        const std::map<T,double>& logLik() const
+        {
+            return logLik_;
+        }
+
+        std::map<T,double>const & p()const override
+        {
+            return p_;
+        }
+
+        logLikelihood_map(const std::map<T,double>& mylogLikelihood_Map, double nsamples)
+            :
+              logLik_{mylogLikelihood_Map}
+        {
+            auto p=logLik_to_p(mylogLikelihood_Map);
+            p_=std::move(p.first);
+            Evidence_=p.second;
+            rev_=cumulative_reverse_map(p_);
+            x_=to_vec(p_);
+            nsamples_=nsamples;
+        }
+
+        logLikelihood_map()=default;
+        void reduce(double nmax) override
+        {
+            double f=nmax/nsamples_;
+            if (f<1.0)
+            {
+                auto o=logLik_;
+                for (auto& e:o) e.second*=f;
+                *this=logLikelihood_map(o,nmax);
+            }
+        }
+
+
+        double nsamples()const override {return nsamples_;}
+        static auto get_constructor_fields()
+        {
+            return std::make_tuple(
+                grammar::field(C<self_type>{},"log_probability_map",&self_type::logLik),
+                grammar::field(C<self_type>{},"probability_map",&self_type::p),
+                grammar::field(C<self_type>{},"reverse_map",&self_type::reverse),
+                grammar::field(C<self_type>{},"evidence",&self_type::Evidence),
+                grammar::field(C<self_type>{},"nsamples",&self_type::nsamples));
+        }
+        std::map<double,T> const & reverse()const {return rev_;}
+
+        double Evidence()const {return Evidence_;}
+
+        logLikelihood_map(const std::map<T,double>& mylogLikelihood_Map, const std::map<T,double>& myNormalized_map, const std::map<double,T>& reverseMap, double evidence, double nsamples)
+            : logLik_{mylogLikelihood_Map},
+              p_{myNormalized_map},rev_{reverseMap}, x_{to_vec(p_)},Evidence_{evidence},nsamples_(nsamples)
+        {
+
+        }
+
+        static Data_Index_scheme data_index(std::string&& index_name, const std::string& variable_name)
+        {
+            Data_Index_scheme out;
+            out.push_back("logLik_"+variable_name,{index_name});
+            out.push_back("prob_"+variable_name,{index_name});
+            out.push_back("rev_prob_"+variable_name,{index_name});
+            out.push_back("Evidence_"+variable_name,{});
+            out.push_back("nsamples_"+variable_name,{});
+
+            return out;
+
+        }
+        static auto data_index(const std::string& variable_name)->decltype (T::data_index())
+        {
+            Data_Index_scheme out=myData_Index<T>::data_index();
+            out.push_back("logLik_"+variable_name,out.first_index());
+            out.push_back("prob_"+variable_name,out.first_index());
+            out.push_back("rev_prob_"+variable_name,out.first_index());
+            out.push_back("Evidence_"+variable_name,{});
+            out.push_back("nsamples_"+variable_name,{});
+
+            return out;
+
+        }
+
+        static auto
+        get_data_index(const std::string& variable_name, const std::string& index_name)
+        {
+            using namespace std::literals::string_literals;
+                return std::make_tuple(
+                    Data_Index(Cs<self_type>(),"logLik_"+variable_name,
+                               [](const self_type& s, std::size_t i_x){return s.logLik().at(s.x()[i_x]);},
+                               std::make_pair(index_name,[](const self_type& s){return s.logLik().size();})
+                                                                                                                                                                   ),
+                    Data_Index(Cs<self_type>(),"prob_"+variable_name,
+                               [](const self_type& s, std::size_t i_x){return s.p().at(s.x()[i_x]);},
+                               std::make_pair(index_name,[](const self_type& s){return s.x().size();})
+                                                                                                                                                                                                  ),
+                    Data_Index(Cs<self_type>(),"Evidence"s+variable_name,&self_type::Evidence),
+                    Data_Index(Cs<self_type>(),"nsamples"s+variable_name,&self_type::nsamples)
+
+                                                                                                                                                        );
+
+        }
+
+        auto & x()const {return x_;}
+
+    private:
+        std::map<T,double> logLik_;
+        std::map<T,double>p_;
+        std::map<double,T> rev_;
+        std::vector<T> x_;
+        double Evidence_;
+        double nsamples_;
+
+    };
+
+
+    template<class Likelihood, class Data, typename T>
+    std::pair<Probability_map<T>,double>
+    Bayes_rule(const Likelihood& lik, const Data& data, const Probability_map<T>& prior)
+    {
+        auto p=prior.p();
+        for (auto& e:p)
+        {
+            double l=lik(e.first,data);
+            e.second*=l;
+        }
+        double nsamples=prior.nsamples()+1;
+        return Probability_map<T>::normalize(p,nsamples);
+    }
+
+
+    template<typename T>
+    class Beta_map //: public Base_Probability_map<T>
+    {
+
+    public:
+        typedef   Beta_map self_type;
+        Beta_map(const std::map<T,Beta_Distribution>& a):a_(a), x_{to_vec(a)}{}
+
+
+        auto &get_Map()const{return a_;}
+
+        auto & x() const { return x_;}
+
+        static auto get_constructor_fields()
+        {
+            return std::make_tuple(
+                grammar::field(C<self_type>{},"probability_map",&self_type::get_Map));
+        }
+
+        void reduce(double nmax)
+        {
+            double f=nmax/count();
+            if (f<1.0)
+            {
+                for (auto& e:a_)
+                {
+                    e.second.Parameters()[0]*=f;
+                    e.second.Parameters()[0]*=f;
+
+                }
+            }
+        }
+
+
+
+        static Beta_map UniformPrior(const std::map<T,double>& a)
+        {
+            std::map<T,Beta_Distribution> o;
+            for (auto& e:a)
+                o[e.first]=Beta_Distribution::UniformPrior();
+            return Beta_map(o);
+        }
+
+
+        static Beta_map UnInformativePrior(const std::map<T,double>& a)
+        {
+            std::map<T,Beta_Distribution> o;
+            for (auto& e:a)
+                o[e.first]=Beta_Distribution::UnInformativePrior();
+            return Beta_map(o);
+        }
+
+        static Beta_map UniformPrior(const std::vector<T>& a)
+        {
+            std::map<T,Beta_Distribution> o;
+            for (auto& e:a)
+                o[e]=Beta_Distribution::UniformPrior();
+            return Beta_map(o);
+        }
+
+
+        static Beta_map UnInformativePrior(const std::vector<T>& a)
+        {
+            std::map<T,Beta_Distribution> o;
+            for (auto& e:a)
+                o[e]=Beta_Distribution::UnInformativePrior();
+            return Beta_map(o);
+        }
+
+
+
+
+        Beta_map()=default;
+
+        std::size_t size()const {return a_.size();}
+
+        double count()const {
+            double sum=0;
+            for (auto& e:a_) sum+=e.second.count();
+            return sum;
+        }
+
+
+        std::map<T,double> sample(std::mt19937_64& mt)
+        {
+            std::map<T,double> out;
+            double sum=0;
+
+            for (auto it=a_.begin(); it!=a_.end(); ++it)
+            {
+                std::gamma_distribution<double> g(it->second);
+                out[it->first]=g(mt);
+                sum+=out[it->first];
+            }
+            for (auto& o:out)
+                o.second/=sum;
+            return out;
+        }
+
+        Beta_map& operator+=(const Beta_map& other)
+        {
+            for (auto& e:a_)
+            {
+                auto it=other.a_.find(e.first);
+                if (it!=other.a_.end())
+                    e.second.Parameters()+=it->second.Parameters();
+            }
+            return *this;
+        }
+
+        Beta_map operator+(const Beta_map& other)const
+        {
+            Beta_map out(a_);
+            out+=other;
+            return out;
+        }
+
+        std::map<T,double> p()const
+        {
+            std::map<T,double> out;
+            for (auto& e:a_)
+                out[e.first]=e.second.p();
+            return out;
+        }
+
+        Beta_Distribution& operator[](const T& x)
+        {
+            return a_[x];
+        }
+
+        Beta_Distribution operator[](const T& x)const
+        {
+            auto it=a_.find(x);
+            if (it!=a_.end())
+                return it.second;
+            else
+                return {};
+        }
+
+        Probability_map<T> Distribute_on_p(double p)const
+        {
+            auto prior= Probability_map<T>(a_);
+            auto const & d=a_;
+            return Bayes_rule([&d](const T& x,double target){return d.at(x).p(target);},p,prior).first;
+        }
+
+        static Data_Index_scheme data_index(std::string&& index_name, const std::string& variable_name)
+        {
+            Data_Index_scheme out=Beta_Distribution::data_index(variable_name);
+            out.insert_index(std::move(index_name));
+            return out;
+
+        }
+        static auto
+        get_data_index(const std::string& variable_name, const std::string& index_name)
+        {
+            using namespace std::literals::string_literals;
+            return std::tuple_cat(
+
+                Insert_tuple(Cs<self_type>(),
+                             [](const self_type& s, std::size_t i_x){return s.get_Map().at(s.x()[i_x]);},Cs<std::size_t>(),
+                             Beta_Distribution::get_data_index(variable_name),
+                             std::make_pair(index_name,[](const self_type& s){return s.get_Map().size();})
+                                                                  )
+
+                                        );
+        }
+
+
+    private:
+        std::map<T,Beta_Distribution> a_;
+        std::vector<T> x_;
+    };
+
+
+    template<class logLikelihood, class Data, typename T>
+    logLikelihood_map<T>
+    logBayes_rule(const logLikelihood& loglik, const Data& data, const logLikelihood_map<T>& prior)
+    {
+        auto logP=prior.logLik();
+        for (auto& e:logP)
+        {
+            double logL=loglik(e.first,data);
+            e.second+=logL;
+        }
+        double nsamples=prior.nsamples()+1;
+        return logLikelihood_map<T>(logP,nsamples);
+    }
+
+
+
+
+
+
+
+    struct TargetProb
+    {
+        double operator()(const std::pair<std::size_t, std::size_t>& p)const
+        {
+            return BetaDistribution(p_target_,p.first,p.second);
+        }
+        TargetProb(double p_target):p_target_(p_target){}
+        TargetProb(){}
+    private:
+        double p_target_;
+
+    };
+
+    struct PascalProb
+    {
+        double operator()(const std::pair<std::size_t, std::size_t>& p)const
+        {
+            return (1.0+p.first)/(2.0+p.first+p.second);
+        }
+    };
+
+
+
+    template<class AP>
+    struct One
+    {
+        double operator()(const AP& )const {return 1.0;}
+    };
+
+
+
+    template<typename T>
+    class markov_process
+    {
+
+    public:
+        markov_process(){};
+
+        /*  * The type of the range of the distribution. */
+        typedef T result_type;
+
+        /** Parameter type. */
+        struct param_type
+        {
+            typedef markov_process<T> distribution_type;
+            friend class markov_process<T>;
+
+            param_type()=default;
+            explicit
+                param_type(T _N, const M_Matrix<double>& P )
+                : N_(_N), P_(P),rm_(P.nrows())
+
+            {
+                _M_initialize();
+            }
+
+            T
+            N() const
+            { return N_; }
+
+            void set_P(M_Matrix<double>&&
+                           _P)
+            {
+                P_=std::move(_P);
+                _M_initialize();
+            }
+
+            void set_N(T _N)
+            {  N_=_N; }
+
+            const M_Matrix<double>&
+            P() const
+            { return P_; }
+
+
+            friend bool
+            operator==(const param_type& __p1, const param_type& __p2)
+            { return __p1.N_ == __p2.N_ && __p1.P_ == __p2.P_; }
+
+        private:
+            void
+            _M_initialize()
+            {
+
+                std::size_t n=P_.nrows();
+                for (std::size_t i=0; i<n; ++i)
+                {
+                    double sum=0;
+                    std::vector<std::pair<double, std::size_t>> o(n);
+                    for (std::size_t j=0; j<n; ++j)
+                    {o[j].second=j; o[j].first=P_(i,j);}
+                    std::sort(o.begin(),o.end());
+                    //  std::cerr<<" \n--- o---\n"<<o;
+                    for (std::size_t j=0; j<n; ++j)
+                    {
+                        sum+=o[j].first;
+                        rm_[i][sum]=o[j].second;
+                    }
+                }
+                //     std::cerr<<"\n mapa inverso -----------------\n"<<rm_;
+            }
+
+            T N_;
+            M_Matrix<double> P_;
+            std::vector<std::map<double,T>> rm_;
+        };
+
+
+
+        // constructors and member function
+
+        markov_process(T __t,
+                       const M_Matrix<double>& __p)
+            : _M_param(__t, __p)
+        { }
+
+
+
+        /**
        * @brief Returns the distribution @p t parameter.
        */
-    T
-    N() const
-    { return _M_param.N(); }
+        T
+        N() const
+        { return _M_param.N(); }
 
 
 
 
-    /**
+        /**
        * @brief Returns the distribution @p p parameter.
        */
-    const M_Matrix<double>&
-    P() const
-    { return _M_param.P(); }
+        const M_Matrix<double>&
+        P() const
+        { return _M_param.P(); }
 
 
-    void set_P(M_Matrix<double>&& _P)
-    { _M_param.set_P(std::move(_P));
-    }
+        void set_P(M_Matrix<double>&& _P)
+        { _M_param.set_P(std::move(_P));
+        }
 
-    void set_N(T _N)
-    {
-        _M_param.set_N(_N);
-    }
+        void set_N(T _N)
+        {
+            _M_param.set_N(_N);
+        }
 
 
-    /**
+        /**
        * @brief Returns the parameter set of the distribution.
        */
-    param_type
-    param() const
-    { return _M_param; }
+        param_type
+        param() const
+        { return _M_param; }
 
-    /**
+        /**
        * @brief Sets the parameter set of the distribution.
        * @param __param The new parameter set of the distribution.
        */
-    void
-    param(const param_type& __param)
-    { _M_param = __param; }
+        void
+        param(const param_type& __param)
+        { _M_param = __param; }
 
-    /**
+        /**
        * @brief Returns the greatest lower bound value of the distribution.
        */
-    T
-    min() const
-    { return 0; }
+        T
+        min() const
+        { return 0; }
 
-    /**
+        /**
        * @brief Returns the least upper bound value of the distribution.
        */
-    T
-    max() const
-    { return _M_param.P().nrows(); }
+        T
+        max() const
+        { return _M_param.P().nrows(); }
 
-    /**
+        /**
        * @brief Generating functions.
        */
-    template<typename _UniformRandomNumberGenerator>
-    result_type
-    operator()(_UniformRandomNumberGenerator& __urng)
-    { return this->operator()(__urng, _M_param); }
+        template<typename _UniformRandomNumberGenerator>
+        result_type
+        operator()(_UniformRandomNumberGenerator& __urng)
+        { return this->operator()(__urng, _M_param); }
 
-    template<typename _UniformRandomNumberGenerator>
-    result_type
-    operator()(_UniformRandomNumberGenerator& __urng,
-               const param_type& _p)const
-    {
-        return sample_rev_map(_p.rm_[_p.N()],__urng);
-    }
+        template<typename _UniformRandomNumberGenerator>
+        result_type
+        operator()(_UniformRandomNumberGenerator& __urng,
+                   const param_type& _p)const
+        {
+            return sample_rev_map(_p.rm_[_p.N()],__urng);
+        }
 
 
-private:
+    private:
 
-    param_type _M_param;
+        param_type _M_param;
 
-};
+    };
 
 
 

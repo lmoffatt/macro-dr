@@ -183,15 +183,6 @@ template <> struct my_trait<markov::MACROR> {
       d.insert_column(pre + markov::MACROR_string[e].c_str(), C<double>{});
   }
 
-  static std::vector<Data_Index_scheme> data_index()
-  {
-    std::vector<Data_Index_scheme> out;
-    for (auto e : markov::MACROR_VALUES)
-    {
-      out.push_back(Data_Index_scheme(markov::MACROR_string[e].c_str(), {}));
-    }
-    return out;
-  }
 
   static auto data_row(markov::MACROR d) {
     switch (d) {
@@ -207,6 +198,23 @@ template <> struct my_trait<markov::MACROR> {
     }
   }
 };
+
+
+template<> struct myData_Index<markov::MACROR> {
+    static Data_Index_scheme data_index()
+    {
+        Data_Index_scheme out;
+        for (auto e : markov::MACROR_VALUES)
+        {
+            out.push_back(markov::MACROR_string[e].c_str(), {});
+        }
+        return out;
+    }
+
+
+
+};
+
 
 template <> class moments<markov::MACROR> {
   static auto calc(const std::vector<markov::MACROR> &d) {
@@ -1041,7 +1049,7 @@ typedef Macro_R<true, 2, true> MacroDVR;
 
 template <bool recursive, int averaging, bool variance> class Macro_R {
 public:
-  inline constexpr static auto const myClass() {
+  inline constexpr static auto  myClass() {
     if constexpr (!recursive) {
       if constexpr (!variance)
         return my_static_string("MacroDMNR");
@@ -1664,6 +1672,7 @@ public:
     if (std::isnan(y)) {
       double plogL = std::numeric_limits<double>::quiet_NaN();
       double eplogL = std::numeric_limits<double>::quiet_NaN();
+      double vplogL=0;
       // auto chi2=std::numeric_limits<double>::quiet_NaN();
       /* auto
        * P_cov=TranspMult(Q_dt.P(),(prior.P_cov()-diag(prior.P_mean()))*Q_dt.P());*/
@@ -1673,7 +1682,7 @@ public:
       auto P_mean = prior.P_mean() * Q_dt.P();
       P_cov += diag(prior.P_mean());
       return mp_state_information(std::move(P_mean), std::move(P_cov), y_mean,
-                                  y_var, plogL, eplogL);
+                                  y_var, plogL, eplogL,vplogL);
 
     } else {
       M_Matrix<double> P_mean = prior.P_mean() * Q_dt.P();
@@ -1700,6 +1709,7 @@ public:
         plogL = std::numeric_limits<double>::infinity();
 
       double eplogL = -0.5 * (1.0 + log(2 * PI * y_var));
+      double vplogL=0.5;
 
       auto P_cov_ = TranspMult(Q_dt.P(), Sm) * Q_dt.P() +
                     diag(prior.P_mean() * Q_dt.P()) -
@@ -1728,7 +1738,7 @@ public:
         }
       }
       return mp_state_information(std::move(P_mean), std::move(P_cov), y_mean,
-                                  y_var, plogL, eplogL);
+                                  y_var, plogL, eplogL,vplogL);
     }
   }
 

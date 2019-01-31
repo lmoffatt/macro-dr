@@ -338,8 +338,17 @@ struct is_field_Object : std::false_type {};
 
 template <typename T>
 struct is_field_Object<
-    T, std::void_t<decltype(std::declval<T &>().get_constructor_fields())>>
+    T, std::void_t<decltype(T::get_constructor_fields())>>
     : std::true_type {};
+
+template <typename T, typename = void>
+struct is_label : std::false_type {};
+
+template <typename T>
+struct is_label<
+    T, std::void_t<decltype(std::declval<T &>().name())>>
+    : std::true_type {};
+
 
 template <typename T, typename = void>
 struct is_read_Object : std::false_type {};

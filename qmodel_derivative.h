@@ -341,7 +341,7 @@ public:
                 std::cerr);
       // std::cerr<<"\n --------1e-6-------\n";
 
-      bool test_e6 =
+      //bool test_e6 =
           are_Equal<
               true,
               Derivative_t<typename Matrix_Decompositions::eigensystem_type>>()
@@ -512,8 +512,9 @@ private:
   }
 };
 
-template <> struct Derivative<Markov_Transition_step_double_minimum> {
-  std::size_t n;
+template <> class Derivative<Markov_Transition_step_double_minimum> {
+public:
+    std::size_t n;
   Derivative<M_Matrix<double>> PPn;
   Derivative<M_Matrix<double>> PG_n;
   Derivative<M_Matrix<double>> PGG_n;
@@ -968,6 +969,9 @@ private:
     *this = step_ini;
   }
 };
+
+
+std::ostream& operator<<(std::ostream& os, const Derivative<Markov_Transition_step_double>& d ){return io::output_operator_on_Object(os,d);}
 
 template <> class Derivative<SingleLigandModel> : public SingleLigandModel {
 public:

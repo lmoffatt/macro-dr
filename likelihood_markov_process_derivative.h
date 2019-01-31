@@ -114,6 +114,9 @@ public:
   }
 };
 
+std::ostream& operator<<(std::ostream& os, const Derivative<markov::mp_state_information>& d){ return io::output_operator_on_Object(os, d);}
+
+
 template <>
 class Derivative<markov::hidden::MacroDMNR> : public markov::hidden::MacroDMNR {
 public:

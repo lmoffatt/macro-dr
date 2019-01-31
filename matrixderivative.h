@@ -55,6 +55,15 @@ public:
   }
 };
 
+template<class T>
+std::ostream& operator<<(std::ostream& os, const Derivative<T>& x){
+    return io::output_operator_on_Object(os,x)<<io::end_of_Object{};
+}
+
+//typedef typename decltype(std::declval<std::ostream&>()<<std::declval<Derivative<double>>())::kk kk;
+
+static_assert(is_field_Object<Derivative<double>>::value, "is derivative");
+
 template <> class Derivative<M_Matrix<double>> {
   M_Matrix<double> f_;
   M_Matrix<double> const *x_;
@@ -171,8 +180,9 @@ public:
 };
 
 template <bool output>
-class are_Equal<output, Derivative<double> >{
-  double absolute_;
+struct are_Equal<output, Derivative<double> >{
+private:
+    double absolute_;
   double relative_;
 public:
   are_Equal(double abs, double rel):absolute_{abs},relative_{rel}{}
@@ -189,7 +199,7 @@ public:
 
 
 template <bool output, typename T>
-class are_Equal<output, Derivative<M_Matrix<T>>> {
+struct are_Equal<output, Derivative<M_Matrix<T>>> {
 public:
   bool test(const Derivative<M_Matrix<T>> &one,
             const Derivative<M_Matrix<T>> &two, std::ostream &os) {
@@ -574,7 +584,7 @@ Incremental_ratio_calc(const std::vector<double> &eps,
 template <class C, class method, class dmethod>
 auto Incremental_ratio_method_calc(
     const std::vector<double> &eps, const grammar::field<C, method> m,
-    const grammar::field<Derivative<C>, dmethod> dm, const C &f,
+    const grammar::field<Derivative<C>, dmethod> /*dm*/, const C &f,
     const M_Matrix<double> &x, const std::vector<C> &fpos,
     const std::vector<C> &fneg) {
   typedef std::invoke_result_t<method, C> R;
@@ -769,7 +779,7 @@ bool Derivative_correctness_mean_value_test(double eps, double tol,const Diff &D
 
     M_Matrix<double> new_x(1, 1, y.x()[i] + e[i]);
     yeps[i] = std::apply(
-        [&Dfunction, &i, &eps, &new_x, &e](auto const &... t) {
+        [&Dfunction, &i,  &new_x, &e](auto const &... t) {
           return std::invoke(Dfunction,
                              Directional_Derivative(t, new_x, i, e[i])...);
         },
@@ -781,7 +791,7 @@ bool Derivative_correctness_mean_value_test(double eps, double tol,const Diff &D
         e[i] *=0.125;
         M_Matrix<double> new_x(1, 1, y.x()[i] + e[i]);
       yeps[i] = std::apply(
-        [&Dfunction, &i, &eps, &new_x, &e](auto const &... t) {
+        [&Dfunction, &i, &new_x, &e](auto const &... t) {
               return std::invoke(Dfunction,
                                  Directional_Derivative(t, new_x, i, e[i])...);
             },
@@ -1128,7 +1138,7 @@ template <> struct myDerivative<Matrix_Decompositions::eigensystem_type> {
 };
 
 template <bool output>
-class are_Equal<output, Derivative_t<Matrix_Decompositions::eigensystem_type>> {
+struct are_Equal<output, Derivative_t<Matrix_Decompositions::eigensystem_type>> {
 public:
   bool test(const Derivative_t<Matrix_Decompositions::eigensystem_type> &one,
             const Derivative_t<Matrix_Decompositions::eigensystem_type> &other,

@@ -103,8 +103,9 @@ struct point{
 
 }
 template<typename X, typename Y>
-struct moments<experiment::point<X,Y>>
+class moments<experiment::point<X,Y>>
 {
+public:
     constexpr static auto const className=my_static_string("moments_")+my_trait<experiment::point<X,Y>>::className;
     moments<double> t_;
     moments<double> nsamples_;
@@ -165,8 +166,9 @@ struct moments<experiment::point<X,Y>>
 
 
 template<bool output,typename X, typename Y>
-class are_Equal<output,experiment::point<X,Y>>
+struct are_Equal<output,experiment::point<X,Y>>
 {
+private:
   double absolute_; double relative_;
 public:
   are_Equal(double abs, double rel):absolute_{abs},relative_{rel}{}
@@ -206,8 +208,9 @@ struct measure_just_y
 }
 
 template<class Y>
-struct moments<experiment::measure_just_y<Y>>
+class moments<experiment::measure_just_y<Y>>
 {
+public:
     moments<Y> y;
     template<class DataFrame>
     static void insert_col(DataFrame& d)

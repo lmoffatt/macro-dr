@@ -20,7 +20,7 @@ template <bool, class> struct are_in_range;
 template <bool, class> struct are_not_less;
 template <bool, class> struct are_not_more;
 
-template <bool output> class are_Equal<output, double> {
+template <bool output> struct are_Equal<output, double> {
 public:
   template <class ostream = std::ostream>
   bool test(double x, double y, ostream &s = std::cerr) const {
@@ -64,7 +64,7 @@ private:
 };
 
 template <bool output>
-class are_finite<output, double>
+struct are_finite<output, double>
 
 {
 public:
@@ -80,7 +80,7 @@ public:
 };
 
 template <bool output>
-class are_zero<output, double>
+struct are_zero<output, double>
 
 {
 public:
@@ -151,7 +151,7 @@ template <bool output> struct are_non_negative<output, double> {
 
     } else {
       if constexpr (output)
-        std::cerr << "\nfails are_non_negative test  absolute="
+        s << "\nfails are_non_negative test  absolute="
                   << absolute_error() << " x=" << x << "\n";
       return false;
     }
@@ -274,10 +274,10 @@ bool field_test(const grammar::field<Object, method> &m, const Object &one,
 
 
 template <bool output, class Object>
-class are_Equal<
+struct are_Equal<
     output, Object,
-    std::void_t<decltype(std::declval<Object &>().get_constructor_fields())>> {
-
+    std::void_t<decltype(std::decay_t<Object>::get_constructor_fields())>> {
+private :
   double absolute_; double relative_;
 public:
   are_Equal(double absolute, double relative):absolute_{absolute},relative_{relative}{}
@@ -303,7 +303,7 @@ public:
 
 
 template <bool output, class Int>
-class are_Equal<
+struct are_Equal<
     output, Int,std::enable_if_t<std::is_integral_v<Int>,void>> {
 
 public:
@@ -320,7 +320,7 @@ public:
 };
 
 template <bool output, class C>
-class are_Equal<
+struct are_Equal<
     output, C,std::enable_if_t<is_std_container<C>::value,void>> {
 
   double absolute_;
@@ -358,7 +358,7 @@ public:
 
 
 template <bool output, class...Ts>
-class are_Equal<output,std::tuple<Ts...>>
+struct are_Equal<output,std::tuple<Ts...>>
 {
     double absolute_;
 double relative_;
@@ -378,7 +378,7 @@ public:
 };
 
 template <bool output, class T, class K>
-class are_Equal<output,std::pair<T,K>>
+struct are_Equal<output,std::pair<T,K>,void>
 {
   double absolute_;
   double relative_;

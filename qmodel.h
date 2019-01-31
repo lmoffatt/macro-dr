@@ -1505,7 +1505,7 @@ private:
   }
 };
 
-template <bool output> class are_Equal<output, Markov_Transition_step_double> {
+template <bool output> struct are_Equal<output, Markov_Transition_step_double> {
 public:
   template <class ostream>
   bool test(const Markov_Transition_step_double &one,

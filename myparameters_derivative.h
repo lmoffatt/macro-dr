@@ -91,7 +91,9 @@ public:
         grammar::field(C<self_type>{},"values",&self_type::getParameterDistributionMap));
   }
 
-  using base_type::getParameterDistributionMap;
+
+
+  auto getParameterDistributionMap() const { return base_type::getParameterDistributionMap(); }
 
 
      base_type const& f()const { return static_cast<base_type const &>(*this);}

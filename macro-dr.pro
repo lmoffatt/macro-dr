@@ -4,7 +4,8 @@ CONFIG -= app_bundle
 CONFIG -= qt
 CONFIG += c++17
 #CONFIG += sanitizer sanitize_address
-QMAKE_CXXFLAGS += -std=c++17 -Werror=return-type -ftemplate-backtrace-limit=0  -Wnon-virtual-dtor -Wnull-dereference
+QMAKE_CXXFLAGS -= -std=gnu++11
+QMAKE_CXXFLAGS +=  -std=c++17 -Werror=return-type -ftemplate-backtrace-limit=0  -Wnon-virtual-dtor -Wnull-dereference  -fdiagnostics-show-template-tree
 QMAKE_CXXFLAGS_RELEASE += -lpthread
 QMAKE_CXXFLAGS_DEBUG += -lpthread
 

@@ -528,7 +528,7 @@ public:
 
 Op_void operator+(Op_void &&one, Op_void &&other) {
   one += std::move(other);
-  return one;
+  return std::move(one);
 }
 
 template <typename T, typename K>

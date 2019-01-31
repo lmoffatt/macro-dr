@@ -1073,7 +1073,7 @@ template <typename T> struct is_Matrix<M_Matrix<T>> : public std::true_type {};
 
 template <class M> constexpr static bool is_Matrix_v = is_Matrix<M>::value;
 
-template <bool output, template <bool, typename> class test, typename T,
+template <bool output, template <bool, typename...> class test, typename T,
           class M, class ostream>
 bool apply_test(const test<output, T> &t, const M_Matrix<T> &one,
                 const M &other, ostream &os) {
@@ -1147,7 +1147,7 @@ template <typename T> double maxAbs(const M_Matrix<T> &x);
 
 }
 
-template <bool output, typename T> class are_Equal<output, M_Matrix<T>> {
+template <bool output, typename T> struct are_Equal<output, M_Matrix<T>> {
 public:
   template <class ostream>
   bool test_sum(const M_Matrix<T> &one, const M_Matrix<T> &two,
@@ -1181,7 +1181,7 @@ private:
   double relative_;
 };
 
-template <bool output, typename T> class are_non_negative<output, M_Matrix<T>> {
+template <bool output, typename T> struct are_non_negative<output, M_Matrix<T>> {
 public:
   template <class ostream>
   bool test_sum(const M_Matrix<T> &one, ostream &os = std::cerr) const {
@@ -1202,7 +1202,7 @@ private:
   double absolute_;
 };
 
-template <bool output, typename T> class are_finite<output, M_Matrix<T>> {
+template <bool output, typename T> struct are_finite<output, M_Matrix<T>> {
 public:
   template <class ostream>
   bool test(const M_Matrix<T> &one, ostream &os = std::cerr) const {
@@ -1210,7 +1210,7 @@ public:
   }
 };
 
-template <bool output, typename T> class are_non_positive<output, M_Matrix<T>> {
+template <bool output, typename T> struct are_non_positive<output, M_Matrix<T>> {
 public:
   template <class ostream>
   bool test_sum(const M_Matrix<T> &one, ostream &os = std::cerr) const {
@@ -1231,11 +1231,11 @@ private:
   double absolute_;
 };
 
-template <bool output, typename T> class are_not_less<output, M_Matrix<T>> {
+template <bool output, typename T> struct are_not_less<output, M_Matrix<T>> {
 public:
   template <class ostream>
   bool test(const M_Matrix<T> &one, ostream &os = std::cerr) const {
-    bool out = true;
+    //bool out = true;
     if (m_min_.size() == one.size())
       return apply_test(are_not_less<output, T>(absolute_error()), one, m_min_,
                         os);
@@ -1260,11 +1260,10 @@ private:
   M_Matrix<double> m_min_;
 };
 
-template <bool output, typename T> class are_not_more<output, M_Matrix<T>> {
+template <bool output, typename T> struct are_not_more<output, M_Matrix<T>> {
 public:
   template <class ostream>
   bool test(const M_Matrix<T> &one, ostream &os = std::cerr) const {
-    bool out = true;
     if (m_max_.size() == one.size())
       return apply_test(are_not_more<output, T>(absolute_error()), one, m_max_,
                         os);
@@ -1289,7 +1288,7 @@ private:
   M_Matrix<double> m_max_;
 };
 
-template <bool output, typename T> class are_in_range<output, M_Matrix<T>> {
+template <bool output, typename T> struct are_in_range<output, M_Matrix<T>> {
 public:
   template <class ostream>
   bool test(const M_Matrix<T> &one, ostream &os = std::cerr) const {
@@ -1350,7 +1349,7 @@ template <typename T> M_Matrix<T> operator-(const M_Matrix<T> &x) {
 template <typename T> M_Matrix<T> operator-(M_Matrix<T> &&x) {
   for (auto it = x.begin(); it != x.end(); ++it)
     *it = -*it;
-  return x;
+  return std::move(x);
 }
 
 namespace Vector_Binary_Transformations {
@@ -4120,10 +4119,10 @@ myOptional_t<M_Matrix<double>> symm_pinv(const M_Matrix<double> &A) {
     auto Lpinv = diagonal_pinv(
         L,  std::sqrt(std::numeric_limits<double>::epsilon()) * std::abs(L[L.size() - 1]));
     auto Apinv = VR*Lpinv*VL;
-    assert((are_Equal_v(A, A * Apinv * A, std::cerr, "\nA =", A, " \nL=", L, " \nLpinv=", Lpinv, " \nVL=", VL, " \nVR=", VR)));
-    assert(are_Equal_v(Apinv, Apinv * A * Apinv, std::cerr, "A =", A));
-    assert(are_Equal_v(Transpose(A * Apinv), A * Apinv, std::cerr));
-    assert(are_Equal_v(Transpose(Apinv * A), Apinv * A, std::cerr));
+    assert((are_Equal_v(A, A * Apinv * A, 0.1,0.1,std::cerr, "\nA =", A, " \nL=", L, " \nLpinv=", Lpinv, " \nVL=", VL, " \nVR=", VR)));
+    assert(are_Equal_v(Apinv, Apinv * A * Apinv, 0.1,0.1,std::cerr, "A =", A));
+    assert(are_Equal_v(Transpose(A * Apinv), A * Apinv, 0.1,0.1,std::cerr));
+    assert(are_Equal_v(Transpose(Apinv * A), Apinv * A, 0.1,0.1,std::cerr));
 
     return Op(Apinv);
   }
@@ -6370,10 +6369,10 @@ template <typename T, typename S>
 auto elemDivSafe(const M_Matrix<T> &x, const M_Matrix<S> &y,
                  double eps = std::numeric_limits<double>::epsilon()) {
   typedef decltype(std::declval<T>() * std::declval<S>()) R;
-  double norm = Matrix_Unary_Functions::norm_1(y);
+  //double norm = Matrix_Unary_Functions::norm_1(y);
   M_Matrix<R> out(x);
   out = Element_Wise_Multiplicative_Assigment_Operator(
-      [eps, norm](T &a, const S &b) {
+      [eps](T &a, const S &b) {
         return a = elemDivSafe(a, b, eps);
         return a;
       },

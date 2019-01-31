@@ -38,10 +38,13 @@ public :
 
 };
 
-template<bool output,typename X>
-    class are_Equal<output,X,std::void_t<decltype(std::declval<X>().name())>>
-{
 
+
+
+
+template<bool output,typename X>
+struct are_Equal<output,X,std::enable_if_t<is_label<X>::value, void>>
+{
 
 public:
   are_Equal(double, double)  {}
@@ -195,7 +198,7 @@ class Parameters_distribution: public Base_Distribution<M_Matrix<double>>
 {
 public:
     typedef Base_Distribution<M_Matrix<double>> base_type;
-    virtual Parameters_distribution* clone()const override{ return new Parameters_distribution(*this);};
+    virtual Parameters_distribution* clone()const override{ return new Parameters_distribution(*this);}
     std::string myClass()const override { return className.str();}
 
     typedef typename Model::myParameter_label par_label;

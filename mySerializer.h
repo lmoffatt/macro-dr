@@ -139,6 +139,7 @@ template<class AbstractObject> std::istream& input_operator_on_Abstract_Object(s
 
 template<char... cs> struct token {
     static constexpr char value[]={cs...};
+    static std::string str(){return {cs...};}
     typedef int this_is_token;
 };
 template <typename >
@@ -253,16 +254,16 @@ auto output_operator_on_Abstract_Object(std::ostream& os, AbstractObject const *
 
 
 template <class Object,class Method>
-bool read_on_if_field(std::istream& is,const std::string id,  grammar::field<Object,Method>& myField);
+bool read_on_if_field(std::istream& is,const std::string& id,  grammar::field<Object,Method>& myField);
 
 template <class Object,class Method>
-bool input_operator_on_if_field(std::istream& is,const std::string id,  grammar::field<Object,Method>& myField);
+bool input_operator_on_if_field(std::istream& is,const std::string& id,  grammar::field<Object,Method>& myField);
 
 
 template <class Object,class... Method>
-std::istream& read_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields);
+std::istream& read_on_this_field(std::istream& is,const std::string& id,  std::tuple<grammar::field<Object,Method>...>& myFields);
 template <class Object,class... Method>
-std::istream& input_operator_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields);
+std::istream& input_operator_on_this_field(std::istream& is,const std::string& id,  std::tuple<grammar::field<Object,Method>...>& myFields);
 
 
 
@@ -866,7 +867,7 @@ auto write_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (my
 template<class FieldObject>
 auto output_operator_on_Object(std::ostream& os,const FieldObject& myObject)->decltype (myObject.get_constructor_fields(),os)&
 {
-    auto fields=myObject.get_constructor_fields();
+    auto fields=FieldObject::get_constructor_fields();
     std::apply([&os, &myObject](const auto&... v){return ((output_operator_on_Field(os,v,myObject)),...,0);},fields);
     return os;
 }
@@ -915,9 +916,10 @@ bool read_on_if_field(std::istream& is,const std::string id,  grammar::field<Obj
 
 
 template <class Object,class Method>
-bool input_operator_on_if_field(std::istream& is,const std::string id,  grammar::field<Object,Method>& myField)
+bool input_operator_on_if_field(std::istream& is,const std::string& id,  grammar::field<Object,Method>& myField)
 {
-    if (id!=myField.idField) return false;
+    if (id!=myField.idField)
+        return false;
     else
     {
         typename grammar::field<Object,Method>::result_type x;
@@ -937,21 +939,27 @@ bool input_operator_on_if_field(std::istream& is,const std::string id,  grammar:
 
 
 template <class Object,class... Method>
-std::istream& read_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields){
+std::istream& read_on_this_field(std::istream& is,const std::string& id,  std::tuple<grammar::field<Object,Method>...>& myFields){
 
-    return std::apply([&](auto&...x)->auto& {if((read_on_if_field(is,id,x)||...)) return is;else {is.setstate(std::ios::failbit);return is;}},myFields);
+    return std::apply([&id,&is](auto&...x)->auto& {if((read_on_if_field(is,id,x)||...)) return is;else {is.setstate(std::ios::failbit);return is;}},myFields);
 
 }
 
-std::istream& input_operator_on_this_field(std::istream& is,const std::string ,  std::tuple<>& ){
+std::istream& input_operator_on_this_field(std::istream& is,const std::string& ,  std::tuple<>& ){
     return is;
 }
 
 
 
 template <class Object,class... Method>
-std::istream& input_operator_on_this_field(std::istream& is,const std::string id,  std::tuple<grammar::field<Object,Method>...>& myFields){
-    return std::apply([&](auto&...x)->auto& {if((input_operator_on_if_field(is,id,x)||...)) return is;else {is.setstate(std::ios::failbit);return is;}},myFields);
+std::istream& input_operator_on_this_field(std::istream& is,const std::string& id,  std::tuple<grammar::field<Object,Method>...>& myFields){
+    return std::apply([&id,&is](auto&...x)->auto& {
+        if((input_operator_on_if_field(is,id,x)||...))
+            return is;
+        else {
+            is.setstate(std::ios::failbit);return is;
+        }
+    },myFields);
 }
 
 

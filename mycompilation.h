@@ -906,7 +906,7 @@ public:
         }
         else
         {
-            cm=cm;
+            //cm=cm;
             return std::string("try to define an unknown type: ")+ my_trait<T>::className.c_str();
         }
 
@@ -1892,7 +1892,7 @@ template <class Cm>
 myOptional_t<Compiled_Statement<Cm>*>* compile(const Cm* cm,Function const* fn)
 {
 
-    auto f=cm->template get_Function(fn->getIdArg());
+    auto f=cm-> get_Function(fn->getIdArg());
     if (f)
     {
 
