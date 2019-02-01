@@ -163,7 +163,7 @@ main.o: ../macro-dr/main.cpp ../macro-dr/qmodel.h \
                 ../macro-dr/qmodel_derivative.h \
                 ../macro-dr/mydistributions_derivative.h \
                 ../macro-dr/qlikelihood_derivative.h
-    $(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../macro-dr/main.cpp
+                $(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../macro-dr/main.cpp
 
 ####### Install
 
