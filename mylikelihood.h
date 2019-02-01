@@ -366,14 +366,14 @@ public:
   }
 
   static auto
-  get_data_index()
+  get_data_index(const std::string name="")
   {
       return std::tuple(
-          Data_Index(Cs<self_type>(),"logL",&self_type::logL),
-          Data_Index(Cs<self_type>(),"elogL",&self_type::elogL),
-          Data_Index(Cs<self_type>(),"vlogL",&self_type::vlogL),
-          Data_Index(Cs<self_type>(),"evlogL",&self_type::evlogL),
-          Data_Index(Cs<self_type>(),"chilogL",&self_type::chilogL)
+          Data_Index(Cs<self_type>(),name+"logL",&self_type::logL),
+          Data_Index(Cs<self_type>(),name+"elogL",&self_type::elogL),
+          Data_Index(Cs<self_type>(),name+"vlogL",&self_type::vlogL),
+          Data_Index(Cs<self_type>(),name+"evlogL",&self_type::evlogL),
+          Data_Index(Cs<self_type>(),name+"chilogL",&self_type::chilogL)
       );
   }
   auto
@@ -570,16 +570,16 @@ public:
   }
 
   static auto
-  get_data_index()
+  get_data_index(const std::string& name="")
   {
       using namespace std::literals::string_literals;
       return std::tuple_cat(
-          Insert_tuple(Cs<self_type>(),[](const self_type& self)->base_type const& {return self;},base_type::get_data_index()),
+          Insert_tuple(Cs<self_type>(),[](const self_type& self)->base_type const& {return self;},base_type::get_data_index(name)),
     std::tuple(
-          Data_Index(Cs<self_type>(),"Gradient"s,
+          Data_Index(Cs<self_type>(),name+"Gradient"s,
                      [](const self_type& s,std::size_t i){return s.G()[i];},
                      std::pair (std::string("i_Parameter"),[](const self_type& self){return self.G().size();} ) ),
-          Data_Index(Cs<self_type>(),"Hessian"s,
+          Data_Index(Cs<self_type>(),name+"Hessian"s,
                      [](const self_type& s,std::size_t i, std::size_t j){return s.H()(i,j);},
                      std::pair (std::string("i_Parameter"),[](const self_type& self){return self.H().nrows();} ),
                          std::pair (std::string("i_Parameter_T"),[](const self_type& self, std::size_t){return self.H().ncols();} )
@@ -796,25 +796,25 @@ public:
   }
 
   static auto
-  get_data_index()
+  get_data_index(const std::string& name="")
   {
       using namespace std::literals::string_literals;
 
       return std::tuple_cat(
-          Insert_tuple(Cs<self_type>(),[](const self_type& self)->base_type const& {return self;},base_type::get_data_index()),
+          Insert_tuple(Cs<self_type>(),[](const self_type& self)->base_type const& {return self;},base_type::get_data_index(name)),
           std::tuple(
-              Data_Index(Cs<self_type>(),"Gradient_Variance"s,
+              Data_Index(Cs<self_type>(),name+"Gradient_Variance"s,
                          [](const self_type& s,std::size_t i, std::size_t j){return s.vG()(i,j);},
                          std::pair ("i_Parameter"s,[](const self_type& self){return self.vG().nrows();} ),
                          std::pair ("i_Parameter_T"s,[](const self_type& self){return self.vG().ncols();} )
                              ),
-              Data_Index(Cs<self_type>(),"Scaling_Matrix"s,
+              Data_Index(Cs<self_type>(),name+"Scaling_Matrix"s,
                          [](const self_type& s,std::size_t i, std::size_t j){return s.scaleM()(i,j);},
                          std::pair ("i_Parameter"s,[](const self_type& self){return self.scaleM().nrows();} ),
                          std::pair ("i_Parameter_T"s,[](const self_type& self){return self.scaleM().ncols();} )
                              ),
-              Data_Index(Cs<self_type>(),"Gradient_chi2_value",&self_type::gradient_chi_value),
-              Data_Index(Cs<self_type>(),"Gradient_fim_value",&self_type::gradient_fim_value)
+              Data_Index(Cs<self_type>(),name+"Gradient_chi2_value",&self_type::gradient_chi_value),
+              Data_Index(Cs<self_type>(),name+"Gradient_fim_value",&self_type::gradient_fim_value)
 
                   ));
   }
@@ -1076,21 +1076,21 @@ public:
   }
 
   static auto
-  get_data_index()
+  get_data_index(const std::string& name="")
   {
       using namespace std::literals::string_literals;
       typedef typename std::decay_t<decltype (std::declval<self_type>().partial_DlogL())>::value_type  Dlik;
       return std::tuple_cat(
-          Insert_tuple(Cs<self_type>(),[](const self_type& self)->base_type const& {return self;},base_type::get_data_index()),
+          Insert_tuple(Cs<self_type>(),[](const self_type& self)->base_type const& {return self;},base_type::get_data_index(name)),
           std::tuple(
-              Data_Index(Cs<self_type>(),my_trait<Aux>::data_index(),
+              Data_Index(Cs<self_type>(),name+my_trait<Aux>::data_index(),
                          [](const self_type& s,std::size_t imeasure){return s.getAuxiliar()[imeasure];},
                          std::make_pair ("i_measure"s,[](const self_type& self){return self.getAuxiliar().size();} )
                                                           )
               ),
           Insert_tuple(Cs<self_type>(),
                        [](const self_type& self, std::size_t i_meas) {return self.partial_DlogL()[i_meas];},
-                       Cs<std::size_t>(),Dlik::get_data_index(),
+                       Cs<std::size_t>(),Dlik::get_data_index(name+"partial_"),
                        std::make_pair("i_measures"s,[](const self_type& self){return self.partial_DlogL().size();})
                                     )
               );

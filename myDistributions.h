@@ -3140,14 +3140,14 @@ private:
     };
 
 
-    template<class Likelihood, class Data, typename T>
+    template<class Likelihood,  typename T, class...Data>
     std::pair<Probability_map<T>,double>
-    Bayes_rule(const Likelihood& lik, const Data& data, const Probability_map<T>& prior)
+    Bayes_rule(const Probability_map<T>& prior,const Likelihood& lik, const Data&... data)
     {
         auto p=prior.p();
         for (auto& e:p)
         {
-            double l=lik(e.first,data);
+            double l=lik(e.first,data...);
             e.second*=l;
         }
         double nsamples=prior.nsamples()+1;
@@ -3181,8 +3181,7 @@ private:
             {
                 for (auto& e:a_)
                 {
-                    e.second.Parameters()[0]*=f;
-                    e.second.Parameters()[0]*=f;
+                    e=Beta_Distribution(e.alfa()*f,e.beta()*f);
 
                 }
             }
@@ -3294,12 +3293,21 @@ private:
                 return {};
         }
 
-        Probability_map<T> Distribute_on_p(double p)const
+        Probability_map<T> Distribute_on_p(double desired_probability)const
         {
             auto prior= Probability_map<T>(a_);
             auto const & d=a_;
-            return Bayes_rule([&d](const T& x,double target){return d.at(x).p(target);},p,prior).first;
+            return Bayes_rule(prior,[&d](const T& x,double target){return d.at(x).p(target);},desired_probability).first;
         }
+
+        template<class F>
+        Probability_map<T> Distribute_on_f(const F& f)const
+        {
+            auto prior= Probability_map<T>(a_);
+            auto const & d=a_;
+            return Bayes_rule(prior,[&d,&f](const T& x){return f(x)*d.at(x).p();}).first;
+        }
+
 
         static Data_Index_scheme data_index(std::string&& index_name, const std::string& variable_name)
         {

@@ -132,6 +132,16 @@ public:
                  prior().vlogL() + beta * likelihood().vlogL(),
                  prior().evlogL() + beta * likelihood().evlogL());
     }
+    static auto
+    get_data_index(const std::string name="")
+    {
+        return std::tuple_cat(
+            std::make_tuple(Data_Index(Cs<self_type>(),"beta",&self_type::beta)),
+            Insert_tuple(Cs<self_type>(),[](const self_type& s)->base_type const&{ return s;}, base_type::get_data_index(name+"thermo_")),
+            Insert_tuple(Cs<self_type>(),[](const self_type& s){ return s.prior();}, base_type::get_data_index(name+"prior_")),
+            Insert_tuple(Cs<self_type>(),[](const self_type& s){ return s.likelihood();}, base_type::get_data_index(name+"lik_")));
+    }
+
 
 private:
     logLikelihood prior_;
@@ -183,6 +193,15 @@ public:
                  prior().evlogL() + beta * likelihood().evlogL());
         set_G(prior().G() + likelihood().G() * beta);
         set_H(prior().H() + likelihood().H() * beta);
+    }
+    static auto
+    get_data_index(const std::string name="")
+    {
+        return std::tuple_cat(
+            std::make_tuple(Data_Index(Cs<self_type>(),"beta",&self_type::beta)),
+            Insert_tuple(Cs<self_type>(),[](const self_type& s)->base_type const&{ return s;}, base_type::get_data_index(name+"thermo_")),
+            Insert_tuple(Cs<self_type>(),[](const self_type& s){ return s.prior();}, base_type::get_data_index(name+"prior_")),
+            Insert_tuple(Cs<self_type>(),[](const self_type& s){ return s.likelihood();}, base_type::get_data_index(name+"lik_")));
     }
 
 private:
@@ -1052,7 +1071,7 @@ private:
                 return myOptional_t<void>(false,
                                           "cannot calculate distribution " + gg.error());
             } else {
-                //    std::cerr<<"\nold current.g()\n"<<current.g();
+              //    std::cerr<<"\nold current.g()\n"<<current.g();
 
                 //  auto gold=gg.value();
                 current.set_g(std::move(gg).value());
@@ -1091,7 +1110,7 @@ private:
         mcmc_s &Walker(std::size_t i) { return walkers_[i]; }
   mcmc_s const &Walker(std::size_t i) const { return walkers_[i]; }
   std::size_t numWalkers() const { return walkers_.size(); }
-  bool accept(std::size_t i) const { return accept_[i]; }
+  bool accept(std::size_t i) const { return Walker(i).accept(); }
 
 
 
@@ -1113,17 +1132,17 @@ private:
 
   static auto get_constructor_fields() {
       return std::make_tuple(
-          grammar::field(C<self_type>{}, "walkers", &self_type::walkers),
-          grammar::field(C<self_type>{}, "acceptance", &self_type::acceptance));
+          grammar::field(C<self_type>{}, "walkers", &self_type::walkers)
+          );
   }
 
   auto& walkers()const { return walkers_;}
-  auto& acceptance()const {return  accept_;}
+ // auto& acceptance()const {return  accept_;}
   emcee_sample()=default;
   emcee_sample(std::vector<mcmc_s>&& walkers)
-      :  walkers_{std::move(walkers)},accept_(walkers_.size(),false) {}
+      :  walkers_{std::move(walkers)} {}
   emcee_sample(const std::vector<mcmc_s>& walkers, const std::vector<bool>& accept)
-      :  walkers_{walkers},accept_{accept} {}
+      :  walkers_{walkers} {}
 
 
 
@@ -1141,9 +1160,6 @@ private:
       using namespace std::literals::string_literals;
       return std::tuple_cat(
           std::make_tuple(
-              Data_Index(Cs<self_type>(),"aceptance"s,
-                         [](const self_type& self, std::size_t i_w){return self.acceptance()[i_w];},
-                         std::pair (std::string("i_walker"),[](const self_type& self){return self.acceptance().size();} )),
               Data_Index(Cs<self_type>(),"i_walker"s,
                          [](const self_type& self, std::size_t i_w){return i_w;},
                          std::pair (std::string("i_walker"),[](const self_type& self){return self.walkers().size();} ))
@@ -1157,7 +1173,6 @@ private:
 
   private:
       std::vector<mcmc_s> walkers_;
-      std::vector<bool> accept_;
 
 
       template<class Random_Generator>
@@ -1778,18 +1793,23 @@ private:
             Probability_map<double> r_;
         };
 
-        template <class EV, class Tp, class DistGen, class DistAdapt>
+        template <class DistGen /*=Landa*/,
+                  class EV = typename DistGen::ExpectedVelocity >
         class Adaptive_Probability_Distribution_Generator {
         public:
+            typedef typename DistGen::LikelihoodResult LikelihoodResult;
+            typedef typename DistGen::Distribution Distribution;
+
             typedef Adaptive_Probability_Distribution_Generator self_type;
-            typedef Cs<EV, Tp, DistGen, DistAdapt> template_types;
+            typedef Cs<EV, DistGen> template_types;
             constexpr static auto const className =
                 my_static_string("Adaptive_Probability_Distribution_Generator") +
                 my_trait<template_types>::className;
 
-            DistGen sample(std::mt19937_64 &mt) const { return sample_rev_map(rev_, mt); }
+            DistGen sample(std::mt19937_64 &mt) const { return p_.sample(mt); }
 
-            void push_outcome(const DistGen &landa, const M_Matrix<double> &,
+            template <class mcmc>
+            void push_outcome(const DistGen &landa, const mcmc &,
                               bool accept) {
                 if (accept)
                     push_acceptance(landa);
@@ -1798,9 +1818,10 @@ private:
                 actualize();
             }
 
-            void push_acceptance(DistGen landa) { landaDist_[landa].push_accept(); }
 
-            void push_rejection(DistGen landa) { landaDist_[landa].push_reject(); }
+            void push_acceptance(const DistGen& landa) { landaDist_[landa].push_accept(); }
+
+            void push_rejection(const DistGen& landa) { landaDist_[landa].push_reject(); }
 
             void actualize(double nmax) {
                 actualize();
@@ -1808,66 +1829,87 @@ private:
             }
 
             void actualize() {
-                auto pnew = this->p_;
-                double sum = 0;
-                for (auto it = pnew.begin(); it != pnew.end(); ++it) {
-                    auto ns = landaDist_[it->first].Parameters();
-                    double l = f_(it->first) * tp_(ns);
-                    sum += l;
-                    it->second = l;
-                }
-                double expectedGain = 0;
-                for (auto it = pnew.begin(); it != pnew.end(); ++it) {
-                    auto ns = landaDist_[it->first].Parameters();
-                    it->second *= 1.0 / sum;
-                    expectedGain += it->second * f_(it->first) * tp_(ns);
-                }
-
-                p_ = pnew;
-                this->rev_ = cumulative_reverse_map(this->p_);
+                if (target_prob()>0)
+                    p_=landaDist_.Distribute_on_p(target_prob());
+                else
+                     p_ = landaDist_.Distribute_on_f(f_);
             }
 
-            Adaptive_Probability_Distribution_Generator(
-                const std::map<DistGen, double> &prior_landa)
-                : f_(), tp_(), p_{prior_landa}, rev_{cumulative_reverse_map(p_)},
-                  landaDist_{Beta_map<DistGen>::UnInformativePrior(prior_landa)} {}
+            Adaptive_Probability_Distribution_Generator(const EV& f,
+                const std::map<DistGen, double> &prior_landa, double target_prob)
+                : f_(f), p_{prior_landa},
+                  landaDist_{Beta_map<DistGen>::UnInformativePrior(prior_landa)}, target_prob_{target_prob} {}
 
-            Adaptive_Probability_Distribution_Generator(
-                const Tp &tp, const std::map<DistGen, double> &prior_landa)
-                : f_(), tp_(tp), p_{prior_landa}, rev_{cumulative_reverse_map(p_)},
-                  landaDist_{Beta_map<DistGen>::UnInformativePrior(prior_landa)} {}
+            Adaptive_Probability_Distribution_Generator(const Probability_map<DistGen> &prior_landa,
+                                                        const Beta_map<DistGen>& landa_history,
+                                                        double target_prob)
+                : f_(), p_{prior_landa},
+                  landaDist_{landa_history} , target_prob_{target_prob}{}
 
-            template <template <typename> class V>
-            Adaptive_Probability_Distribution_Generator(const V<DistGen> &landa)
-                : Adaptive_Probability_Distribution_Generator(uniform_prior(landa)) {}
+            template <template <typename...> class V, typename ...As>
+            Adaptive_Probability_Distribution_Generator(const EV& f,const V<DistGen, As...> &landa, double target_prob)
+                : Adaptive_Probability_Distribution_Generator(f,uniform_prior(landa)) , target_prob_{target_prob}{}
 
-            template <template <typename> class V>
-            Adaptive_Probability_Distribution_Generator(const Tp tp,
-                                                        const V<DistGen> &landa)
-                : Adaptive_Probability_Distribution_Generator(tp, uniform_prior(landa)) {}
+            Adaptive_Probability_Distribution_Generator(const std::map<DistGen, double> &prior_landa, double target_prob)
+                : f_(), p_{prior_landa},
+                  landaDist_{Beta_map<DistGen>::UnInformativePrior(prior_landa)} , target_prob_{target_prob}{}
+
+
+            template <template <typename...> class V, typename ...As>
+            Adaptive_Probability_Distribution_Generator(const V<DistGen, As...> &landa, double target_prob)
+                : Adaptive_Probability_Distribution_Generator(uniform_prior(landa), target_prob) {}
 
             Adaptive_Probability_Distribution_Generator() {}
 
-            Adaptive_Probability_Distribution_Generator(EV f, Tp tp,DistAdapt A,std::map<DistGen, double> p)
-                :f_{f},tp_{tp},A_{A},p_{p}{}
 
             auto& Expected_Velocity()const {return f_;}
-            //auto &
+
+            static auto
+            get_data_index()
+            {
+                using namespace std::literals::string_literals;
+                return std::tuple_cat(
+                    std::make_tuple(
+                        Data_Index(Cs<self_type>(),DistGen::index(),
+                                   [](const self_type& self, std::size_t i_par){return self.get_ProbabilityMap().x()[i_par]();},
+                                   std::pair (DistGen::index(),[](const self_type& self){return self.get_ProbabilityMap().x().size();} ))
+
+                                                                                                                                                                    ),
+                    Insert_tuple(Cs<self_type>(),
+                                 [](const self_type& self) {return self.get_ProbabilityMap();},
+                                 Probability_map<DistGen>::get_data_index(
+                                     DistGen::index(),DistGen::index())),
+                    Insert_tuple(Cs<self_type>(),
+                                 [](const self_type& self) {return self.get_landa_Map();},
+                                 Beta_map<DistGen>::get_data_index(
+                                     DistGen::index(),DistGen::index()))
+                                                                                                                                               );
+            }
 
 
+            auto & get_ProbabilityMap()const {return p_;}
 
+            auto & get_landa_Map()const {return landaDist_;}
+
+            static auto get_constructor_fields() {
+                return std::make_tuple(
+                    grammar::field(C<self_type>{}, "probabilityMap",
+                                   &self_type::get_ProbabilityMap),
+                    grammar::field(C<self_type>{}, "historyMap",
+                                   &self_type::get_landa_Map),
+                    grammar::field(C<self_type>{}, "target_probability",
+                                   &self_type::target_prob)                                                                                                                                                                                                                                               );
+            }
+
+            double target_prob()const {return target_prob_;}
         private:
             EV f_;
-            Tp tp_;
-            DistAdapt A_;
-            std::map<DistGen, double> p_;
-
-            std::map<double, DistGen> rev_;
-
+            Probability_map<DistGen> p_;
             Beta_map<DistGen> landaDist_;
+            double target_prob_;
 
-            template <template <typename> class V>
-            static std::map<DistGen, double> uniform_prior(const V<DistGen> &v) {
+            template <template <typename...> class V, class ...As>
+            static std::map<DistGen, double> uniform_prior(const V<DistGen, As...> &v) {
                 std::map<DistGen, double> out;
                 double p = 1.0 / v.size();
                 for (auto it = v.begin(); it != v.end(); ++it)
@@ -2632,13 +2674,15 @@ private:
                         std::tuple<std::size_t,State const*,ModelSeries const*> s(isample,&state,&M);
                         put_index_sample(f,s,statedata, indexes[i],sep);
                     }
-                    std::cerr<<"now generator!!\n\n\n";
+                    if (isample%10==0)
+                    {
                     auto [filesG,indexesG]=get_index_files(gendata);
                     for (auto i=0ul;i<filesG.size();++i) {
                         std::string fname=idname+"_gen"+filesG[i];
                         std::ofstream f(fname.c_str(),std::ios_base::app);
                         std::tuple<std::size_t,Distribution_Generator const*,ModelSeries const*> g(isample,&G,&M);
                         put_index_sample(f,g,gendata, indexesG[i],sep);
+                    }
                     }
 
                 }
@@ -2825,6 +2869,45 @@ private:
 
                 return run_Montecarlo_Markov_Chain(id,info, PT, mt, model, ala, nSamples, output);
             }
+
+
+
+            template <class PriorModel, class Likelihood_Model, class OutputGenerator>
+            Op_void run_Thermo_Levenberg_Prob(const std::string id,const std::string& info,
+                                                 const PriorModel &prior, const Likelihood_Model &lik, std::mt19937_64 &mt,
+                                                 const std::vector<double> &betas, const std::vector<double> &landa,
+                                              double target_probability,
+                                                 double pjump, std::size_t nSamples, std::size_t ntrials,OutputGenerator &output) {
+                typedef Thermodynamic_Model<PriorModel, Likelihood_Model> Model;
+
+                //  typedef std::vector<std::mt19937> RG;
+                // typedef  std::vector<
+                //     Adaptive_Parameterized_Distribution_Generator<LevenbergMarquardt<Model>>>
+                //     Adaptive;
+                //  typedef  Thermodynamic_Model_Series<PriorModel, Likelihood_Model> Models;
+                //  typedef Parallel_Tempering<true> MCMC;
+
+
+                Thermodynamic_Model_Series<PriorModel, Likelihood_Model> model(prior, lik,
+                                                                               betas);
+
+                Parallel_Tempering<true> PT(Adaptive_Metropolis_H<true>(ntrials), pjump);
+                std::vector<LevenbergMarquardt<Model>> las(landa.size());
+                for (std::size_t i = 0; i < las.size(); ++i) {
+                    las[i] = LevenbergMarquardt<Model>(landa[i]);
+                }
+                std::vector<
+                    Adaptive_Probability_Distribution_Generator<LevenbergMarquardt<Model>>>
+                    ala(betas.size(),
+                        Adaptive_Probability_Distribution_Generator<
+                            LevenbergMarquardt<Model>>(las,target_probability));
+
+                return run_Montecarlo_Markov_Chain(id,info, PT, mt, model, ala, nSamples, output);
+            }
+
+
+
+
 
 
             template <class PriorModel, class Likelihood_Model, class OutputGenerator>
