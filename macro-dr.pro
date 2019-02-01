@@ -68,6 +68,7 @@ HEADERS += \
     mydynamicfunctions.h
 
 DISTFILES += \
+    Makefile \
     simulation.txt \
     models.txt \
     mode_1.txt \

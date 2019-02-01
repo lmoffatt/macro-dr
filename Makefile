@@ -103,29 +103,12 @@ TARGET        = macro-dr
 first: all
 ####### Build rules
 
-$(TARGET):  $(OBJECTS)
-        $(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJCOMP) $(LIBS)
+$(TARGET):  $(OBJECTS)  $(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJCOMP) $(LIBS)
 
 
 all: Makefile $(TARGET)
 
-dist: distdir FORCE
-        (cd `dirname $(DISTDIR)` && $(TAR) $(DISTNAME).tar $(DISTNAME) && $(COMPRESS) $(DISTNAME).tar) && $(MOVE) `dirname $(DISTDIR)`/$(DISTNAME).tar.gz . && $(DEL_FILE) -r $(DISTDIR)
 
-distdir: FORCE
-        @test -d $(DISTDIR) || mkdir -p $(DISTDIR)
-        $(COPY_FILE) --parents $(DIST) $(DISTDIR)/
-
-
-clean: compiler_clean
-        -$(DEL_FILE) $(OBJECTS)
-        -$(DEL_FILE) *~ core *.core
-
-
-distclean: clean
-        -$(DEL_FILE) $(TARGET)
-        -$(DEL_FILE) .qmake.stash
-        -$(DEL_FILE) Makefile
 
 
 ####### Sub-libraries
