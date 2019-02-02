@@ -1848,7 +1848,7 @@ private:
 
             template <template <typename...> class V, typename ...As>
             Adaptive_Probability_Distribution_Generator(const EV& f,const V<DistGen, As...> &landa, double target_prob)
-                : Adaptive_Probability_Distribution_Generator(f,uniform_prior(landa)) , target_prob_{target_prob}{}
+                : Adaptive_Probability_Distribution_Generator(f,uniform_prior(landa), target_prob){}
 
             Adaptive_Probability_Distribution_Generator(const std::map<DistGen, double> &prior_landa, double target_prob)
                 : f_(), p_{prior_landa},
