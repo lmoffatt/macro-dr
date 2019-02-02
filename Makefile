@@ -10,8 +10,8 @@ MAKEFILE      = Makefile
 
 ####### Compiler, tools and options
 
-CC            = gcc
-CXX           = g++
+CC            = ~/gcc-8.2/bin/gcc
+CXX           = ~/gcc-8.2/bin/g++
 DEFINES       = -DNDEBUG
 CFLAGS        = -pipe -O2 -Wall -W -fPIC $(DEFINES)
 CXXFLAGS      = -pipe -std=c++17 -Werror=return-type -ftemplate-backtrace-limit=0 -Wnon-virtual-dtor -Wnull-dereference -fdiagnostics-show-template-tree -fopenmp -lstdc++fs -O2 -lpthread -Wall -W -fPIC $(DEFINES)
@@ -36,8 +36,10 @@ TAR           = tar -cf
 COMPRESS      = gzip -9f
 DISTNAME      = macro-dr1.0.0
 DISTDIR = /home/lmoffatt/Code/macro-dr/build-macro-dr-Desktop-Release/.tmp/macro-dr1.0.0
+LINK          = ~/gcc-8.2/bin/g++
+LFLAGS        = -Wl,-O1,-rpath=/home/lmoffatt/gcc-6.8/lib/
 LINK          = g++
-LFLAGS        = -fopenmp -lstdc++fs -Wl,-O1
+LFLAGS        = -fopenmp -lstdc++fs -Wl,-O1,-rpath=/home/lmoffatt/gcc-8.2/lib/
 LIBS          = $(SUBLIBS) -lpthread -lstdc++fs -lblas -llapack
 AR            = ar cqs
 RANLIB        =
@@ -53,48 +55,48 @@ OBJECTS_DIR   = ./
 SOURCES       = ../macro-dr/main.cpp
 OBJECTS       = main.o
 DIST          = ../macro-dr/simulation.txt \
-                ../macro-dr/models.txt \
-                ../macro-dr/mode_1.txt \
-                ../macro-dr/model_1_Evidence.txt \
-                ../macro-dr/macro-dr.pro myTuples.h \
-                mySerializer.h \
-                Matrix.h \
-                myDistributions.h \
-                Experiment.h \
-                qmodel.h \
-                mySerializer.h \
-                mygrammar.h \
-                mycompilation.h \
-                mynewcommandmanager.h \
-                myscriptmanager.h \
-                myoptional.h \
-                myfields.h \
-                mytypetraits.h \
-                mydataframe.h \
-                measure_markov_process.h \
-                mymath.h \
-                mysmartpointerstools.h \
-                commands.h \
-                myparameters.h \
-                mycontainer.h \
-                likelihood_markov_process.h \
-                mydata.h \
-                myevidence.h \
-                qlikelihood.h \
-                mytests.h \
-                myoptimization.h \
-                qsimulation.h \
-                mylikelihood.h \
-                myprobabilitytest.h \
-                myoperators.h \
-                myderivatives.h \
-                matrixderivative.h \
-                qmodel_derivative.h \
-                likelihood_markov_process_derivative.h \
-                qlikelihood_derivative.h \
-                myparameters_derivative.h \
-                mydistributions_derivative.h \
-                mydynamicfunctions.h ../macro-dr/main.cpp
+../macro-dr/models.txt \
+		../macro-dr/mode_1.txt \
+		../macro-dr/model_1_Evidence.txt \
+		../macro-dr/macro-dr.pro myTuples.h \
+		mySerializer.h \
+		Matrix.h \
+		myDistributions.h \
+		Experiment.h \
+		qmodel.h \
+		mySerializer.h \
+		mygrammar.h \
+		mycompilation.h \
+		mynewcommandmanager.h \
+		myscriptmanager.h \
+		myoptional.h \
+		myfields.h \
+		mytypetraits.h \
+		mydataframe.h \
+		measure_markov_process.h \
+		mymath.h \
+		mysmartpointerstools.h \
+		commands.h \
+		myparameters.h \
+		mycontainer.h \
+		likelihood_markov_process.h \
+		mydata.h \
+		myevidence.h \
+		qlikelihood.h \
+		mytests.h \
+		myoptimization.h \
+		qsimulation.h \
+		mylikelihood.h \
+		myprobabilitytest.h \
+		myoperators.h \
+		myderivatives.h \
+		matrixderivative.h \
+		qmodel_derivative.h \
+		likelihood_markov_process_derivative.h \
+		qlikelihood_derivative.h \
+		myparameters_derivative.h \
+		mydistributions_derivative.h \
+		mydynamicfunctions.h ../macro-dr/main.cpp
 QMAKE_TARGET  = macro-dr
 DESTDIR       =
 TARGET        = macro-dr
@@ -128,42 +130,42 @@ compiler_clean:
 ####### Compile
 
 main.o: ../macro-dr/main.cpp ../macro-dr/qmodel.h \
-                ../macro-dr/Matrix.h \
-                ../macro-dr/mySerializer.h \
-                ../macro-dr/myTuples.h \
-                ../macro-dr/myfields.h \
-                ../macro-dr/mytypetraits.h \
-                ../macro-dr/myoptional.h \
-                ../macro-dr/mytests.h \
-                ../macro-dr/myderivatives.h \
-                ../macro-dr/mymath.h \
-                ../macro-dr/myparameters.h \
-                ../macro-dr/mygrammar.h \
-                ../macro-dr/mysmartpointerstools.h \
-                ../macro-dr/myDistributions.h \
-                ../macro-dr/myoperators.h \
-                ../macro-dr/mydynamicfunctions.h \
-                ../macro-dr/myparameters_derivative.h \
-                ../macro-dr/matrixderivative.h \
-                ../macro-dr/mycompilation.h \
-                ../macro-dr/mynewcommandmanager.h \
-                ../macro-dr/mycontainer.h \
-                ../macro-dr/myscriptmanager.h \
-                ../macro-dr/Experiment.h \
-                ../macro-dr/mydataframe.h \
-                ../macro-dr/commands.h \
-                ../macro-dr/measure_markov_process.h \
-                ../macro-dr/likelihood_markov_process.h \
-                ../macro-dr/myoptimization.h \
-                ../macro-dr/qlikelihood.h \
-                ../macro-dr/myevidence.h \
-                ../macro-dr/mylikelihood.h \
-                ../macro-dr/qsimulation.h \
-                ../macro-dr/likelihood_markov_process_derivative.h \
-                ../macro-dr/qmodel_derivative.h \
-                ../macro-dr/mydistributions_derivative.h \
-                ../macro-dr/qlikelihood_derivative.h
-                $(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../macro-dr/main.cpp
+../macro-dr/Matrix.h \
+		../macro-dr/mySerializer.h \
+		../macro-dr/myTuples.h \
+		../macro-dr/myfields.h \
+		../macro-dr/mytypetraits.h \
+		../macro-dr/myoptional.h \
+		../macro-dr/mytests.h \
+		../macro-dr/myderivatives.h \
+		../macro-dr/mymath.h \
+		../macro-dr/myparameters.h \
+		../macro-dr/mygrammar.h \
+		../macro-dr/mysmartpointerstools.h \
+		../macro-dr/myDistributions.h \
+		../macro-dr/myoperators.h \
+		../macro-dr/mydynamicfunctions.h \
+		../macro-dr/myparameters_derivative.h \
+		../macro-dr/matrixderivative.h \
+		../macro-dr/mycompilation.h \
+		../macro-dr/mynewcommandmanager.h \
+		../macro-dr/mycontainer.h \
+		../macro-dr/myscriptmanager.h \
+		../macro-dr/Experiment.h \
+		../macro-dr/mydataframe.h \
+		../macro-dr/commands.h \
+		../macro-dr/measure_markov_process.h \
+		../macro-dr/likelihood_markov_process.h \
+		../macro-dr/myoptimization.h \
+		../macro-dr/qlikelihood.h \
+		../macro-dr/myevidence.h \
+		../macro-dr/mylikelihood.h \
+		../macro-dr/qsimulation.h \
+		../macro-dr/likelihood_markov_process_derivative.h \
+		../macro-dr/qmodel_derivative.h \
+		../macro-dr/mydistributions_derivative.h \
+		../macro-dr/qlikelihood_derivative.h
+    $(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../macro-dr/main.cpp
 
 ####### Install
 
