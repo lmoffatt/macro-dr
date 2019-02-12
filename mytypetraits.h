@@ -151,6 +151,7 @@ template <typename T, typename K> struct my_trait<std::pair<T, K>> {
   constexpr static auto className =
       my_static_string("pair_") + my_trait<T>::className +
       my_static_string("_") + my_trait<K>::className;
+
 };
 
 template <typename T, typename K, typename... R>
@@ -787,6 +788,21 @@ struct apply_Op_t_to_all<Op_t, Cs<Ts...>> {
 
   typedef Cs<typename apply_Op_t_to_all<Op_t, Ts>::type...> type;
 };
+
+
+template<class, template<class...>class> struct transfer{};
+
+
+template<template<class...>class Co,template<class...>class D, class...T>
+struct transfer<Co<T...>,D>
+{
+    typedef D<T...> type;
+};
+
+template<class S, template<class...>class D>
+using transfer_t=typename transfer<S,D>::type;
+
+
 
 // class_set_union_t<Cs<double>,Cs<std::vector<std::map<double,int>>,std::vector<int>>>::kl
 // a;

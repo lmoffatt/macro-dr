@@ -5,8 +5,9 @@
 #include "matrixderivative.h"
 
 template <>
-struct Derivative<Probability_distribution> : public Probability_distribution {
-  typedef Probability_distribution base_type;
+class Derivative<Probability_distribution> : public Probability_distribution {
+public:
+    typedef Probability_distribution base_type;
 
   template <bool output, class dP>
   static myOptional_t<void> testDerivative(const dP &p, double tolerance) {
@@ -59,7 +60,7 @@ struct Derivative<Probability_distribution> : public Probability_distribution {
           dp[i] *= fneg;
       }
     }
-    return dp;
+    return std::move(dp);
   }
 
   template <class P>
@@ -85,9 +86,9 @@ struct Derivative<Probability_distribution> : public Probability_distribution {
 };
 
 template <>
-struct Derivative<Probability_distribution_covariance>
+class Derivative<Probability_distribution_covariance>
     : public Probability_distribution_covariance {
-
+public:
   typedef Probability_distribution_covariance base_type;
 
   static M_Matrix<double>
@@ -136,7 +137,7 @@ struct Derivative<Probability_distribution_covariance>
         }
         p.f()(i, i) = 1;
 
-        return p;
+        return std::move(p);
       } else
         non_zero_i.insert(i);
     }
@@ -160,7 +161,7 @@ struct Derivative<Probability_distribution_covariance>
       m = normalize_derivative(std::move(m), non_zero_i);
     });
 
-    return p;
+    return std::move(p);
   }
 
   template <bool output>
@@ -199,12 +200,12 @@ struct Derivative<Probability_distribution_covariance>
   }
 };
 
-template <> struct Derivative<variance_value> : public variable_value {
-
+template <> class Derivative<variance_value> : public variable_value {
+public:
   static Derivative<double> adjust(Derivative<double> &&value,
                                    double min_variance) {
     value.f() = std::max(value.f(), min_variance);
-    return value;
+    return std::move(value);
   }
 };
 

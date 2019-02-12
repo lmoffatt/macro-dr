@@ -432,7 +432,7 @@ public:
     {
         for (auto& x:s)
             x.setExperiment(e);
-        return s;
+        return std::move(s);
     }
 
 

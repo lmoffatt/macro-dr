@@ -1532,8 +1532,9 @@ public:
 
 
 
-    template <> struct Derivative<markov::logLikelihood_function> {
-      template <class Experiment>
+    template <> class Derivative<markov::logLikelihood_function> {
+    public:
+        template <class Experiment>
       std::tuple<double, double, double, M_Matrix<double>, M_Matrix<double>>
       operator()(const Experiment &) const {
         return std::tuple(0, 0, 0, M_Matrix<double>(), M_Matrix<double>());
@@ -1555,8 +1556,9 @@ public:
   }
     };
 
-    template <> struct Derivative<markov::partialDistribution_function> {
-      template <class Experiment> auto operator()(const Experiment &e) const {
+    template <> class Derivative<markov::partialDistribution_function> {
+    public:
+        template <class Experiment> auto operator()(const Experiment &e) const {
         std::size_t n = e.num_measurements();
 
         return std::vector<Derivative<Normal_Distribution<double>>>(n);

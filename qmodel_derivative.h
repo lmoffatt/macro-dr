@@ -822,7 +822,7 @@ private:
 
     auto exp_ladt = exp(Qx.landa().f() * dt);
 
-    auto minP = min_P();
+    //auto minP = min_P();
     M_Matrix<Derivative<double>> E2m(N, N, Matrix_TYPE::SYMMETRIC);
     M_Matrix<Derivative<double>> E2mb(N, N, Matrix_TYPE::SYMMETRIC);
     for (std::size_t i = 0; i < N; ++i)
@@ -861,7 +861,7 @@ private:
 
     M_Matrix<Derivative<double>> WgV_E3(N, N,
                                         Derivative<double>(Qx.Qrun().x()));
-    bool succed = true;
+    //bool succed = true;
     for (std::size_t n1 = 0; n1 < N; n1++)
       for (std::size_t n3 = 0; n3 < N; n3++)
         for (std::size_t n2 = 0; n2 < N; n2++) {

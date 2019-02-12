@@ -577,8 +577,14 @@ struct Evidence{
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
         std::string info="";
 
-        evidence::OutputGenerator<RG,MCMC,Th_Models,Adaptive> out(std::cerr,parameters,gradient);
-        return evidence::run_Thermo_Levenberg_ProbVel(idfile,info,evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,ntrials,out).error();
+
+
+        std::size_t samples_interval=10;
+        auto out=evidence::OutputGenerator(Cs<RG>{},Cs<MCMC>{},Cs<Th_Models>{},Cs<Adaptive>{},
+            [samples_interval](std::size_t isample){return isample%samples_interval==0;},std::cerr,parameters,gradient);
+        std::string id_f=idfile+time_now()+"_"+std::to_string(initseed);
+
+        return evidence::run_Thermo_Levenberg_ProbVel(id_f,info,evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,ntrials,out).error();
     }
 
     static auto get_arguments()
@@ -655,9 +661,13 @@ struct Evidence_prob{
         Likelihood_Model lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber, epsf);
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
         std::string info="";
+        std::size_t sample_interval=10;
+        auto out=evidence::OutputGenerator(Cs<RG>{},Cs<MCMC>{},Cs<Th_Models>{},Cs<Adaptive>{},
+                                             [sample_interval](std::size_t i_sample){return i_sample%sample_interval==0;},
+                                             std::cerr,parameters,gradient);
+        std::string id_f=idfile+time_now()+"_"+std::to_string(initseed);
 
-        evidence::OutputGenerator<RG,MCMC,Th_Models,Adaptive> out(std::cerr,parameters,gradient);
-        return evidence::run_Thermo_Levenberg_Prob(idfile,info,evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,target_probability,pjump,nSamples,ntrials,out).error();
+        return evidence::run_Thermo_Levenberg_Prob(id_f,info,evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,target_probability,pjump,nSamples,ntrials,out).error();
     }
 
     static auto get_arguments()
@@ -736,10 +746,16 @@ struct Evidence_Derivative{
         Derivative<Markov_Model_Likelihood<Model,ParametersDistribution,Experiment>> lik(e,
                                                                                            Derivative<Markov_Model_Likelihood<Model,ParametersDistribution>>(dm,dprior,algorithm,min_P, tolerance,BiNumber,VaNumber));
 
-        evidence::OutputGenerator<RG,MCMC,Th_Models,Adaptive> out(std::cerr,parameters,gradient);
+        std::size_t sample_interval=10;
+        auto out=evidence::OutputGenerator(Cs<RG>{},Cs<MCMC>{},Cs<Th_Models>{},Cs<Adaptive>{},
+                                             [sample_interval](std::size_t i_sample){return i_sample%sample_interval==0;},
+                                             std::cerr,parameters,gradient);
+
 
         std::string info;
-        return evidence::run_Thermo_Levenberg_ProbVel(id_file,info,evidence::Prior_Model<Model,ParametersDistribution>(prior),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,n_trials,out).error();
+        std::string id_f=id_file+time_now()+"_"+std::to_string(initseed);
+
+        return evidence::run_Thermo_Levenberg_ProbVel(id_f,info,evidence::Prior_Model<Model,ParametersDistribution>(prior),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,n_trials,out).error();
     }
 
     static auto get_arguments()
@@ -813,10 +829,17 @@ struct Evidence_Derivative_prob{
         Derivative<Markov_Model_Likelihood<Model,ParametersDistribution,Experiment>> lik(e,
                                                                                            Derivative<Markov_Model_Likelihood<Model,ParametersDistribution>>(dm,dprior,algorithm,min_P, tolerance,BiNumber,VaNumber));
 
-        evidence::OutputGenerator<RG,MCMC,Th_Models,Adaptive> out(std::cerr,parameters,gradient);
+        std::size_t sample_interval=10;
+        auto out=evidence::OutputGenerator(Cs<RG>{},Cs<MCMC>{},Cs<Th_Models>{},Cs<Adaptive>{},
+                                             [sample_interval](std::size_t i_sample){return i_sample%sample_interval==0;},
+                                             std::cerr,parameters,gradient);
+
+
 
         std::string info;
-        return evidence::run_Thermo_Levenberg_Prob(id_file,info,evidence::Prior_Model<Model,ParametersDistribution>(prior),lik,mt,betas,landa,target_probability,pjump,nSamples,n_trials,out).error();
+
+        std::string id_f=id_file+time_now()+"_"+std::to_string(initseed);
+        return evidence::run_Thermo_Levenberg_Prob(id_f,info,evidence::Prior_Model<Model,ParametersDistribution>(prior),lik,mt,betas,landa,target_probability,pjump,nSamples,n_trials,out).error();
     }
 
     static auto get_arguments()
@@ -887,7 +910,11 @@ struct Evidence_emcee{
         Likelihood_Model lik(m,p,e,algorithm,min_P, tolerance,BiNumber,VaNumber);
         std::mt19937_64 mt=init_mt(initseed, std::cerr);
         std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt)).value();
-        evidence::OutputGenerator<RG,MCMC,Th_Models,Adaptive> out(std::cerr,parameters,gradient);
+        std::size_t sample_interval=10;
+        auto out=evidence::OutputGenerator(Cs<RG>{},Cs<MCMC>{},Cs<Th_Models>{},Cs<Adaptive>{},
+                                             [sample_interval](std::size_t i_sample){return i_sample%sample_interval==0;},
+                                             std::cerr,parameters,gradient);
+
         std::string info="";
         return evidence::run_Thermo_emcee(n_file,info,PriorModel(p),lik,mt,betas,numWalkers,alfas,pjump,target_prob,nSamples,ntrials,out).error();
 

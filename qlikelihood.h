@@ -96,6 +96,47 @@ public:
 
 
   template< class Experiment>
+  auto compute_Distribution_aux_mp(const Experiment& e, const M_Matrix<double>& parameters, std::ostream& os) const
+  {
+      typedef myOptional_t<std::pair<std::vector<Normal_Distribution<double>>,
+                                     std::vector<std::tuple<markov::MACROR, markov::mp_state_information>>>> Op;
+      auto p_opt=p_.tr_to_Parameter(parameters);
+      if (!p_opt)
+          return Op(false, "compute_Distribution_aux error in Parameter conversion: "+p_opt.error());
+      else{
+          auto p=std::move(p_opt).value();
+          SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()), min_P_);
+          Markov_Model_calculations<Markov_Transition_step_double,Markov_Transition_rate,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance_);
+          if(algorithm_==my_trait<markov::MacroDVR>::className.str())
+          {
+              auto out= markov::partialDistribution_aux_mp(markov::MacroDVR(tolerance_,BiNumber_,VaNumber_),MC,e,os);
+              return out;
+          }
+          else  if(algorithm_==my_trait<markov::MacroDMR>::className.str())
+          {
+              auto out= markov::partialDistribution_aux_mp(markov::MacroDMR(tolerance_,BiNumber_,VaNumber_),MC,e,os);
+              return out;
+          }
+          else  if(algorithm_==my_trait<markov::MacroDVNR>::className.str())
+          {
+              auto out= markov::partialDistribution_aux_mp(markov::MacroDVNR(tolerance_,BiNumber_,VaNumber_),MC,e,os);
+              return out;
+          }
+          else  if(algorithm_==my_trait<markov::MacroDMNR>::className.str())
+          {
+              auto out= markov::partialDistribution_aux_mp(markov::MacroDMNR(tolerance_,BiNumber_,VaNumber_),MC,e,os);
+              return out;
+          }
+
+          else return Op(false,"algoritm "+algorithm_+ " not found");
+      }
+  };
+
+
+
+
+
+  template< class Experiment>
   auto compute_Distribution_aux(const Experiment& e, const M_Matrix<double>& parameters, std::ostream& os,const std::vector<markov::MACROR> & aux) const
   {
     typedef myOptional_t<std::vector<Normal_Distribution<double>>> Op;
@@ -131,6 +172,45 @@ public:
       else return Op(false,"algoritm "+algorithm_+ " not found");
     }
   };
+
+
+  template< class Experiment>
+  auto compute_Distribution_aux_mp(const Experiment& e, const M_Matrix<double>& parameters, std::ostream& os,const std::vector<std::tuple<markov::MACROR,markov::mp_state_information>> & aux) const
+  {
+      typedef myOptional_t<std::vector<Normal_Distribution<double>>> Op;
+      auto p_opt=p_.tr_to_Parameter(parameters);
+      if (!p_opt)
+          return Op(false, "compute_Distribution_aux error in Parameter conversion: "+p_opt.error());
+      else{
+          auto p=std::move(p_opt).value();
+          SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()), min_P_);
+          Markov_Model_calculations<Markov_Transition_step_double,Markov_Transition_rate,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance_);
+          if(algorithm_==my_trait<markov::MacroDVR>::className.str())
+          {
+              auto out= markov::partialDistribution_aux_mp(markov::MacroDVR(tolerance_,BiNumber_,VaNumber_),MC,e,os,aux);
+              return out;
+          }
+          else  if(algorithm_==my_trait<markov::MacroDMR>::className.str())
+          {
+              auto out= markov::partialDistribution_aux_mp(markov::MacroDMR(tolerance_,BiNumber_,VaNumber_),MC,e,os,aux);
+              return out;
+          }
+          else  if(algorithm_==my_trait<markov::MacroDVNR>::className.str())
+          {
+              auto out= markov::partialDistribution_aux_mp(markov::MacroDVNR(tolerance_,BiNumber_,VaNumber_),MC,e,os,aux);
+              return out;
+          }
+          else  if(algorithm_==my_trait<markov::MacroDMNR>::className.str())
+          {
+              auto out= markov::partialDistribution_aux_mp(markov::MacroDMNR(tolerance_,BiNumber_,VaNumber_),MC,e,os,aux);
+              return out;
+          }
+
+
+          else return Op(false,"algoritm "+algorithm_+ " not found");
+      }
+  }
+
 
 
   template<class Experiment>
@@ -243,6 +323,8 @@ public:
 
   auto& get_Model()const {return l_;}
   auto& get_Experiment()const {return e_;}
+  template<class Sample>
+  auto compute_PartialDLikelihood(const M_Matrix<double>& p,const Sample& current,std::ostream & os) const;
 
 private:
   Experiment  e_;

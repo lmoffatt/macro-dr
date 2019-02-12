@@ -71,10 +71,10 @@ public:
   constexpr static auto const className =
       my_static_string("ParValue") + my_trait<double>::className;
   typedef typename Parameters_values<Model>::par_label par_label;
-  virtual std::string myClass() const { return className.str(); }
+  virtual std::string myClass() const override { return className.str(); }
 
-  virtual ParValue *clone() const { return new ParValue(*this); };
-  virtual T operator()(const Parameters_values<Model> &x) const {
+  virtual ParValue *clone() const override{ return new ParValue(*this); };
+  virtual T operator()(const Parameters_values<Model> &x) const override {
     return x.at(p_);
   }
   virtual Derivative<T> operator ()(const Derivative<Parameters_values<Model> > &x) const override
@@ -84,7 +84,7 @@ public:
   }
   par_label getParameter() const { return p_; }
 
-  virtual void putme(std::ostream &os) const { os << getParameter(); }
+  virtual void putme(std::ostream &os) const override { os << getParameter(); }
 
   ParValue(const std::string &p) : p_{p} {}
 
@@ -101,14 +101,14 @@ public:
   constexpr static auto const className =
       my_static_string("ConstValue") + my_trait<double>::className;
   typedef typename Parameters_values<Model>::par_label par_label;
-  virtual std::string myClass() const { return className.str(); }
+  virtual std::string myClass() const override { return className.str(); }
 
-  virtual ConstValue *clone() const { return new ConstValue(*this); };
-  virtual double operator()(const Parameters_values<Model> &) const {
+  virtual ConstValue *clone() const  override { return new ConstValue(*this); };
+  virtual double operator()(const Parameters_values<Model> &) const override {
     return x_;
   }
 
-  virtual Derivative<double> operator()(const Derivative<Parameters_values<Model>> &p) const
+  virtual Derivative<double> operator()(const Derivative<Parameters_values<Model>> &p) const override
       {
     return Derivative<double>(x_,p.x());
       };
@@ -130,12 +130,12 @@ public:
   constexpr static auto const className =
       my_trait<BiOp>::className + my_static_string("_BinaryOp");
   typedef typename Parameters_values<Model>::par_label par_label;
-  virtual std::string myClass() const { return className.str(); }
-  virtual BinaryOperator *clone() const { return new BinaryOperator(*this); };
-  virtual T operator()(const Parameters_values<Model> &x) const {
+  virtual std::string myClass() const override { return className.str(); }
+  virtual BinaryOperator *clone() const override{ return new BinaryOperator(*this); };
+  virtual T operator()(const Parameters_values<Model> &x) const override {
     return BiOp()(first()(x), second()(x));
   }
-  virtual Derivative<T> operator()(const Derivative<Parameters_values<Model>> &x) const {
+  virtual Derivative<T> operator()(const Derivative<Parameters_values<Model>> &x) const override{
     return Derivative_t<BiOp>()(first()(x), second()(x));
   }
 
@@ -145,7 +145,7 @@ public:
   auto &first() const { return *one_; }
   auto &second() const { return *two_; }
 
-  virtual void putme(std::ostream &os) const {
+  virtual void putme(std::ostream &os) const override{
     os << first() << BiOp::symbol << second();
   }
 
@@ -238,20 +238,20 @@ public:
   constexpr static auto const className =
       my_trait<F>::className + my_static_string("_f");
   typedef typename Parameters_values<Model>::par_label par_label;
-  virtual std::string myClass() const { return className.str(); }
-  virtual Function *clone() const { return new Function(*this); }
-  virtual T operator()(const Parameters_values<Model> &x) const {
+  virtual std::string myClass() const override{ return className.str(); }
+  virtual Function *clone() const override{ return new Function(*this); }
+  virtual T operator()(const Parameters_values<Model> &x) const override {
     return std::apply([&x](auto &... t) { return F()((*t)(x)...); }, tu_);
   }
 
-  virtual Derivative<T> operator()(const Derivative<Parameters_values<Model>> &x) const {
+  virtual Derivative<T> operator()(const Derivative<Parameters_values<Model>> &x) const override {
     return std::apply([&x](auto &... t) { return Derivative_t<F>()((*t)(x)...); }, tu_);
   }
 
   Function(Base_Function<Args, Model> *... args) : tu_{args...} {}
    ~Function() override {}
   template <std::size_t I> auto &get_Arg() const { return *std::get<I>(tu_); }
-  virtual void putme(std::ostream &os) const {
+  virtual void putme(std::ostream &os) const override {
     os << F::className.str() << compiler_grammar::group_start;
     std::apply([&os](auto &... a) { print_arg(os, a...); }, tu_);
     os << compiler_grammar::group_end;

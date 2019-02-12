@@ -230,6 +230,9 @@ public:
   Derivative(const Experiment& e,const Derivative<Markov_Model_Likelihood<Model,Parameters_distribution>>& d
                                                               ):d_{d},e_{e}{}
 
+
+
+
   Derivative()=default;
   template <class mySample>
   auto compute_DLikelihood(const Parameters &p, const mySample &,
@@ -238,6 +241,8 @@ public:
     return d_.compute_DLikelihood( p, os,e_);
 
   }
+
+
   auto& get_ModelLikelihood()const {return d_;}
   auto& get_Experiment()const {return e_;}
 
@@ -255,11 +260,29 @@ public:
     return d_.compute_DLikelihood( p, os,e_);
 
   }
-
+  template<class State>
+  auto compute_PartialDLikelihood(const M_Matrix<double> &parameters,const State&,std::ostream& os) const
+  {
+      return d_.compute_PartialDLikelihood(parameters,os,e_);
+  }
 private:
   Derivative<Markov_Model_Likelihood<Model,Parameters_distribution>> d_;
   Experiment e_;
 };
+
+
+template<class Model, class Parameters_distribution, class Experiment>
+template<class Sample>
+auto Markov_Model_Likelihood<Model,Parameters_distribution,Experiment>::compute_PartialDLikelihood(const M_Matrix<double>& p,const Sample& current,std::ostream & os) const
+{
+    auto dm=Derivative<Model>(this->get_Model().get_Model());
+    auto dprior=Derivative<Parameters_distribution>(this->get_Model().get_ParametersDistribution());
+
+    Derivative<Markov_Model_Likelihood<Model,Parameters_distribution,Experiment>>
+        lik(this->get_Experiment(),
+            Derivative<Markov_Model_Likelihood<Model,Parameters_distribution>>(dm,dprior,this->get_Model().get_Algorithm(),this->get_Model().min_P(), this->get_Model().tolerance(),this->get_Model().BiNumber(),this->get_Model().VaNumber()));
+    return lik.compute_PartialDLikelihood(p,current,os);
+}
 
 
 

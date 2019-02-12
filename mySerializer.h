@@ -18,11 +18,53 @@
 #include <sstream>
 #include <string>
 #include <iomanip>
+
+#include <chrono>
+
+#include <ctime>
 //template<typename T>
 //  std::ostream& write(std::ostream& os, const T& e);
 
 
 ///----------------- Declarations-----------------------------------------///
+inline
+    std::string leadingZero(int i)
+{
+    if (i==0)
+        return "00";
+    else if (i<10)
+        return "0"+std::to_string(i);
+    else return std::to_string(i);
+}
+
+inline
+    std::string leadingZeroZero(int i)
+{
+    if (i==0)
+        return "000";
+    else if (i<10)
+        return "00"+std::to_string(i);
+    else if (i<100)
+        return "0"+std::to_string(i);
+    else return std::to_string(i);
+}
+
+inline
+    std::string time_now()
+{
+    auto tc=std::chrono::system_clock::now();
+    std::time_t rawtime=std::chrono::system_clock::to_time_t(tc);
+
+    auto tcount=(tc.time_since_epoch().count()/1000)%1000000;
+
+
+    struct std::tm * t;
+    time (&rawtime);
+    t = localtime (&rawtime);
+    return leadingZero(t->tm_hour)+leadingZero(t->tm_min)+leadingZero(t->tm_sec)+"s"+std::to_string(tcount);
+
+}
+
 
 /*-     POD  */
 

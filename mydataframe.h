@@ -148,7 +148,7 @@ public:
     std::ostream& write_back(std::ostream& os,Ks&&... row_of_data)
     {
         assert(same_types_m(row_of_data...));
-        bool sucess= ((io::write_on_element(os,row_of_data))&&...&&true);
+        ((io::write_on_element(os,row_of_data))&&...&&true);
         return os;
     }
 

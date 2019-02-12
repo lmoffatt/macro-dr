@@ -11,6 +11,12 @@
 
 namespace markov {
 
+struct s_Pmean{    constexpr static auto const title = my_static_string("Pmean");};
+struct s_Pcov{    constexpr static auto const title = my_static_string("Pcov");};
+struct s_MacroAlgorithm{    constexpr static auto const title = my_static_string("MacroAlgorithm");};
+struct i_state{    constexpr static auto const title = my_static_string("i_state");};
+
+
 class mp_state_information {
   M_Matrix<double> P_mean_;
   M_Matrix<double> P_cov_;
@@ -142,6 +148,65 @@ public:
   double plogL() const { return plogL_; }
   double eplogL() const { return eplogL_; }
   double vplogL() const { return vplogL_; }
+
+  static auto
+  get_data_index(const std::string& name="")
+  {
+      using namespace std::literals::string_literals;
+      return std::make_tuple(
+            Data_Index(Cs<self_type>(),name+"y_mean",&self_type::y_mean),
+            Data_Index(Cs<self_type>(),name+"y_var",&self_type::y_var),
+          Data_Index(Cs<self_type>(),name+"plogL",&self_type::plogL),
+          Data_Index(Cs<self_type>(),name+"eplogL",&self_type::eplogL),
+          Data_Index(Cs<self_type>(),name+"vplogL",&self_type::vplogL),
+
+           Data_Index(Cs<self_type>(),std::string("i_state"),
+                     [](const self_type& ,std::size_t i){return i;},
+                     std::pair (std::string("i_state"),[](const self_type& self){return self.P_mean().size();} ) ),
+          Data_Index(Cs<self_type>(),std::string("i_state_T"),
+                     [](const self_type& ,std::size_t i){return i;},
+                     std::pair (std::string("i_state_T"),[](const self_type& self){return self.P_mean().size();} ) ),
+              Data_Index(Cs<self_type>(),name+"P_mean",
+                         [](const self_type& s,std::size_t i){return s.P_mean()[i];},
+                         std::pair (std::string("i_state"),[](const self_type& self){return self.P_mean().size();} ) ),
+              Data_Index(Cs<self_type>(),name+"P_cov",
+                         [](const self_type& s,std::size_t i, std::size_t j){return s.P_cov()(i,j);},
+                         std::pair (std::string("i_state"),[](const self_type& self){return self.P_mean().nrows();} ),
+                         std::pair (std::string("i_state_T"),[](const self_type& self, std::size_t){return self.P_mean().ncols();} )
+                                                                                  )
+                                                        );
+  }
+
+
+  static auto
+  get_data_index_static()
+  {
+      return std::make_tuple(
+          make_data_static(
+              std::tuple<>(),
+              std::make_tuple(
+                  F_s(CT_s<s_pred,s_mean>{},&self_type::y_mean),
+                  F_s(CT_s<s_pred,s_variance>{},&self_type::y_var),
+                  F_s(CT_s<s_obs,s_logL>{},&self_type::plogL),
+                  F_s(CT_s<s_pred,s_logL>{},&self_type::eplogL),
+                  F_s(CT_s<s_variance,s_logL>{},&self_type::vplogL)
+                      )),
+          make_data_static(
+              std::make_tuple(I_s(i_state{},[](const self_type& self){return self.P_mean().size();},0)),
+              std::make_tuple(F_s(s_Pmean{},[](const self_type& self, std::size_t i){return self.P_mean()[i];}))),
+          make_data_static(
+              std::make_tuple(
+                  I_s(i_state{},[](const self_type& self){return self.P_mean().size();},0),
+                  I_s(CT_s<i_state,s_Transpose>{},[](const self_type& self, std::size_t){return self.P_mean().size();},0)
+                      ),
+              std::make_tuple(
+                  F_s(s_Pcov{},
+                      [](const self_type& self, std::size_t i, std::size_t j){return self.P_cov()(i,j);})
+                      )));
+  }
+
+
+
 };
 
 } // namespace markov
@@ -154,7 +219,7 @@ const std::string MACROR_string[] = {"MacroDMNR", "MacroDVNR", "MacroDMR",
 
 constexpr MACROR MACROR_VALUES[] = {MACRO_DMNR, MACRO_DVNR, MACRO_DMR,
                                     MACRO_DVR};
-;
+
 
 std::ostream &operator<<(std::ostream &s, const MACROR &m) {
   s << MACROR_string[m];
@@ -200,7 +265,11 @@ template <> struct my_trait<markov::MACROR> {
 };
 
 
+
 template<> struct myData_Index<markov::MACROR> {
+
+
+    typedef markov::MACROR self_type;
     static Data_Index_scheme data_index()
     {
         Data_Index_scheme out;
@@ -211,7 +280,19 @@ template<> struct myData_Index<markov::MACROR> {
         return out;
     }
 
-
+    static auto get_data_index(const std::string& name="")
+    {
+        return std::make_tuple(Data_Index(Cs<self_type>(),
+                                          name+my_trait<self_type>::className.str(),
+                                          [](self_type s){return markov::MACROR_string[s];} ));
+    }
+    static auto get_data_index_static()
+    {
+        return std::make_tuple(make_data_static(std::tuple<>(),
+                                                std::make_tuple(
+                                                    F_s(markov::s_MacroAlgorithm{},[](self_type s)->auto const &
+                                                        {return markov::MACROR_string[s];} ))));
+    }
 
 };
 
@@ -1089,6 +1170,14 @@ public:
   myOptional_t<mp_state_information>
   run(const mp_state_information &prior,
       const Markov_Transition_step_double Q_dt, Model &m, const Step &p,
+      std::ostream &os, const std::tuple<MACROR,mp_state_information> &alg) const
+  {
+      return run(prior,Q_dt,m,p,os,std::get<0>(alg));
+  }
+  template <class Model, class Step>
+  myOptional_t<mp_state_information>
+  run(const mp_state_information &prior,
+      const Markov_Transition_step_double Q_dt, Model &m, const Step &p,
       std::ostream &os, const MACROR &alg) const {
     switch (alg) {
     case MACRO_DMNR:
@@ -1875,6 +1964,62 @@ struct partialDistribution_function_aux {
   }
 };
 
+
+
+struct partialDistribution_function_mp {
+
+    template <class Experiment>
+    auto operator()(const Experiment &e, std::vector<std::tuple<markov::MACROR, markov::mp_state_information>> &) const
+    {
+       std::size_t n = e.num_measurements();
+      return std::make_pair(std::vector<Normal_Distribution<double>>(n),
+                             std::vector<std::tuple<markov::MACROR,markov::mp_state_information>>(n));
+     }
+     template <class Experiment>
+     auto operator()(const Experiment &e, const std::vector<std::tuple<markov::MACROR, markov::mp_state_information>> &) const
+     {
+         std::size_t n = e.num_measurements();
+         return std::vector<Normal_Distribution<double>>(n);
+     }
+
+    // template<class mp_state_information>
+    void operator()(
+                const mp_state_information &mp,
+                std::pair<std::vector<Normal_Distribution<double>>, std::vector<std::tuple<markov::MACROR,markov::mp_state_information>>> &v,
+         std::size_t &i, std::tuple<markov::MACROR, markov::mp_state_information> &test) const {
+        if (std::isfinite(mp.plogL()))
+          {
+            v.first[i] = Normal_Distribution<double>(mp.y_mean(), mp.y_var());
+            std::get<0>(v.second[i]) = std::get<0>(test);
+            std::get<1>(v.second[i])=mp;
+            ++i;
+        } else // hack to avoid including intervals in the Jacobian calculation
+        {
+            v.first[i] = Normal_Distribution<double>(0, 1);
+            std::get<0>(v.second[i]) = std::get<0>(test);
+            std::get<1>(v.second[i])=mp;
+            ++i;
+        }
+    }
+    void operator()(const mp_state_information &mp,
+                    std::vector<Normal_Distribution<double>> &v, std::size_t &i,
+                    const std::tuple<markov::MACROR, markov::mp_state_information> &) const {
+        if (std::isfinite(mp.plogL())) {
+            v[i] = Normal_Distribution<double>(mp.y_mean(), mp.y_var());
+            ++i;
+        } else // hack to avoid including intervals in the Jacobian calculation
+        {
+            v[i] = Normal_Distribution<double>(0, 1);
+            ++i;
+        }
+    }
+};
+
+
+
+
+
+
 template <class F, class MacroDR, class Model,
           template <class, class> class Experiment, class Point, class Measure,
           class... Aux>
@@ -1896,7 +2041,7 @@ auto logLikelihood_experiment_calculation(const F &f, const MacroDR &a,
       return Op(false, "calculation interrupted at " + ToString(*it) + "  :" +
                            post.error());
     else {
-      f(post.value(), out, i, aux[i]...);
+        f(post.value(), out, i, aux[i]...);
       prior.value() = std::move(post).value();
     }
   }
@@ -1912,9 +2057,9 @@ myOptional_t<double> logLikelihood(const MacroDR &a, Model &m,
 
 template <class MacroDR, class Model, class Experiment>
 myOptional_t<std::vector<double>>
-partialLogLikelihood(const MacroDR &a, Model &m, const Experiment e) {
+partialLogLikelihood(const MacroDR &a, Model &m, const Experiment e, std::ostream &os) {
   return logLikelihood_experiment_calculation(partialLogLikelihood_function(),
-                                              a, m, e);
+                                              a, m, e,os);
 }
 
 template <class MacroDR, class Model, class Experiment>
@@ -1934,6 +2079,8 @@ partialDistribution_aux(const MacroDR &a, Model &m, const Experiment e,
       partialDistribution_function_aux<true>(), a, m, e, os, aux);
 }
 
+
+
 template <class MacroDR, class Model, class Experiment>
 myOptional_t<std::vector<Normal_Distribution<double>>>
 partialDistribution_aux(const MacroDR &a, Model &m, const Experiment e,
@@ -1942,6 +2089,29 @@ partialDistribution_aux(const MacroDR &a, Model &m, const Experiment e,
   return logLikelihood_experiment_calculation(
       partialDistribution_function_aux<false>(), a, m, e, os, aux);
 }
+
+
+
+template <class MacroDR, class Model, class Experiment>
+myOptional_t<std::pair<std::vector<Normal_Distribution<double>>,
+                       std::vector<std::tuple<markov::MACROR, markov::mp_state_information>>>>
+partialDistribution_aux_mp(const MacroDR &a, Model &m, const Experiment e,
+                        std::ostream &os) {
+    std::vector<std::tuple<markov::MACROR,markov::mp_state_information>> aux;
+    return logLikelihood_experiment_calculation(
+        partialDistribution_function_mp(), a, m, e, os, aux);
+}
+
+template <class MacroDR, class Model, class Experiment>
+myOptional_t<std::vector<Normal_Distribution<double>>>
+partialDistribution_aux_mp(const MacroDR &a, Model &m, const Experiment e,
+                           std::ostream &os,const std::vector<std::tuple<markov::MACROR, markov::mp_state_information>> &aux) {
+    return logLikelihood_experiment_calculation(
+        partialDistribution_function_mp(), a, m, e, os, aux);
+}
+
+
+
 
 template <class Y>
 struct measure_likelihood : public experiment::measure_just_y<Y> {
