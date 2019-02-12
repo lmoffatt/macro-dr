@@ -3866,7 +3866,13 @@ private:
         static auto
         get_data_index_static(i_index)
         {
+
             return std::make_tuple(
+                Compose_static(
+                    std::make_tuple(I_s(i_index{},[](const self_type& s){return s.x().size();},0)),
+                               [](const self_type& s, std::size_t i){return s.x()[i];},
+                               myData_Index<T>::get_data_index_static()
+                               ),
                 make_data_static
                 (std::tuple<>(),
                  std::make_tuple(
@@ -3875,8 +3881,8 @@ private:
                 make_data_static
                 (std::make_tuple(
                      I_s(i_index{},
-                         [](const self_type& s){return s.logLik().size();},
-                         [](const self_type& s, std::size_t i) {return s.x()[i];})),
+                         [](const self_type& s){return s.logLik().size();},0)
+                         ),
                  std::make_tuple(
                      F_s(CT_s<s_obs,s_logL>{},[](const self_type& s, std::size_t i_x){return s.logLik().at(s.x()[i_x]);}),
                      F_s(CT_s<s_use,s_probability>{},[](const self_type& s, std::size_t i_x){return s.p().at(s.x()[i_x]);}))));
