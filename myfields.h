@@ -49,7 +49,7 @@ struct field
     field(C<Object>,const char* id, member_type get):idField{id},access_method{get}, default_value{false,"no default value"}{}
 };
 
-bool has_all(const std::tuple<>& )
+inline bool has_all(const std::tuple<>& )
 {
     return true;
 }
@@ -68,7 +68,7 @@ auto getIdFields(const std::tuple<Field...>& fs)
     return std::apply([](auto&...x){return std::map<std::string, std::string>{{x.idField, x.idType}...};},fs);
 }
 
-auto getIdFields(const std::tuple<>& )
+inline auto getIdFields(const std::tuple<>& )
 {
     return std::map<std::string, std::string>{};
 }

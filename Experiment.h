@@ -1108,7 +1108,7 @@ namespace experiment {
 
 
 
-std::ostream& operator<<(std::ostream& os, const typename basic_Experiment<point<double,double>,measure_just_y<double>>::step& x)
+inline std::ostream& operator<<(std::ostream& os, const typename basic_Experiment<point<double,double>,measure_just_y<double>>::step& x)
 {
     os<<" x="<<x.x()<<"\n y="<<x.y()<<"\n";
     return os;
@@ -1144,7 +1144,7 @@ DataFrame_to_Experiment(const io::myDataFrame<Ts...>& d
 
 
 
-auto Experiment_points_to_DataFrame(basic_Experiment<point<double,double>,measure_just_y<double>> e)
+inline auto Experiment_points_to_DataFrame(basic_Experiment<point<double,double>,measure_just_y<double>> e)
 {
     io::myDataFrame<double,std::size_t, std::string> d;
     decltype(e)::trace::insert_col(d);
@@ -1190,7 +1190,7 @@ auto Experiment_steps_to_DataFrame(basic_Experiment<point<double,double>,measure
 }
 
 template< class measure, class logL, class Parameters_Distribution>
-auto Experiment_steps_to_DataFrame(basic_Experiment<point<double,double>,measure> e, const std::vector<logL>& l, const Parameters_Distribution& prior)
+io::myDataFrame<double,std::size_t, std::string> Experiment_steps_to_DataFrame(basic_Experiment<point<double,double>,measure> e, const std::vector<logL>& l, const Parameters_Distribution& prior)
 {
     io::myDataFrame<double,std::size_t, std::string> d;
     decltype(e)::trace::insert_col(d);

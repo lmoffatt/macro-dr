@@ -149,33 +149,6 @@ public:
   double eplogL() const { return eplogL_; }
   double vplogL() const { return vplogL_; }
 
-  static auto
-  get_data_index(const std::string& name="")
-  {
-      using namespace std::literals::string_literals;
-      return std::make_tuple(
-            Data_Index(Cs<self_type>(),name+"y_mean",&self_type::y_mean),
-            Data_Index(Cs<self_type>(),name+"y_var",&self_type::y_var),
-          Data_Index(Cs<self_type>(),name+"plogL",&self_type::plogL),
-          Data_Index(Cs<self_type>(),name+"eplogL",&self_type::eplogL),
-          Data_Index(Cs<self_type>(),name+"vplogL",&self_type::vplogL),
-
-           Data_Index(Cs<self_type>(),std::string("i_state"),
-                     [](const self_type& ,std::size_t i){return i;},
-                     std::pair (std::string("i_state"),[](const self_type& self){return self.P_mean().size();} ) ),
-          Data_Index(Cs<self_type>(),std::string("i_state_T"),
-                     [](const self_type& ,std::size_t i){return i;},
-                     std::pair (std::string("i_state_T"),[](const self_type& self){return self.P_mean().size();} ) ),
-              Data_Index(Cs<self_type>(),name+"P_mean",
-                         [](const self_type& s,std::size_t i){return s.P_mean()[i];},
-                         std::pair (std::string("i_state"),[](const self_type& self){return self.P_mean().size();} ) ),
-              Data_Index(Cs<self_type>(),name+"P_cov",
-                         [](const self_type& s,std::size_t i, std::size_t j){return s.P_cov()(i,j);},
-                         std::pair (std::string("i_state"),[](const self_type& self){return self.P_mean().nrows();} ),
-                         std::pair (std::string("i_state_T"),[](const self_type& self, std::size_t){return self.P_mean().ncols();} )
-                                                                                  )
-                                                        );
-  }
 
 
   template<class...Indexes>
@@ -222,12 +195,12 @@ constexpr MACROR MACROR_VALUES[] = {MACRO_DMNR, MACRO_DVNR, MACRO_DMR,
                                     MACRO_DVR};
 
 
-std::ostream &operator<<(std::ostream &s, const MACROR &m) {
+inline std::ostream &operator<<(std::ostream &s, const MACROR &m) {
   s << MACROR_string[m];
   return s;
 }
 
-std::istream &operator>>(std::istream &is, MACROR &m) {
+inline std::istream &operator>>(std::istream &is, MACROR &m) {
   std::string s;
   is >> s;
   for (auto v : MACROR_VALUES) {
@@ -281,12 +254,6 @@ template<> struct myData_Index<markov::MACROR> {
         return out;
     }
 
-    static auto get_data_index(const std::string& name="")
-    {
-        return std::make_tuple(Data_Index(Cs<self_type>(),
-                                          name+my_trait<self_type>::className.str(),
-                                          [](self_type s){return markov::MACROR_string[s];} ));
-    }
 
     template<class... Indexes>
         static auto get_data_index_static(Indexes... )

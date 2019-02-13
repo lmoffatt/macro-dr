@@ -5,7 +5,7 @@
 #include<numeric>
 #include<Matrix.h>
 
-M_Matrix<double> operator+(M_Matrix<double> total, const M_Matrix<double>& next)
+inline M_Matrix<double> operator+(M_Matrix<double> total, const M_Matrix<double>& next)
 {
     return Matrix_Binary_Transformations::operator+=(total,next);
 }

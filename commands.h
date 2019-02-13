@@ -34,16 +34,15 @@ struct to_experiment
 {
     static constexpr auto className=my_static_string("to_experiment");
 
-    static auto run(const io::myDataFrame<double>& da
+    static
+        basic_Experiment<point<double,double>,measure_just_y<double>>
+        run(const io::myDataFrame<double>& da
                     ,const std::string& colname_time,
                     const std::string& colname_nsample,
                     const std::string& colname_x,
                     const std::string& colname_y,
                     double Vm,
-                    double frequency_of_sampling)
-    {
-        return experiment::DataFrame_to_Experiment(da,colname_time,colname_nsample,colname_x,colname_y,Vm,frequency_of_sampling);
-    }
+                    double frequency_of_sampling);
 
 
     static auto get_arguments()
@@ -77,12 +76,7 @@ struct to_DataFrame
 {
     static constexpr auto className=my_static_string("to_dataframe");
 
-    static auto run(const basic_Experiment<point<double,double>,measure>& e)
-    {
-        return experiment::Experiment_steps_to_DataFrame(e);
-
-
-    }
+    static io::myDataFrame<double,std::size_t, std::string> run(const basic_Experiment<point<double,double>,measure>& e);
 
 
     static auto get_arguments()
@@ -130,12 +124,7 @@ struct to_DataFrame<evidence::Likelihood_Analisis<Parameters_Distribution,Parame
 {
     static constexpr auto className=my_static_string("to_dataframe");
 
-    static auto run(const evidence::Likelihood_Analisis<Parameters_Distribution,Parameters_Values,ExperimentData,logLikelihood>& l)
-    {
-        return l.make_Data_Frame();
-
-
-    }
+    static io::myDataFrame<double, std::size_t, std::string> run(const evidence::Likelihood_Analisis<Parameters_Distribution,Parameters_Values,ExperimentData,logLikelihood>& l);
 
 
     static auto get_arguments()
@@ -164,15 +153,13 @@ struct save{
     };
 
 
-    static std::string run(const T& x, const std::string& filename)
-    {
+    static std::string run(const T& x, const std::string& filename) {
         std::ofstream of;
         of.open(filename.c_str());
         if (!of.good())
-            return filename+" could not be created";
-        else
-        {
-            if (!(of<<x))
+            return filename + " could not be created";
+        else {
+            if (!(of << x))
                 return "variable could not be written";
             else
                 return "written successfully";
@@ -206,14 +193,12 @@ struct write_variable{
     };
 
 
-    static std::string run(const T& x, const std::string& filename)
-    {
+    static std::string run(const T& x, const std::string& filename) {
         std::ofstream of;
         of.open(filename.c_str());
         if (!of.good())
-            return filename+" could not be created";
-        else
-        {
+            return filename + " could not be created";
+        else {
             if (!x.write(of))
                 return "variable could not be written";
             else
@@ -239,23 +224,9 @@ struct simulate{
 
 
     static constexpr auto className=my_static_string("simulate");
-    static auto run(std::mt19937_64::result_type initseed,const Experiment& e,  const Model& m , const Parameters_values<Model>& p,std::size_t n_sub_intervals,
-                    double max_dt,double min_P,double tolerance)
-    {
-
-
-        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(),p.at(Number_of_Channels_Parameter_label()),p.at(gaussian_noise_Parameter_label()), min_P);
-
-        Markov_Model_calculations<Markov_Transition_step,Markov_Transition_rate,SingleLigandModel,Experiment,double> MC(SM,e,n_sub_intervals,tolerance);
-
-        if (initseed==0)
-        {
-            std::random_device rd;
-            initseed=rd();
-        }
-        std::mt19937_64 mt(initseed);
-        return markov::measure_experiment(get_current{},mt,MC,e,n_sub_intervals,max_dt);
-    }
+    static myOptional_t<Experiment>
+ run(std::mt19937_64::result_type initseed,const Experiment& e,  const Model& m , const Parameters_values<Model>& p,std::size_t n_sub_intervals,
+                    double max_dt,double min_P,double tolerance);
 
     static auto get_arguments()
     {
@@ -280,54 +251,7 @@ struct likelihood{
 
     static constexpr auto className=my_static_string("likelihood");
 
-    static auto run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance, double biNumber,double Vanumber)
-    {
-        std::cerr<<"\nparameters\n"<<p;
-        SingleLigandModel SM(m.Qs(p),m.g(p),e.Vm(), p.at(Number_of_Channels_Parameter_label()), p.at(gaussian_noise_Parameter_label()),min_P);
-
-
-        Markov_Model_calculations<Markov_Transition_step_double,Markov_Transition_rate,SingleLigandModel,Experiment,double> MC(SM,e,1,tolerance);
-
-        if (algorithm==my_trait<markov::MacroDVR>::className.str())
-        {
-            auto out= markov::logLikelihood(markov::MacroDVR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
-            if (out.has_value())
-                std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
-            else std::cerr<<out.error();
-            return out;
-
-        }
-
-        else  if (algorithm==my_trait<markov::MacroDMR>::className.str())
-        {
-            auto out= markov::logLikelihood(markov::MacroDMR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
-            if (out.has_value())
-                std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
-            else std::cerr<<out.error();
-            return out;
-
-        }
-        else  if (algorithm==my_trait<markov::MacroDVNR>::className.str())
-        {
-            auto out= markov::logLikelihood(markov::MacroDVNR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
-            if (out.has_value())
-                std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
-            else std::cerr<<out.error();
-            return out;
-
-        }
-        else  if (algorithm==my_trait<markov::MacroDMNR>::className.str())
-        {
-            auto out= markov::logLikelihood(markov::MacroDMNR(tolerance,biNumber,Vanumber),MC,e, std::cerr);
-            if (out.has_value())
-                std::cerr<<"logLikelihodd = "<<out.value()<<std::endl;
-            else std::cerr<<out.error();
-            return out;
-
-        }
-
-        else return myOptional_t<double>(false," algorithm "+algorithm+ "not found");
-    }
+    static myOptional_t<double> run(const Experiment& e,   Model& m , const Parameters_values<Model>& p,const std::string algorithm, double min_P, double tolerance, double biNumber,double Vanumber);
 
     static auto get_arguments()
     {
@@ -538,7 +462,7 @@ struct Evidence{
 
     static constexpr auto className=my_static_string("evidence");
 
-    static auto run(const Experiment& e,
+    static std::string run(const Experiment& e,
                     const Model& m ,
                     const ParametersDistribution& p,
                     std::string algorithm,
@@ -559,33 +483,7 @@ struct Evidence{
                     bool gradient,
                     double epsf,
                     std::string idfile
-                                                )
-    {
-
-        typedef Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> Likelihood_Model;
-        typedef evidence::Prior_Model<Model,ParametersDistribution> PriorModel;
-        typedef evidence::Thermodynamic_Model<PriorModel, Likelihood_Model> ThModel;
-
-        typedef std::vector<std::mt19937> RG;
-        typedef  std::vector<
-            evidence::Adaptive_Parameterized_Distribution_Generator<evidence::LevenbergMarquardt<ThModel>>>
-            Adaptive;
-        typedef  evidence::Thermodynamic_Model_Series<PriorModel, Likelihood_Model> Th_Models;
-        typedef evidence::Parallel_Tempering<true> MCMC;
-
-        Likelihood_Model lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber, epsf);
-        std::mt19937_64 mt=init_mt(initseed, std::cerr);
-        std::string info="";
-
-
-
-        std::size_t samples_interval=10;
-        auto out=evidence::OutputGenerator(Cs<RG>{},Cs<MCMC>{},Cs<Th_Models>{},Cs<Adaptive>{},
-            [samples_interval](std::size_t isample){return isample%samples_interval==0;},std::cerr,parameters,gradient);
-        std::string id_f=idfile+time_now()+"_"+std::to_string(initseed);
-
-        return evidence::run_Thermo_Levenberg_ProbVel(id_f,info,evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,ntrials,out).error();
-    }
+                                                );
 
     static auto get_arguments()
     {
@@ -624,7 +522,7 @@ struct Evidence_prob{
 
     static constexpr auto className=my_static_string("evidence_prob");
 
-    static auto run(const Experiment& e,
+    static std::string run(const Experiment& e,
                     const Model& m ,
                     const ParametersDistribution& p,
                     std::string algorithm,
@@ -644,31 +542,7 @@ struct Evidence_prob{
                     bool gradient,
                     double epsf,
                     std::string idfile
-                                                                        )
-    {
-
-        typedef Markov_Model_DLikelihood<Model,Experiment,ParametersDistribution> Likelihood_Model;
-        typedef evidence::Prior_Model<Model,ParametersDistribution> PriorModel;
-        typedef evidence::Thermodynamic_Model<PriorModel, Likelihood_Model> ThModel;
-
-        typedef std::vector<std::mt19937> RG;
-        typedef  std::vector<
-            evidence::Adaptive_Probability_Distribution_Generator<evidence::LevenbergMarquardt<ThModel>>>
-            Adaptive;
-        typedef  evidence::Thermodynamic_Model_Series<PriorModel, Likelihood_Model> Th_Models;
-        typedef evidence::Parallel_Tempering<true> MCMC;
-
-        Likelihood_Model lik(m,p,e,algorithm,eps_Gradient,min_P, tolerance,BiNumber,VaNumber, epsf);
-        std::mt19937_64 mt=init_mt(initseed, std::cerr);
-        std::string info="";
-        std::size_t sample_interval=10;
-        auto out=evidence::OutputGenerator(Cs<RG>{},Cs<MCMC>{},Cs<Th_Models>{},Cs<Adaptive>{},
-                                             [sample_interval](std::size_t i_sample){return i_sample%sample_interval==0;},
-                                             std::cerr,parameters,gradient);
-        std::string id_f=idfile+time_now()+"_"+std::to_string(initseed);
-
-        return evidence::run_Thermo_Levenberg_Prob(id_f,info,evidence::Prior_Model<Model,ParametersDistribution>(p),lik,mt,betas,landa,target_probability,pjump,nSamples,ntrials,out).error();
-    }
+                                                                        );
 
     static auto get_arguments()
     {
@@ -708,7 +582,7 @@ struct Evidence_Derivative{
 
     static constexpr auto className=my_static_string("evidence_derivative");
 
-    static auto run(const Experiment& e,
+    static std::string run(const Experiment& e,
                     const Model& m ,
                     const ParametersDistribution& prior,
                     std::string algorithm,
@@ -726,37 +600,7 @@ struct Evidence_Derivative{
                     std::size_t n_trials,
                     bool parameters,
                     bool gradient,
-                    std::string id_file)
-    {
-        typedef Derivative<Markov_Model_Likelihood<Model,ParametersDistribution,Experiment>> Likelihood_Model;
-        typedef evidence::Prior_Model<Model,ParametersDistribution> PriorModel;
-        typedef evidence::Thermodynamic_Model<PriorModel, Likelihood_Model> ThModel;
-
-        typedef std::vector<std::mt19937> RG;
-        typedef  std::vector<
-            evidence::Adaptive_Parameterized_Distribution_Generator<evidence::LevenbergMarquardt<ThModel>>>
-            Adaptive;
-        typedef  evidence::Thermodynamic_Model_Series<PriorModel, Likelihood_Model> Th_Models;
-        typedef evidence::Parallel_Tempering<true> MCMC;
-
-
-        std::mt19937_64 mt=init_mt(initseed, std::cerr);
-        auto dm=Derivative<Model>(m);
-        auto dprior=Derivative<ParametersDistribution>(prior);
-        Derivative<Markov_Model_Likelihood<Model,ParametersDistribution,Experiment>> lik(e,
-                                                                                           Derivative<Markov_Model_Likelihood<Model,ParametersDistribution>>(dm,dprior,algorithm,min_P, tolerance,BiNumber,VaNumber));
-
-        std::size_t sample_interval=10;
-        auto out=evidence::OutputGenerator(Cs<RG>{},Cs<MCMC>{},Cs<Th_Models>{},Cs<Adaptive>{},
-                                             [sample_interval](std::size_t i_sample){return i_sample%sample_interval==0;},
-                                             std::cerr,parameters,gradient);
-
-
-        std::string info;
-        std::string id_f=id_file+time_now()+"_"+std::to_string(initseed);
-
-        return evidence::run_Thermo_Levenberg_ProbVel(id_f,info,evidence::Prior_Model<Model,ParametersDistribution>(prior),lik,mt,betas,landa,landa_50_hill,pjump,gain_moment,nSamples,n_trials,out).error();
-    }
+                    std::string id_file);
 
     static auto get_arguments()
     {
@@ -792,7 +636,7 @@ struct Evidence_Derivative_prob{
 
     static constexpr auto className=my_static_string("evidence_derivative");
 
-    static auto run(const Experiment& e,
+    static std::string run(const Experiment& e,
                     const Model& m ,
                     const ParametersDistribution& prior,
                     std::string algorithm,
@@ -809,38 +653,7 @@ struct Evidence_Derivative_prob{
                     std::size_t n_trials,
                     bool parameters,
                     bool gradient,
-                    std::string id_file)
-    {
-        typedef Derivative<Markov_Model_Likelihood<Model,ParametersDistribution,Experiment>> Likelihood_Model;
-        typedef evidence::Prior_Model<Model,ParametersDistribution> PriorModel;
-        typedef evidence::Thermodynamic_Model<PriorModel, Likelihood_Model> ThModel;
-
-        typedef std::vector<std::mt19937> RG;
-        typedef  std::vector<
-            evidence::Adaptive_Probability_Distribution_Generator<evidence::LevenbergMarquardt<ThModel>>>
-            Adaptive;
-        typedef  evidence::Thermodynamic_Model_Series<PriorModel, Likelihood_Model> Th_Models;
-        typedef evidence::Parallel_Tempering<true> MCMC;
-
-
-        std::mt19937_64 mt=init_mt(initseed, std::cerr);
-        auto dm=Derivative<Model>(m);
-        auto dprior=Derivative<ParametersDistribution>(prior);
-        Derivative<Markov_Model_Likelihood<Model,ParametersDistribution,Experiment>> lik(e,
-                                                                                           Derivative<Markov_Model_Likelihood<Model,ParametersDistribution>>(dm,dprior,algorithm,min_P, tolerance,BiNumber,VaNumber));
-
-        std::size_t sample_interval=10;
-        auto out=evidence::OutputGenerator(Cs<RG>{},Cs<MCMC>{},Cs<Th_Models>{},Cs<Adaptive>{},
-                                             [sample_interval](std::size_t i_sample){return i_sample%sample_interval==0;},
-                                             std::cerr,parameters,gradient);
-
-
-
-        std::string info;
-
-        std::string id_f=id_file+time_now()+"_"+std::to_string(initseed);
-        return evidence::run_Thermo_Levenberg_Prob(id_f,info,evidence::Prior_Model<Model,ParametersDistribution>(prior),lik,mt,betas,landa,target_probability,pjump,nSamples,n_trials,out).error();
-    }
+                    std::string id_file);
 
     static auto get_arguments()
     {
@@ -876,7 +689,7 @@ struct Evidence_emcee{
 
     static constexpr auto className=my_static_string("evidence_emcee");
 
-    static auto run(const Experiment& e,
+    static std::string run(const Experiment& e,
                     const Model& m ,
                     const ParametersDistribution& p,
                     std::string algorithm,
@@ -894,33 +707,7 @@ struct Evidence_emcee{
                     std::size_t numWalkers,
                     double target_prob,
                     std::size_t ntrials,
-                    std::string n_file)
-    {
-        typedef Markov_Model_Likelihood<Model,ParametersDistribution,Experiment> Likelihood_Model;
-        typedef evidence::Ensemble_Parallel_Tempering MCMC;
-
-        typedef evidence::Prior_Model<Model,ParametersDistribution> PriorModel;
-        typedef evidence::Thermodynamic_Model<PriorModel, Likelihood_Model> ThModel;
-
-        typedef std::vector<std::mt19937> RG;
-        typedef  evidence::Thermodynamic_Model_Series<PriorModel, Likelihood_Model> Th_Models;
-        typedef std::vector<typename evidence::Ensemble_Metropolis_Hastings::adaptive_stretch_mover<ThModel>> Adaptive;
-
-
-        Likelihood_Model lik(m,p,e,algorithm,min_P, tolerance,BiNumber,VaNumber);
-        std::mt19937_64 mt=init_mt(initseed, std::cerr);
-        std::cerr<<"\np.tr_to_Parameter(p.sample(mt))\n"<<p.tr_to_Parameter(p.sample(mt)).value();
-        std::size_t sample_interval=10;
-        auto out=evidence::OutputGenerator(Cs<RG>{},Cs<MCMC>{},Cs<Th_Models>{},Cs<Adaptive>{},
-                                             [sample_interval](std::size_t i_sample){return i_sample%sample_interval==0;},
-                                             std::cerr,parameters,gradient);
-
-        std::string info="";
-        return evidence::run_Thermo_emcee(n_file,info,PriorModel(p),lik,mt,betas,numWalkers,alfas,pjump,target_prob,nSamples,ntrials,out).error();
-
-
-
-    }
+                    std::string n_file);
 
     static auto get_arguments()
     {
@@ -963,15 +750,15 @@ struct Objects
         function_log10,
         simulate<singleLigandExperiment,Allosteric_Model>,
         likelihood<singleLigandExperiment,Allosteric_Model>,
-        likelihood_detail<singleLigandExperiment,Allosteric_Model>,
+      //  likelihood_detail<singleLigandExperiment,Allosteric_Model>,
         Evidence<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
         Evidence_prob<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
         Evidence_Derivative<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
         Evidence_Derivative_prob<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
         Evidence_emcee<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
-        likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
-        likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
-        likelihoodtest_derivative<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
+      //  likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
+      //  likelihoodtest<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
+      //  likelihoodtest_derivative<singleLigandExperiment,Allosteric_Model,Parameters_distribution<Allosteric_Model>>,
         // not yet  likelihoodtest_derivative<singleLigandExperiment,Allosteric_Model,Parameters_partial_distribution<Allosteric_Model>>,
         simulate<singleLigandExperiment, State_Model>,
         likelihood<singleLigandExperiment, State_Model>,
@@ -987,11 +774,11 @@ struct Objects
                  Parameters_partial_distribution<State_Model>>,
         Evidence_prob<singleLigandExperiment, State_Model,
                  Parameters_partial_distribution<State_Model>>,
-        likelihoodtest<singleLigandExperiment, State_Model,
-                       Parameters_distribution<State_Model>>,
-        likelihoodtest<singleLigandExperiment, State_Model,
-                       Parameters_partial_distribution<State_Model>>,
-        likelihoodtest_derivative<singleLigandExperiment,State_Model,Parameters_distribution<State_Model>>,
+//        likelihoodtest<singleLigandExperiment, State_Model,
+//                       Parameters_distribution<State_Model>>,
+//        likelihoodtest<singleLigandExperiment, State_Model,
+//                       Parameters_partial_distribution<State_Model>>,
+//        likelihoodtest_derivative<singleLigandExperiment,State_Model,Parameters_distribution<State_Model>>,
 
         to_experiment,
         to_DataFrame<measure_just_y<double>>,

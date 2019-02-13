@@ -971,7 +971,7 @@ private:
 };
 
 
-std::ostream& operator<<(std::ostream& os, const Derivative<Markov_Transition_step_double>& d ){return io::output_operator_on_Object(os,d);}
+inline std::ostream& operator<<(std::ostream& os, const Derivative<Markov_Transition_step_double>& d ){return io::output_operator_on_Object(os,d);}
 
 template <> class Derivative<SingleLigandModel> : public SingleLigandModel {
 public:

@@ -924,38 +924,38 @@ Derivative<T> operator*(const Constant<T> &c, const Derivative<T> &x) {
                        x.dfdx().apply([&c](auto &m) { return c.value * m; }));
 }
 
-auto exp(D, double x) { return std::exp(x); }
+inline auto exp(D, double x) { return std::exp(x); }
 
-auto exp(const Derivative<double> &x) {
+inline auto exp(const Derivative<double> &x) {
   return Derivative<double>(std::exp(x.f()), x.x(), exp(D(), x.f()) * x.dfdx());
 }
 
-auto log(const Derivative<double> &x) {
+inline auto log(const Derivative<double> &x) {
   return Derivative<double>(std::log(x.f()), x.x(), x.dfdx() / x.f());
 }
 
-auto sqrt(const Derivative<double> &x) {
+inline auto sqrt(const Derivative<double> &x) {
   return Derivative<double>(std::sqrt(x.f()), x.x(),
                             (0.5 / std::sqrt(x.f())) * x.dfdx());
 }
 
-auto exp(const Derivative<M_Matrix<double>> &x) {
+inline auto exp(const Derivative<M_Matrix<double>> &x) {
   return Derivative<M_Matrix<double>>(exp(x.f()), x.x(),
                                       elemMult_a(x.dfdx(), exp(x.f())));
 }
 
-auto abs(D, double x) {
+inline auto abs(D, double x) {
   if (x >= 0)
     return 1.0;
   else
     return -1.0;
 }
 
-auto abs(const Derivative<double> &x) {
+inline auto abs(const Derivative<double> &x) {
   return Derivative<double>(std::abs(x.f()), x.x(), abs(D(), x.f()) * x.dfdx());
 }
 
-auto pow(const Derivative<double> &x, const Derivative<double> &y) {
+inline auto pow(const Derivative<double> &x, const Derivative<double> &y) {
   assert(x.x() == y.x());
   auto f = std::pow(x.f(), y.f());
 
@@ -964,7 +964,7 @@ auto pow(const Derivative<double> &x, const Derivative<double> &y) {
   return Derivative<double>(std::move(f), x.x(), dx + dy);
 }
 
-auto operator/(const Derivative<double> &x, const Derivative<double> &y) {
+inline auto operator/(const Derivative<double> &x, const Derivative<double> &y) {
   assert(x.x() == y.x());
   auto f = x.f() / y.f();
 
@@ -973,7 +973,7 @@ auto operator/(const Derivative<double> &x, const Derivative<double> &y) {
   return Derivative<double>(std::move(f), x.x(), dx + dy);
 }
 
-auto operator/(double x, const Derivative<double> &y) {
+inline auto operator/(double x, const Derivative<double> &y) {
   auto f = x / y.f();
 
   auto dy = -y.dfdx() * x / sqr(y.f());
@@ -1121,7 +1121,7 @@ Derivative<T> operator*(const Derivative<T> &one, const Derivative<T> &other) {
   return Derivative<T>(one.f() * other.f(), one.x(), df1 + df2);
 }
 
-Derivative<M_Matrix<double>> operator*(const Derivative<double> &x,
+inline Derivative<M_Matrix<double>> operator*(const Derivative<double> &x,
                                        const Derivative<M_Matrix<double>> &M) {
   assert(x.x() == M.x());
   auto df = x.f() * M.dfdx();
@@ -1130,7 +1130,7 @@ Derivative<M_Matrix<double>> operator*(const Derivative<double> &x,
   return Derivative<M_Matrix<double>>(x.f() * M.f(), x.x(), std::move(df));
 }
 
-Derivative<M_Matrix<double>> operator*(const Derivative<M_Matrix<double>> &M,
+inline Derivative<M_Matrix<double>> operator*(const Derivative<M_Matrix<double>> &M,
                                        const Derivative<double> &x) {
   assert(x.x() == M.x());
   auto df = M.dfdx() * x.f();
@@ -1156,7 +1156,7 @@ myOptional_t<Derivative<M_Matrix<T>>> inv(const Derivative<M_Matrix<T>> &x) {
 }
 namespace Matrix_Decompositions {
 
-auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>> &Dx) {
+inline auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>> &Dx) {
   typedef myOptional_t<
       std::tuple<Derivative<M_Matrix<double>>, Derivative<M_Matrix<double>>,
                  Derivative<M_Matrix<double>>>>

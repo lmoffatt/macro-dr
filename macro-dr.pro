@@ -24,6 +24,10 @@ CONFIG(debug, debug|release) {
   DEFINES += NDEBUG
 }
 SOURCES += \
+    commands.cpp \
+    commands_evidence.cpp \
+    commands_evidence_derivative.cpp \
+    commands_evidence_emcee.cpp \
     main.cpp
 
 HEADERS += \
@@ -33,6 +37,7 @@ HEADERS += \
     myDistributions.h \
     Experiment.h \
     mydataindex.h \
+    mymoments.h \
     qmodel.h \
     mySerializer.h \
     mygrammar.h \
@@ -66,7 +71,8 @@ HEADERS += \
     qlikelihood_derivative.h \
     myparameters_derivative.h \
     mydistributions_derivative.h \
-    mydynamicfunctions.h
+mydynamicfunctions.h \
+
 
 DISTFILES += \
     Makefile \

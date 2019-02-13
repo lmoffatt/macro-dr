@@ -72,7 +72,7 @@ inline
 namespace io {
 
 
-std::string my_to_string(double x)
+inline std::string my_to_string(double x)
 {
     std::stringstream strstr;
     if ((std::abs(x)<1e-3)||(std::abs(x)>1e3))
@@ -92,8 +92,8 @@ auto  ToString(const T& x)->decltype ((std::declval<std::stringstream&>()<<x), s
 
 template <typename T>
 auto  ToString(const T& x)->decltype (x.put(std::declval<std::ostream&>()), std::string());
-template <>
-std::string  ToString(const double& x)
+
+inline std::string  ToString(const double& x)
 {std::stringstream ss; ss<<std::fixed; ss<<x; return ss.str();}
 
 
@@ -115,7 +115,7 @@ template<typename T> std::istream& read_optional(std::istream& is, myOptional_t<
 inline std::istream &safeGetline(std::istream &is, std::string &t);
 
 
-std::istream& read(std::istream& is, double& e);
+inline std::istream& read(std::istream& is, double& e);
 
 template<typename ...Args> std::ostream& operator<<(std::ostream& os, const std::tuple<Args...>& tu);
 template<typename ...Args> std::ostream& write_tuple(std::ostream& os, const std::tuple<Args...>& tu);
@@ -245,9 +245,9 @@ struct size_of_container
     std::size_t size;
 };
 
-std::ostream& operator<<(std::ostream& os, const size_of_container& n);
+inline std::ostream& operator<<(std::ostream& os, const size_of_container& n);
 
-std::istream& operator>>(std::istream& is, size_of_container& n);
+inline std::istream& operator>>(std::istream& is, size_of_container& n);
 
 template<typename T> auto output_operator_on_element(std::ostream& os, const T& e)->std::enable_if_t<!std::is_pointer_v<T>,std::ostream&>;
 
@@ -277,8 +277,8 @@ std::istream& extract_finite(std::istream& ss, double& val, bool is_negative);
 inline
 std::istream& extract_double(std::istream& ss, double& val);
 
-std::istream& input_operator_on_element(std::istream& is, double& e);
-std::istream& input_operator_on_element(std::istream& is, double*& e);
+inline std::istream& input_operator_on_element(std::istream& is, double& e);
+inline std::istream& input_operator_on_element(std::istream& is, double*& e);
 
 
 template <class Object,class Method> std::ostream& write_on_Field(std::ostream& os,const grammar::field<Object,Method>& myField, const Object& myObject);
@@ -483,13 +483,13 @@ template<char c, char... chs>
 std::istream& operator>>(std::istream& is, token<c,chs...> );
 
 
-std::istream& operator>>(std::istream& is, token<> )
+inline std::istream& operator>>(std::istream& is, token<> )
 {
     return is;
 }
 
 
-std::istream& set_fail_bit(std::istream& is)
+inline std::istream& set_fail_bit(std::istream& is)
 {
     is.setstate(std::ios::failbit);
     return is;
@@ -814,12 +814,12 @@ std::istream& extract_double(std::istream& ss, double& val)
 }
 
 
-std::istream& input_operator_on_element(std::istream& is, double& e)
+inline std::istream& input_operator_on_element(std::istream& is, double& e)
 {
     return extract_double(is,e);
 }
 
-std::istream& input_operator_on_element(std::istream& is, double*& e)
+inline std::istream& input_operator_on_element(std::istream& is, double*& e)
 {
     e=new double;
     return extract_double(is,*e);
@@ -987,7 +987,7 @@ std::istream& read_on_this_field(std::istream& is,const std::string& id,  std::t
 
 }
 
-std::istream& input_operator_on_this_field(std::istream& is,const std::string& ,  std::tuple<>& ){
+inline std::istream& input_operator_on_this_field(std::istream& is,const std::string& ,  std::tuple<>& ){
     return is;
 }
 

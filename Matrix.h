@@ -1794,7 +1794,7 @@ using namespace Matrix_Unary_Transformations;
 
 namespace Matrix_Decompositions {
 
-auto EigenSystem_full_real_eigenvalue_dgeev(const M_Matrix<double> &x) {
+inline auto EigenSystem_full_real_eigenvalue_dgeev(const M_Matrix<double> &x) {
   typedef myOptional_t<
       std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>>>
       Op;
@@ -1842,7 +1842,7 @@ typedef std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>>
 typedef std::tuple<M_Matrix<double>, M_Matrix<double>, M_Matrix<double>>
     SVD_type;
 
-eigensystem_type sort(const eigensystem_type &e) {
+inline eigensystem_type sort(const eigensystem_type &e) {
   auto &[VR, L, VL] = e;
   std::vector<std::pair<double, std::size_t>> la(L.size());
   for (std::size_t i = 0; i < L.size(); ++i)
@@ -1863,7 +1863,7 @@ eigensystem_type sort(const eigensystem_type &e) {
   return std::tuple(VRs, Ls, VLs);
 }
 
-M_Matrix<double> &Right_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
+inline M_Matrix<double> &Right_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
   assert(X.nrows() == X.ncols());
   auto n = X.nrows();
   for (std::size_t k = 0; k < n; ++k) {
@@ -1877,7 +1877,7 @@ M_Matrix<double> &Right_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
   }
   return X;
 }
-void Nelson_Normalization(M_Matrix<double> &VR, M_Matrix<double> &VL) {
+inline void Nelson_Normalization(M_Matrix<double> &VR, M_Matrix<double> &VL) {
   Right_Eigenvector_Nelson_Normalization(VR);
   for (std::size_t i = 0; i < VR.nrows(); ++i) {
     double sum = 0;
@@ -1890,7 +1890,7 @@ void Nelson_Normalization(M_Matrix<double> &VR, M_Matrix<double> &VL) {
       VR * VL, Matrix_Generators::eye<double>(VR.ncols()), std::cerr)));
 }
 
-M_Matrix<double> &Left_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
+inline M_Matrix<double> &Left_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
   assert(X.nrows() == X.ncols());
   auto n = X.nrows();
   for (std::size_t k = 0; k < n; ++k) {
@@ -1905,7 +1905,7 @@ M_Matrix<double> &Left_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
   return X;
 }
 
-auto EigenSystem_full_real_eigenvalue(const M_Matrix<double> &x) {
+inline auto EigenSystem_full_real_eigenvalue(const M_Matrix<double> &x) {
   typedef myOptional_t<eigensystem_type> Op;
 
   using lapack::dgeevx_;
@@ -2322,7 +2322,7 @@ Parameters
   }
 }
 
-auto EigenSystem_symm_real_eigenvalue(const M_Matrix<double> &x, std::string kind="lower") {
+inline auto EigenSystem_symm_real_eigenvalue(const M_Matrix<double> &x, std::string kind="lower") {
   typedef myOptional_t<eigensystem_type> Op;
 
   assert(x.isSymmetric());
@@ -2680,7 +2680,7 @@ std::to_string(INFO)+
   }
 }
 
-auto Singular_Value_decomposition(const M_Matrix<double> &A) {
+inline auto Singular_Value_decomposition(const M_Matrix<double> &A) {
 
   /***
    *
@@ -3041,7 +3041,7 @@ template <typename T> double maxAbs(const M_Matrix<T> &x) {
       x, [](double a, const T &b) { return std::max(a, maxAbs(b)); }, 0.0);
 }
 
-double max(const M_Matrix<double> &x) {
+inline double max(const M_Matrix<double> &x) {
   using std::max;
   return accumulate(x, [](double a, double b) { return max(a, b); },
                     -std::numeric_limits<double>::infinity());
@@ -3076,7 +3076,7 @@ template <typename T> double Trace(const M_Matrix<T> &x) {
   return fullSum(d);
 }
 
-double norm_1(const double x) { return std::abs(x); }
+inline double norm_1(const double x) { return std::abs(x); }
 
 /**
     Maximum Value of the Sum of the absolute values in each row
@@ -4085,7 +4085,7 @@ auto diagonal_pinv(const M_Matrix<T> &a, double min_value = 0) {
   return out;
 }
 
-myOptional_t<M_Matrix<double>> full_pinv(const M_Matrix<double> &A) {
+inline myOptional_t<M_Matrix<double>> full_pinv(const M_Matrix<double> &A) {
 
   typedef myOptional_t<M_Matrix<double>> Op;
   auto res = Matrix_Decompositions::Singular_Value_decomposition(A);
@@ -4106,7 +4106,7 @@ myOptional_t<M_Matrix<double>> full_pinv(const M_Matrix<double> &A) {
   }
 }
 
-myOptional_t<M_Matrix<double>> symm_pinv(const M_Matrix<double> &A) {
+inline myOptional_t<M_Matrix<double>> symm_pinv(const M_Matrix<double> &A) {
 
   typedef myOptional_t<M_Matrix<double>> Op;
   auto res = Matrix_Decompositions::EigenSystem_symm_real_eigenvalue(A);
@@ -4171,9 +4171,7 @@ template <typename T> auto scalar_diagonal_inv(const M_Matrix<T> &a) {
                           std::move(e.first)));
 }
 
-template <typename E>
-
-auto Matrix_inverse(const M_Matrix<E> &x) {
+template <typename E> auto Matrix_inverse(const M_Matrix<E> &x) {
   typedef myOptional_t<M_Matrix<E>> Op;
   assert(x.nrows() == x.ncols());
   switch (x.type()) {
@@ -6343,7 +6341,7 @@ M_Matrix<T> elemDiv(M_Matrix<T> &&x, M_Matrix<S> &&y) {
       x, y);
 }
 
-double elemDivSafe(double x, double y,
+inline double elemDivSafe(double x, double y,
                    double eps = std::numeric_limits<double>::epsilon()) {
   if (std::abs(y) > eps)
     return x / y;

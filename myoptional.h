@@ -526,7 +526,7 @@ public:
   }
 };
 
-Op_void operator+(Op_void &&one, Op_void &&other) {
+inline Op_void operator+(Op_void &&one, Op_void &&other) {
   one += std::move(other);
   return std::move(one);
 }

@@ -791,7 +791,7 @@ public:
 
 };
 
-myOptional_t<GroupOperation*> get(C<GroupOperation*>, std::stringstream& ss)
+inline myOptional_t<GroupOperation*> get(C<GroupOperation*>, std::stringstream& ss)
 {
     auto pos=ss.tellg();
     std::string line=ss.str().substr(pos);
@@ -801,7 +801,7 @@ myOptional_t<GroupOperation*> get(C<GroupOperation*>, std::stringstream& ss)
     else return {false,res.error()};
 }
 
-myOptional_t<ArrayOperation*> get(C<ArrayOperation*>, std::stringstream& ss)
+inline myOptional_t<ArrayOperation*> get(C<ArrayOperation*>, std::stringstream& ss)
 {
     std::string line=ss.str();
     auto g=std::unique_ptr<ArrayOperation>(new ArrayOperation);
@@ -1041,20 +1041,20 @@ public:
 
 
 
-std::string UnaryOperation::value() const
+inline std::string UnaryOperation::value() const
 {
     return op()->name();
 
 }
 
-std::ostream &UnaryOperation::put(std::ostream &os) const
+inline std::ostream &UnaryOperation::put(std::ostream &os) const
 {
     op()->put(os);
     arg(0)->put(os);
     return os;
 }
 
-std::ostream & Function::put(std::ostream &os) const
+inline std::ostream & Function::put(std::ostream &os) const
 {
     os<<value()<<arg_start{};
     for (std::size_t i=0; i<nArgin(); ++i )
@@ -1068,7 +1068,7 @@ std::ostream & Function::put(std::ostream &os) const
 }
 
 
-myOptional_t<void> Function::get(std::stringstream &ss)
+inline myOptional_t<void> Function::get(std::stringstream &ss)
 {
     auto pos=ss.tellg();
     Identifier id;
@@ -1091,7 +1091,7 @@ myOptional_t<void> Function::get(std::stringstream &ss)
 }
 
 
-myOptional_t<typename Function::arg_map> Function::getArguments(C<typename Function::arg_map>,std::stringstream& ss){
+inline myOptional_t<typename Function::arg_map> Function::getArguments(C<typename Function::arg_map>,std::stringstream& ss){
     typename Function::arg_map out;
     typedef std::variant<arg_end,Generic_Assignment*> init_type;
     auto pos=ss.tellg();
@@ -1311,7 +1311,7 @@ myOptional_t<Expression*> get(C<Expression*>,std::stringstream& ss)
 
 
 
-myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss)
+inline myOptional_t<Statement*> get(C<Statement*>,std::stringstream& ss)
 {
     auto pos=ss.tellg();
     std::string line=ss.str().substr(pos);
@@ -1446,7 +1446,7 @@ myOptional_t<BinaryOperator*> get(C<BinaryOperator*>,std::stringstream& ss)
 }
 
 
-myOptional_t<LiteralGeneric*> get(C<LiteralGeneric*>,std::stringstream& ss)
+inline myOptional_t<LiteralGeneric*> get(C<LiteralGeneric*>,std::stringstream& ss)
 {
     auto pos=ss.tellg();
     std::string line=ss.str().substr(pos);
@@ -1457,11 +1457,11 @@ myOptional_t<LiteralGeneric*> get(C<LiteralGeneric*>,std::stringstream& ss)
 
 
 
-std::string BinaryOperation::value() const
+inline std::string BinaryOperation::value() const
 {
     return op()->name();
 }
-std::ostream &BinaryOperation::put(std::ostream &os) const
+inline std::ostream &BinaryOperation::put(std::ostream &os) const
 {
     arg(0)->put(os);
     op()->put(os);
@@ -1470,7 +1470,7 @@ std::ostream &BinaryOperation::put(std::ostream &os) const
 
 }
 
-myOptional_t<void> BinaryOperation::get(std::stringstream &ss)
+inline myOptional_t<void> BinaryOperation::get(std::stringstream &ss)
 {
     auto pos=ss.tellg();
     auto ot1=grammar::get(C<Term*>{},ss);
@@ -1499,7 +1499,7 @@ myOptional_t<void> BinaryOperation::get(std::stringstream &ss)
 }
 
 
-myOptional_t<void> UnaryOperation::get(std::stringstream &ss)
+inline myOptional_t<void> UnaryOperation::get(std::stringstream &ss)
 {
     auto pos=ss.tellg();
     auto oop= grammar::get(C<UnaryOperator*>{},ss);

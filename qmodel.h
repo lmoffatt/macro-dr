@@ -1089,7 +1089,7 @@ private:
   }
 };
 
-Markov_Transition_step_single_minimum::Markov_Transition_step_single_minimum(
+inline Markov_Transition_step_single_minimum::Markov_Transition_step_single_minimum(
     const Markov_Transition_step_single &x) {
   n = x.nsamples();
   PPn = x.P();
@@ -1098,7 +1098,7 @@ Markov_Transition_step_single_minimum::Markov_Transition_step_single_minimum(
   PGG_n = x.gsqr_i() * (n * n);
 }
 
-Markov_Transition_step_single_minimum &Markov_Transition_step_single_minimum::
+inline Markov_Transition_step_single_minimum &Markov_Transition_step_single_minimum::
 operator*=(const Markov_Transition_step_single &x) {
   auto n1 = x.nsamples();
   PGn += ((PPn * x.gmean_i()) * n1);
@@ -1625,13 +1625,13 @@ struct class_Invariants<Markov_Transition_step_double> : public invariant {
   }
 };
 
-Markov_Transition_step_double_minimum::Markov_Transition_step_double_minimum(
+inline Markov_Transition_step_double_minimum::Markov_Transition_step_double_minimum(
     const Markov_Transition_step_double &x)
     : n{x.nsamples()}, PPn{x.P()}, PG_n{x.gtotal_ij() * x.nsamples()},
       PGG_n{x.gtotal_sqr_ij() * (x.nsamples() * x.nsamples() * 0.5)},
       min_p(x.min_P()) {}
 
-Markov_Transition_step_double_minimum Markov_Transition_step_double_minimum::
+inline Markov_Transition_step_double_minimum Markov_Transition_step_double_minimum::
 operator*=(const Markov_Transition_step_double &x) {
   auto n1 = x.nsamples();
   PGG_n = (PGG_n * x.P()) + (PG_n * x.gtotal_ij()) * n1 +

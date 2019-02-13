@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <iomanip>
 namespace evidence {
+inline
 std::vector<std::string> concatenate_unique(std::vector<std::string> &&one,
                                             std::vector<std::string> &&two) {
   // both one and two has all unique labels
@@ -20,7 +21,7 @@ std::vector<std::string> concatenate_unique(std::vector<std::string> &&one,
   return std::move(one);
 }
 
-std::vector<std::string>
+inline std::vector<std::string>
 concatenate_add_prefix_if_same(std::vector<std::string> &&one,
                                std::vector<std::string> &&two,
                                const std::string &prefix) {
@@ -176,19 +177,6 @@ public:
              prior().vlogL() + beta * likelihood().vlogL(),
              prior().evlogL() + beta * likelihood().evlogL());
   }
-  static auto get_data_index(const std::string name = "") {
-    return std::tuple_cat(
-        std::make_tuple(Data_Index(Cs<self_type>(), "beta", &self_type::beta)),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &s) -> base_type const & { return s; },
-                     base_type::get_data_index(name + "thermo_")),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &s) { return s.prior(); },
-                     base_type::get_data_index(name + "prior_")),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &s) { return s.likelihood(); },
-                     base_type::get_data_index(name + "lik_")));
-  }
   static auto get_data_index_static() {
     using namespace std::literals::string_literals;
     return Concatenate_tuple_static(
@@ -258,19 +246,6 @@ public:
              prior().evlogL() + beta * likelihood().evlogL());
     set_G(prior().G() + likelihood().G() * beta);
     set_H(prior().H() + likelihood().H() * beta);
-  }
-  static auto get_data_index(const std::string name = "") {
-    return std::tuple_cat(
-        std::make_tuple(Data_Index(Cs<self_type>(), "beta", &self_type::beta)),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &s) -> base_type const & { return s; },
-                     base_type::get_data_index(name + "thermo_")),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &s) { return s.prior(); },
-                     base_type::get_data_index(name + "prior_")),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &s) { return s.likelihood(); },
-                     base_type::get_data_index(name + "lik_")));
   }
   static auto get_data_index_static() {
     using namespace std::literals::string_literals;
@@ -342,19 +317,6 @@ public:
              prior().evlogL() + beta * likelihood().evlogL());
     set_G(prior().G() + likelihood().G() * beta);
     set_H(prior().H() + likelihood().H() * beta);
-  }
-  static auto get_data_index(const std::string name = "") {
-    return std::tuple_cat(
-        std::make_tuple(Data_Index(Cs<self_type>(), "beta", &self_type::beta)),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &s) -> base_type const & { return s; },
-                     base_type::get_data_index(name + "thermo_")),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &s) { return s.prior(); },
-                     base_type::get_data_index(name + "prior_")),
-        Insert_tuple(
-            Cs<self_type>(), [](const self_type &s) { return s.likelihood(); },
-            PartialDLogLikelihood<Aux...>::get_data_index(name + "lik_")));
   }
 
   static auto get_data_index_static() {
@@ -614,39 +576,6 @@ public:
       return out;
     }
 
-    static auto get_data_index() {
-      using namespace std::literals::string_literals;
-      return std::make_tuple(
-          Data_Index(
-              Cs<self_type>(), std::string("mean"),
-              [](const self_type &s, std::size_t i_Par) {
-                return s.get_Normal_Distribution().mean()[i_Par];
-              },
-              std::pair(std::string("i_Parameter"),
-                        [](const self_type &self) {
-                          return self.get_Normal_Distribution().mean().size();
-                        })),
-          Data_Index(
-              Cs<self_type>(), "Covariance"s,
-              [](const self_type &s, std::size_t i_Par, std::size_t i_Par_T) {
-                return s.get_Normal_Distribution().Cov()(i_Par, i_Par_T);
-              },
-              std::pair(std::string("i_Parameter"),
-                        [](const self_type &self) {
-                          return self.get_Normal_Distribution().Cov().nrows();
-                        }),
-              std::pair(std::string("i_Parameter_T"),
-                        [](const self_type &self, std::size_t) {
-                          return self.get_Normal_Distribution().Cov().ncols();
-                        })),
-          Data_Index(Cs<self_type>(), "logDetCov"s,
-                     [](const self_type &s) {
-                       return s.get_Normal_Distribution().logDetCov();
-                     }),
-          Data_Index(Cs<self_type>(), "landa"s, &self_type::landa)
-
-      );
-    }
 
     static auto get_data_index_static()
 
@@ -691,8 +620,6 @@ public:
     static std::tuple<> get_constructor_fields() { return std::tuple<>(); }
 
     static Data_Index_scheme data_index() { return {}; }
-
-    static auto get_data_index() { return std::tuple<>(); }
     struct myParameters {
       double first;
       double second;
@@ -719,13 +646,6 @@ public:
         out.push_back("landa_50", {"i_hill", "i_landa50"});
         out.push_back("hill_coeff", {"i_hill", "i_landa50"});
         return out;
-      }
-
-      static auto get_data_index() {
-        using namespace std::literals::string_literals;
-        return std::make_tuple(
-            Data_Index(Cs<self_type>(), "landa_50"s, &self_type::landa_50),
-            Data_Index(Cs<self_type>(), "hill_coeff"s, &self_type::hill_coeff));
       }
 
       static auto get_data_index_static() {
@@ -774,7 +694,6 @@ public:
         my_static_string("_myExpectVelocity");
     static std::tuple<> get_constructor_fields() { return std::tuple<>(); }
     static Data_Index_scheme data_index() { return {}; }
-    static auto get_data_index() { return std::tuple<>(); }
     double operator()(const LevenbergMarquardt<Model> &LM) const {
       return (1.0 / (1.0 + LM.landa()));
     }
@@ -920,38 +839,6 @@ public:
     out = concatenate(std::move(out), LikelihoodResult::data_index(),
                       Distribution::data_index());
     return out;
-  }
-  static auto get_data_index() {
-    using namespace std::literals::string_literals;
-    return std::tuple_cat(
-        std::make_tuple(
-            Data_Index(Cs<self_type>(), "ParameterValue"s,
-                       [](const self_type &self, std::size_t i_par) {
-                         return self.x()[i_par];
-                       },
-                       std::pair(std::string("i_Parameter"),
-                                 [](const self_type &self) {
-                                   return self.x().size();
-                                 })),
-            Data_Index(Cs<self_type>(), "ParameterValue_T"s,
-                       [](const self_type &self, std::size_t,
-                          std::size_t i_par_T) { return self.x()[i_par_T]; },
-                       std::pair(std::string("i_Parameter"),
-                                 [](const self_type &self) {
-                                   return self.x().size();
-                                 }),
-                       std::pair(std::string("i_Parameter_T"),
-                                 [](const self_type &self, std::size_t) {
-                                   return self.x().size();
-                                 })),
-            Data_Index(Cs<self_type>(), "Accepting"s, &self_type::accept)),
-        Insert_tuple(
-            Cs<self_type>(),
-            [](const self_type &self) { return self.likelihood_result(); },
-            LikelihoodResult::get_data_index()),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &self) { return self.g(); },
-                     Distribution::get_data_index()));
   }
 
   static auto get_data_index_static() {
@@ -1383,26 +1270,6 @@ public:
     out = concatenate(std::move(out), std::move(vmc));
     return out;
   }
-  static auto get_data_index() {
-    using namespace std::literals::string_literals;
-    return std::tuple_cat(
-        std::make_tuple(
-            Data_Index(Cs<self_type>(), "i_walker"s,
-                       [](const self_type &, std::size_t i_w) { return i_w; },
-                       std::pair(std::string("i_walker"),
-                                 [](const self_type &self) {
-                                   return self.walkers().size();
-                                 }))),
-        Insert_tuple(
-            Cs<self_type>(),
-            [](const self_type &self, std::size_t i_w) {
-              return self.walkers()[i_w];
-            },
-            Cs<std::size_t>(), mcmc_s::get_data_index(),
-            std::pair(std::string("i_walker"), [](const self_type &self) {
-              return self.walkers().size();
-            })));
-  }
 
   static auto get_data_index_static() {
     return Compose_static(
@@ -1620,29 +1487,6 @@ public:
       return out;
     }
 
-    static auto get_data_index() {
-      using namespace std::literals::string_literals;
-      return std::tuple_cat(
-          std::make_tuple(
-              Data_Index(Cs<self_type>(), "target"s, &self_type::target),
-              Data_Index(Cs<self_type>(), "i_stretch_alfa"s,
-                         [](const self_type &self, std::size_t i_stretch_alfa) {
-                           return self.alfa().x()[i_stretch_alfa];
-                         },
-                         std::pair(std::string("i_stretch_alfa"),
-                                   [](const self_type &self) {
-                                     return self.alfa().x().size();
-                                   }))),
-
-          Insert_tuple(Cs<self_type>(),
-                       [](const self_type &self) { return self.alfa_map(); },
-                       Beta_map<double>::get_data_index("stretch_alfa"s,
-                                                        "i_stretch_alfa"s)),
-          Insert_tuple(Cs<self_type>(),
-                       [](const self_type &self) { return self.alfa(); },
-                       Probability_map<double>::get_data_index(
-                           "stretch_alfa"s, "i_stretch_alfa"s)));
-    }
 
     static auto get_data_index_static() {
       return Concatenate_tuple_static(
@@ -1953,46 +1797,6 @@ parDist_(prior_par,nsamples){}
     return out;
   }
 
-  static auto get_data_index() {
-    using namespace std::literals::string_literals;
-    return std::tuple_cat(
-        std::make_tuple(
-            Data_Index(Cs<self_type>(), "gainMoment"s,
-                       [](const self_type &s) { return s.getGain()(); }),
-            Data_Index(Cs<self_type>(), "logEvidence"s,
-                       &self_type::getLogEvidence),
-            Data_Index(Cs<self_type>(), Parameterized_Distribution::index(),
-                       [](const self_type &self, std::size_t i_par) {
-                         return self.get_ProbabilityMap().x()[i_par]();
-                       },
-                       std::pair(Parameterized_Distribution::index(),
-                                 [](const self_type &self) {
-                                   return self.get_ProbabilityMap().x().size();
-                                 }))
-
-                ),
-        Insert_tuple(
-            Cs<self_type>(),
-            [](const self_type &self) { return self.get_ProbabilityMap(); },
-            Probability_map<Parameterized_Distribution>::get_data_index(
-                Parameterized_Distribution::index(),
-                Parameterized_Distribution::index())),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &self, std::size_t i_par) {
-                       return self.get_Parameters_Map().x()[i_par];
-                     },
-                     Cs<std::size_t>(),
-                     Likelihood::Parameters::get_data_index(),
-                     std::pair("i_Lik_param"s,
-                               [](const self_type &self) {
-                                 return self.get_Parameters_Map().x().size();
-                               })),
-        Insert_tuple(
-            Cs<self_type>(),
-            [](const self_type &self) { return self.get_Parameters_Map(); },
-            logLikelihood_map<typename Likelihood::Parameters>::get_data_index(
-                "Lik_param_"s, "i_Lik_param"s)));
-  }
 
   static auto get_data_index_static() {
     return Concatenate_tuple_static(
@@ -2044,14 +1848,6 @@ struct myData_Index<std::vector<Adaptive_mover>> {
     Data_Index_scheme out = Adaptive_mover::data_index();
     out.insert_index("i_beta");
     return out;
-  }
-  static auto get_data_index() {
-    using namespace std::literals::string_literals;
-    return Insert_tuple(
-        Cs<self_type>(),
-        [](const self_type &self, std::size_t i_beta) { return self[i_beta]; },
-        Cs<std::size_t>(), Adaptive_mover::get_data_index(),
-        std::make_pair("i_beta"s, &self_type::size));
   }
 
   static auto get_data_index_static() {
@@ -2201,30 +1997,6 @@ public:
 
   auto &Expected_Velocity() const { return f_; }
 
-  static auto get_data_index() {
-    using namespace std::literals::string_literals;
-    return std::tuple_cat(
-        std::make_tuple(
-            Data_Index(Cs<self_type>(), DistGen::index(),
-                       [](const self_type &self, std::size_t i_par) {
-                         return self.get_ProbabilityMap().x()[i_par]();
-                       },
-                       std::pair(DistGen::index(),
-                                 [](const self_type &self) {
-                                   return self.get_ProbabilityMap().x().size();
-                                 }))
-
-                ),
-        Insert_tuple(
-            Cs<self_type>(),
-            [](const self_type &self) { return self.get_ProbabilityMap(); },
-            Probability_map<DistGen>::get_data_index(DistGen::index(),
-                                                     DistGen::index())),
-        Insert_tuple(Cs<self_type>(),
-                     [](const self_type &self) { return self.get_landa_Map(); },
-                     Beta_map<DistGen>::get_data_index(DistGen::index(),
-                                                       DistGen::index())));
-  }
 
   static auto get_data_index_static() {
     return Concatenate_tuple_static(
@@ -2407,35 +2179,6 @@ public:
           mcmc_sample_t<Model, Adapative_Distribution_Generator>::data_index());
       return out;
     }
-    static auto get_data_index() {
-      using namespace std::literals::string_literals;
-      auto mt =
-          mcmc_sample_t<Model,
-                        Adapative_Distribution_Generator>::get_data_index();
-
-      auto t = Insert_tuple(
-          Cs<self_type>(),
-          [](const self_type &self, std::size_t i_b) {
-            return self.Scout(i_b);
-          },
-          Cs<std::size_t>(),
-          mcmc_sample_t<Model,
-                        Adapative_Distribution_Generator>::get_data_index(),
-          std::make_pair(std::string("i_beta"),
-                         [](const self_type &self) { return self.size(); }));
-
-      return std::tuple_cat(
-          std::make_tuple(
-              Data_Index(Cs<self_type>(), "scout_number"s,
-                         [](const self_type &self, std::size_t i_b) {
-                           return self.Scout_i(i_b);
-                         },
-                         std::make_pair(std::string("i_beta"),
-                                        [](const self_type &self) {
-                                          return self.get_i_to_scout().size();
-                                        }))),
-          t);
-    }
 
     static auto get_data_index_static() {
 
@@ -2459,39 +2202,6 @@ public:
                   get_data_index_static()));
     }
 
-    static auto get_data_index_model() {
-      typedef std::pair<self_type const *, ModelSeries const *> self_type_model;
-      using namespace std::literals::string_literals;
-      return std::tuple_cat(
-          std::make_tuple(
-              Data_Index(Cs<self_type_model>(), "i_beta"s,
-                         [](const self_type_model &self, std::size_t i_beta) {
-                           return self.second->beta(i_beta);
-                         },
-                         std::make_pair(std::string("i_beta"),
-                                        [](const self_type_model &self) {
-                                          return self.second->betas().size();
-                                        })),
-              Data_Index(Cs<self_type_model>(), "i_Parameter"s,
-                         [](const self_type_model &self, std::size_t i_par) {
-                           return self.second->name(i_par);
-                         },
-                         std::make_pair(std::string("i_Parameter"),
-                                        [](const self_type_model &self) {
-                                          return self.second->name_size();
-                                        })),
-              Data_Index(Cs<self_type_model>(), "i_Parameter_T"s,
-                         [](const self_type_model &self, std::size_t i_par_T) {
-                           return self.second->name(i_par_T);
-                         },
-                         std::make_pair(std::string("i_Parameter_T"),
-                                        [](const self_type_model &self) {
-                                          return self.second->name_size();
-                                        }))),
-          Insert_tuple(Cs<self_type_model>(),
-                       [](const self_type_model &self) { return *self.first; },
-                       self_type::get_data_index()));
-    }
 
     auto getIndexedData(const std::set<std::string> &,
                         const std::set<std::string> &) const {
@@ -2679,31 +2389,6 @@ public:
     return out;
   }
 
-  static auto get_data_index() {
-    using namespace std::literals::string_literals;
-    return std::tuple_cat(
-        std::make_tuple(Data_Index(
-            Cs<self_type>(), "scout_number"s,
-            [](const self_type &self, std::size_t i_b, std::size_t i_w) {
-              return self.Scout_i(i_b, i_w);
-            },
-            std::pair(std::string("i_beta"),
-                      [](const self_type &self) { return self.size(); }),
-            std::pair(std::string("i_walker"),
-                      [](const self_type &self, std::size_t i_beta) {
-                        return self.Scout(i_beta).numWalkers();
-                      }))),
-        Insert_tuple(
-            Cs<self_type>(),
-            [](const self_type &self, std::size_t i_b) {
-              return self.Scout(i_b);
-            },
-            Cs<std::size_t>(),
-            emcee_sample<subModel, Adaptive_Mover>::get_data_index(),
-            std::pair(std::string("i_beta"),
-                      [](const self_type &self) { return self.size(); })));
-  }
-
   static auto get_data_index_static() {
     return Concatenate_tuple_static(
         std::make_tuple(make_data_static(
@@ -2729,31 +2414,6 @@ public:
             emcee_sample<subModel, Adaptive_Mover>::get_data_index_static()));
   }
 
-  static auto get_data_index_model() {
-    typedef std::pair<self_type const *, Model const *> self_type_model;
-    using namespace std::literals::string_literals;
-    return std::tuple_cat(
-        std::make_tuple(
-            Data_Index(Cs<self_type_model>(), "i_Parameter"s,
-                       [](const self_type_model &self, std::size_t i_par) {
-                         return self.second->name(i_par);
-                       },
-                       std::make_pair(std::string("i_Parameter"),
-                                      [](const self_type_model &self) {
-                                        return self.second->name_size();
-                                      })),
-            Data_Index(Cs<self_type_model>(), "i_Parameter_T"s,
-                       [](const self_type_model &self, std::size_t i_par_T) {
-                         return self.second->name(i_par_T);
-                       },
-                       std::make_pair(std::string("i_Parameter_T"),
-                                      [](const self_type_model &self) {
-                                        return self.second->name_size();
-                                      }))),
-        Insert_tuple(Cs<self_type_model>(),
-                     [](const self_type_model &self) { return *self.first; },
-                     self_type::get_data_index()));
-  }
 
   std::size_t Scout_i(std::size_t iscout, std::size_t iwalker) const {
     return ij_history()[iscout][iwalker].first * Scout(0).numWalkers() +
@@ -3184,50 +2844,6 @@ private:
   std::string sep;
 };
 
-template <class self_type, class ModelSeries> auto compose_state_model() {
-  typedef std::tuple<std::size_t, self_type const *, ModelSeries const *>
-      self_type_model;
-  using namespace std::literals::string_literals;
-  return std::tuple_cat(
-      std::make_tuple(
-          Data_Index(Cs<self_type_model>(), "i_sample"s,
-                     [](const self_type_model &self, std::size_t) {
-                       return std::get<0>(self);
-                     },
-                     std::make_pair(std::string("i_sample"),
-                                    [](const self_type_model &) { return 1; })),
-          Data_Index(Cs<self_type_model>(), "i_beta"s,
-                     [](const self_type_model &self, std::size_t i_beta) {
-                       return std::get<2>(self)->beta(i_beta);
-                     },
-                     std::make_pair(std::string("i_beta"),
-                                    [](const self_type_model &self) {
-                                      return std::get<2>(self)->betas().size();
-                                    })),
-          Data_Index(Cs<self_type_model>(), "i_Parameter"s,
-                     [](const self_type_model &self, std::size_t i_par) {
-                       return std::get<2>(self)->name(i_par);
-                     },
-                     std::make_pair(std::string("i_Parameter"),
-                                    [](const self_type_model &self) {
-                                      return std::get<2>(self)->name_size();
-                                    })),
-          Data_Index(Cs<self_type_model>(), "i_Parameter_T"s,
-                     [](const self_type_model &self, std::size_t i_par_T) {
-                       return std::get<2>(self)->name(i_par_T);
-                     },
-                     std::make_pair(std::string("i_Parameter_T"),
-                                    [](const self_type_model &self) {
-                                      return std::get<2>(self)->name_size();
-                                    }))),
-      Insert_tuple(Cs<self_type_model>(),
-                   [](const self_type_model &self, std::size_t) {
-                     return *std::get<1>(self);
-                   },
-                   Cs<std::size_t>(), self_type::get_data_index(),
-                   std::make_pair("i_sample"s,
-                                  [](const self_type_model &) { return 1; })));
-}
 
 template <class self_type, class ModelSeries>
 auto compose_state_model_static() {
@@ -3277,58 +2893,6 @@ auto compose_state_model_static() {
             return *std::get<1>(self);
           },
           self_type::get_data_index_static()));
-}
-
-template <class self_type, class ModelSeries>
-auto compose_ana_state_model(Cs<self_type>, Cs<ModelSeries>) {
-  typedef std::tuple<std::size_t, std::vector<self_type> const *,
-                     ModelSeries const *>
-      self_type_model;
-  using namespace std::literals::string_literals;
-  return std::tuple_cat(
-      std::make_tuple(
-          Data_Index(Cs<self_type_model>(), "i_sample"s,
-                     [](const self_type_model &self, std::size_t) {
-                       return std::get<0>(self);
-                     },
-                     std::make_pair(std::string("i_sample"),
-                                    [](const self_type_model &) { return 1; })),
-          Data_Index(Cs<self_type_model>(), "i_beta"s,
-                     [](const self_type_model &self, std::size_t i_beta) {
-                       return std::get<2>(self)->beta(i_beta);
-                     },
-                     std::make_pair(std::string("i_beta"),
-                                    [](const self_type_model &self) {
-                                      return std::get<2>(self)->betas().size();
-                                    })),
-          Data_Index(Cs<self_type_model>(), "i_Parameter"s,
-                     [](const self_type_model &self, std::size_t i_par) {
-                       return std::get<2>(self)->name(i_par);
-                     },
-                     std::make_pair(std::string("i_Parameter"),
-                                    [](const self_type_model &self) {
-                                      return std::get<2>(self)->name_size();
-                                    })),
-          Data_Index(Cs<self_type_model>(), "i_Parameter_T"s,
-                     [](const self_type_model &self, std::size_t i_par_T) {
-                       return std::get<2>(self)->name(i_par_T);
-                     },
-                     std::make_pair(std::string("i_Parameter_T"),
-                                    [](const self_type_model &self) {
-                                      return std::get<2>(self)->name_size();
-                                    }))),
-      Insert_tuple(
-          Cs<self_type_model>(),
-          [](const self_type_model &self, std::size_t, std::size_t i_beta) {
-            return std::get<1>(self)->operator[](i_beta);
-          },
-          Cs<std::size_t, std::size_t>(), self_type::get_data_index(),
-          std::make_pair("i_sample"s,
-                         [](const self_type_model &) { return 1; }),
-          std::make_pair("i_beta"s,
-                         [](const self_type_model &self, std::size_t) {
-                           return std::get<1>(self)->size();
-                         })));
 }
 
 template <class self_type, class ModelSeries>
@@ -3401,63 +2965,6 @@ auto compose_ana_state_model_static(Cs<std::vector<self_type>>,
           std::tuple<>())));
 }
 
-template <class self_type, class ModelSeries>
-auto compose_ana_state_model(Cs<std::vector<self_type>>, Cs<ModelSeries>) {
-  typedef std::tuple<std::size_t, std::vector<std::vector<self_type>> const *,
-                     ModelSeries const *>
-      self_type_model;
-  using namespace std::literals::string_literals;
-  return std::tuple_cat(
-      std::make_tuple(
-          Data_Index(Cs<self_type_model>(), "i_sample"s,
-                     [](const self_type_model &self, std::size_t) {
-                       return std::get<0>(self);
-                     },
-                     std::make_pair(std::string("i_sample"),
-                                    [](const self_type_model &) { return 1; })),
-          Data_Index(Cs<self_type_model>(), "i_beta"s,
-                     [](const self_type_model &self, std::size_t i_beta) {
-                       return std::get<2>(self)->beta(i_beta);
-                     },
-                     std::make_pair(std::string("i_beta"),
-                                    [](const self_type_model &self) {
-                                      return std::get<2>(self)->betas().size();
-                                    })),
-          Data_Index(Cs<self_type_model>(), "i_Parameter"s,
-                     [](const self_type_model &self, std::size_t i_par) {
-                       return std::get<2>(self)->name(i_par);
-                     },
-                     std::make_pair(std::string("i_Parameter"),
-                                    [](const self_type_model &self) {
-                                      return std::get<2>(self)->name_size();
-                                    })),
-          Data_Index(Cs<self_type_model>(), "i_Parameter_T"s,
-                     [](const self_type_model &self, std::size_t i_par_T) {
-                       return std::get<2>(self)->name(i_par_T);
-                     },
-                     std::make_pair(std::string("i_Parameter_T"),
-                                    [](const self_type_model &self) {
-                                      return std::get<2>(self)->name_size();
-                                    }))),
-      Insert_tuple(
-          Cs<self_type_model>(),
-          [](const self_type_model &self, std::size_t, std::size_t i_beta,
-             std::size_t i_walker) {
-            return std::get<1>(self)->operator[](i_beta)[i_walker];
-          },
-          Cs<std::size_t, std::size_t, std::size_t>(),
-          self_type::get_data_index(),
-          std::make_pair("i_sample"s,
-                         [](const self_type_model &) { return 1; }),
-          std::make_pair("i_beta"s,
-                         [](const self_type_model &self, std::size_t) {
-                           return std::get<1>(self)->size();
-                         }),
-          std::make_pair("i_walker"s, [](const self_type_model &self,
-                                         std::size_t, std::size_t i_beta) {
-            return std::get<1>(self)->operator[](i_beta).size();
-          })));
-}
 
 template <class self_type, class ModelSeries>
 auto compose_ana_state_model_static(Cs<std::vector<std::vector<self_type>>>,
@@ -3539,34 +3046,6 @@ auto compose_ana_state_model_static(Cs<std::vector<std::vector<self_type>>>,
           std::tuple<>())));
 }
 
-template <class self_type, class ModelSeries> auto compose_adg_model() {
-  typedef std::tuple<std::size_t, self_type const *, ModelSeries const *>
-      self_type_model;
-  using namespace std::literals::string_literals;
-  return std::tuple_cat(
-      std::make_tuple(
-          Data_Index(Cs<self_type_model>(), "i_sample"s,
-                     [](const self_type_model &self, std::size_t) {
-                       return std::get<0>(self);
-                     },
-                     std::make_pair(std::string("i_sample"),
-                                    [](const self_type_model &) { return 1; })),
-          Data_Index(Cs<self_type_model>(), "i_beta"s,
-                     [](const self_type_model &self, std::size_t i_beta) {
-                       return std::get<2>(self)->beta(i_beta);
-                     },
-                     std::make_pair(std::string("i_beta"),
-                                    [](const self_type_model &self) {
-                                      return std::get<2>(self)->betas().size();
-                                    }))),
-      Insert_tuple(Cs<self_type_model>(),
-                   [](const self_type_model &self, std::size_t) {
-                     return *std::get<1>(self);
-                   },
-                   Cs<std::size_t>(), myData_Index<self_type>::get_data_index(),
-                   std::make_pair("i_sample"s,
-                                  [](const self_type_model &) { return 1; })));
-}
 
 template <class self_type, class ModelSeries> auto compose_adg_model_static() {
   typedef std::tuple<std::size_t, self_type const *, ModelSeries const *>
