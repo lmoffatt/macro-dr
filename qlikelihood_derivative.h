@@ -126,7 +126,8 @@ public:
     template <class Experiment>
     auto compute_PartialDLikelihood(const M_Matrix<double> &parameters,std::ostream& os,const Experiment &e
                              ) const {
-      typedef myOptional_t<evidence::PartialDLogLikelihood<markov::MACROR>> Op;
+        typedef myOptional_t<evidence::PartialDLogLikelihood<markov::MACROR,
+                                                                        Derivative_t<markov::mp_state_information>>> Op;
       auto p_opt=p_.tr_to_Parameter_derivative(parameters);
       if (!p_opt)
         return Op(false, "compute_Distribution_aux error in Parameter conversion: "+p_opt.error());
@@ -156,27 +157,28 @@ public:
 
       if (algorithm_ == my_trait<markov::MacroDVR>::className.str())
       {
-        return markov::partialDlikelihood_derivative<markov::MACROR,evidence::PartialDLogLikelihood<markov::MACROR>>(
+        return markov::partialDlikelihood_derivative_mp
+              <markov::MACROR,evidence::PartialDLogLikelihood<markov::MACROR, Derivative<markov::mp_state_information>>>(
             Derivative<markov::MacroDVR>(tolerance_,BiNumber_,VaNumber_), MC, e,os);
       }
       else  if (algorithm_ == my_trait<markov::MacroDMR>::className.str()) {
-        return markov::partialDlikelihood_derivative<
-            markov::MACROR, evidence::PartialDLogLikelihood<markov::MACROR>>(
+          return markov::partialDlikelihood_derivative_mp
+              <markov::MACROR,evidence::PartialDLogLikelihood<markov::MACROR, Derivative<markov::mp_state_information>>>(
             Derivative<markov::MacroDMR>(tolerance_,BiNumber_,VaNumber_), MC, e,os);
       } else if (algorithm_ == my_trait<markov::MacroDMNR>::className.str()) {
-        return markov::partialDlikelihood_derivative<
-            markov::MACROR, evidence::PartialDLogLikelihood<markov::MACROR>>(
+          return markov::partialDlikelihood_derivative_mp
+              <markov::MACROR,evidence::PartialDLogLikelihood<markov::MACROR, Derivative<markov::mp_state_information>>>(
             Derivative<markov::MacroDMNR>(tolerance_,BiNumber_,VaNumber_), MC, e,os);
       }
 
       else if (algorithm_ == my_trait<markov::MacroDVNR>::className.str()) {
-        return markov::partialDlikelihood_derivative<
-             markov::MACROR, evidence::PartialDLogLikelihood<markov::MACROR>>(
+          return markov::partialDlikelihood_derivative_mp
+              <markov::MACROR,evidence::PartialDLogLikelihood<markov::MACROR, Derivative<markov::mp_state_information>>>(
             Derivative<markov::MacroDVNR>(tolerance_,BiNumber_,VaNumber_), MC, e,os);
       } else
         return Op(false, "algoritm " + algorithm_ + " not found");
       }
-    };
+    }
 
     Derivative(const Derivative<Model>& m, const Derivative<Parameters_distribution>& p, const std::string& algorithm, double min_P, double tolerance, double BiNumber,double VaNumber): m{m},p_{p}, algorithm_{algorithm}, min_P_{min_P}, tolerance_{tolerance}, BiNumber_(BiNumber),VaNumber_{VaNumber}{}
     Derivative()=default;

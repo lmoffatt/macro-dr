@@ -81,7 +81,7 @@ public:
     for (std::size_t i = 0; i < p.f().size(); ++i)
       p.f()[i] = p.f()[i] / sum;
     p.dfdx().transform([](auto &m) { m = normalize_derivative(std::move(m)); });
-    return p;
+    return std::move( p);
   }
 };
 

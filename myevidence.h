@@ -3157,6 +3157,9 @@ struct OutputGenerator {
     if (is_sampling(isample)) {
       std::tuple<std::size_t, AnaSample const *, ModelSeries const *> s(
           isample, &ana, &M);
+
+      std::cerr<<"antes de std::apply(\n"
+                   "[&s, &idname, this](auto &... t) {\n";
       std::apply(
           [&s, &idname, this](auto &... t) {
             (t.print_data(s, idname + "_ana_", ".txt", sep) && ...);
@@ -3615,6 +3618,7 @@ Op_void continue_Montecarlo_Markov_Chain(
 
     if (output.is_sampling(isample)) {
       auto ana_sample = mcmc.compute_PartialDLikelihood(M, state, std::cerr);
+
       output.print_element(statedata, gendata, anadata, idname, isample, M,
                            state, G, ana_sample);
 

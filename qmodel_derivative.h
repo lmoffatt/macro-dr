@@ -830,19 +830,19 @@ private:
         E2m(i, j) = Ee(ladt[i], ladt[j], exp_ladt[i], exp_ladt[j], min_P());
         assert(are_Equal_v(E2m(i, j),
                            Incremental_ratio(1e-4,
-                                             [&minP](auto ladt1, auto ladt2) {
+                                             [this](auto ladt1, auto ladt2) {
                                                return Ee(ladt1, ladt2,
                                                          std::exp(ladt1),
-                                                         std::exp(ladt2), minP);
+                                                           std::exp(ladt2), min_P());
                                              },
                                              ladt[i], ladt[j]),
                            std::cerr));
 
         assert(Derivative_correctness_mean_value_test(1e-2,1e4,
-                                             [&minP](auto ladt1, auto ladt2) {
+                                             [this](auto ladt1, auto ladt2) {
                                                return Ee(ladt1, ladt2,
                   std::exp(ladt1.f()),
-                  std::exp(ladt2.f()), minP);
+                                                                    std::exp(ladt2.f()), min_P());
                                              },
                                                       std::forward_as_tuple(ladt[i], ladt[j]), E2m(i, j),
                                                       std::cerr, "i= ", i, " j=", j, "ladt1= ", ladt[i], "ladt2= ", ladt[j]));
@@ -885,15 +885,15 @@ private:
             succed = false; */
           assert(Derivative_correctness_mean_value_test(
               1e-2,1e6,
-                               [&minP](auto ladt1, auto ladt2, auto ladt3) {
+                               [this](auto ladt1, auto ladt2, auto ladt3) {
           return E3(ladt1, ladt2, ladt3, std::exp(ladt1.f()), std::exp(ladt2.f()),
-                    std::exp(ladt3.f()), minP);
+                            std::exp(ladt3.f()), min_P());
                                },
                                std::forward_as_tuple(ladt[n1], ladt[n2], ladt[n3]),E3v, std::cerr,
               "n1= ", n1, " n2=", n2, " n3=", n3, "\nladt1= ", ladt[n1], "ladt2= ", ladt[n2], "ladt3= ", ladt[n3]));
         //    succed = false;
         }
-    assert(succed);
+    //assert(succed);
     gtotal_sqr_ij_ =
         Qx.V() * Derivative<M_Matrix<double>>(WgV_E3) * Qx.W() * 2.0;
     for (std::size_t i = 0; i < N; ++i)

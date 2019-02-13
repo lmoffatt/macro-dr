@@ -424,9 +424,9 @@ private:
     template<class Object, class... Index_Type,typename... Int>
     std::ostream& put_index_sample_impl(std::ostream& os, const Object& x,const std::string& sep,std::tuple<Index_Type...> out, std::index_sequence<>,Int...is)const
     {
-        std::apply([this,&x,&os,&sep](auto&...f){
+        std::apply([&os,&sep](auto&...f){
             ((os<<f<<sep),...);},out);
-         std::apply([this,&x,&os,&sep,is...](auto&...f){
+         std::apply([&x,&os,&sep,is...](auto&...f){
             ((os<<f(x,is...)<<sep),...);},ftu_);
          return os<<"\n";
     }
@@ -788,6 +788,11 @@ template<class...Datas,class... Datas2>
 auto Concatenate_tuple_static(std::tuple<Datas...>&& one,std::tuple<Datas2...>&& two)
 {
     return std::apply([&one](auto&&...d){return Concatenate_tuple_static(std::move(one),std::move(d)...);},std::move(two));
+}
+template<class...Datas>
+auto Concatenate_tuple_static(std::tuple<Datas...>&& one)
+{
+    return std::move(one);
 }
 
 
@@ -1332,7 +1337,9 @@ struct myData_Index<T>
 
     static auto get_data_index(){return T::get_data_index();}
     static auto get_data_index(const std::string& name){return T::get_data_index(name);}
-    static auto get_data_index_static(){return T::get_data_index_static();}
+
+    template<class ...Indexes>
+        static auto get_data_index_static(Indexes... i){return T::get_data_index_static(i...);}
 
 };
 
@@ -1356,13 +1363,26 @@ struct myData_Index<std::tuple<T...>>
         template<std::size_t... Is>
         static auto get_data_index_static_impl(std::index_sequence<Is...>)
         {
-            return std::tuple_cat(
+            return Concatenate_tuple_static(
                 Compose_static([](const self_type& self) {return std::get<Is>(self);},
                              myData_Index<std::tuple_element_t<Is,self_type> >::get_data_index_static())...);
         }
 
-        static auto get_data_index_static(){
-            return get_data_index_static_impl(std::index_sequence_for<T...>());
+        template<std::size_t... Is,class index>
+        static auto get_data_index_static_impl(std::index_sequence<Is...>, index ind)
+        {
+            auto out= Concatenate_tuple_static(
+                Compose_static([](const self_type& self)->auto const & {return std::get<Is>(self);},
+                               myData_Index<std::tuple_element_t<Is,self_type> >::get_data_index_static(ind))...);
+
+            //typedef typename decltype(out)::check test;
+            return out;
+        }
+
+
+        template<class... indexes>
+            static auto get_data_index_static(indexes...i){
+            return get_data_index_static_impl(std::index_sequence_for<T...>(),i...);
 
         }
 };
@@ -3338,7 +3358,7 @@ private:
             }
             for (std::size_t i=0; i<p.size(); ++i)
                 p[i]=p[i]/sum;
-            return p;
+            return std::move(p);
         }
     };
 

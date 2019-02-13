@@ -1190,7 +1190,7 @@ private:
                                Dlik::get_data_index_static()   ),
                 Compose_static(std::make_tuple(I_s(i_measure{},[](const self_type& self){return self.partial_DlogL().size();},0)),
                                F_s(s_partial{},[](const self_type& self, std::size_t i_meas) ->auto const & {return self.getAuxiliar()[i_meas];}),
-                               myData_Index<std::tuple<Auxs...>>::get_data_index_static()   ));
+                               myData_Index<std::tuple<Auxs...>>::get_data_index_static(i_Parameter{})   ));
        }
 
 
@@ -1263,9 +1263,11 @@ private:
 
             DVlogLikelihood::operator+=(other);
             partial_[i] = other;
-            aux_[i] = std::tuple(a...);
+            aux_[i] = std::make_tuple(a...);
+
             return *this;
         }
+
         PartialDLogLikelihood &add_one_i(std::size_t i, const DlogLikelihood &other) {
             DlogLikelihood::operator+=(other);
             partial_[i] = other;

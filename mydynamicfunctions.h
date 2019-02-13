@@ -118,7 +118,7 @@ public:
   ConstValue(double x) : x_{x} {}
    ~ConstValue() override {}
 
-  virtual void putme(std::ostream &os) const { os << getValue(); }
+  virtual void putme(std::ostream &os) const override { os << getValue(); }
 
 private:
   double x_;
@@ -174,9 +174,9 @@ public:
   constexpr static auto const className =
       my_trait<UnOp>::className + my_static_string("_BinaryOp");
   typedef typename Parameters_values<Model>::par_label par_label;
-  virtual std::string myClass() const { return className.str(); }
-  virtual UnaryOperator *clone() const { return new UnaryOperator(*this); };
-  virtual T operator()(const Parameters_values<Model> &x) const {
+  virtual std::string myClass() const override { return className.str(); }
+  virtual UnaryOperator *clone() const override{ return new UnaryOperator(*this); };
+  virtual T operator()(const Parameters_values<Model> &x) const override {
     return UnOp()(first()(x));
   }
   virtual Derivative<T> operator ()(const Derivative<Parameters_values<Model> > &x) const override
@@ -189,7 +189,7 @@ public:
       : one_{std::move(one)} {}
    ~UnaryOperator() override {}
   auto &first() const { return *one_; }
-  virtual void putme(std::ostream &os) const { os << UnOp::symbol << first(); }
+  virtual void putme(std::ostream &os) const override { os << UnOp::symbol << first(); }
 
   UnaryOperator(const UnaryOperator& other):one_(other.one_->clone()){}
   UnaryOperator(const UnaryOperator&& other):one_(std::move(other.one_)){}
@@ -672,7 +672,7 @@ template <typename T, class Model> struct get_compile_binary_operator {
                                   const Derivative<double> &y) const {
       auto f = x.f() / y.f();
       auto dfdx = x.dfdx().apply([&y](auto &dx) { return dx / y.f(); }) +
-                  y.dfdx().apply([&f,&x,&y](auto &dy) { return f / y.f() * dy; });
+                  y.dfdx().apply([&f,&y](auto &dy) { return f / y.f() * dy; });
       return Derivative<double>(f, x.x(), std::move(dfdx));
     }
   };

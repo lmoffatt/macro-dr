@@ -178,8 +178,9 @@ public:
   }
 
 
+  template<class...Indexes>
   static auto
-  get_data_index_static()
+  get_data_index_static(Indexes... )
   {
       return std::make_tuple(
           make_data_static(
@@ -286,7 +287,9 @@ template<> struct myData_Index<markov::MACROR> {
                                           name+my_trait<self_type>::className.str(),
                                           [](self_type s){return markov::MACROR_string[s];} ));
     }
-    static auto get_data_index_static()
+
+    template<class... Indexes>
+        static auto get_data_index_static(Indexes... )
     {
         return std::make_tuple(make_data_static(std::tuple<>(),
                                                 std::make_tuple(

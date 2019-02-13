@@ -6162,7 +6162,7 @@ template <typename T> M_Matrix<T> operator-(M_Matrix<T> &&x, M_Matrix<T> &&y) {
   if (x.type() == Matrix_TYPE::ZERO) {
     return -y;
   } else if (y.type() == Matrix_TYPE::ZERO)
-    return x;
+      return std::move(x);
   else
 
     return additive::substraction_Operator(std::move(x), std::move(y));
