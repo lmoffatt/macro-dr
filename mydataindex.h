@@ -1,0 +1,6 @@
+#ifndef MYDATAINDEX_H
+#define MYDATAINDEX_H
+
+
+
+#endif // MYDATAINDEX_H

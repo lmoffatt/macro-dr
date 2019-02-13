@@ -13,187 +13,7 @@
 
 
 
-template<class Object, class Fun,class... Sizes >
-class Data_Index
-{
-public:
-
-    Data_Index(Cs<Object>,const std::string& fieldname,const Fun& data ,const std::pair<std::string,Sizes>&... indexes)
-        :fieldname_{fieldname},indexes_{indexes...},datafun_{data}{}
-
-    auto getFieldName()const { return fieldname_;}
-    auto& dataFun()const { return datafun_;}
-    auto& indexes()const {return indexes_;}
-
-    template<class... Ints>
-    auto get_Index_Size(const Object& x, Ints... is)const {
-        static_assert((true&&...&&std::is_arithmetic_v<Ints>),"sizes!!");
-        return std::invoke(std::get<sizeof...(Sizes)>(indexes()).second,x,is...);
-    }
-
-    std::vector<std::string> indexed_by()const {
-        return std::apply([](auto&... t){ return  std::vector<std::string> {t.first...};},indexes_);
-    }
-
-    static constexpr std::size_t IndexNumber=sizeof...(Sizes);
-
-
-
-    template<std::size_t... Is>
-    bool sameIndexes(const std::vector<std::string>& ind, std::index_sequence<Is...>)const
-    {
-        if (ind.size()!=IndexNumber) return false;
-        else
-            return (bool((ind[Is])==(std::get<Is>(indexes()).first))&&...&&true);
-    }
-
-    bool isAnIndex(const std::vector<std::string>& ind)const
-    {
-        return std::find(ind.begin(),ind.end(),getFieldName())!=ind.end();
-    }
-
-    std::ostream& put(std::ostream& os, const Object& x,const  std::array<std::size_t, IndexNumber>& ind)const
-    {
-
-        return std::apply([&os,&x,this](auto&... i)->std::ostream&
-                          {
-            return os<<std::invoke(dataFun(),x,i...);
-        }, ind);
-
-    }
-
-    std::vector<std::size_t> start(const Object& )const{
-        return std::vector<std::size_t>(IndexNumber,0ul);
-    }
-
-        std::vector<std::size_t> end(const Object& x)const{
-        std::vector<std::size_t> out(IndexNumber,0ul);
-        out[0]=std::invoke(std::get<0>(indexes()).second,x);
-        return out;
-    }
-
-
-    template<std::size_t I>
-    std::size_t size(const Object& x,const std::vector<std::size_t>& is)const
-    {
-        if constexpr (I>0)
-        return std::apply([this,&x](auto&&... i){return std::invoke(std::get<I>(indexes()).second,x,i...);}, to_subarray<I>(is));
-        else return std::invoke(std::get<I>(indexes()).second,x);
-
-    }
-
-    template<std::size_t I>
-    std::vector<std::size_t>& next(const Object& x,std::vector<std::size_t>& i)const
-    {
-        auto n=size<I>(x,i);
-        i[I]++;
-        if(i[I]<n)
-            return i;
-        else
-        {
-            if constexpr (I>0)
-            {
-                i[I]=0;
-                return next<I-1>(x,i);
-            }
-            else
-                return i;
-        }
-
-    }
-    std::vector<std::size_t>& next(const Object& x,std::vector<std::size_t>& i)const
-    {
-        return next<IndexNumber-1>(x,i);
-    }
-
-    std::ostream& put(std::ostream& os,const Object& x, const std::vector<std::string>& index_names , const std::vector<std::size_t>& is, const std::string& sep)const
-    {
-        if (isAnIndex(index_names))
-            return put(os,x,to_array(index_names,is,std::make_index_sequence<IndexNumber>()))<<sep;
-        else if(sameIndexes(index_names, std::make_index_sequence<IndexNumber>()))
-            return put(os,x,to_array(is))<<sep;
-        else
-            return os;
-    }
-
-    std::ostream& put_title(std::ostream& os, const std::vector<std::string>& index_names , const std::string& sep)const
-    {
-        if (isAnIndex(index_names))
-            return os<<getFieldName()<<sep;
-        else if(sameIndexes(index_names, std::make_index_sequence<IndexNumber>()))
-            return os<<getFieldName()<<sep;
-        else
-            return os;
-    }
-
-
-    bool next_if_same(const Object& x, const std::vector<std::string>& indexes , std::vector<std::size_t>& is)const
-    {
-        if (sameIndexes(indexes, std::make_index_sequence<IndexNumber>()))
-        {
-            next(x,is);
-            return true;
-        }
-        else
-            return false;
-    }
-    bool start_if_same(const Object& x, const std::vector<std::string>& indexes , std::vector<std::size_t>& is)const
-    {
-        if (sameIndexes(indexes, std::make_index_sequence<IndexNumber>()))
-        {
-            is=start(x);
-            return true;
-        }
-        else
-            return false;
-    }
-    bool end_if_same(const Object& x, const std::vector<std::string>& indexes , std::vector<std::size_t>& is)const
-    {
-        if (sameIndexes(indexes, std::make_index_sequence<IndexNumber>()))
-        {
-            is=end(x);
-            return true;
-        }
-        else
-            return false;
-    }
-
-
-private:
-    template<std::size_t I>
-    static std::array<std::size_t,I> to_subarray(const std::vector<std::size_t>& is)
-    {
-        assert(is.size()==IndexNumber);
-        std::array<std::size_t,I> ind;
-        for (std::size_t i=0; i<I; ++i) ind[i]=is[i];
-        return ind;
-    }
-
-    static std::array<std::size_t,IndexNumber> to_array(const std::vector<std::size_t>& is)
-    {
-        assert(is.size()==IndexNumber);
-        std::array<std::size_t,IndexNumber> ind;
-        std::copy(is.begin(),is.end(),ind.begin());
-        return ind;
-    }
-
-    static std::size_t name_to_i(const std::string& name,const std::vector<std::string>& names,const std::vector<std::size_t>& is)
-    {
-        std::size_t i=std::find(names.begin(),names.end(),name)-names.begin();
-        assert(i<is.size());
-        return is[i];
-    }
-
-    template<std::size_t... Is>
-    std::array<std::size_t,IndexNumber> to_array(const std::vector<std::string>& names,const std::vector<std::size_t>& is, std::index_sequence<Is...>)const
-    {
-        return std::array<std::size_t,IndexNumber>{name_to_i(std::get<Is>(indexes()).first,names,is)...};
-    }
-
-    std::string fieldname_;
-    std::tuple<std::pair<std::string,Sizes>...> indexes_;
-    Fun datafun_;
-};
+namespace Data_index {
 
 
 template<class... Fields>
@@ -1393,6 +1213,10 @@ Data_Index_scheme Data_Index_scheme::data_index()
 {
     return concatenate(myData_Index<T>::data_index()...);
 }
+}
+
+
+namespace Distributions {
 
 
 template <typename T, typename S,template <typename> class C>
@@ -1444,6 +1268,9 @@ init_mt(
 }
 
 
+
+}
+namespace moments {
 
 
 
@@ -1799,6 +1626,10 @@ auto moments_by_row_2(const std::vector<X>& x, const F& f, const G& g)
     return out;
 }
 
+
+}
+
+namespace Distributions {
 
 
 
@@ -4347,6 +4178,6 @@ private:
     };
 
 
-
+    }
 
 #endif // MYDISTRIBUTIONS_H

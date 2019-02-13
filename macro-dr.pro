@@ -32,6 +32,7 @@ HEADERS += \
     Matrix.h \
     myDistributions.h \
     Experiment.h \
+    mydataindex.h \
     qmodel.h \
     mySerializer.h \
     mygrammar.h \
