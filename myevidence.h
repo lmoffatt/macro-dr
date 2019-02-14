@@ -2818,8 +2818,6 @@ struct OutputGenerator {
       std::tuple<std::size_t, AnaSample const *, ModelSeries const *> s(
           isample, &ana, &M);
 
-      std::cerr<<"antes de std::apply(\n"
-                   "[&s, &idname, this](auto &... t) {\n";
       std::apply(
           [&s, &idname, this](auto &... t) {
             (t.print_data(s, idname + "_ana_", ".txt", sep) && ...);

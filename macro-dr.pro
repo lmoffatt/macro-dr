@@ -24,11 +24,15 @@ CONFIG(debug, debug|release) {
   DEFINES += NDEBUG
 }
 SOURCES += \
-    commands.cpp \
     commands_evidence.cpp \
     commands_evidence_derivative.cpp \
     commands_evidence_emcee.cpp \
-    main.cpp
+commands_evidence_state.cpp \
+mynewcommandmanager_insert_constructor.cpp \
+mynewcommandmanager_insert_commands.cpp \
+main.cpp \
+    mynewcommandmanager.cpp \
+commands.cpp
 
 HEADERS += \
     myTuples.h \

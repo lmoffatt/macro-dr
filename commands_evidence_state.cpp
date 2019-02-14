@@ -96,11 +96,15 @@ Evidence_prob<Experiment, Model, ParametersDistribution>::run(
 }
 
 
-template struct Evidence<singleLigandExperiment, Allosteric_Model,
-                         Parameters_distribution<Allosteric_Model>>;
-template struct Evidence_prob<singleLigandExperiment, Allosteric_Model,
-                              Parameters_distribution<Allosteric_Model>>;
 
+template struct Evidence<singleLigandExperiment, State_Model,
+                         Parameters_distribution<State_Model>>;
+template struct Evidence_prob<singleLigandExperiment, State_Model,
+                              Parameters_distribution<State_Model>>;
+template struct Evidence<singleLigandExperiment, State_Model,
+                         Parameters_partial_distribution<State_Model>>;
+template struct Evidence_prob<singleLigandExperiment, State_Model,
+                              Parameters_partial_distribution<State_Model>>;
 
 
 

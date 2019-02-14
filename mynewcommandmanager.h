@@ -139,20 +139,13 @@ public:
 public:
     
     template<typename... Ts>
-    void insert_Literal(Cs<Ts...>)
-    {
-        (insert_Literal<Ts>(),...);
-    }
+    void insert_Literal(Cs<Ts...>);
+//    {
+//        (insert_Literal<Ts>(),...);
+//    }
 
 
-    CommandManager():d_{}
-    {
-        insert_constructor(myTypes());
-        insert_valuer(myTypes());
-        insert_loader(myTypes());
-        insert_Literal(myTypes());
-        insert_command(myCommands());
-    }
+    CommandManager();
     
     
     void execute(const std::string& line, std::ostream& logstream)
@@ -382,22 +375,22 @@ public:
 
 
     template<class... type>
-    void insert_constructor(Cs<type...>)
-    {
-        (insert_constructor<type>(),...);
-    }
+    void insert_constructor(Cs<type...>);
+//    {
+//        (insert_constructor<type>(),...);
+//    }
     
     template<class... type>
-    void insert_valuer(Cs<type...>)
-    {
-        (insert_valuer<type>(),...);
-    }
+    void insert_valuer(Cs<type...>);
+//    {
+//        (insert_valuer<type>(),...);
+//    }
 
     template<class... type>
-    void insert_loader(Cs<type...>)
-    {
-        (insert_loader<type>(),...);
-    }
+    void insert_loader(Cs<type...>);
+//    {
+//        (insert_loader<type>(),...);
+//    }
 
 
 
@@ -410,20 +403,20 @@ public:
     }
     
     template<class... type>
-    void insert_command(Cs<type...>)
-    {
-        (insert_command<type>(),...);
-    }
+    void insert_command(Cs<type...>);
+//    {
+//        (insert_command<type>(),...);
+//    }
 
 
     
     Compiled_Statement<self_type>const * get_defined(const std::string& id) const
     {
-        
+
         auto&  m=  d_.sta_;
         auto it=m.find(id);
         if (it!=m.end())
-            return it->second.get();
+            return it->second;
         else return nullptr;
     }
     

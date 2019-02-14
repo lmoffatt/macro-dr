@@ -198,7 +198,7 @@ public:
   }
 
   static std::string get_index_names() {
-    return (Index::title.str() + ... + "");
+      return ((std::string("_")+Index::title.str()) + ... + "");
   }
   auto &Indexes() { return Ind_; }
   auto &Indexes() const { return Ind_; }

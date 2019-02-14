@@ -8,9 +8,7 @@ struct s_f {
   constexpr static auto const title = my_static_string("_f");
 };
 
-struct s_Derivative {
-  constexpr static auto const title = my_static_string("d_");
-};
+struct s_Derivative {  constexpr static auto const title = my_static_string("_der");};
 
 template <> class Derivative<double> {
   double f_;
@@ -40,7 +38,7 @@ public:
           std::make_tuple(make_data_static(
               std::tuple<>(), std::make_tuple(F_s(s_f{}, std::move(myf))))),
         make_data_static(
-            std::make_tuple(I_s(CT_s<s_Derivative, Dindex>{},
+            std::make_tuple(I_s( Dindex{},
                                 [](const self_type &s) { return s.x().size(); },
                                 0)),
             std::make_tuple(
@@ -125,7 +123,7 @@ public:
             std::make_tuple(I_s(Findex{},
                                 [](const self_type &s) { return s.f().size(); },
                                 0),
-                            I_s(CT_s<s_Derivative, Dindex>{},
+                            I_s(Dindex{},
                                 [](const self_type &s, std::size_t) {
                                   return s.x().size();
                                 },
@@ -161,7 +159,7 @@ public:
                       return s.f().ncols();
                     },
                     0),
-                I_s(CT_s<s_Derivative, Dindex>{},
+                I_s(Dindex{},
                     [](const self_type &s, std::size_t, std::size_t) {
                       return s.x().size();
                     },
