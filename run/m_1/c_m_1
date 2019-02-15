@@ -39,9 +39,9 @@ echo "
 # programa se encuentra en el directorio de trabajo, por lo que basta poner
 # `./programa-openmp`.
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/lmoffatt/GCC-7.2.0/lib64/
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/lmoffatt/gcc-8.2/lib64/
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-srun /home/lmoffatt/Astro/parallel/Astro /home/lmoffatt/Astro/astro/run/evidence_script LABEL model_10
+srun /home/lmoffatt/macro-dr/parallel/macro-dr /home/lmoffatt/macro-dr/macro-dr/model_1_Evidence.txt
 
 
 echo "
