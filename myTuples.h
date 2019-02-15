@@ -67,5 +67,4 @@ auto myApply(const F& f, std::tuple<Args...>&& t1, std::tuple<Args2...> t2)
 
 
 
-
 #endif // MYTUPLES_H

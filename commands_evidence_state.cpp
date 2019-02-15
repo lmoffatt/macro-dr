@@ -5,15 +5,14 @@
 template <class Experiment, class Model, class ParametersDistribution>
 std::string
 Evidence<Experiment, Model, ParametersDistribution>::
-    run(
-        const Experiment &e, const Model &m, const ParametersDistribution &p,
+    run(const Experiment &e, const Model &m, const ParametersDistribution &p,
         std::string algorithm, double pjump, double eps_Gradient, double min_P,
         double tolerance, double BiNumber, double VaNumber,
         std::mt19937_64::result_type initseed,
         std::vector<double> betas, std::vector<double> landa,
         std::vector<std::vector<double>> landa_50_hill, double gain_moment,
-        std::size_t nSamples, std::size_t ntrials, bool parameters, bool gradient,
-        double epsf, std::string idfile) {
+        std::size_t nSamples, std::size_t ntrials,
+        double epsf, std::string idfile, const std::map<std::size_t, std::size_t>& state_sampling_cycles, const std::map<std::size_t, std::size_t>& gen_sampling_cycles, const std::map<std::size_t, std::size_t>& ana_sampling_cycles) {
 
     typedef Markov_Model_DLikelihood<Model, Experiment, ParametersDistribution>
         Likelihood_Model;
@@ -33,13 +32,14 @@ Evidence<Experiment, Model, ParametersDistribution>::
     std::mt19937_64 mt = init_mt(initseed, std::cerr);
     std::string info = "";
 
-    std::size_t samples_interval = 10;
+    LinearIndexSampling state_sampling(state_sampling_cycles);
+    LinearIndexSampling gen_sampling(gen_sampling_cycles);
+    LinearIndexSampling ana_sampling(ana_sampling_cycles);
+
     auto out = evidence::OutputGenerator(Cs<RG>{}, Cs<MCMC>{}, Cs<Th_Models>{},
                                          Cs<Adaptive>{},
-                                         [samples_interval](std::size_t isample) {
-                                             return isample % samples_interval == 0;
-                                         },
-                                         std::cerr, parameters, gradient);
+                                         state_sampling,gen_sampling,ana_sampling,
+                                         std::cerr);
     std::string id_f = idfile + time_now() + "_" + std::to_string(initseed);
 
     return evidence::run_Thermo_Levenberg_ProbVel(
@@ -60,7 +60,10 @@ Evidence_prob<Experiment, Model, ParametersDistribution>::run(
     std::mt19937_64::result_type initseed,
     std::vector<double> betas, std::vector<double> landa,
     double target_probability, std::size_t nSamples, std::size_t ntrials,
-    bool parameters, bool gradient, double epsf, std::string idfile) {
+     double epsf, std::string idfile,
+    const std::map<std::size_t, std::size_t>& state_sampling_cycles,
+    const std::map<std::size_t, std::size_t>& gen_sampling_cycles,
+    const std::map<std::size_t, std::size_t>& ana_sampling_cycles) {
 
     typedef Markov_Model_DLikelihood<Model, Experiment, ParametersDistribution>
         Likelihood_Model;
@@ -79,13 +82,13 @@ Evidence_prob<Experiment, Model, ParametersDistribution>::run(
                          BiNumber, VaNumber, epsf);
     std::mt19937_64 mt = init_mt(initseed, std::cerr);
     std::string info = "";
-    std::size_t sample_interval = 10;
+    LinearIndexSampling state_sampling(state_sampling_cycles);
+    LinearIndexSampling gen_sampling(gen_sampling_cycles);
+    LinearIndexSampling ana_sampling(ana_sampling_cycles);
     auto out = evidence::OutputGenerator(Cs<RG>{}, Cs<MCMC>{}, Cs<Th_Models>{},
                                          Cs<Adaptive>{},
-                                         [sample_interval](std::size_t i_sample) {
-                                             return i_sample % sample_interval == 0;
-                                         },
-                                         std::cerr, parameters, gradient);
+                                         state_sampling,gen_sampling,ana_sampling,
+                                         std::cerr);
     std::string id_f = idfile + time_now() + "_" + std::to_string(initseed);
 
     return evidence::run_Thermo_Levenberg_Prob(

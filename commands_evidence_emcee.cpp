@@ -7,8 +7,11 @@ std::string Evidence_emcee<Experiment, Model, ParametersDistribution>::run(
     double BiNumber, double VaNumber,
     std::mt19937_64::result_type initseed,
     std::vector<double> betas, std::vector<double> alfas, std::size_t nSamples,
-    bool parameters, bool gradient, std::size_t numWalkers, double target_prob,
-    std::size_t ntrials, std::string n_file) {
+     std::size_t numWalkers, double target_prob,
+    std::size_t ntrials, std::string n_file ,  const  std::map<std::size_t, std::size_t>& state_sampling_cycles,
+    const std::map<std::size_t, std::size_t>& gen_sampling_cycles,
+    const std::map<std::size_t, std::size_t>& ana_sampling_cycles)
+ {
     typedef Markov_Model_Likelihood<Model, ParametersDistribution, Experiment>
         Likelihood_Model;
     typedef evidence::Ensemble_Parallel_Tempering MCMC;
@@ -28,13 +31,13 @@ std::string Evidence_emcee<Experiment, Model, ParametersDistribution>::run(
     std::mt19937_64 mt = init_mt(initseed, std::cerr);
     std::cerr << "\np.tr_to_Parameter(p.sample(mt))\n"
               << p.tr_to_Parameter(p.sample(mt)).value();
-    std::size_t sample_interval = 10;
+    LinearIndexSampling state_sampling(state_sampling_cycles);
+    LinearIndexSampling gen_sampling(gen_sampling_cycles);
+    LinearIndexSampling ana_sampling(ana_sampling_cycles);
     auto out = evidence::OutputGenerator(Cs<RG>{}, Cs<MCMC>{}, Cs<Th_Models>{},
                                          Cs<Adaptive>{},
-                                         [sample_interval](std::size_t i_sample) {
-                                             return i_sample % sample_interval == 0;
-                                         },
-                                         std::cerr, parameters, gradient);
+                                         state_sampling,gen_sampling,ana_sampling,
+                                         std::cerr);
 
     std::string info = "";
     return evidence::run_Thermo_emcee(n_file, info, PriorModel(p), lik, mt, betas,

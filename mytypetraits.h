@@ -573,6 +573,31 @@ struct Index<T, Cs<U, Ts...>> {
       Index_imp<T, Cs<Ts...>, std::is_same<T, U>::value>::value;
 };
 
+template<typename T, typename CsT>
+inline constexpr auto Index_v=Index<T,CsT>::value;
+
+
+// lets try a constexpr version of Index<T,Cs<Ts...>>....
+
+
+//template<class T, class... Ts>
+//constexpr std::size_t findIndex(Cs<T>, Cs<Ts...>)
+//{
+
+//    for (std::size_t I=0; I<sizeof...(Ts); ++I)
+//    {
+//        constexpr std::size_t II=I;
+//        if (std::is_same_v<T,std::tuple_element_t<II,std::tuple<Ts...>>)
+//            return II;
+//    }
+//    return sizeof...(Ts);
+//}
+//Does not work!!!!
+
+
+
+
+
 template <class T> struct included_types<T, elem_tag> {
   typedef Cs<T> type;
   // typedef typename type::elem_type test_type;

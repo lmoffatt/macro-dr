@@ -8,9 +8,9 @@
 #include <filesystem>
 #include <iomanip>
 namespace evidence {
-inline
-std::vector<std::string> concatenate_unique(std::vector<std::string> &&one,
-                                            std::vector<std::string> &&two) {
+inline std::vector<std::string>
+concatenate_unique(std::vector<std::string> &&one,
+                   std::vector<std::string> &&two) {
   // both one and two has all unique labels
   std::vector<std::string> out2;
   for (auto &&e : std::move(two)) {
@@ -575,7 +575,6 @@ public:
       out.push_back("landa", {});
       return out;
     }
-
 
     static auto get_data_index_static()
 
@@ -1487,7 +1486,6 @@ public:
       return out;
     }
 
-
     static auto get_data_index_static() {
       return Concatenate_tuple_static(
           std::make_tuple(make_data_static(
@@ -1797,7 +1795,6 @@ parDist_(prior_par,nsamples){}
     return out;
   }
 
-
   static auto get_data_index_static() {
     return Concatenate_tuple_static(
         std::make_tuple(
@@ -1996,7 +1993,6 @@ public:
   Adaptive_Probability_Distribution_Generator() {}
 
   auto &Expected_Velocity() const { return f_; }
-
 
   static auto get_data_index_static() {
     return Concatenate_tuple_static(
@@ -2201,7 +2197,6 @@ public:
               mcmc_sample_t<Model, Adapative_Distribution_Generator>::
                   get_data_index_static()));
     }
-
 
     auto getIndexedData(const std::set<std::string> &,
                         const std::set<std::string> &) const {
@@ -2414,7 +2409,6 @@ public:
             emcee_sample<subModel, Adaptive_Mover>::get_data_index_static()));
   }
 
-
   std::size_t Scout_i(std::size_t iscout, std::size_t iwalker) const {
     return ij_history()[iscout][iwalker].first * Scout(0).numWalkers() +
            ij_history()[iscout][iwalker].second;
@@ -2618,7 +2612,8 @@ private:
 };
 
 template <class Random_Generator, class Metropolis_algorithm, class ModelSeries,
-          class Distribution_Generator, class SamplingFunctor>
+          class Distribution_Generator, class StateSamplingFunctor,
+          class GenSamplingFunctor, class AnaSamplingFunctor>
 struct OutputGenerator {
   typedef Cs<Metropolis_algorithm, ModelSeries, Distribution_Generator>
       template_types;
@@ -2630,18 +2625,11 @@ struct OutputGenerator {
       std::declval<Distribution_Generator &>())) OpState;
   typedef std::decay_t<decltype(std::declval<OpState>().value())> State;
 
-  template <template <class, class, class> class samples, class priorModel,
-            class LikelihoodModel, class A>
-  void print_title(const samples<priorModel, LikelihoodModel, A> &) {
-    os << "nsample" << sep << "beta" << sep << "Field" << sep << "par" << sep
-       << "value" << end_of_line{};
-  }
-
   static constexpr const auto info_end = "--END of Info--";
   void save(const std::string &idname, const std::string &info,
             const Metropolis_algorithm &mcmc, const ModelSeries &M,
             std::size_t nsamples) {
-    std::ofstream f(idname + save_ext);
+    std::ofstream f(idname + run_ext);
     f << className.str() << std::endl;
     f << info << std::endl;
     f << info_end << std::endl;
@@ -2653,7 +2641,7 @@ struct OutputGenerator {
   }
   void load(const std::string &idname, std::string &info,
             Metropolis_algorithm &mcmc, ModelSeries &M, std::size_t &nsamples) {
-    std::ifstream f(idname + save_ext);
+    std::ifstream f(idname + run_ext);
     std::string line;
     std::getline(f, line);
     assert((line.find(className.str()) != line.npos));
@@ -2677,6 +2665,7 @@ struct OutputGenerator {
   }
 
   static constexpr const char *save_ext = "_save.txt";
+  static constexpr const char *run_ext = "_run.txt";
 
   void save(const std::string &idname, std::size_t isample, const State &state,
             const Distribution_Generator &G) {
@@ -2691,7 +2680,8 @@ struct OutputGenerator {
     f << G << "\n";
     f.close();
     std::filesystem::remove(old);
-    std::filesystem::rename(name, old);
+    if (std::filesystem::exists(name))
+      std::filesystem::rename(name, old);
     std::filesystem::rename(tmp, name);
   }
   bool load(const std::string &idname, std::size_t &isample, State &state,
@@ -2713,44 +2703,6 @@ struct OutputGenerator {
 
   static constexpr auto state_ext = "state";
   static constexpr auto adap_dist_ext = "ADG";
-
-  void print(const std::string &idname, std::size_t, const ModelSeries &,
-             const State &state, const Distribution_Generator &) {
-    auto iS = Data_Index_scheme::data_index<State>();
-    iS.insert_index("i_sample");
-
-    auto files = iS.set_titles();
-    auto indexes = iS.index_titles();
-    auto names = iS.names_titles();
-
-    if constexpr (false) {
-      for (auto i = 0ul; i < files.size(); ++i) {
-        std::string fname = idname + "_state" + files[i];
-        std::ofstream f(fname.c_str());
-        auto index = state.getIndexedData(indexes[i]);
-        for (auto it = index.begin(); !it.end(); ++it) {
-          auto data = state.getData(it, names[i]);
-          std::apply([&f, this](auto &... d) { ((f << d << sep) && ...); },
-                     data);
-        }
-      }
-    }
-    auto iG = Data_Index_scheme::data_index<Distribution_Generator>();
-    iG.insert_index("i_sample");
-
-    auto filesG = iG.set_titles();
-    auto indexesG = iG.index_titles();
-    auto namesG = iG.names_titles();
-
-    for (auto i = 0ul; i < filesG.size(); ++i) {
-      std::string fname = idname + "_gen" + filesG[i];
-      std::ofstream f(fname.c_str());
-      for (auto &e : indexesG[i])
-        f << e << sep;
-      for (auto &e : namesG[i])
-        f << e << sep;
-    }
-  }
 
   template <class State_Data_Index_tuple, class Gen_Data_Index_tuple,
             class Ana_Data_Index_tuple>
@@ -2776,7 +2728,20 @@ struct OutputGenerator {
         },
         anadata);
   }
-  bool is_sampling(std::size_t i_sample) const { return g_(i_sample); }
+  bool is_sampling(std::size_t isample) const {
+    return max_index_state(isample) > 0;
+  }
+
+  std::size_t max_index_state(std::size_t i_sample) const {
+    return std::invoke(f_sta_, i_sample);
+  }
+
+  std::size_t max_index_gen(std::size_t i_sample) const {
+    return std::invoke(f_gen_, i_sample);
+  }
+  std::size_t max_index_ana(std::size_t i_sample) const {
+    return std::invoke(f_ana_, i_sample);
+  }
 
   template <class State_Data_Index_tuple, class Gen_Data_Index_tuple>
   void print_element(const State_Data_Index_tuple &statedata,
@@ -2787,19 +2752,28 @@ struct OutputGenerator {
 
     std::tuple<std::size_t, State const *, ModelSeries const *> s(isample,
                                                                   &state, &M);
+
+    auto sta_max_index = max_index_state(isample);
     std::apply(
-        [&s, &idname, this](auto &... t) {
-          (t.print_data(s, idname + "_sta_", ".txt", sep) && ...);
+        [&s, &idname, &sta_max_index, this](auto &... t) {
+          ((t.NumIndex() <= sta_max_index
+                ? t.print_data(s, idname + "_sta_", ".txt", sep)
+                : true) &&
+           ...);
         },
         statedata);
 
-    if (is_sampling(isample)) {
+    auto gen_max_index = max_index_gen(isample);
+    if (gen_max_index > 0) {
       std::tuple<std::size_t, Distribution_Generator const *,
                  ModelSeries const *>
           g(isample, &G, &M);
       std::apply(
-          [&g, &idname, this](auto &... t) {
-            (t.print_data(g, idname + "_gen_", ".txt", sep) && ...);
+          [&g, &idname, &gen_max_index, this](auto &... t) {
+            ((t.NumIndex() <= gen_max_index
+                  ? t.print_data(g, idname + "_gen_", ".txt", sep)
+                  : true) &&
+             ...);
           },
           gendata);
     }
@@ -2814,13 +2788,18 @@ struct OutputGenerator {
                      const ModelSeries &M, const State &state,
                      const Distribution_Generator &G, const AnaSample &ana) {
     print_element(statedata, gendata, idname, isample, M, state, G);
-    if (is_sampling(isample)) {
+
+    auto ana_max_index = max_index_ana(isample);
+    if (ana_max_index > 0) {
       std::tuple<std::size_t, AnaSample const *, ModelSeries const *> s(
           isample, &ana, &M);
 
       std::apply(
-          [&s, &idname, this](auto &... t) {
-            (t.print_data(s, idname + "_ana_", ".txt", sep) && ...);
+          [&s, &idname, &ana_max_index, this](auto &... t) {
+            ((t.NumIndex() <= ana_max_index
+                  ? t.print_data(s, idname + "_ana_", ".txt", sep)
+                  : true) &&
+             ...);
           },
           anadata);
     }
@@ -2828,20 +2807,20 @@ struct OutputGenerator {
 
   OutputGenerator(Cs<Random_Generator>, Cs<Metropolis_algorithm>,
                   Cs<ModelSeries>, Cs<Distribution_Generator>,
-                  const SamplingFunctor g, std::ostream &ost, bool parameter,
-                  bool gradient, std::string separator = "\t")
-      : g_{g},
-        os(ost), parameter_{parameter}, gradient_{gradient}, sep{separator} {}
+                  const StateSamplingFunctor &fsta,
+                  const GenSamplingFunctor &fgen,
+                  const AnaSamplingFunctor &fana, std::ostream &ost,
+                  std::string separator = "\t")
+      : f_sta_{fsta}, f_gen_{fgen}, f_ana_{fana}, os(ost), sep{separator} {}
 
 private:
-  SamplingFunctor g_;
+  StateSamplingFunctor f_sta_;
+  GenSamplingFunctor f_gen_;
+  AnaSamplingFunctor f_ana_;
   std::ostream &os;
 
-  bool parameter_;
-  bool gradient_;
   std::string sep;
 };
-
 
 template <class self_type, class ModelSeries>
 auto compose_state_model_static() {
@@ -2900,69 +2879,64 @@ auto compose_ana_state_model_static(Cs<std::vector<self_type>>,
                      ModelSeries const *>
       self_type_model;
   return Concatenate_tuple_static(
-          Compose_static(
-              std::make_tuple(
-                  I_s(i_sample{}, [](const self_type_model &) { return 1; },
-                      [](const self_type_model &s, std::size_t) -> std::size_t {
-                        return std::get<0>(s);
-                      }),
+      Compose_static(
+          std::make_tuple(
+              I_s(i_sample{}, [](const self_type_model &) { return 1; },
+                  [](const self_type_model &s, std::size_t) -> std::size_t {
+                    return std::get<0>(s);
+                  }),
 
-                  I_s(i_beta{},
-                      [](const self_type_model &self, std::size_t) {
-                        return std::get<2>(self)->betas().size();
-                      },
-                      [](const self_type_model &self, std::size_t,
-                         std::size_t i_beta) {
-                        return std::get<2>(self)->beta(i_beta);
-                      })),
-              [](const self_type_model &self, std::size_t, std::size_t i)
-                  -> auto const & { return (*std::get<1>(self))[i]; },
-              self_type::get_data_index_static()),
+              I_s(i_beta{},
+                  [](const self_type_model &self, std::size_t) {
+                    return std::get<2>(self)->betas().size();
+                  },
+                  [](const self_type_model &self, std::size_t,
+                     std::size_t i_beta) {
+                    return std::get<2>(self)->beta(i_beta);
+                  })),
+          [](const self_type_model &self, std::size_t,
+             std::size_t i) -> auto const & { return (*std::get<1>(self))[i]; },
+          self_type::get_data_index_static()),
       std::make_tuple(make_data_static(
 
-              std::make_tuple(
-                  I_s(i_sample{}, [](const self_type_model &) { return 1; },
-                      [](const self_type_model &s, std::size_t) -> std::size_t {
-                        return std::get<0>(s);
-                      }),
-                  I_s(i_beta{},
-                      [](const self_type_model &self, std::size_t) {
-                        return std::get<2>(self)->betas().size();
-                      },
-                      [](const self_type_model &self, std::size_t,
-                         std::size_t i_beta) {
-                        return std::get<2>(self)->beta(i_beta);
-                      }),
-                  I_s(i_measure{},
-                      [](const self_type_model &self, std::size_t,
-                         std::size_t) {
-                        return std::get<2>(self)->betas().size();
-                      },
-                      [](const self_type_model &self, std::size_t, std::size_t,
-                         std::size_t i_beta) {
-                        return std::get<2>(self)->beta(i_beta);
-                      }),
-                  I_s(i_Parameter{},
-                      [](const self_type_model &self, std::size_t, std::size_t,
-                         std::size_t) {
-                        return std::get<2>(self)->name_size();
-                      },
-                      [](const self_type_model &self, std::size_t, std::size_t,
-                         std::size_t, std::size_t i_par) {
-                        return std::get<2>(self)->name(i_par);
-                      }),
-                  I_s(CT_s<i_Parameter, s_Transpose>{},
-                      [](const self_type_model &self, std::size_t, std::size_t,
-                         std::size_t, std::size_t) {
-                        return std::get<2>(self)->name_size();
-                      },
-                      [](const self_type_model &self, std::size_t, std::size_t,
-                         std::size_t, std::size_t, std::size_t i_par) {
-                        return std::get<2>(self)->name(i_par);
-                      })),
+          std::make_tuple(
+              I_s(i_sample{}, [](const self_type_model &) { return 1; },
+                  [](const self_type_model &s, std::size_t) -> std::size_t {
+                    return std::get<0>(s);
+                  }),
+              I_s(i_beta{},
+                  [](const self_type_model &self, std::size_t) {
+                    return std::get<2>(self)->betas().size();
+                  },
+                  [](const self_type_model &self, std::size_t,
+                     std::size_t i_beta) {
+                    return std::get<2>(self)->beta(i_beta);
+                  }),
+              I_s(i_measure{},
+                  [](const self_type_model &self, std::size_t, std::size_t) {
+                    return std::get<2>(self)->betas().size();
+                  },
+                  [](const self_type_model &self, std::size_t, std::size_t,
+                     std::size_t i_beta) {
+                    return std::get<2>(self)->beta(i_beta);
+                  }),
+              I_s(i_Parameter{},
+                  [](const self_type_model &self, std::size_t, std::size_t,
+                     std::size_t) { return std::get<2>(self)->name_size(); },
+                  [](const self_type_model &self, std::size_t, std::size_t,
+                     std::size_t, std::size_t i_par) {
+                    return std::get<2>(self)->name(i_par);
+                  }),
+              I_s(CT_s<i_Parameter, s_Transpose>{},
+                  [](const self_type_model &self, std::size_t, std::size_t,
+                     std::size_t,
+                     std::size_t) { return std::get<2>(self)->name_size(); },
+                  [](const self_type_model &self, std::size_t, std::size_t,
+                     std::size_t, std::size_t, std::size_t i_par) {
+                    return std::get<2>(self)->name(i_par);
+                  })),
           std::tuple<>())));
 }
-
 
 template <class self_type, class ModelSeries>
 auto compose_ana_state_model_static(Cs<std::vector<std::vector<self_type>>>,
@@ -3030,7 +3004,7 @@ auto compose_ana_state_model_static(Cs<std::vector<std::vector<self_type>>>,
                      std::size_t,
                      std::size_t) { return std::get<2>(self)->name_size(); },
                   [](const self_type_model &self, std::size_t, std::size_t,
-                     std::size_t , std::size_t, std::size_t i_par) {
+                     std::size_t, std::size_t, std::size_t i_par) {
                     return std::get<2>(self)->name(i_par);
                   }),
               I_s(CT_s<i_Parameter, s_Transpose>{},
@@ -3043,7 +3017,6 @@ auto compose_ana_state_model_static(Cs<std::vector<std::vector<self_type>>>,
                   })),
           std::tuple<>())));
 }
-
 
 template <class self_type, class ModelSeries> auto compose_adg_model_static() {
   typedef std::tuple<std::size_t, self_type const *, ModelSeries const *>
@@ -3093,7 +3066,7 @@ Op_void continue_Montecarlo_Markov_Chain(
       return Op_void(false, " interrupted at sample i=" + ToString(isample) +
                                 res.error());
 
-    if (output.is_sampling(isample)) {
+    if (output.max_index_ana(isample)>0) {
       auto ana_sample = mcmc.compute_PartialDLikelihood(M, state, std::cerr);
 
       output.print_element(statedata, gendata, anadata, idname, isample, M,
