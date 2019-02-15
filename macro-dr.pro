@@ -80,6 +80,8 @@ mydynamicfunctions.h \
 
 DISTFILES += \
     Makefile \
+    data/Moffatt_Hume_2007_ATP.txt \
+    run/Evidence_cecar.txt \
     run/m_1/c_m_1 \
     run/s_cecar_1 \
     simulation.txt \
