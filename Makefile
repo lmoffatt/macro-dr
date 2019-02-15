@@ -38,7 +38,6 @@ DISTNAME      = macro-dr1.0.0
 DISTDIR = /home/lmoffatt/Code/macro-dr/build-macro-dr-Desktop-Release/.tmp/macro-dr1.0.0
 LINK          = ~/gcc-8.2/bin/g++
 LFLAGS        = -Wl,-O1,-rpath=/home/lmoffatt/gcc-6.8/lib/
-LINK          = g++
 LFLAGS        = -fopenmp -lstdc++fs -Wl,-O1,-rpath=/home/lmoffatt/gcc-8.2/lib/
 LIBS          = $(SUBLIBS) -lpthread -lstdc++fs -lblas -llapack
 AR            = ar cqs
