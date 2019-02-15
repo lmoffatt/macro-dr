@@ -52,8 +52,24 @@ OBJECTS_DIR   = ./
 
 ####### Files
 
-SOURCES       = ../macro-dr/main.cpp
-OBJECTS       = main.o
+SOURCES       = ../macro-dr/commands_evidence.cpp \
+		../macro-dr/commands_evidence_derivative.cpp \
+		../macro-dr/commands_evidence_emcee.cpp \
+		../macro-dr/commands_evidence_state.cpp \
+		../macro-dr/mynewcommandmanager_insert_constructor.cpp \
+		../macro-dr/mynewcommandmanager_insert_commands.cpp \
+		../macro-dr/main.cpp \
+		../macro-dr/mynewcommandmanager.cpp \
+		../macro-dr/commands.cpp 
+OBJECTS       = commands_evidence.o \
+		commands_evidence_derivative.o \
+		commands_evidence_emcee.o \
+		commands_evidence_state.o \
+		mynewcommandmanager_insert_constructor.o \
+		mynewcommandmanager_insert_commands.o \
+		main.o \
+		mynewcommandmanager.o \
+		commands.o
 DIST          = ../macro-dr/simulation.txt \
 ../macro-dr/models.txt \
 		../macro-dr/mode_1.txt \
@@ -129,8 +145,9 @@ compiler_clean:
 
 ####### Compile
 
-main.o: ../macro-dr/main.cpp ../macro-dr/qmodel.h \
-../macro-dr/Matrix.h \
+commands_evidence.o: ../macro-dr/commands_evidence.cpp ../macro-dr/commands.h \
+		../macro-dr/qmodel.h \
+		../macro-dr/Matrix.h \
 		../macro-dr/mySerializer.h \
 		../macro-dr/myTuples.h \
 		../macro-dr/myfields.h \
@@ -143,6 +160,229 @@ main.o: ../macro-dr/main.cpp ../macro-dr/qmodel.h \
 		../macro-dr/mygrammar.h \
 		../macro-dr/mysmartpointerstools.h \
 		../macro-dr/myDistributions.h \
+		../macro-dr/mydataindex.h \
+		../macro-dr/mymoments.h \
+		../macro-dr/myoperators.h \
+		../macro-dr/mydynamicfunctions.h \
+		../macro-dr/myparameters_derivative.h \
+		../macro-dr/matrixderivative.h \
+		../macro-dr/Experiment.h \
+		../macro-dr/mydataframe.h \
+		../macro-dr/likelihood_markov_process.h \
+		../macro-dr/myoptimization.h \
+		../macro-dr/measure_markov_process.h \
+		../macro-dr/likelihood_markov_process_derivative.h \
+		../macro-dr/mydistributions_derivative.h \
+		../macro-dr/qmodel_derivative.h \
+		../macro-dr/myevidence.h \
+		../macro-dr/mylikelihood.h \
+		../macro-dr/qlikelihood.h \
+		../macro-dr/qlikelihood_derivative.h \
+		../macro-dr/qsimulation.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o commands_evidence.o ../macro-dr/commands_evidence.cpp
+
+commands_evidence_derivative.o: ../macro-dr/commands_evidence_derivative.cpp ../macro-dr/commands.h \
+		../macro-dr/qmodel.h \
+		../macro-dr/Matrix.h \
+		../macro-dr/mySerializer.h \
+		../macro-dr/myTuples.h \
+		../macro-dr/myfields.h \
+		../macro-dr/mytypetraits.h \
+		../macro-dr/myoptional.h \
+		../macro-dr/mytests.h \
+		../macro-dr/myderivatives.h \
+		../macro-dr/mymath.h \
+		../macro-dr/myparameters.h \
+		../macro-dr/mygrammar.h \
+		../macro-dr/mysmartpointerstools.h \
+		../macro-dr/myDistributions.h \
+		../macro-dr/mydataindex.h \
+		../macro-dr/mymoments.h \
+		../macro-dr/myoperators.h \
+		../macro-dr/mydynamicfunctions.h \
+		../macro-dr/myparameters_derivative.h \
+		../macro-dr/matrixderivative.h \
+		../macro-dr/Experiment.h \
+		../macro-dr/mydataframe.h \
+		../macro-dr/likelihood_markov_process.h \
+		../macro-dr/myoptimization.h \
+		../macro-dr/measure_markov_process.h \
+		../macro-dr/likelihood_markov_process_derivative.h \
+		../macro-dr/mydistributions_derivative.h \
+		../macro-dr/qmodel_derivative.h \
+		../macro-dr/myevidence.h \
+		../macro-dr/mylikelihood.h \
+		../macro-dr/qlikelihood.h \
+		../macro-dr/qlikelihood_derivative.h \
+		../macro-dr/qsimulation.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o commands_evidence_derivative.o ../macro-dr/commands_evidence_derivative.cpp
+
+commands_evidence_emcee.o: ../macro-dr/commands_evidence_emcee.cpp ../macro-dr/commands.h \
+		../macro-dr/qmodel.h \
+		../macro-dr/Matrix.h \
+		../macro-dr/mySerializer.h \
+		../macro-dr/myTuples.h \
+		../macro-dr/myfields.h \
+		../macro-dr/mytypetraits.h \
+		../macro-dr/myoptional.h \
+		../macro-dr/mytests.h \
+		../macro-dr/myderivatives.h \
+		../macro-dr/mymath.h \
+		../macro-dr/myparameters.h \
+		../macro-dr/mygrammar.h \
+		../macro-dr/mysmartpointerstools.h \
+		../macro-dr/myDistributions.h \
+		../macro-dr/mydataindex.h \
+		../macro-dr/mymoments.h \
+		../macro-dr/myoperators.h \
+		../macro-dr/mydynamicfunctions.h \
+		../macro-dr/myparameters_derivative.h \
+		../macro-dr/matrixderivative.h \
+		../macro-dr/Experiment.h \
+		../macro-dr/mydataframe.h \
+		../macro-dr/likelihood_markov_process.h \
+		../macro-dr/myoptimization.h \
+		../macro-dr/measure_markov_process.h \
+		../macro-dr/likelihood_markov_process_derivative.h \
+		../macro-dr/mydistributions_derivative.h \
+		../macro-dr/qmodel_derivative.h \
+		../macro-dr/myevidence.h \
+		../macro-dr/mylikelihood.h \
+		../macro-dr/qlikelihood.h \
+		../macro-dr/qlikelihood_derivative.h \
+		../macro-dr/qsimulation.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o commands_evidence_emcee.o ../macro-dr/commands_evidence_emcee.cpp
+
+commands_evidence_state.o: ../macro-dr/commands_evidence_state.cpp ../macro-dr/commands.h \
+		../macro-dr/qmodel.h \
+		../macro-dr/Matrix.h \
+		../macro-dr/mySerializer.h \
+		../macro-dr/myTuples.h \
+		../macro-dr/myfields.h \
+		../macro-dr/mytypetraits.h \
+		../macro-dr/myoptional.h \
+		../macro-dr/mytests.h \
+		../macro-dr/myderivatives.h \
+		../macro-dr/mymath.h \
+		../macro-dr/myparameters.h \
+		../macro-dr/mygrammar.h \
+		../macro-dr/mysmartpointerstools.h \
+		../macro-dr/myDistributions.h \
+		../macro-dr/mydataindex.h \
+		../macro-dr/mymoments.h \
+		../macro-dr/myoperators.h \
+		../macro-dr/mydynamicfunctions.h \
+		../macro-dr/myparameters_derivative.h \
+		../macro-dr/matrixderivative.h \
+		../macro-dr/Experiment.h \
+		../macro-dr/mydataframe.h \
+		../macro-dr/likelihood_markov_process.h \
+		../macro-dr/myoptimization.h \
+		../macro-dr/measure_markov_process.h \
+		../macro-dr/likelihood_markov_process_derivative.h \
+		../macro-dr/mydistributions_derivative.h \
+		../macro-dr/qmodel_derivative.h \
+		../macro-dr/myevidence.h \
+		../macro-dr/mylikelihood.h \
+		../macro-dr/qlikelihood.h \
+		../macro-dr/qlikelihood_derivative.h \
+		../macro-dr/qsimulation.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o commands_evidence_state.o ../macro-dr/commands_evidence_state.cpp
+
+mynewcommandmanager_insert_constructor.o: ../macro-dr/mynewcommandmanager_insert_constructor.cpp ../macro-dr/mynewcommandmanager.h \
+		../macro-dr/mygrammar.h \
+		../macro-dr/mySerializer.h \
+		../macro-dr/myTuples.h \
+		../macro-dr/myfields.h \
+		../macro-dr/mytypetraits.h \
+		../macro-dr/myoptional.h \
+		../macro-dr/mysmartpointerstools.h \
+		../macro-dr/mycompilation.h \
+		../macro-dr/mycontainer.h \
+		../macro-dr/commands.h \
+		../macro-dr/qmodel.h \
+		../macro-dr/Matrix.h \
+		../macro-dr/mytests.h \
+		../macro-dr/myderivatives.h \
+		../macro-dr/mymath.h \
+		../macro-dr/myparameters.h \
+		../macro-dr/myDistributions.h \
+		../macro-dr/mydataindex.h \
+		../macro-dr/mymoments.h \
+		../macro-dr/myoperators.h \
+		../macro-dr/mydynamicfunctions.h \
+		../macro-dr/myparameters_derivative.h \
+		../macro-dr/matrixderivative.h \
+		../macro-dr/Experiment.h \
+		../macro-dr/mydataframe.h \
+		../macro-dr/likelihood_markov_process.h \
+		../macro-dr/myoptimization.h \
+		../macro-dr/measure_markov_process.h \
+		../macro-dr/likelihood_markov_process_derivative.h \
+		../macro-dr/mydistributions_derivative.h \
+		../macro-dr/qmodel_derivative.h \
+		../macro-dr/myevidence.h \
+		../macro-dr/mylikelihood.h \
+		../macro-dr/qlikelihood.h \
+		../macro-dr/qlikelihood_derivative.h \
+		../macro-dr/qsimulation.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mynewcommandmanager_insert_constructor.o ../macro-dr/mynewcommandmanager_insert_constructor.cpp
+
+mynewcommandmanager_insert_commands.o: ../macro-dr/mynewcommandmanager_insert_commands.cpp ../macro-dr/mynewcommandmanager.h \
+		../macro-dr/mygrammar.h \
+		../macro-dr/mySerializer.h \
+		../macro-dr/myTuples.h \
+		../macro-dr/myfields.h \
+		../macro-dr/mytypetraits.h \
+		../macro-dr/myoptional.h \
+		../macro-dr/mysmartpointerstools.h \
+		../macro-dr/mycompilation.h \
+		../macro-dr/mycontainer.h \
+		../macro-dr/commands.h \
+		../macro-dr/qmodel.h \
+		../macro-dr/Matrix.h \
+		../macro-dr/mytests.h \
+		../macro-dr/myderivatives.h \
+		../macro-dr/mymath.h \
+		../macro-dr/myparameters.h \
+		../macro-dr/myDistributions.h \
+		../macro-dr/mydataindex.h \
+		../macro-dr/mymoments.h \
+		../macro-dr/myoperators.h \
+		../macro-dr/mydynamicfunctions.h \
+		../macro-dr/myparameters_derivative.h \
+		../macro-dr/matrixderivative.h \
+		../macro-dr/Experiment.h \
+		../macro-dr/mydataframe.h \
+		../macro-dr/likelihood_markov_process.h \
+		../macro-dr/myoptimization.h \
+		../macro-dr/measure_markov_process.h \
+		../macro-dr/likelihood_markov_process_derivative.h \
+		../macro-dr/mydistributions_derivative.h \
+		../macro-dr/qmodel_derivative.h \
+		../macro-dr/myevidence.h \
+		../macro-dr/mylikelihood.h \
+		../macro-dr/qlikelihood.h \
+		../macro-dr/qlikelihood_derivative.h \
+		../macro-dr/qsimulation.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mynewcommandmanager_insert_commands.o ../macro-dr/mynewcommandmanager_insert_commands.cpp
+
+main.o: ../macro-dr/main.cpp ../macro-dr/qmodel.h \
+		../macro-dr/Matrix.h \
+		../macro-dr/mySerializer.h \
+		../macro-dr/myTuples.h \
+		../macro-dr/myfields.h \
+		../macro-dr/mytypetraits.h \
+		../macro-dr/myoptional.h \
+		../macro-dr/mytests.h \
+		../macro-dr/myderivatives.h \
+		../macro-dr/mymath.h \
+		../macro-dr/myparameters.h \
+		../macro-dr/mygrammar.h \
+		../macro-dr/mysmartpointerstools.h \
+		../macro-dr/myDistributions.h \
+		../macro-dr/mydataindex.h \
+		../macro-dr/mymoments.h \
 		../macro-dr/myoperators.h \
 		../macro-dr/mydynamicfunctions.h \
 		../macro-dr/myparameters_derivative.h \
@@ -154,18 +394,93 @@ main.o: ../macro-dr/main.cpp ../macro-dr/qmodel.h \
 		../macro-dr/Experiment.h \
 		../macro-dr/mydataframe.h \
 		../macro-dr/commands.h \
-		../macro-dr/measure_markov_process.h \
 		../macro-dr/likelihood_markov_process.h \
 		../macro-dr/myoptimization.h \
-		../macro-dr/qlikelihood.h \
+		../macro-dr/measure_markov_process.h \
+		../macro-dr/likelihood_markov_process_derivative.h \
+		../macro-dr/mydistributions_derivative.h \
+		../macro-dr/qmodel_derivative.h \
 		../macro-dr/myevidence.h \
 		../macro-dr/mylikelihood.h \
-		../macro-dr/qsimulation.h \
-		../macro-dr/likelihood_markov_process_derivative.h \
-		../macro-dr/qmodel_derivative.h \
-		../macro-dr/mydistributions_derivative.h \
-		../macro-dr/qlikelihood_derivative.h
+		../macro-dr/qlikelihood.h \
+		../macro-dr/qlikelihood_derivative.h \
+		../macro-dr/qsimulation.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../macro-dr/main.cpp
+
+mynewcommandmanager.o: ../macro-dr/mynewcommandmanager.cpp ../macro-dr/mynewcommandmanager.h \
+		../macro-dr/mygrammar.h \
+		../macro-dr/mySerializer.h \
+		../macro-dr/myTuples.h \
+		../macro-dr/myfields.h \
+		../macro-dr/mytypetraits.h \
+		../macro-dr/myoptional.h \
+		../macro-dr/mysmartpointerstools.h \
+		../macro-dr/mycompilation.h \
+		../macro-dr/mycontainer.h \
+		../macro-dr/commands.h \
+		../macro-dr/qmodel.h \
+		../macro-dr/Matrix.h \
+		../macro-dr/mytests.h \
+		../macro-dr/myderivatives.h \
+		../macro-dr/mymath.h \
+		../macro-dr/myparameters.h \
+		../macro-dr/myDistributions.h \
+		../macro-dr/mydataindex.h \
+		../macro-dr/mymoments.h \
+		../macro-dr/myoperators.h \
+		../macro-dr/mydynamicfunctions.h \
+		../macro-dr/myparameters_derivative.h \
+		../macro-dr/matrixderivative.h \
+		../macro-dr/Experiment.h \
+		../macro-dr/mydataframe.h \
+		../macro-dr/likelihood_markov_process.h \
+		../macro-dr/myoptimization.h \
+		../macro-dr/measure_markov_process.h \
+		../macro-dr/likelihood_markov_process_derivative.h \
+		../macro-dr/mydistributions_derivative.h \
+		../macro-dr/qmodel_derivative.h \
+		../macro-dr/myevidence.h \
+		../macro-dr/mylikelihood.h \
+		../macro-dr/qlikelihood.h \
+		../macro-dr/qlikelihood_derivative.h \
+		../macro-dr/qsimulation.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mynewcommandmanager.o ../macro-dr/mynewcommandmanager.cpp
+
+commands.o: ../macro-dr/commands.cpp ../macro-dr/commands.h \
+		../macro-dr/qmodel.h \
+		../macro-dr/Matrix.h \
+		../macro-dr/mySerializer.h \
+		../macro-dr/myTuples.h \
+		../macro-dr/myfields.h \
+		../macro-dr/mytypetraits.h \
+		../macro-dr/myoptional.h \
+		../macro-dr/mytests.h \
+		../macro-dr/myderivatives.h \
+		../macro-dr/mymath.h \
+		../macro-dr/myparameters.h \
+		../macro-dr/mygrammar.h \
+		../macro-dr/mysmartpointerstools.h \
+		../macro-dr/myDistributions.h \
+		../macro-dr/mydataindex.h \
+		../macro-dr/mymoments.h \
+		../macro-dr/myoperators.h \
+		../macro-dr/mydynamicfunctions.h \
+		../macro-dr/myparameters_derivative.h \
+		../macro-dr/matrixderivative.h \
+		../macro-dr/Experiment.h \
+		../macro-dr/mydataframe.h \
+		../macro-dr/likelihood_markov_process.h \
+		../macro-dr/myoptimization.h \
+		../macro-dr/measure_markov_process.h \
+		../macro-dr/likelihood_markov_process_derivative.h \
+		../macro-dr/mydistributions_derivative.h \
+		../macro-dr/qmodel_derivative.h \
+		../macro-dr/myevidence.h \
+		../macro-dr/mylikelihood.h \
+		../macro-dr/qlikelihood.h \
+		../macro-dr/qlikelihood_derivative.h \
+		../macro-dr/qsimulation.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o commands.o ../macro-dr/commands.cpp
 
 ####### Install
 
