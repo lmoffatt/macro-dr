@@ -1,8 +1,8 @@
 #ifndef MYDATAINDEX_H
 #define MYDATAINDEX_H
 
-#include <algorithm>
 #include "mytypetraits.h"
+#include <algorithm>
 
 template <class... Fields> struct CT_s {
   constexpr static auto const title =
@@ -11,18 +11,28 @@ template <class... Fields> struct CT_s {
 
 template <std::size_t N, class SuperFunction, class SubFunction> struct CF_s {
 private:
-  template <class Object, std::size_t M, std::size_t... Supers,
-            std::size_t... Subs>
 
+
+    template <class Object, std::size_t M, std::size_t... Supers,
+            std::size_t... Subs>
   std::invoke_result_t<
       SubFunction,
       std::invoke_result_t<SuperFunction, Object, decltype(Supers)...>,
       decltype(Subs)...>
-
   op_impl(const Object &x, std::array<std::size_t, M> i,
           std::index_sequence<Supers...>, std::index_sequence<Subs...>) const {
     return std::invoke(sub_, std::invoke(f_, x, std::get<Supers>(i)...),
                        std::get<N + Subs>(i)...);
+  }
+
+
+  template <class Object>
+  std::invoke_result_t<
+      SubFunction,
+      std::invoke_result_t<SuperFunction, Object>>
+  op_impl(const Object &x, std::array<std::size_t, 0> ,
+          std::index_sequence<>, std::index_sequence<>) const {
+      return std::invoke(sub_, std::invoke(f_, x));
   }
 
 public:
@@ -164,34 +174,29 @@ class Data_Index_static<Cs<I_s<Index, Size, IndexFun>...>,
 public:
   static constexpr std::size_t N = sizeof...(Index);
 
-  std::size_t NumIndex()const{
-      std::size_t n=0;
-      for (std::size_t i=0; i<N; ++i)
-      {
-          if (real_values_[i].empty()&&label_values_[i].empty()) ++n;
-      }
-      return n;
+  std::size_t NumIndex() const {
+    std::size_t n = 0;
+    for (std::size_t i = 0; i < N; ++i) {
+      if (real_values_[i].empty() && label_values_[i].empty())
+        ++n;
+    }
+    return n;
   }
 
   Data_Index_static(std::tuple<I_s<Index, Size, IndexFun>...> &&Ind,
                     std::tuple<F_s<Field, Fun>...> &&ftu)
       : Ind_{std::move(Ind)}, ftu_{std::move(ftu)} {}
 
-
-  template<class anIndex, typename T>
-  void set_selection(anIndex, const std::set<T>& selection)
-  {
-      constexpr auto I = Index_v<anIndex, Cs<Index...>>;
-      set_selection_imp(std::integral_constant<std::size_t,I>(),selection);
+  template <class anIndex, typename T>
+  void set_selection(anIndex, const std::set<T> &selection) {
+    constexpr auto I = Index_v<anIndex, Cs<Index...>>;
+    set_selection_imp(std::integral_constant<std::size_t, I>(), selection);
   }
 
-  template<class... anIndex, typename... T>
-  void set_selections(const std::pair<anIndex, std::set<T>>&... selection)
-  {
-      (set_selection(selection.first,selection.second),...);
+  template <class... anIndex, typename... T>
+  void set_selections(const std::pair<anIndex, std::set<T>> &... selection) {
+    (set_selection(selection.first, selection.second), ...);
   }
-
-
 
   static std::ostream &put_title(std::ostream &os, const std::string &sep) {
     ((os << Index::title.str() << sep), ...);
@@ -234,21 +239,22 @@ public:
   auto &Data() const { return ftu_; }
 
 private:
-    template<std::size_t I>
-    void set_selection_imp(std::integral_constant<std::size_t,I>, std::set<std::string>& selection)
-    {
-        std::get<I>(label_values_)=selection;
-    }
+  template <std::size_t I>
+  void set_selection_imp(std::integral_constant<std::size_t, I>,
+                         std::set<std::string> &selection) {
+    std::get<I>(label_values_) = selection;
+  }
 
-    template<std::size_t I>
-    void set_selection_imp(std::integral_constant<std::size_t,I>,const std::set<double>& selection)
-    {
-        std::get<I>(real_values_)=selection;
-    }
+  template <std::size_t I>
+  void set_selection_imp(std::integral_constant<std::size_t, I>,
+                         const std::set<double> &selection) {
+    std::get<I>(real_values_) = selection;
+  }
 
-    void set_selection_imp(std::integral_constant<std::size_t,sizeof...(Index)>,const std::set<std::string>& ){}
+  void set_selection_imp(std::integral_constant<std::size_t, sizeof...(Index)>,
+                         const std::set<std::string> &) {}
 
-    template <class Object, class... Index_Type, typename... Int>
+  template <class Object, class... Index_Type, typename... Int>
   std::ostream &put_index_sample_impl(std::ostream &os, const Object &x,
                                       const std::string &sep,
                                       std::tuple<Index_Type...> out,
@@ -266,8 +272,9 @@ private:
   put_index_sample_impl(std::ostream &os, const Object &x,
                         const std::string &sep, std::tuple<Index_Type...> out,
                         std::index_sequence<I, Is...>, Int... is) const {
-    if constexpr (!std::is_same_v<std::decay_t<decltype(std::get<I>(Ind_)(x, is..., 0))>, std::string>)
-    {
+    if constexpr (!std::is_same_v<
+                      std::decay_t<decltype(std::get<I>(Ind_)(x, is..., 0))>,
+                      std::string>) {
       auto &set = std::get<I>(real_values_);
       if (set.empty()) {
         for (std::size_t i = 0; i < Index_size<I>(x, is...); ++i) {
@@ -281,7 +288,7 @@ private:
       } else {
         double eps = std::numeric_limits<double>::epsilon() * 1e3;
         for (std::size_t i = 0; i < Index_size<I>(x, is...); ++i) {
-            auto value_i=std::get<I>(Ind_)(x, is..., i);
+          auto value_i = std::get<I>(Ind_)(x, is..., i);
           if (std::find_if(set.begin(), set.end(), [&eps, &value_i](auto x) {
                 return std::abs((x - value_i) * value_i) <= eps;
               }) != set.end())
@@ -292,32 +299,28 @@ private:
         }
         return os;
       }
-    }
-    else
-    {
-        auto &set = std::get<I>(label_values_);
-        if (set.empty()) {
-            for (std::size_t i = 0; i < Index_size<I>(x, is...); ++i) {
-                put_index_sample_impl(
-                    os, x, sep,
-                    std::tuple_cat(out, std::make_tuple(std::get<I>(Ind_)(x, is..., i))),
-                    std::index_sequence<Is...>(), is..., i);
-            }
-            return os;
-        } else {
-            for (std::size_t i = 0; i < Index_size<I>(x, is...); ++i) {
-                auto value_i=std::get<I>(Ind_)(x, is..., i);
-                if (std::find(set.begin(), set.end(), value_i) != set.end())
-                    put_index_sample_impl(
-                        os, x, sep,
-                        std::tuple_cat(out, std::make_tuple(std::move(value_i))),
-                        std::index_sequence<Is...>(), is..., i);
-            }
-            return os;
+    } else {
+      auto &set = std::get<I>(label_values_);
+      if (set.empty()) {
+        for (std::size_t i = 0; i < Index_size<I>(x, is...); ++i) {
+          put_index_sample_impl(os, x, sep,
+                                std::tuple_cat(out, std::make_tuple(std::get<I>(
+                                                        Ind_)(x, is..., i))),
+                                std::index_sequence<Is...>(), is..., i);
         }
+        return os;
+      } else {
+        for (std::size_t i = 0; i < Index_size<I>(x, is...); ++i) {
+          auto value_i = std::get<I>(Ind_)(x, is..., i);
+          if (std::find(set.begin(), set.end(), value_i) != set.end())
+            put_index_sample_impl(
+                os, x, sep,
+                std::tuple_cat(out, std::make_tuple(std::move(value_i))),
+                std::index_sequence<Is...>(), is..., i);
+        }
+        return os;
+      }
     }
-
-
   }
   template <std::size_t I, class Object, typename... Int>
   std::size_t Index_size(const Object &x, Int... is) const {
@@ -325,15 +328,9 @@ private:
   }
   std::tuple<I_s<Index, Size, IndexFun>...> Ind_;
   std::tuple<F_s<Field, Fun>...> ftu_;
-  std::array<std::set<double>,N>  real_values_;
-  std::array<std::set<std::string>,N>  label_values_;
+  std::array<std::set<double>, N> real_values_;
+  std::array<std::set<std::string>, N> label_values_;
 };
-
-
-
-
-
-
 
 template <class... Index, class... Size, class... FunIndex, class... Field,
           class... Fun>
@@ -678,37 +675,34 @@ auto Concatenate_tuple_static(std::tuple<Datas...> &&one) {
   return std::move(one);
 }
 
-
-template <class... Datas, typename... Index, typename...T>
-std::tuple<Datas...> set_selections(const std::tuple<Datas...>& tu,const std::pair<Index,std::set<T>>&... sels)
-{
-    return std::apply([&sels...](auto...d){std::make_tuple(d.set_selections(sels...)...);},tu);
-
-
+template <class... Datas, typename... Index, typename... T>
+std::tuple<Datas...>
+set_selections(const std::tuple<Datas...> &tu,
+               const std::pair<Index, std::set<T>> &... sels) {
+  return std::apply(
+      [&sels...](auto... d) { std::make_tuple(d.set_selections(sels...)...); },
+      tu);
 }
 
-
-class LinearIndexSampling
-{
+class LinearIndexSampling {
 public:
-    std::size_t operator()(std::size_t isample)const
-    {
-        for  (auto it=cycle_max_index_.rbegin(); it!=cycle_max_index_.rend(); ++it)
-        {
-            if (isample%it->first==0) return it->second;
-        }
-        return 0;
+  std::size_t operator()(std::size_t isample) const {
+    for (auto it = cycle_max_index_.rbegin(); it != cycle_max_index_.rend();
+         ++it) {
+      if (isample % it->first == 0)
+        return it->second;
     }
+    return 0;
+  }
 
-    LinearIndexSampling(const std::map<std::size_t, std::size_t>& cycle_max_index):cycle_max_index_{cycle_max_index}{}
-    LinearIndexSampling(std::map<std::size_t, std::size_t>&& cycle_max_index):cycle_max_index_{std::move(cycle_max_index)}{}
+  LinearIndexSampling(const std::map<std::size_t, std::size_t> &cycle_max_index)
+      : cycle_max_index_{cycle_max_index} {}
+  LinearIndexSampling(std::map<std::size_t, std::size_t> &&cycle_max_index)
+      : cycle_max_index_{std::move(cycle_max_index)} {}
 
 private:
-    std::map<std::size_t, std::size_t> cycle_max_index_;
+  std::map<std::size_t, std::size_t> cycle_max_index_;
 };
-
-
-
 
 class Data_Index_point {
   std::map<std::string, std::pair<std::size_t, std::size_t>> pos_;
