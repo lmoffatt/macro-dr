@@ -29,8 +29,6 @@ std::string Evidence_emcee<Experiment, Model, ParametersDistribution>::run(
     Likelihood_Model lik(m, p, e, algorithm, min_P, tolerance, BiNumber,
                          VaNumber);
     std::mt19937_64 mt = init_mt(initseed, std::cerr);
-    std::cerr << "\np.tr_to_Parameter(p.sample(mt))\n"
-              << p.tr_to_Parameter(p.sample(mt)).value();
     LinearIndexSampling state_sampling(state_sampling_cycles);
     LinearIndexSampling gen_sampling(gen_sampling_cycles);
     LinearIndexSampling ana_sampling(ana_sampling_cycles);

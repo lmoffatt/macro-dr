@@ -80,6 +80,12 @@ mydynamicfunctions.h \
 
 DISTFILES += \
     Makefile \
+    cecar/scripts/m1_EvidenceDProb02_MacroDMR.txt \
+    cecar/scripts/m1_EvidenceDProb_MacroDMR.txt \
+    cecar/scripts/m1_EvidenceD_MacroDMR.txt \
+    cecar/scripts/m1_Evidence_MacroDMR.txt \
+    cecar/scripts/m1_Evidence_emcee_MacroDMR.txt \
+    cecar/scripts/s_m1 \
     data/Moffatt_Hume_2007_ATP.txt \
     run/Evidence_cecar.txt \
     run/m_1/c_m_1 \

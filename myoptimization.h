@@ -69,7 +69,7 @@ struct zero_binary_search
         std::size_t iter=0;
         double fa=f(a); ++iter;
         double fc=f(c); ++iter;
-        std::cerr<<"\n zero   fa="<<fa<<" fc"<<fc;
+        //std::cerr<<"\n zero   fa="<<fa<<" fc"<<fc;
         if (std::isfinite(fa)&& std::isfinite(fc))
             return  myOptional_t<double>(false,"invalid starting point");
         if (fa>0)
@@ -106,7 +106,7 @@ struct zero_binary_search
             double b=(a+c)/2;
 
             double fb=f(b); ++iter;
-            std::cerr<<" b="<<b<<" fb"<<fb<<"\t next::";
+            //std::cerr<<" b="<<b<<" fb"<<fb<<"\t next::";
             if (!std::isfinite(fb))
                 return myOptional_t<double>(false,"invalid value");
             if (fb>0)
@@ -135,7 +135,7 @@ struct zero_secant_method
             double x2=x1-f1*(x1-x0)/(f1-f0);
             f0=f1; x0=x1;
             x1=x2; f1=f(x1);++iter;
-            std::cerr<<" \n zero iter="<<iter<<" f0="<<f0<<" f1="<<f1<<" x0="<<x0<<" x1="<<x1;
+            //std::cerr<<" \n zero iter="<<iter<<" f0="<<f0<<" f1="<<f1<<" x0="<<x0<<" x1="<<x1;
         }
         return 0.5*(x1+x0);
     }

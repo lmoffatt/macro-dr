@@ -918,8 +918,8 @@ calculate(const Model &M, const Distribution_Generator &G, Parameters &&x,
   typedef myOptional_t<mcmc_sample_t<Model, Distribution_Generator>> Op;
 
   auto logL = G.compute_Likelihood(M, x, current, os);
-  os << "\nlogL.likelihood().H()\n" << logL.value().likelihood().H();
-  os << "\nlogL.H()\n" << logL.value().H();
+//  os << "\nlogL.likelihood().H()\n" << logL.value().likelihood().H();
+//  os << "\nlogL.H()\n" << logL.value().H();
   //   std::cerr<<" gets a logL!!----------="<<logL<<"\n";
   if (!logL.has_value())
     return Op(false, "cannot compute logLikelihood because " + logL.error());
@@ -989,82 +989,82 @@ public:
       double logA =
           (logL_candidate + logP_backward) - (logL_current + logP_forward);
       double A = std::min(1.0, std::exp(logA));
-      s << "\n "
-           "logA=(logL_candidate+logP_backward)-(logL_current+logP_forward)\n "
-           "logA="
-        << logA << "\n";
-      s << "\nlogL_candidate=" << logL_candidate << "\n";
-      s << "\nlogL_current=" << logL_current << "\n";
+//      s << "\n "
+//           "logA=(logL_candidate+logP_backward)-(logL_current+logP_forward)\n "
+//           "logA="
+//        << logA << "\n";
+//      s << "\nlogL_candidate=" << logL_candidate << "\n";
+//      s << "\nlogL_current=" << logL_current << "\n";
 
-      s << "\nlogP_foward=" << logP_forward << "\n";
-      s << "\nlogP_backward=" << logP_backward << "\n";
-      s << "\ncandidate.beta()=" << candidate.beta() << "\n";
-      s << "\ncurrent.beta()=" << current.beta() << "\n";
+//      s << "\nlogP_foward=" << logP_forward << "\n";
+//      s << "\nlogP_backward=" << logP_backward << "\n";
+//      s << "\ncandidate.beta()=" << candidate.beta() << "\n";
+//      s << "\ncurrent.beta()=" << current.beta() << "\n";
 
-      s << "\ncandidate.g().landa()=" << candidate.g().landa() << "\n";
-      s << "\ncurrent.g().landa()=" << current.g().landa() << "\n";
+//      s << "\ncandidate.g().landa()=" << candidate.g().landa() << "\n";
+//      s << "\ncurrent.g().landa()=" << current.g().landa() << "\n";
 
-      s << "\n logDetCov_forward =" << current.g().logDetCov() << "\n";
-      s << "\n logDetCov_backward =" << candidate.g().logDetCov() << "\n";
+//      s << "\n logDetCov_forward =" << current.g().logDetCov() << "\n";
+//      s << "\n logDetCov_backward =" << candidate.g().logDetCov() << "\n";
 
       auto dcandidate = candidate.x() - candidate.g().mean();
       auto dforward = candidate.x() - current.g().mean();
       auto dback = current.x() - candidate.g().mean();
       auto dcurrent = current.x() - current.g().mean();
 
-      s << "\ndcandidate\n" << dcandidate;
-      s << "\ndforward\n" << dforward;
-      s << "\n dback\n" << dback;
-      s << "\n dcurrent\n" << dcurrent;
+//      s << "\ndcandidate\n" << dcandidate;
+//      s << "\ndforward\n" << dforward;
+//      s << "\n dback\n" << dback;
+//      s << "\n dcurrent\n" << dcurrent;
 
-      s << "\nxTSigmaX(dforward, current.g().CovInv())=\n"
-        << xTSigmaX(current.g().CovInv(), dforward) << "\n";
+//      s << "\nxTSigmaX(dforward, current.g().CovInv())=\n"
+//        << xTSigmaX(current.g().CovInv(), dforward) << "\n";
 
-      s << "\nxTSigmaX(dforward, current.g().CovInv())=\n"
-        << xTSigmaX(dforward, current.g().CovInv()) << "\n";
-      s << "\nxTSigmaX(dcurrent, current.g().CovInv())=\n"
-        << xTSigmaX(dcurrent, current.g().CovInv()) << "\n";
-      s << "\n INV xTSigmaX(dcandidate, current.g().CovInv())=\n"
-        << xTSigmaX(dcandidate, current.g().CovInv()) << "\n";
-      s << "\n INV xTSigmaX(dback, current.g().CovInv())=\n"
-        << xTSigmaX(dback, current.g().CovInv()) << "\n";
+//      s << "\nxTSigmaX(dforward, current.g().CovInv())=\n"
+//        << xTSigmaX(dforward, current.g().CovInv()) << "\n";
+//      s << "\nxTSigmaX(dcurrent, current.g().CovInv())=\n"
+//        << xTSigmaX(dcurrent, current.g().CovInv()) << "\n";
+//      s << "\n INV xTSigmaX(dcandidate, current.g().CovInv())=\n"
+//        << xTSigmaX(dcandidate, current.g().CovInv()) << "\n";
+//      s << "\n INV xTSigmaX(dback, current.g().CovInv())=\n"
+//        << xTSigmaX(dback, current.g().CovInv()) << "\n";
 
-      s << "\nxTSigmaX(dforward, candidate.g().CovInv())=\n"
-        << xTSigmaX(dforward, candidate.g().CovInv()) << "\n";
-      s << "\nxTSigmaX(dcurrent, candidate.g().CovInv())=\n"
-        << xTSigmaX(dcurrent, candidate.g().CovInv()) << "\n";
-      s << "\n INV xTSigmaX(dcandidate, candidate.g().CovInv())=\n"
-        << xTSigmaX(dcandidate, candidate.g().CovInv()) << "\n";
-      s << "\n INV xTSigmaX(dback, candidate.g().CovInv())=\n"
-        << xTSigmaX(dback, candidate.g().CovInv()) << "\n";
+//      s << "\nxTSigmaX(dforward, candidate.g().CovInv())=\n"
+//        << xTSigmaX(dforward, candidate.g().CovInv()) << "\n";
+//      s << "\nxTSigmaX(dcurrent, candidate.g().CovInv())=\n"
+//        << xTSigmaX(dcurrent, candidate.g().CovInv()) << "\n";
+//      s << "\n INV xTSigmaX(dcandidate, candidate.g().CovInv())=\n"
+//        << xTSigmaX(dcandidate, candidate.g().CovInv()) << "\n";
+//      s << "\n INV xTSigmaX(dback, candidate.g().CovInv())=\n"
+//        << xTSigmaX(dback, candidate.g().CovInv()) << "\n";
 
-      s << "\nquadraticForm_B_A_BT( current.g().CovInv(),dforward)=\n"
-        << quadraticForm_B_A_BT(current.g().CovInv(), dforward) << "\n";
+//      s << "\nquadraticForm_B_A_BT( current.g().CovInv(),dforward)=\n"
+//        << quadraticForm_B_A_BT(current.g().CovInv(), dforward) << "\n";
 
-      s << "\nquadraticForm_B_A_BT(candidate.g().CovInv(),dback)=\n"
-        << quadraticForm_B_A_BT(candidate.g().CovInv(), dback) << "\n";
+//      s << "\nquadraticForm_B_A_BT(candidate.g().CovInv(),dback)=\n"
+//        << quadraticForm_B_A_BT(candidate.g().CovInv(), dback) << "\n";
 
-      s << "\n current.x() \n" << current.x();
-      s << "\n current.g().mean() \n" << current.g().mean();
+//      s << "\n current.x() \n" << current.x();
+//      s << "\n current.g().mean() \n" << current.g().mean();
 
-      s << "\n candidate.x() \n" << candidate.x();
-      s << "\n candidate.g().mean() \n" << candidate.g().mean();
+//      s << "\n candidate.x() \n" << candidate.x();
+//      s << "\n candidate.g().mean() \n" << candidate.g().mean();
 
-      s << "\n current.x()-candidate.x() \n" << current.x() - candidate.x();
-      s << "\n ds=-current.g().mean()+candidate.x() \n"
-        << -current.g().mean() + candidate.x();
-      s << "\n current.g().mean()-candidate.g().mean() \n"
-        << current.g().mean() - candidate.g().mean();
+//      s << "\n current.x()-candidate.x() \n" << current.x() - candidate.x();
+//      s << "\n ds=-current.g().mean()+candidate.x() \n"
+//        << -current.g().mean() + candidate.x();
+//      s << "\n current.g().mean()-candidate.g().mean() \n"
+//        << current.g().mean() - candidate.g().mean();
 
-      s << "\ncurrent.g().Chol()\n" << current.g().Chol();
+//      s << "\ncurrent.g().Chol()\n" << current.g().Chol();
 
-      s << "\ncandidate.g().Chol()\n" << candidate.g().Chol();
+//      s << "\ncandidate.g().Chol()\n" << candidate.g().Chol();
 
-      s << "\ncurrent.g().Chol()-candidate.g().Chol()\n"
-        << current.g().Chol() - candidate.g().Chol();
+//      s << "\ncurrent.g().Chol()-candidate.g().Chol()\n"
+//        << current.g().Chol() - candidate.g().Chol();
 
-      s << "\ncurrent.g().CovInv()\n" << current.g().CovInv();
-      s << "\ncandidate.g().CovInv()\n" << candidate.g().CovInv();
+//      s << "\ncurrent.g().CovInv()\n" << current.g().CovInv();
+//      s << "\ncandidate.g().CovInv()\n" << candidate.g().CovInv();
 
       // s << "\n current \n" << current;
       // s << "\n candidate \n" << candidate;
@@ -1177,7 +1177,7 @@ public:
                  Adapative_Distribution_Generator &adaptive,
                  std::ostream &os) const {
     auto G = adaptive.sample(mt);
-    std::cerr << " start " << G;
+    //std::cerr << " start " << G;
     auto out = get_Metropolis().start(M, mt, G, os);
     return out;
   }
@@ -2090,9 +2090,9 @@ public:
       double logA =
           (model.beta(i) - model.beta(i + 1)) *
           (Scout(i + 1).likelihood().logL() - Scout(i).likelihood().logL());
-      std::cerr << "\n thermologA" << logA << "  " << model.beta(i) << " "
-                << model.beta(i + 1) << "  " << Scout(i).likelihood().logL()
-                << " " << Scout(i + 1).likelihood().logL() << "\n";
+//      std::cerr << "\n thermologA" << logA << "  " << model.beta(i) << " "
+//                << model.beta(i + 1) << "  " << Scout(i).likelihood().logL()
+//                << " " << Scout(i + 1).likelihood().logL() << "\n";
       return std::min(1.0, std::exp(logA));
     }
     std::size_t size() const { return scouts_.size(); }
@@ -2108,12 +2108,12 @@ public:
       std::vector<mcmc_sample_t<Model, Adapative_Distribution_Generator>>
           myscouts(m.size());
       std::vector<Op_void> res(m.size());
-      std::cerr << "\n por empezar\n";
+      //std::cerr << "\n por empezar\n";
       std::vector<std::stringstream> os(m.size());
 
 #pragma omp parallel for
       for (std::size_t i = 0; i < m.size(); ++i) {
-        std::cerr << "\n" << i << " aqui\n";
+        //std::cerr << "\n" << i << " aqui\n";
         auto s = adm.start(m.model(i), mt[i], adaptive[i], os[i]);
         //     std::cerr<<"\n"<<i <<" next\n";
         //     std::cerr<<"\n"<<i <<s.value()<<" value\n";
@@ -2123,8 +2123,8 @@ public:
         myscouts[i] = std::move(s).value();
         //     std::cerr<<"\n"<<i <<" scouts\n";
       }
-      for (auto &ss : os)
-        std::cerr << ss.str();
+//      for (auto &ss : os)
+//        std::cerr << ss.str();
       auto ops = consolidate(std::move(res));
       if (ops.has_value())
         return Op(samples(std::move(itoscout), std::move(myscouts)));
@@ -2295,15 +2295,15 @@ public:
                                      current.Scout(i), ss[i]);
     }
 
-    for (auto &s : ss)
-      std::cerr << s.str();
+//    for (auto &s : ss)
+//      std::cerr << s.str();
     auto ops = consolidate(std::move(res));
     if (!ops.has_value())
       return Op_void(false, "get_Metropolis fails: " + ops.error());
     std::uniform_real_distribution<> U;
     double r = U(mt[0]);
 
-    std::cerr << " test thermo r=" << r << "P_jump_=" << P_jump_;
+   // std::cerr << " test thermo r=" << r << "P_jump_=" << P_jump_;
     if (r < P_jump_) {
       std::size_t j;
       if (U(mt[0]) < 0.5)
@@ -2311,7 +2311,7 @@ public:
       else
         j = 1;
 
-      std::cerr << " j=" << j << "\n";
+  //    std::cerr << " j=" << j << "\n";
 #pragma omp parallel for
       for (std::size_t i = j; i < model.size() - 1; i += 2) {
         double A = current.Accept(i, model);
@@ -2422,20 +2422,20 @@ public:
   }
 
   void swap(std::size_t i, std::size_t j, std::size_t k, const Model &model) {
-    std::cerr << "\n swap i=" << i << "  j=" << j << "  k=" << k << "  log_j="
-              << Scout(i).Walker(j).likelihood_result().likelihood().logL()
-              << "log_k="
-              << Scout(i + 1).Walker(k).likelihood_result().likelihood().logL()
-              << "\n";
+//    std::cerr << "\n swap i=" << i << "  j=" << j << "  k=" << k << "  log_j="
+//              << Scout(i).Walker(j).likelihood_result().likelihood().logL()
+//              << "log_k="
+//              << Scout(i + 1).Walker(k).likelihood_result().likelihood().logL()
+//              << "\n";
     std::swap(Scout(i).Walker(j), Scout(i + 1).Walker(k));
     std::swap(ij_history_[i][j], ij_history_[i + 1][k]);
     Scout(i).Walker(j).set_beta(model.beta(i));
     Scout(i + 1).Walker(k).set_beta(model.beta(i + 1));
-    std::cerr << "result i=" << i << "  j=" << j << "  k=" << k << "  log_j="
-              << Scout(i).Walker(j).likelihood_result().likelihood().logL()
-              << "log_k="
-              << Scout(i + 1).Walker(k).likelihood_result().likelihood().logL()
-              << "\n";
+//    std::cerr << "result i=" << i << "  j=" << j << "  k=" << k << "  log_j="
+//              << Scout(i).Walker(j).likelihood_result().likelihood().logL()
+//              << "log_k="
+//              << Scout(i + 1).Walker(k).likelihood_result().likelihood().logL()
+//              << "\n";
   }
 
   std::size_t size() const { return scouts_.size(); }

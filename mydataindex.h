@@ -215,6 +215,7 @@ public:
   bool print_data(const Object &x, const std::string &filename,
                   const std::string &ext, const std::string &sep) const {
     std::stringstream ss;
+    ss.precision(std::numeric_limits<double>::max_digits10);
     put_index_sample(ss, x, sep);
     std::string fname = filename + get_index_names() + ext;
     std::ofstream f(fname.c_str(), std::ios_base::app);

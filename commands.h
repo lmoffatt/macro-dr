@@ -568,7 +568,7 @@ struct Evidence_Derivative {
 template <class Experiment, class Model, class ParametersDistribution>
 struct Evidence_Derivative_prob {
 
-  static constexpr auto className = my_static_string("evidence_derivative");
+  static constexpr auto className = my_static_string("evidence_derivative_prob");
 
   static std::string
   run(const Experiment &e, const Model &m, const ParametersDistribution &prior,
