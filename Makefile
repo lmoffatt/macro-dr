@@ -120,7 +120,8 @@ TARGET        = macro-dr
 first: all
 ####### Build rules
 
-$(TARGET):  $(OBJECTS)  $(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJCOMP) $(LIBS)
+$(TARGET):  $(OBJECTS)
+	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJCOMP) $(LIBS)
 
 
 all: Makefile $(TARGET)
