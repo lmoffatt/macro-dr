@@ -41,8 +41,7 @@ echo "
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/lmoffatt/gcc-8.2/lib64/
 export OMP_NUM_THREADS=8
-
-srun /home/lmoffatt/macro-dr/parallel/macro-dr /home/lmoffatt/macro-dr/macro-dr/Evidence_cecar.txt
+srun /home/lmoffatt/macro-dr/parallel/macro-dr /home/lmoffatt/macro-dr/macro-dr/run/Evidence_cecar.txt
 
 
 echo "
