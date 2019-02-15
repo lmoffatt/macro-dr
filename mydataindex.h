@@ -182,7 +182,7 @@ public:
   void set_selection(anIndex, const std::set<T>& selection)
   {
       constexpr auto I = Index_v<anIndex, Cs<Index...>>;
-      set_selection_imp<I>(selection);
+      set_selection_imp(std::integral_constant<std::size_t,I>(),selection);
   }
 
   template<class... anIndex, typename... T>
@@ -235,19 +235,18 @@ public:
 
 private:
     template<std::size_t I>
-    void set_selection_imp(const std::set<std::string>& selection)
+    void set_selection_imp(std::integral_constant<std::size_t,I>, std::set<std::string>& selection)
     {
         std::get<I>(label_values_)=selection;
     }
 
     template<std::size_t I>
-    void set_selection_imp(const std::set<double>& selection)
+    void set_selection_imp(std::integral_constant<std::size_t,I>,const std::set<double>& selection)
     {
         std::get<I>(real_values_)=selection;
     }
 
-    template<>
-    void set_selection_imp<sizeof...(Index)>(const std::set<std::string>& ){}
+    void set_selection_imp(std::integral_constant<std::size_t,sizeof...(Index)>,const std::set<std::string>& ){}
 
     template <class Object, class... Index_Type, typename... Int>
   std::ostream &put_index_sample_impl(std::ostream &os, const Object &x,
@@ -306,7 +305,6 @@ private:
             }
             return os;
         } else {
-            double eps = std::numeric_limits<double>::epsilon() * 1e3;
             for (std::size_t i = 0; i < Index_size<I>(x, is...); ++i) {
                 auto value_i=std::get<I>(Ind_)(x, is..., i);
                 if (std::find(set.begin(), set.end(), value_i) != set.end())
@@ -330,6 +328,12 @@ private:
   std::array<std::set<double>,N>  real_values_;
   std::array<std::set<std::string>,N>  label_values_;
 };
+
+
+
+
+
+
 
 template <class... Index, class... Size, class... FunIndex, class... Field,
           class... Fun>
