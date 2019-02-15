@@ -80,6 +80,8 @@ mydynamicfunctions.h \
 
 DISTFILES += \
     Makefile \
+    run/m_1/c_m_1 \
+    run/s_cecar_1 \
     simulation.txt \
     models.txt \
     mode_1.txt \
