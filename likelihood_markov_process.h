@@ -1939,9 +1939,10 @@ struct partialDistribution_function_aux {
 struct partialDistribution_function_mp {
 
     template <class Experiment>
-    auto operator()(const Experiment &e, std::vector<std::tuple<markov::MACROR, markov::mp_state_information>> &) const
+    auto operator()(const Experiment &e, std::vector<std::tuple<markov::MACROR, markov::mp_state_information>> &v) const
     {
        std::size_t n = e.num_measurements();
+       v.resize(n);
       return std::make_pair(std::vector<Normal_Distribution<double>>(n),
                              std::vector<std::tuple<markov::MACROR,markov::mp_state_information>>(n));
      }

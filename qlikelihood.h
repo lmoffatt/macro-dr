@@ -241,8 +241,8 @@ public:
         grammar::field(C<self_type>{}, "ParametersDistribution", &self_type::get_ParametersDistribution),
         grammar::field(C<self_type>{}, "Algorithm", &self_type::get_Algorithm),
         grammar::field(C<self_type>{}, "min_P", &self_type::min_P),
-        grammar::field(C<self_type>{}, "min_P", &self_type::tolerance),
-            grammar::field(C<self_type>{}, "min_P", &self_type::BiNumber),
+        grammar::field(C<self_type>{}, "tolerance", &self_type::tolerance),
+            grammar::field(C<self_type>{}, "BiNumber", &self_type::BiNumber),
                 grammar::field(C<self_type>{}, "VaNumber", &self_type::VaNumber)
 
                                                                                     );
