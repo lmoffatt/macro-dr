@@ -657,7 +657,7 @@ struct Evidence_emcee {
     // State_Model = Model_1   model_parameters_distribution = paramPrior_1
     // algorithm = "MacroDMR"  Binomial_threshold =5.0 Variance_threshold =1.0
     // p_jump = 0.5   min_probability = 1e-14 tolerance_error=1e-2 initseed =
-    // 3034446629   betas = { 1.0 0.5 0.3 0.1 1e-2 1e-3 1e-4 0}  alfas = {2
+    // 3034446629   betas = { 1.0 0.3 0.1 3e-2 1e-2 3e-3 0}  alfas = {2
     // 1.5 1.2 1.1 1.05 1.02 1.01 1.005  1.002  1.001 1.0005  1.0002 1.0001 }
     // nSamples = 10000  parameters_output = 0  gradient_output = 0  numWalkers
     // = 8  target_prob = 0.2  n_trials_at_init = 100 )

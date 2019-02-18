@@ -1,0 +1,7 @@
+sbatch /home/lmoffatt/macro-dr/macro-dr/cecar/scripts/s_m1_1
+sbatch /home/lmoffatt/macro-dr/macro-dr/cecar/scripts/s_m1_2
+sbatch /home/lmoffatt/macro-dr/macro-dr/cecar/scripts/s_m1_3
+sbatch /home/lmoffatt/macro-dr/macro-dr/cecar/scripts/s_m1_4
+sbatch /home/lmoffatt/macro-dr/macro-dr/cecar/scripts/s_m1_5
+sbatch /home/lmoffatt/macro-dr/macro-dr/cecar/scripts/s_m1_6
+sbatch /home/lmoffatt/macro-dr/macro-dr/cecar/scripts/s_m1_7

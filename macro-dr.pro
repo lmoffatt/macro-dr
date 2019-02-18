@@ -85,7 +85,16 @@ DISTFILES += \
     cecar/scripts/m1_EvidenceD_MacroDMR.txt \
     cecar/scripts/m1_Evidence_MacroDMR.txt \
     cecar/scripts/m1_Evidence_emcee_MacroDMR.txt \
-    cecar/scripts/s_m1 \
+    cecar/scripts/m1_Evidence_prob_02_MacroDMR.txt \
+    cecar/scripts/m1_Evidence_prob_0_MacroDMR.txt \
+    cecar/scripts/s_m1_1 \
+    cecar/scripts/s_m1_2 \
+    cecar/scripts/s_m1_3 \
+    cecar/scripts/s_m1_4 \
+    cecar/scripts/s_m1_5 \
+    cecar/scripts/s_m1_6 \
+    cecar/scripts/s_m1_7 \
+    cecar/scripts/srun \
     data/Moffatt_Hume_2007_ATP.txt \
     run/Evidence_cecar.txt \
     run/m_1/c_m_1 \
