@@ -7,7 +7,7 @@
 struct get_current
 {
     template <class Model, class X>
-    double operator()(markov_process<M_Matrix<std::size_t>> mp, const Model& m, const X& x)const
+    double operator()(markov_process<M_Matrix<std::size_t>> mp,  Model& m, const X& x)const
     {
         return (mp.N()*m.g(x)).getvalue();
     }
@@ -31,7 +31,7 @@ auto compute_simulation(const Experiment& e,   const Parameters& p,std::mt19937_
        return markov::measure_experiment(get_current{},mt,MC,e,n_sub_intervals_,max_dt_);
    }
 
-Simulator(const Model& model,std::size_t n_sub_intervals, double max_dt,double min_P, double tolerance)
+Simulator( Model& model,std::size_t n_sub_intervals, double max_dt,double min_P, double tolerance)
     : m{model},n_sub_intervals_{n_sub_intervals},max_dt_{max_dt},min_P_{min_P},tolerance_{tolerance}
 {}
 

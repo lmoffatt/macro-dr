@@ -2,7 +2,7 @@
 
 template <class Experiment, class Model, class ParametersDistribution>
 std::string Evidence_emcee<Experiment, Model, ParametersDistribution>::run(
-    const Experiment &e, const Model &m, const ParametersDistribution &p,
+    const Experiment &e,  Model &m, const ParametersDistribution &p,
     std::string algorithm, double pjump, double min_P, double tolerance,
     double BiNumber, double VaNumber,
     std::mt19937_64::result_type initseed,

@@ -1146,13 +1146,32 @@ myOptional_t<Derivative<M_Matrix<T>>> inv(const Derivative<M_Matrix<T>> &x) {
     return Op(false, "cannot invert x " + invx.error());
   else {
     //        auto fxxf=Permute<T,1,3,0,2>(x.dfdx());
-    auto df = -invx.value() * x.dfdx() * invx.value();
+    auto df = -invx.value().first * x.dfdx() * invx.value().first;
     //      df=Permute<T,2,0,3,1>(df);
     return Op(
-        Derivative<M_Matrix<T>>(std::move(invx).value(), x.x(), std::move(df)));
+        Derivative<M_Matrix<T>>(std::move(invx).value().first, x.x(), std::move(df)));
   }
 }
+
+inline
+    Derivative<M_Matrix<double>> expm_taylor(const Derivative<M_Matrix<double>> & x, std::size_t order=6)
+{
+    Derivative<M_Matrix<double>> out=Constant(Matrix_Generators::eye<double>(x.f().ncols()))+x;
+    Derivative<M_Matrix<double>> xr=x;
+    double a=1.0;
+    for (std::size_t n=2; n+1<order; ++n)
+    {
+        a/=n;
+        xr=xr*x;
+        out=out+xr*a;
+    }
+    return out;
+
+}
+
+
 namespace Matrix_Decompositions {
+
 
 inline auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>> &Dx) {
   typedef myOptional_t<
@@ -1164,7 +1183,7 @@ inline auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>> 
     return Op(false,
               "Derivative error cannot calculete function value" + res.error());
   else {
-    auto [VR, landa, VL] = std::move(res).value();
+    auto [VR, landa, VL, CL,CV] = std::move(res).value();
     // auto fxxf=Permute<double,1,3,0,2>(Dx.dfdx());
 
     M_Matrix<Derivative<double>> dlanda(

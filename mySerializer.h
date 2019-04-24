@@ -185,11 +185,11 @@ template<char... cs> struct token {
     typedef int this_is_token;
 };
 template <typename >
-struct is_token : std::false_type { };
+struct is_token : public std::false_type { };
 
 template <char...c>
 struct is_token<token<c...>>
-        : std::true_type { };
+        :public  std::true_type { };
 
 template<template<char...>class token,char... c>
 std::ostream& operator<<(std::ostream& os, token<c...> );

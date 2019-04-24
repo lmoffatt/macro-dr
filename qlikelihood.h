@@ -232,7 +232,7 @@ public:
 
 
 
-  Markov_Model_Likelihood(const Model& m, const Parameters_distribution& p, const std::string& algorithm, double min_P, double tolerance, double BiNumber,double VaNumber): m{m},p_{p}, algorithm_{algorithm}, min_P_{min_P}, tolerance_{tolerance}, BiNumber_(BiNumber),VaNumber_{VaNumber}{}
+  Markov_Model_Likelihood(const  Model& m, const Parameters_distribution& p, const std::string& algorithm, double min_P, double tolerance, double BiNumber,double VaNumber): m{m},p_{p}, algorithm_{algorithm}, min_P_{min_P}, tolerance_{tolerance}, BiNumber_(BiNumber),VaNumber_{VaNumber}{}
   Markov_Model_Likelihood()=default;
 
   static auto get_constructor_fields() {
@@ -309,7 +309,7 @@ public:
   }
 
 
-  Markov_Model_Likelihood(const Model& m, const Parameters_distribution& p,const Experiment& e, const std::string& algorithm, double min_P, double tolerance, double BiNumber,double VaNumber): e_{e},l_{m,p,algorithm,min_P,tolerance,BiNumber,VaNumber}{}
+  Markov_Model_Likelihood( Model& m, const Parameters_distribution& p,const Experiment& e, const std::string& algorithm, double min_P, double tolerance, double BiNumber,double VaNumber): e_{e},l_{m,p,algorithm,min_P,tolerance,BiNumber,VaNumber}{}
   Markov_Model_Likelihood()=default;
   Markov_Model_Likelihood(const Markov_Model_Likelihood<Model,Parameters_distribution>&l, const Experiment& e):e_{e},l_{l}{}
 
@@ -351,7 +351,7 @@ public:
   constexpr static auto const className=my_static_string("Markov_Model_DLikelihood")+my_trait<template_types>::className;
 
 
-    Markov_Model_DLikelihood(const Model& m, const Parameters_Distribution& p, const Experiment& e, const std::string& algorithm, double eps_G,double min_P, double tolerance, double BiNumber, double VaNumber, double epsf)
+    Markov_Model_DLikelihood( Model& m, const Parameters_Distribution& p, const Experiment& e, const std::string& algorithm, double eps_G,double min_P, double tolerance, double BiNumber, double VaNumber, double epsf)
         :evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>(Markov_Model_Likelihood<Model,Parameters_Distribution>(m,p,algorithm,min_P,tolerance,BiNumber,VaNumber),e, eps_G, epsf){}
     Markov_Model_DLikelihood(const base_type& fim):base_type{fim}{}
 

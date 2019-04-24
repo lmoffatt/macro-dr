@@ -28,10 +28,6 @@ io::myDataFrame<double, std::size_t, std::string> to_DataFrame<
   return l.make_Data_Frame();
 }
 
-
-
-
-
 template <class Experiment, class Model>
 myOptional_t<Experiment>
 simulate<Experiment, Model>::run(typename std::mt19937_64::result_type initseed,
@@ -61,66 +57,145 @@ template <class Experiment, class Model>
 myOptional_t<double> likelihood<Experiment, Model>::run(
     const Experiment &e, Model &m, const Parameters_values<Model> &p,
     const std::string algorithm, double min_P, double tolerance,
-    double biNumber, double Vanumber) {
+    double biNumber, double Vanumber, double maxChi2, double reduce_by_p, std::size_t order_number,double min_connection_ratio) {
   std::cerr << "\nparameters\n" << p;
-  SingleLigandModel SM(m.Qs(p), m.g(p), e.Vm(),
-                       p.at(Number_of_Channels_Parameter_label()),
-                       p.at(gaussian_noise_Parameter_label()), min_P);
 
-  Markov_Model_calculations<Markov_Transition_step_double,
-                            Markov_Transition_rate, SingleLigandModel,
-                            Experiment, double>
-      MC(SM, e, 1, tolerance);
+  if (algorithm == my_trait<markov::MicroDVR>::className.str()) {
 
-  if (algorithm == my_trait<markov::MacroDVR>::className.str()) {
-    auto out = markov::logLikelihood(
-        markov::MacroDVR(tolerance, biNumber, Vanumber), MC, e, std::cerr);
-    if (out.has_value())
-      std::cerr << "logLikelihodd = " << out.value() << std::endl;
-    else
-      std::cerr << out.error();
-    return out;
+        Microscopic_Model mi(m,p.at(Number_of_Channels_Parameter_label{}));
 
+    SingleLigandModel SM(mi.Qs(p), mi.g(p), e.Vm(),
+                         1.0,
+                         p.at(gaussian_noise_Parameter_label()), min_P);
+
+    Markov_Model_calculations<Markov_Transition_step_double,
+                              Markov_Transition_rate, SingleLigandModel,
+                              Experiment, double>
+        MC(SM, e, 1, tolerance);
+
+      auto out = markov::logLikelihood(
+          markov::MicroDVR(), MC, e, std::cerr);
+      if (out.has_value())
+        std::cerr << "logLikelihodd = " << out.value() << std::endl;
+      else
+        std::cerr << out.error();
+      return out;
   }
 
-  else if (algorithm == my_trait<markov::MacroDMR>::className.str()) {
-    auto out = markov::logLikelihood(
-        markov::MacroDMR(tolerance, biNumber, Vanumber), MC, e, std::cerr);
-    if (out.has_value())
-      std::cerr << "logLikelihodd = " << out.value() << std::endl;
-    else
-      std::cerr << out.error();
-    return out;
+//  else if (algorithm == my_trait<markov::RMicroDVR>::className.str()) {
 
-  } else if (algorithm == my_trait<markov::MacroDVNR>::className.str()) {
-    auto out = markov::logLikelihood(
-        markov::MacroDVNR(tolerance, biNumber, Vanumber), MC, e, std::cerr);
-    if (out.has_value())
-      std::cerr << "logLikelihodd = " << out.value() << std::endl;
-    else
-      std::cerr << out.error();
-    return out;
+//      SingleLigandModel SM(m.Qs(p), m.g(p), e.Vm(),
+//                           p.at(Number_of_Channels_Parameter_label()),
+//                           p.at(gaussian_noise_Parameter_label()), min_P);
 
-  } else if (algorithm == my_trait<markov::MacroDMNR>::className.str()) {
-    auto out = markov::logLikelihood(
-        markov::MacroDMNR(tolerance, biNumber, Vanumber), MC, e, std::cerr);
-    if (out.has_value())
-      std::cerr << "logLikelihodd = " << out.value() << std::endl;
-    else
-      std::cerr << out.error();
-    return out;
+//      Markov_Model_calculations<Markov_Transition_step_double,
+//                                Markov_Transition_rate, SingleLigandModel,
+//                                Experiment, double>
+//          MC(SM,m.connections_to_0(),m.connections_to_a(),m.connections_to_x(1.0),m.connections_from_x(0.0),m.connections_from_x(1.0), e, 1, tolerance);
 
+//      auto out = markov::logLikelihood(
+//          markov::RMicroDVR(maxChi2,reduce_by_p,min_connection_ratio), MC, e, std::cerr);
+//      if (out.has_value())
+//          std::cerr << "logLikelihodd = " << out.value() << std::endl;
+//      else
+//          std::cerr << out.error();
+//      return out;
+//  }
+  else if (algorithm == my_trait<markov::RMicroDVR_new>::className.str()) {
+
+      SingleLigandModel SM(m.Qs(p), m.g(p), e.Vm(),
+                           p.at(Number_of_Channels_Parameter_label()),
+                           p.at(gaussian_noise_Parameter_label()), min_P);
+
+      Markov_Model_calculations<Markov_Transition_step_double,
+                                Markov_Transition_rate, SingleLigandModel,
+                                Experiment, double>
+          MC(SM,m.connections_to_0(),m.connections_to_a(),m.connections_to_x(1.0),m.connections_from_x(0.0),m.connections_from_x(1.0), e, 1, tolerance);
+
+      auto out = markov::logLikelihood(
+          markov::RMicroDVR_new(min_P,reduce_by_p, maxChi2, order_number), MC, e, std::cerr);
+      if (out.has_value())
+          std::cerr << "logLikelihodd = " << out.value() << std::endl;
+      else
+          std::cerr << out.error();
+      return out;
   }
 
-  else
-    return myOptional_t<double>(false, " algorithm " + algorithm + "not found");
+  else {
+    SingleLigandModel SM(m.Qs(p), m.g(p), e.Vm(),
+                         p.at(Number_of_Channels_Parameter_label()),
+                         p.at(gaussian_noise_Parameter_label()), min_P);
+
+    Markov_Model_calculations<Markov_Transition_step_double,
+                              Markov_Transition_rate, SingleLigandModel,
+                              Experiment, double>
+        MC(SM, e, 1, tolerance);
+
+    markov::Markov_Model_calculations_new<true> MC_new(e.frequency_of_sampling(),min_P);
+
+    if (algorithm == my_trait<markov::MacroDVR>::className.str()) {
+      auto out = markov::logLikelihood(
+          markov::MacroDVR(tolerance, biNumber, Vanumber), MC, e, std::cerr);
+      if (out.has_value())
+        std::cerr << "logLikelihodd = " << out.value() << std::endl;
+      else
+        std::cerr << out.error();
+      return out;
+    } else if (algorithm == my_trait<markov::MacroDMR>::className.str()) {
+      auto out = markov::logLikelihood(
+          markov::MacroDMR(tolerance, biNumber, Vanumber), MC, e, std::cerr);
+      if (out.has_value())
+        std::cerr << "logLikelihodd = " << out.value() << std::endl;
+      else
+        std::cerr << out.error();
+      return out;
+
+    } else if (algorithm == my_trait<markov::MacroDVNR>::className.str()) {
+      auto out = markov::logLikelihood(
+          markov::MacroDVNR(tolerance, biNumber, Vanumber), MC, e, std::cerr);
+      if (out.has_value())
+        std::cerr << "logLikelihodd = " << out.value() << std::endl;
+      else
+        std::cerr << out.error();
+      return out;
+
+    } else if (algorithm == my_trait<markov::MacroDMNR>::className.str()) {
+      auto out = markov::logLikelihood(
+          markov::MacroDMNR(tolerance, biNumber, Vanumber), MC, e, std::cerr);
+      if (out.has_value())
+        std::cerr << "logLikelihodd = " << out.value() << std::endl;
+      else
+        std::cerr << out.error();
+      return out;
+
+    }
+    else if (algorithm == my_trait<markov::MacroSDMR>::className.str()) {
+        auto out = markov::logLikelihood_new(
+            markov::MacroSDMR(tolerance,biNumber,Vanumber), MC_new,SM, e, std::cerr);
+        if (out.has_value())
+            std::cerr << "logLikelihodd = " << out.value() << std::endl;
+        else
+            std::cerr << out.error();
+        return out;
+    }
+    else if (algorithm == my_trait<markov::MacroSDVR>::className.str()) {
+        auto out = markov::logLikelihood_new(
+            markov::MacroSDVR(tolerance,biNumber,Vanumber), MC_new,SM, e, std::cerr);
+        if (out.has_value())
+            std::cerr << "logLikelihodd = " << out.value() << std::endl;
+        else
+            std::cerr << out.error();
+        return out;
+    } else
+      return myOptional_t<double>(false,
+                                  " algorithm " + algorithm + "not found");
+  }
 }
 
 template struct simulate<singleLigandExperiment, Allosteric_Model>;
 template struct likelihood<singleLigandExperiment, Allosteric_Model>;
 template struct simulate<singleLigandExperiment, State_Model>;
-template struct    likelihood<singleLigandExperiment, State_Model>;
-
+template struct likelihood<singleLigandExperiment, State_Model>;
 
 template struct to_DataFrame<measure_just_y<double>>;
 template struct to_DataFrame<markov::measure_likelihood<double>>;
@@ -130,4 +205,3 @@ template struct to_DataFrame<evidence::Likelihood_Analisis<
 template struct to_DataFrame<evidence::Likelihood_Analisis<
     Parameters_distribution<State_Model>, M_Matrix<double>,
     singleLigandExperiment, evidence::PartialDLogLikelihood<markov::MACROR>>>;
-

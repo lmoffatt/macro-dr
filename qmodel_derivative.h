@@ -79,7 +79,7 @@ public:
 };
 
 template <class F, class Model, class Parameters>
-auto Incremental_ratio(double eps, const F &fun, const Model &M,
+auto Incremental_ratio(double eps, const F &fun,  Model &M,
                        const Derivative<Parameters_values<State_Model>> &p) {
   auto f = std::invoke(fun, M, p.f());
   M_Matrix<M_Matrix<double>> dfdx(p.x().nrows(), p.x().ncols(), p.x().type());
@@ -100,7 +100,7 @@ auto Incremental_ratio(double eps, const F &fun, const Model &M,
 
 template <class F, class Model, class Parameters>
 auto Incremental_ratio_pair(
-    double eps, const F &fun, const Model &M,
+    double eps, const F &fun,  Model &M,
     const Derivative<Parameters_values<State_Model>> &p) {
   auto [f1, f2] = std::invoke(fun, M, p.f());
   M_Matrix<M_Matrix<double>> df1dx(p.x().nrows(), p.x().ncols(), p.x().type());
@@ -230,6 +230,16 @@ public:
     return Derivative<M_Matrix<double>>(out);
   }
 };
+
+
+inline Derivative<M_Matrix<double>> calc_P_taylor(const Derivative<M_Matrix<double>>& Qrun, std::size_t nsamples, double fs)
+{
+    auto x=Qrun*(1.0/fs*nsamples);
+    return expm_taylor(x);
+
+}
+
+
 
 template <> class Derivative<Markov_Transition_rate> {
 
@@ -520,8 +530,8 @@ public:
   Derivative<M_Matrix<double>> PGG_n;
   double min_p;
   double tolerance;
-  Derivative(const Derivative<Markov_Transition_step_double> &x_);
-  Derivative operator*=(const Derivative<Markov_Transition_step_double> &x_);
+  Derivative(const Derivative<Markov_Transition_step_double> &x);
+  Derivative& operator*=(const Derivative<Markov_Transition_step_double> &x_);
 };
 
 template <>
@@ -604,10 +614,11 @@ public:
   }
 
   Derivative(std::size_t recursion_number,
-             const Derivative<Markov_Transition_rate> &Qx, std::size_t nsamples,
-             double fs, double min_p)
-      : base_type(Qx, nsamples, fs, min_p) {
-    init_by_step(Qx, recursion_number, fs);
+             const Derivative<M_Matrix<double>> &Qrun,
+             const Derivative<M_Matrix<double>> &grun,
+             std::size_t nsamples,
+             double fs, double min_p){
+    init_by_step(Qrun,grun, recursion_number, fs,nsamples,min_p);
   }
 
   Derivative(Derivative<Markov_Transition_step> &&step) : base_type(step) {
@@ -954,13 +965,17 @@ private:
     gvar_i_ = gtotal_var_ij_ * u;
   }
 
-  void init_by_step(const Derivative<Markov_Transition_rate> &Qx,
-                    std::size_t recursion_number, double fs) {
-    std::size_t times = std::pow(2, recursion_number);
-    std::size_t n = nsamples();
-    Derivative<Markov_Transition_step_double> s(Qx, n, fs * times, min_P());
-    Derivative<Markov_Transition_step_double> step_ini(s);
-    for (std::size_t i = 0; i < recursion_number; ++i) {
+  void init_by_step(const Derivative<M_Matrix<double>> &Qrun,
+                    const Derivative<M_Matrix<double>> grun,
+                    std::size_t recursion_number_extra,
+                    std::size_t num_samples,double fs, double min_p) {
+
+      int recursion_number =2+std::log2(maxAbs(Qrun.f())*1.0/fs*num_samples)+recursion_number_extra;
+      recursion_number=std::max(4,recursion_number);
+      std::size_t times = std::pow(2, recursion_number);
+      Derivative<Markov_Transition_step_double> s(Derivative<Markov_Transition_step>(calc_P_taylor(Qrun,num_samples, fs * times),grun*1.0, num_samples, fs * times, min_p));
+      Derivative<Markov_Transition_step_double> step_ini(s);
+      for (int i = 0; i < recursion_number; ++i) {
       Derivative<Markov_Transition_step_double_minimum> step(step_ini);
       step *= step_ini;
       step_ini = Derivative<Markov_Transition_step_double>(
@@ -971,6 +986,26 @@ private:
 };
 
 
+inline Derivative<Markov_Transition_step_double_minimum>::
+    Derivative(
+        const Derivative<Markov_Transition_step_double> &x)
+    : n{x.nsamples()}, PPn{x.P()}, PG_n{x.gtotal_ij() * x.nsamples()},
+      PGG_n{x.gtotal_sqr_ij() * (x.nsamples() * x.nsamples() * 0.5)},
+      min_p(x.min_P()) {}
+
+inline Derivative<Markov_Transition_step_double_minimum>&
+Derivative<Markov_Transition_step_double_minimum>::
+operator*=(const Derivative<Markov_Transition_step_double> &x) {
+    auto n1 = x.nsamples();
+    PGG_n = (PGG_n * x.P()) + (PG_n * x.gtotal_ij()) * n1 +
+        (PPn * x.gtotal_sqr_ij()) * (0.5 * n1 * n1);
+    PG_n = (PG_n * x.P()) + (PPn * x.gtotal_ij()) * n1;
+    PPn=PPn*x.P();
+    PPn.f() = Probability_transition::normalize(PPn.f() * x.P().f(), min_p);
+    n = n + n1;
+    return *this;
+}
+
 inline std::ostream& operator<<(std::ostream& os, const Derivative<Markov_Transition_step_double>& d ){return io::output_operator_on_Object(os,d);}
 
 template <> class Derivative<SingleLigandModel> : public SingleLigandModel {
@@ -978,7 +1013,7 @@ public:
   typedef SingleLigandModel base_type;
   auto &x() const { return Q0_.x(); }
 
-  Derivative(){};
+  Derivative(){}
   SingleLigandModel const &f() const
 
   {
@@ -1145,7 +1180,7 @@ Directional_Derivative(
 
 template <class F, class ModelCalculationsDerivative, class... Ds>
 auto Incremental_ratio_model(double eps, const F &fun,
-                             const ModelCalculationsDerivative &dm,
+                              ModelCalculationsDerivative &dm,
                              const Ds &... ys) {
 
   auto m = Primitive(dm);

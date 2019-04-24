@@ -54,6 +54,13 @@ template <typename T> struct C { typedef T type; };
 
 template <typename... Ts> struct Cs {};
 
+
+template <typename T>
+using Id_t=typename C<T>::type;
+
+
+
+
 template <class> struct Derived_types {
 
   typedef Cs<> type;
@@ -222,35 +229,49 @@ template <class T, class... Ts> struct my_trait<Cs<T, Ts...>> {
                                     my_trait<Cs<Ts...>>::className;
 };
 
+
+template <template <class...> class > struct my_template_trait {};
+
+template<>
+struct my_template_trait<C>
+{
+    constexpr static auto className = my_static_string("");
+
+};
+
+
 template <typename T, typename = void>
-struct has_value_type : std::false_type {};
+struct has_value_type : public std::false_type {};
 
 template <typename T>
-struct has_value_type<T, std::void_t<typename T::value_type>> : std::true_type {
+struct has_value_type<T, std::void_t<typename T::value_type>> : public std::true_type {
 };
 
 template <typename T>
 inline constexpr bool has_value_type_v = has_value_type<T>::value;
 
 template <typename T, typename = void>
-struct has_mapped_type : std::false_type {};
+struct has_mapped_type : public std::false_type {};
 
 template <typename T>
 struct has_mapped_type<
     T, std::void_t<typename T::key_type, typename T::mapped_type>>
-    : std::true_type {};
+    : public std::true_type {};
 
 template <typename T>
 inline constexpr bool has_mapped_type_v = has_mapped_type<T>::value;
 
 template <typename T, typename = void>
-struct has_base_type : std::false_type {};
+struct has_base_type  : public std::false_type {};
 
 template <typename T>
-struct has_base_type<T, std::void_t<typename T::base_type>> : std::true_type {};
+struct has_base_type<T, std::void_t<typename T::base_type>> : public std::true_type {
+    using std::true_type::value;
+};
+
 
 template <typename T>
-inline constexpr bool has_base_type_v = has_base_type<T>::value;
+inline constexpr bool has_base_type_v = has_base_type<T>();
 
 template <typename...> class myOptional;
 
@@ -287,13 +308,13 @@ template <template <typename T, typename> class Co, typename T, typename Alloc>
 struct is_container<Co<T, Alloc>> : public std::true_type {};
 
 template <typename T, typename = void>
-struct is_std_container : std::false_type {};
+struct is_std_container :public  std::false_type {};
 
 template <typename T>
 struct is_std_container<
     T, std::void_t<decltype(std::declval<T &>().begin()),
                    decltype(std::declval<T &>().end()), typename T::value_type>>
-    : std::true_type {};
+    : public std::true_type {};
 
 template <class T> struct contains_constructor : public std::false_type {};
 template <class C>
@@ -335,53 +356,53 @@ template <typename... T>
 struct is_variant<std::variant<T...>> : std::true_type {};
 
 template <typename T, typename = void>
-struct is_field_Object : std::false_type {};
+struct is_field_Object : public std::false_type {};
 
 template <typename T>
 struct is_field_Object<
     T, std::void_t<decltype(T::get_constructor_fields())>>
-    : std::true_type {};
+    : public std::true_type {};
 
 template <typename T, typename = void>
-struct is_label : std::false_type {};
+struct is_label : public std::false_type {};
 
 template <typename T>
 struct is_label<
     T, std::void_t<decltype(std::declval<T &>().name())>>
-    : std::true_type {};
+    :public  std::true_type {};
 
 
 template <typename T, typename = void>
-struct is_read_Object : std::false_type {};
+struct is_read_Object : public std::false_type {};
 
 template <typename T>
 struct is_read_Object<T, std::void_t<decltype(std::declval<T &>().read(
                              std::declval<std::istream &>()))>>
-    : std::true_type {};
+    : public std::true_type {};
 
 template <typename T, typename = void>
-struct is_write_Object : std::false_type {};
+struct is_write_Object : public std::false_type {};
 
 template <typename T>
 struct is_write_Object<T, std::void_t<decltype(std::declval<T &>().read(
                               std::declval<std::istream &>()))>>
-    : std::true_type {};
+    :public  std::true_type {};
 
 template <typename T, typename = void>
-struct is_arg_Command : std::false_type {};
+struct is_arg_Command : public std::false_type {};
 
 template <typename T>
 struct is_arg_Command<T, std::void_t<decltype(T::get_arguments())>>
-    : std::true_type {};
+    :public  std::true_type {};
 
-template <typename> struct is_tuple : std::false_type {};
+template <typename> struct is_tuple :public  std::false_type {};
 
-template <typename... T> struct is_tuple<std::tuple<T...>> : std::true_type {};
+template <typename... T> struct is_tuple<std::tuple<T...>> : public std::true_type {};
 
-template <typename> struct is_unique_ptr : std::false_type {};
+template <typename> struct is_unique_ptr : public std::false_type {};
 
 template <typename T>
-struct is_unique_ptr<std::unique_ptr<T>> : std::true_type {};
+struct is_unique_ptr<std::unique_ptr<T>> : public std::true_type {};
 
 template <class> struct is_pointer_to_const : public std::false_type {};
 
@@ -411,7 +432,7 @@ struct is_variable_ref<
 template <typename T>
 inline constexpr bool is_variable_ref_v = is_variable_ref<T>::value;
 
-template <typename, class = void> struct has_get_global : std::false_type {};
+template <typename, class = void> struct has_get_global :public  std::false_type {};
 
 template <typename T>
 struct has_get_global<
@@ -419,46 +440,46 @@ struct has_get_global<
                                 std::declval<T &>()))>> : std::true_type {};
 
 template <typename, class = void>
-struct has_get_global_optional : std::false_type {};
+struct has_get_global_optional : public std::false_type {};
 
 template <typename T>
 struct has_get_global_optional<
     T, std::void_t<decltype(
            get(std::declval<C<T>>(), std::declval<std::stringstream &>()))>>
-    : std::true_type {};
+    :public  std::true_type {};
 
-template <typename, class = void> struct has_get_method : std::false_type {};
+template <typename, class = void> struct has_get_method : public std::false_type {};
 
 template <typename T>
 struct has_get_method<T, std::void_t<decltype(std::declval<T &>().get(
                              std::declval<std::stringstream &>()))>>
-    : std::true_type {};
+    :public  std::true_type {};
 
 template <typename, class = void>
-struct has_global_extractor : std::false_type {};
+struct has_global_extractor :public  std::false_type {};
 
 template <typename T>
 struct has_global_extractor<
     T, std::void_t<decltype(std::declval<std::ostream &>()
                             << std::declval<std::decay_t<T> const &>())>>
-    : std::true_type {};
+    : public std::true_type {};
 
-template <typename, class = void> struct has_push_back : std::false_type {};
+template <typename, class = void> struct has_push_back : public std::false_type {};
 
 template <typename T>
 struct has_push_back<T, std::void_t<decltype(std::declval<T>().push_back(
                             std::declval<typename T::value_type>()))>>
-    : std::true_type {};
+    : public std::true_type {};
 
 template <typename T>
 inline static constexpr bool has_push_back_v = has_push_back<T>::value;
 
-template <typename, class = void> struct has_insert : std::false_type {};
+template <typename, class = void> struct has_insert :public  std::false_type {};
 
 template <typename T>
 struct has_insert<T, std::void_t<decltype(std::declval<T>().insert(
                          std::declval<typename T::value_type>()))>>
-    : std::true_type {};
+    : public std::true_type {};
 
 template <typename T>
 inline static constexpr bool has_insert_v = has_push_back<T>::value;

@@ -19,7 +19,7 @@ struct void_tag {};
 
 template <typename...> class myOptional;
 
-template <typename T> struct optional_tag {
+template <class T> struct optional_tag {
   typedef std::conditional_t<
       std::is_same_v<T, void>, void_tag,
       std::conditional_t<
@@ -31,7 +31,7 @@ template <typename T> struct optional_tag {
               std::conditional_t<
                   std::is_same_v<T, std::add_pointer_t<std::add_const_t<
                                         std::remove_pointer_t<T>>>>,
-                  std::conditional_t<has_base_type_v<std::remove_pointer_t<T>>,
+                    std::conditional_t<has_base_type<std::remove_pointer_t<T>>::value,
                                      const_derived_ptr_tag, const_base_ptr_tag>,
                   std::conditional_t<has_base_type_v<std::remove_pointer_t<T>>,
                                      derived_ptr_tag, base_ptr_tag>>,

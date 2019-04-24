@@ -180,7 +180,7 @@ public:
         auto covinv=inv(variance()/count());
         if (!covinv) return std::numeric_limits<double>::quiet_NaN();
         else
-            return xTSigmaX(mean(),covinv.value());
+            return xTSigmaX(mean(),covinv.value().first);
     }
 
 

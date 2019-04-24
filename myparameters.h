@@ -163,6 +163,64 @@ public:
 
 };
 
+template<template<class> class Tr,typename Model>
+class Parameters_values_new_;
+template<typename Model>
+using Parameters_values_new=Parameters_values_new_<C,Model>;
+
+
+template<template<class> class Tr,typename Model>
+class Parameters_values_new_
+{
+public:
+    typedef typename Model::myParameter_label par_label;
+
+    template<class T> using Tr_t=typename Tr<T>::type;
+
+private:
+    Tr_t<LabelMap_t<par_label>> d_;
+
+public:
+
+    //  constexpr static const char legal_chars[]=par_label::legal_chars;
+    std::size_t size()const { return d_.size();}
+    Parameters_values_new_(Tr_t<LabelMap_t<par_label>> values): d_{values}{}
+    Parameters_values_new_()=default;
+    Tr_t<double>& at(const par_label& label)
+    {
+        return d_.at(label);
+    }
+
+    Tr_t<double> const& at(const par_label& label)const
+    {
+        return d_.at(label);
+    }
+
+    auto& getParameterMap()const { return d_;}
+    typedef  Parameters_values_new_ self_type;
+    constexpr static auto  className=my_template_trait<Tr>::className+my_trait<Model>::className+my_static_string("_Parameters");
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+            grammar::field(C<self_type>{},"values",&self_type::getParameterMap));
+    }
+
+    Parameters_values_new_& operator<<(Parameters_values_new_&& other)
+    {
+        d_.merge(std::move(other.getParameterMap()));
+        return *this;
+    }
+    Parameters_values_new_& operator<<(const Parameters_values_new_& other)
+    {
+        for (auto e:other.getParameterMap())
+            d_[e.first]=e.second;
+        return *this;
+    }
+
+};
+
+
+
 
 
 class Range
@@ -439,6 +497,261 @@ public:
     }
 
 };
+
+
+template<template<class> class Tr,typename Model>
+class Parameters_distribution_new_;
+template<typename Model>
+using Parameters_distribution_new=Parameters_distribution_new_<C,Model>;
+
+
+template<template<class> class Tr,typename Model>
+class Parameters_distribution_new_: public Base_Distribution<M_Matrix<double>>
+{
+public:
+    typedef Base_Distribution<M_Matrix<double>> base_type;
+    virtual Parameters_distribution_new_* clone()const override{ return new Parameters_distribution_new_(*this);}
+    std::string myClass()const override { return className.str();}
+
+    typedef typename Model::myParameter_label par_label;
+    typedef std::tuple<std::string,std::unique_ptr<Base_Transformation<double>>, std::unique_ptr<Base_Distribution<double>>,Range> tuple;
+    typedef std::tuple<std::string,Base_Transformation<double>*, Base_Distribution<double>*,Range> tuple_ptr;
+
+    // Base_Distribution interface
+public:
+    virtual M_Matrix<double> sample(std::mt19937_64 &mt) const override
+    {
+        M_Matrix<double> out(1,size());
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            out[i]=dist(i)->sample(mt);
+        }
+        return out;
+    }
+    virtual double p(const M_Matrix<double> &x) const override
+    {
+        return std::exp(logP(x));
+    }
+    virtual double logP(const M_Matrix<double> &x) const override
+    {
+        double sum=0;
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            sum+=dist(i)->logP(x[i]);
+        }
+        return sum;
+    }
+
+    virtual double vlogP(const M_Matrix<double> &x)const override {
+        double sum = 0;
+        for (std::size_t i = 0; i < size(); ++i) {
+            sum += dist(i)->vlogP(x[i]);
+        }
+        return sum;
+    }
+
+
+    virtual double expected_logP()const override
+    {
+        double sum=0;
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            sum+=dist(i)->expected_logP();
+        }
+        return sum;
+    }
+
+    virtual double variance_logP()const override
+    {
+        double sum=0;
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            sum+=dist(i)->variance_logP();
+        }
+        return sum;
+    }
+
+
+    virtual  M_Matrix<M_Matrix<double>> param() const override
+    {
+        M_Matrix<M_Matrix<double>> out(1,size());
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            out[i]=dist(i)->param();
+        }
+        return out;
+    }
+    virtual M_Matrix<M_Matrix<double>> Fisher_Information() const override
+    {
+        M_Matrix<M_Matrix<double>> out(1,size());
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            out[i]=dist(i)->Fisher_Information();
+        }
+        return out;
+
+    }
+    virtual M_Matrix<double> dlogL_dx(const M_Matrix<double> &x) const override
+    {
+        M_Matrix<double> out(1,size());
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            out[i]=dist(i)->dlogL_dx(x[i]);
+        }
+        return out;
+    }
+    virtual M_Matrix<double> dlogL_dx2(const M_Matrix<double> &x) const override
+    {
+        M_Matrix<double> out(size(),size(),Matrix_TYPE::DIAGONAL);
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            out(i,i)=dist(i)->dlogL_dx2(x[i]);
+        }
+        return out;
+
+    }
+    virtual M_Matrix<double> mean() const override
+    {
+        M_Matrix<double> out(1,size());
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            out[i]=dist(i)->mean();
+        }
+        return out;
+    }
+    virtual M_Matrix<double> stddev() const override
+    {
+        M_Matrix<double> out(1,size());
+        for (std::size_t i=0; i<size(); ++i)
+        {
+            out[i]=dist(i)->stddev();
+        }
+        return out;
+
+    }
+
+
+
+
+    virtual myOptional_t<Parameters_values<Model>> tr_to_Parameter(const M_Matrix<double>& val)const
+    {
+        typedef myOptional_t<Parameters_values<Model>> Op;
+        assert(val.size()==tu_.size());
+        LabelMap_t<par_label> m;
+        std::vector<Op_void> res;
+        for ( std::size_t i=0; i<val.size(); ++i)
+        {
+            res.emplace_back(is_in_range(i,val[i]));
+            if (res[i])
+            {
+                m[name(i)]=tr(i)->apply_inv(val[i]);
+            }
+        }
+        auto r=consolidate(std::move(res));
+        if (r)
+            return Op(Parameters_values<Model>(m));
+        else return Op(false,r.error());
+    }
+    virtual double tr_to_Parameter(double val, std::size_t ipar)const
+    {
+        assert(ipar<size());
+        return tr(ipar)->apply_inv(val);
+    }
+
+
+
+
+    M_Matrix<double> Parameter_to_tr(const Parameters_values<Model> & val) const
+    {
+        assert(val.size()==tu_.size());
+        M_Matrix<double> out(1,val.size());
+        for ( std::size_t i=0; i<val.size(); ++i)
+        {
+            out[i]=tr(i)->apply(val.at(name(i)));
+        }
+        return out;
+    }
+
+
+
+    std::string name(std::size_t i)const { return  std::get<0>(tu_[i]);}
+
+    Base_Transformation<double> * tr(std::size_t i)const{return std::get<1>(tu_[i]).get();}
+
+    Base_Distribution<double> * dist(std::size_t i)const {return std::get<2>(tu_[i]).get();}
+
+    Range const & range(std::size_t i)const {return std::get<3>(tu_[i]);}
+
+    Op_void is_in_range(std::size_t i, double x)const { if (range(i)(x)) return Op_void(true,"");
+        else return Op_void(false,name(i)+"("+ToString(i)+"th parameter)="+ToString(x)+ "is outside "+ToString(range(i)));
+    }
+
+    std::size_t size()const { return tu_.size();}
+
+    auto getParameterDistributionMap()const {
+        std::vector<tuple_ptr> out(size());
+        for (std::size_t i=0; i<size(); ++i)
+            out[i]={name(i),tr(i),dist(i),range(i)};
+        return out;}
+    typedef  Parameters_distribution<Model> self_type;
+    constexpr static auto  className=my_trait<Model>::className+my_static_string("_Parameters_Distribution");
+    static auto get_constructor_fields()
+    {
+        return std::make_tuple(
+            grammar::field(C<self_type>{},"values",&self_type::getParameterDistributionMap));
+    }
+    virtual std::ostream& put(std::ostream& os)const override
+    {
+        return io::output_operator_on_Object (os,*this);
+    }
+
+    Parameters_distribution_new_(const std::vector<tuple_ptr>& in)
+        :tu_{tu2tp(in)}{}
+
+    Parameters_distribution_new_()=default;
+
+    Parameters_distribution_new_(const Parameters_distribution_new_& other): tu_{tucopy(other.tu_)}{};
+    Parameters_distribution_new_( Parameters_distribution_new_&&)=default;
+    Parameters_distribution_new_& operator=(const Parameters_distribution_new_& other)
+    {if (this!=&other){
+            Parameters_distribution_new_ tmp(other); *this=std::move(tmp);} return *this;
+    }
+    Parameters_distribution_new_& operator=( Parameters_distribution_new_&&)=default;
+
+
+
+protected:
+
+    std::vector<tuple> tu_;
+
+
+    static
+        std::vector<tuple>
+        tu2tp(const std::vector<tuple_ptr>& in)
+    {
+        std::vector<tuple> out;
+        for (auto& e:in)
+            out.emplace_back(std::get<0>(e),std::get<1>(e), std::get<2>(e),std::get<3>(e));
+        return out;
+
+    }
+
+    std::vector<tuple>
+    tucopy(const std::vector<tuple>& in
+           )
+    {
+        std::vector<tuple> out;
+        for (auto& e:in)
+            out.emplace_back(std::get<0>(e),
+                             std::unique_ptr<Base_Transformation<double>>(std::get<1>(e)->clone()),
+                             std::unique_ptr<Base_Distribution<double>>(std::get<2>(e)->clone()),
+                             std::get<3>(e));
+        return out;
+
+    }
+
+};
+
 
 
 

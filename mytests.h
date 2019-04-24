@@ -6,6 +6,7 @@
 
 #include "myoptional.h"
 #include "myfields.h"
+#include "mySerializer.h"
 struct invariant {};
 
 template <class...> struct class_Invariants;
@@ -225,6 +226,7 @@ auto are_Equal_v(const T &one, const T &other, double eps, double epsf,std::ostr
 {
   if (!are_Equal<true, T>(eps,epsf).test(one, other, os))
   {
+      using namespace io;
     (os<<...<<context);
     return false;
   }

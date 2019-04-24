@@ -707,7 +707,7 @@ public:
   double operator()() const { return landa(); }
 
   myOptional<Distribution, reg_tag>
-  calculate_Distribution(const Model &, const Parameters x,
+  calculate_Distribution(const  Model &, const Parameters x,
                          const LikelihoodResult &logL) const {
     typedef myOptional<Distribution, reg_tag> Op;
     auto &H = logL.H();
@@ -715,13 +715,13 @@ public:
     auto inv_cov = -(H + diag(H) * landa_);
     auto cov = inv(inv_cov);
     if (cov) {
-      Parameters d = (G * cov.value());
+      Parameters d = (G * cov.value().first);
       Parameters newpoint = x + d;
-      auto chol_cov = chol(cov.value(), "lower");
+      auto chol_cov = chol(cov.value().first, "lower");
       if (chol_cov.has_value()) {
         return Op(
             Distribution(typename Distribution::base_type(
-                             newpoint, cov.value(), inv_cov, chol_cov.value()),
+                             newpoint, cov.value().first, inv_cov, chol_cov.value()),
                          landa_));
       } else
         return Op(false,
@@ -732,12 +732,12 @@ public:
   }
 
   template <class mySample>
-  auto compute_Likelihood(const Model &m, const Parameters &x,
+  auto compute_Likelihood( const Model &m, const Parameters &x,
                           const mySample &current, std::ostream &os) const {
     return m.compute_DLikelihood(x, current, os);
   }
 
-  auto compute_Likelihood_init(const Model &m, const Parameters &x,
+  auto compute_Likelihood_init( const Model &m, const Parameters &x,
                                std::ostream &os) const {
     return m.compute_DLikelihood_init(x, os);
   }
@@ -1236,7 +1236,7 @@ public:
   bool accept(std::size_t i) const { return Walker(i).accept(); }
 
   template <class Random_Engine>
-  static emcee_sample evaluate(const Model &m,
+  static emcee_sample evaluate( Model &m,
                                std::vector<Random_Engine> & /*mt*/,
                                AdaptiveMover &mov, std::size_t nwalkers) {
     auto w = getWalkers(m, mov, nwalkers);
@@ -2080,13 +2080,13 @@ public:
     auto Scout_i(std::size_t i) const { return i_to_scout.at(i); }
     auto &Scout(std::size_t i) { return scouts_[i_to_scout[i]]; }
     auto &Scout(std::size_t i) const { return scouts_[i_to_scout.at(i)]; }
-    void swap(std::size_t i, const ModelSeries &model) {
+    void swap(std::size_t i,const  ModelSeries &model) {
       std::swap(i_to_scout[i], i_to_scout[i + 1]);
       Scout(i).set_beta(model.beta(i));
       Scout(i + 1).set_beta(model.beta(i + 1));
     }
 
-    double Accept(std::size_t i, const ModelSeries &model) const {
+    double Accept(std::size_t i,const  ModelSeries &model) const {
       double logA =
           (model.beta(i) - model.beta(i + 1)) *
           (Scout(i + 1).likelihood().logL() - Scout(i).likelihood().logL());
@@ -2421,7 +2421,7 @@ public:
     return scouts_[i];
   }
 
-  void swap(std::size_t i, std::size_t j, std::size_t k, const Model &model) {
+  void swap(std::size_t i, std::size_t j, std::size_t k,const  Model &model) {
 //    std::cerr << "\n swap i=" << i << "  j=" << j << "  k=" << k << "  log_j="
 //              << Scout(i).Walker(j).likelihood_result().likelihood().logL()
 //              << "log_k="
@@ -2441,7 +2441,7 @@ public:
   std::size_t size() const { return scouts_.size(); }
 
   double Accept(std::size_t i, std::size_t j, std::size_t k,
-                const Model &model) {
+                 const Model &model) {
     double logA =
         -(model.beta(i) - model.beta(i + 1)) *
         (Scout(i).Walker(j).likelihood_result().likelihood().logL() -
@@ -2467,7 +2467,7 @@ public:
 
   template <class Random_Engine>
   static myOptional_t<Ensemble_samples>
-  evaluate(const Ensemble_Metropolis_Hastings &emh, const Model &m,
+  evaluate(const Ensemble_Metropolis_Hastings &emh,const  Model &m,
            std::vector<Random_Engine> &_mt,
            std::vector<Adaptive_Mover> &adaptives) {
     typedef myOptional_t<Ensemble_samples> Op;
@@ -2627,7 +2627,7 @@ struct OutputGenerator {
 
   static constexpr const auto info_end = "--END of Info--";
   void save(const std::string &idname, const std::string &info,
-            const Metropolis_algorithm &mcmc, const ModelSeries &M,
+            const Metropolis_algorithm &mcmc,  ModelSeries &M,
             std::size_t nsamples) {
     std::ofstream f(idname + run_ext);
     f << className.str() << std::endl;
@@ -2747,7 +2747,7 @@ struct OutputGenerator {
   void print_element(const State_Data_Index_tuple &statedata,
                      const Gen_Data_Index_tuple &gendata,
                      const std::string &idname, std::size_t isample,
-                     const ModelSeries &M, const State &state,
+                      ModelSeries &M, const State &state,
                      const Distribution_Generator &G) {
 
     std::tuple<std::size_t, State const *, ModelSeries const *> s(isample,
@@ -2785,7 +2785,7 @@ struct OutputGenerator {
                      const Gen_Data_Index_tuple &gendata,
                      const Ana_Data_Index_tuple &anadata,
                      const std::string &idname, std::size_t isample,
-                     const ModelSeries &M, const State &state,
+                      ModelSeries &M, const State &state,
                      const Distribution_Generator &G, const AnaSample &ana) {
     print_element(statedata, gendata, idname, isample, M, state, G);
 
@@ -3055,7 +3055,7 @@ template <class State, class Random_generator, class Metropolis_algorithm,
 Op_void continue_Montecarlo_Markov_Chain(
     const std::string &idname, std::size_t isample, State &state,
     Random_generator &mts, const Metropolis_algorithm &mcmc,
-    const ModelSeries &M, Distribution_Generator &G, std::size_t nsamples,
+     ModelSeries &M, Distribution_Generator &G, std::size_t nsamples,
     const StateData &statedata, const GenData &gendata, const AnaData &anadata,
     OutputGenerator &output) {
 
@@ -3085,13 +3085,13 @@ template <class Metropolis_algorithm, class ModelSeries,
 Op_void run_Montecarlo_Markov_Chain(const std::string idname,
                                     const std::string &info,
                                     const Metropolis_algorithm &mcmc,
-                                    std::mt19937_64 &mt, const ModelSeries &M,
+                                    std::mt19937_64 &mt,  ModelSeries &M,
                                     Distribution_Generator &G,
                                     std::size_t nsamples, OutputGenerator &O) {
 
   O.save(idname, info, mcmc, M, nsamples);
 
-  assert(([&O, &idname, &info, &M, &mcmc, &nsamples]() -> bool {
+  assert(([&O, &idname, &info, &M, &mcmc ]() -> bool {
     std::string info_;
     Metropolis_algorithm mcmc_;
     ModelSeries M_;

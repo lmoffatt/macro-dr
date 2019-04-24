@@ -233,7 +233,7 @@ template <class Experiment, class Model> struct likelihood {
                                   const Parameters_values<Model> &p,
                                   const std::string algorithm, double min_P,
                                   double tolerance, double biNumber,
-                                  double Vanumber);
+                                  double Vanumber, double maxChi2, double reduce_by_p, std::size_t order_number, double min_connection_ratio);
 
   static auto get_arguments() {
     return std::make_tuple(
@@ -246,7 +246,11 @@ template <class Experiment, class Model> struct likelihood {
         grammar::argument(C<double>{}, "min_probability", 1e-9),
         grammar::argument(C<double>{}, "tolerance_error", 1e-7),
         grammar::argument(C<double>{}, "Binomial_threshold", 5.0),
-        grammar::argument(C<double>{}, "Variance_threshold", 1.0));
+        grammar::argument(C<double>{}, "Variance_threshold", 1.0),
+          grammar::argument(C<double>{}, "max_Chi2", 10.0),
+          grammar::argument(C<double>{}, "reduce_by_p", 1e-4),
+          grammar::argument(C<std::size_t>{}, "order_number", 5ul),
+      grammar::argument(C<double>{}, "min_connection_ratio", 1e-4));
   }
 };
 
@@ -359,10 +363,95 @@ template <class Experiment, class Model> struct likelihood_detail {
   static auto run(const Experiment &e, Model &m,
                   const Parameters_values<Model> &p,
                   const std::string algorithm, double min_P, double tolerance,
-                  double biNumber, double Vanumber) {
+                  double biNumber, double Vanumber, double maxChi2, double reduce_by_p, std::size_t order_number, double min_connection_ratio) {
+
+
+      if (algorithm == my_trait<markov::MicroDVR>::className.str()) {
+
+          Microscopic_Model mi(m,p.at(Number_of_Channels_Parameter_label{}));
+
+          SingleLigandModel SM(mi.Qs(p), mi.g(p), e.Vm(),
+                               1.0,
+                               p.at(gaussian_noise_Parameter_label()), min_P);
+
+          Markov_Model_calculations<Markov_Transition_step_double,
+                                    Markov_Transition_rate, SingleLigandModel,
+                                    Experiment, double>
+              MC(SM, e, 1, tolerance);
+
+          auto out = markov::monitorLikelihood(
+              markov::MicroDVR(), MC, e, std::cerr);
+          if (out.has_value())
+              std::cerr << "logLikelihodd = " << out.value() << std::endl;
+          else
+              std::cerr << out.error();
+          return out;
+      }
+//      else if (algorithm == my_trait<markov::RMicroDVR>::className.str()) {
+
+//          SingleLigandModel SM(m.Qs(p), m.g(p), e.Vm(),
+//                               p.at(Number_of_Channels_Parameter_label()),
+//                               p.at(gaussian_noise_Parameter_label()), min_P);
+
+//          Markov_Model_calculations<Markov_Transition_step_double,
+//                                    Markov_Transition_rate, SingleLigandModel,
+//                                    Experiment, double>
+//              MC(SM,m.connections_to_0(),m.connections_to_a(),m.connections_to_x(1.0),m.connections_from_x(0.0),m.connections_from_x(1.0), e, 1, tolerance);
+
+//          auto out = markov::monitorLikelihood(
+//              markov::RMicroDVR(maxChi2,reduce_by_p,min_connection_ratio), MC, e, std::cerr);
+//          if (out.has_value())
+//              std::cerr << "logLikelihodd = " << out.value() << std::endl;
+//          else
+//              std::cerr << out.error();
+//          return out;
+//      }
+
+      else if (algorithm == my_trait<markov::RMicroDVR_new>::className.str()) {
+
+          SingleLigandModel SM(m.Qs(p), m.g(p), e.Vm(),
+                               p.at(Number_of_Channels_Parameter_label()),
+                               p.at(gaussian_noise_Parameter_label()), min_P);
+
+          Markov_Model_calculations<Markov_Transition_step_double,
+                                    Markov_Transition_rate, SingleLigandModel,
+                                    Experiment, double>
+              MC(SM,m.connections_to_0(),m.connections_to_a(),m.connections_to_x(1.0),m.connections_from_x(0.0),m.connections_from_x(1.0), e, 1, tolerance);
+
+          auto out = markov::monitorLikelihood(
+              markov::RMicroDVR_new(min_P,reduce_by_p, maxChi2, order_number), MC, e, std::cerr);
+          if (out.has_value())
+              std::cerr << "logLikelihodd = " << out.value() << std::endl;
+          else
+              std::cerr << out.error();
+          return out;
+      }
+
+      else if (algorithm == my_trait<markov::RMicroDVR_new>::className.str()) {
+
+          SingleLigandModel SM(m.Qs(p), m.g(p), e.Vm(),
+                               p.at(Number_of_Channels_Parameter_label()),
+                               p.at(gaussian_noise_Parameter_label()), min_P);
+
+          Markov_Model_calculations<Markov_Transition_step_double,
+                                    Markov_Transition_rate, SingleLigandModel,
+                                    Experiment, double>
+              MC(SM,m.connections_to_0(),m.connections_to_a(),m.connections_to_x(1.0),m.connections_from_x(0.0),m.connections_from_x(1.0), e, 1, tolerance);
+
+          auto out = markov::monitorLikelihood(
+              markov::RMicroDVR_new(min_P,reduce_by_p, maxChi2, order_number), MC, e, std::cerr);
+          if (out.has_value())
+              std::cerr << "logLikelihodd = " << out.value() << std::endl;
+          else
+              std::cerr << out.error();
+          return out;
+      }
+      else {
     typedef myOptional_t<experiment::basic_Experiment<
         experiment::point<double, double>, markov::measure_likelihood<double>>>
         Op;
+
+
 
     SingleLigandModel SM(m.Qs(p), m.g(p), e.Vm(),
                          p.at(Number_of_Channels_Parameter_label()),
@@ -372,6 +461,7 @@ template <class Experiment, class Model> struct likelihood_detail {
                               Markov_Transition_rate, SingleLigandModel,
                               Experiment, double>
         MC(SM, e, 1, tolerance);
+    markov::Markov_Model_calculations_new<true> MC_new(e.frequency_of_sampling(),min_P);
 
     if (algorithm == my_trait<markov::MacroDVR>::className.str()) {
       return markov::monitorLikelihood(
@@ -385,8 +475,15 @@ template <class Experiment, class Model> struct likelihood_detail {
     } else if (algorithm == my_trait<markov::MacroDMNR>::className.str()) {
       return markov::monitorLikelihood(
           markov::MacroDMNR(tolerance, biNumber, Vanumber), MC, e, std::cerr);
+    } else if (algorithm == my_trait<markov::MacroSDMR>::className.str()) {
+        return markov::monitorLikelihood_new(
+            markov::MacroSDMR(tolerance, biNumber, Vanumber), MC_new, SM,e, std::cerr);
+    } else if (algorithm == my_trait<markov::MacroSDVR>::className.str()) {
+        return markov::monitorLikelihood_new(
+            markov::MacroSDVR(tolerance, biNumber, Vanumber), MC_new, SM,e, std::cerr);
     } else
       return Op(false, "algorithm " + algorithm + " is not recognized");
+      }
   }
 
   static auto get_arguments() {
@@ -400,7 +497,11 @@ template <class Experiment, class Model> struct likelihood_detail {
         grammar::argument(C<double>{}, "min_probability", 1e-9),
         grammar::argument(C<double>{}, "tolerance_error", 1e-7),
         grammar::argument(C<double>{}, "Binomial_threshold", 5.0),
-        grammar::argument(C<double>{}, "Variance_threshold", 1.0));
+        grammar::argument(C<double>{}, "Variance_threshold", 1.0),
+        grammar::argument(C<double>{}, "max_Chi2", 10.0),
+          grammar::argument(C<double>{}, "reduce_by_p", 1e-4),
+          grammar::argument(C<std::size_t>{}, "order_number", 5ul),
+          grammar::argument(C<double>{}, "min_connection_ratio", 0.5));
   }
 };
 
@@ -426,7 +527,7 @@ struct Evidence {
   static constexpr auto className = my_static_string("evidence");
 
   static std::string
-  run(const Experiment &e, const Model &m, const ParametersDistribution &p,
+  run(const Experiment &e,  Model &m, const ParametersDistribution &p,
       std::string algorithm, double pjump, double eps_Gradient, double min_P,
       double tolerance, double BiNumber, double VaNumber,
       std::mt19937_64::result_type initseed, std::vector<double> betas,
@@ -476,7 +577,7 @@ struct Evidence_prob {
   static constexpr auto className = my_static_string("evidence_prob");
 
   static std::string
-  run(const Experiment &e, const Model &m, const ParametersDistribution &p,
+  run(const Experiment &e,  Model &m, const ParametersDistribution &p,
       std::string algorithm, double pjump, double eps_Gradient, double min_P,
       double tolerance, double BiNumber, double VaNumber,
       std::mt19937_64::result_type initseed, std::vector<double> betas,
@@ -524,7 +625,7 @@ struct Evidence_Derivative {
   static constexpr auto className = my_static_string("evidence_derivative");
 
   static std::string
-  run(const Experiment &e, const Model &m, const ParametersDistribution &prior,
+  run(const Experiment &e,  Model &m, const ParametersDistribution &prior,
       std::string algorithm, double pjump, double min_P, double tolerance,
       double BiNumber, double VaNumber, std::mt19937_64::result_type initseed,
       std::vector<double> betas, std::vector<double> landa,
@@ -571,7 +672,7 @@ struct Evidence_Derivative_prob {
   static constexpr auto className = my_static_string("evidence_derivative_prob");
 
   static std::string
-  run(const Experiment &e, const Model &m, const ParametersDistribution &prior,
+  run(const Experiment &e,  Model &m, const ParametersDistribution &prior,
       std::string algorithm, double pjump, double min_P, double tolerance,
       double BiNumber, double VaNumber, std::mt19937_64::result_type initseed,
       std::vector<double> betas, std::vector<double> landa,
@@ -616,7 +717,7 @@ struct Evidence_emcee {
   static constexpr auto className = my_static_string("evidence_emcee");
 
   static std::string
-  run(const Experiment &e, const Model &m, const ParametersDistribution &p,
+  run(const Experiment &e,  Model &m, const ParametersDistribution &p,
       std::string algorithm, double pjump, double min_P, double tolerance,
       double BiNumber, double VaNumber, std::mt19937_64::result_type initseed,
       std::vector<double> betas, std::vector<double> alfas,

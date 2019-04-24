@@ -700,8 +700,8 @@ public:
         auto fim = Matrix_Decompositions::EigenSystem_symm_real_eigenvalue(-H);
         auto cov = Matrix_Decompositions::EigenSystem_symm_real_eigenvalue(vG);
         if (fim.has_value() && cov.has_value()) {
-            auto [fVR, fL, fVL] = std::move(fim).value();
-            auto [cVR, cL, cVL] = std::move(cov).value();
+            auto [fVR, fL, fVL,RCOND_landa,RCOND_V] = std::move(fim).value();
+            auto [cVR, cL, cVL,cRCOND_landa,cRCOND_V] = std::move(cov).value();
             auto sqrt_cL = cL.apply([](auto const &x) { return std::sqrt(x); });
             auto sqrtinv_fL = fL.apply([&tol](auto const &x) {
                 if (x < tol)
@@ -2131,7 +2131,7 @@ private:
               if (!Cov_inv) {
                   return Op(false, "Covariance matrix is not inversible");
               } else {
-                  double chi2 = xTSigmaX(mean, Cov_inv.value()) * nsamples;
+                  double chi2 = xTSigmaX(mean, Cov_inv.value().first) * nsamples;
                   os << "\nchi2 =" << chi2 << " df=" << mean.size();
 
                   return Op({chi2, nsamples * mean.size()});
@@ -2160,7 +2160,7 @@ private:
               auto Cov_inv = inv(CovExp);
               if (!Cov_inv.has_value())
                   return Op(false, "singular target covariance");
-              auto S = Cov * Cov_inv.value();
+              auto S = Cov * Cov_inv.value().first;
               auto chol_S = chol(S, "lower");
               double logdet = logDiagProduct(chol_S.value());
 
@@ -2180,7 +2180,7 @@ private:
               auto Cov_inv = inv(CovExp);
               if (!Cov_inv.has_value())
                   return Op(false, "singular target covariance");
-              auto S = Cov * Cov_inv.value();
+              auto S = Cov * Cov_inv.value().first;
               auto TJn = 1.0 / p *
                   Trace(sqr(S / (1.0 / p * Trace(S)) -
                             Matrix_Generators::eye<double>(p)));

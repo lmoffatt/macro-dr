@@ -2,7 +2,7 @@
 
 template <class Experiment, class Model, class ParametersDistribution>
 std::string Evidence_Derivative<Experiment, Model, ParametersDistribution>::run(
-    const Experiment &e, const Model &m, const ParametersDistribution &prior,
+    const Experiment &e,  Model &m, const ParametersDistribution &prior,
     std::string algorithm, double pjump, double min_P, double tolerance,
     double BiNumber, double VaNumber,
     std::mt19937_64::result_type initseed,
@@ -56,7 +56,7 @@ std::string Evidence_Derivative<Experiment, Model, ParametersDistribution>::run(
 template <class Experiment, class Model, class ParametersDistribution>
 std::string
 Evidence_Derivative_prob<Experiment, Model, ParametersDistribution>::run(
-    const Experiment &e, const Model &m, const ParametersDistribution &prior,
+    const Experiment &e,  Model &m, const ParametersDistribution &prior,
     std::string algorithm, double pjump, double min_P, double tolerance,
     double BiNumber, double VaNumber,
     std::mt19937_64::result_type initseed,

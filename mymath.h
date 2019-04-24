@@ -33,6 +33,10 @@ inline double digamma(double x){
 
 }
 
+inline double normal_pdf(double x) {return 1.0/std::sqrt(2*PI)*std::exp(-0.5*x*x);}
+
+
+
 
 inline double normal_cdf(double x)
 {
@@ -42,6 +46,11 @@ inline double normal_cdf(double x)
 inline double normal_cdf(double x, double mean, double stddev)
 {
     return normal_cdf((x-mean)/stddev);
+}
+
+inline double normal_pdf(double x, double mean, double stddev)
+{
+    return normal_pdf((x-mean)/stddev);
 }
 
 
@@ -60,6 +69,10 @@ inline double chi2_cdf(double x, std::size_t k)
         return normal_cdf(std::pow(x/k,1.0/3),1.0-2.0/9.0/k,std::sqrt(2.0/9.0/k));
 
 
+}
+inline double chi2_pdf(double x, std::size_t k)
+{
+        return normal_pdf(std::pow(x/k,1.0/3),1.0-2.0/9.0/k,std::sqrt(2.0/9.0/k));
 }
 
 

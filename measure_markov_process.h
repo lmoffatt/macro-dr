@@ -15,7 +15,7 @@
 
 namespace markov {
 template<class T,class Operation,class State,class Model, class IntervalIterator, template<class>class Vector>
-auto apply(std::mt19937_64& mt,const Operation& op,const State& s,const Model& m, IntervalIterator first, const IntervalIterator& last, Vector<std::invoke_result_t<Operation>>& out)
+auto apply(std::mt19937_64& mt,const Operation& op,const State& s, Model& m, IntervalIterator first, const IntervalIterator& last, Vector<std::invoke_result_t<Operation>>& out)
 {
     State r=s;
     for (std::size_t i=0; first!=last; ++first, ++i)
@@ -28,7 +28,7 @@ auto apply(std::mt19937_64& mt,const Operation& op,const State& s,const Model& m
 
 
 template<class Model>
-double getCurrent(const markov_process<M_Matrix<std::size_t>>& mp,const Model& m)
+double getCurrent(const markov_process<M_Matrix<std::size_t>>& mp, Model& m)
 {
     return mp.N()*m.g();
 }
@@ -37,7 +37,7 @@ namespace old {
 
 
 template<class F,class State,class Model, class Input>
-auto measure_point(const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp,State& s,const Model& m, const Input& x, double ddt, std::size_t n)
+auto measure_point(const F& f,std::mt19937_64& mt,markov_process<M_Matrix<std::size_t>>& mp,State& s, Model& m, const Input& x, double ddt, std::size_t n)
 {
     bool change=false;
     if(s.x!=x)

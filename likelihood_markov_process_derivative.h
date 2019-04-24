@@ -165,7 +165,7 @@ public:
 
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
-  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+  run(const Derivative<markov::mp_state_information> &prior,const  Model &m,
       const Step &p, std::ostream &os) const {
     markov::MACROR alg;
     return run(prior, m, p, os, alg);
@@ -173,7 +173,7 @@ public:
 
   template <class Model, class Step, class MACROR>
   myOptional_t<Derivative<markov::mp_state_information>>
-  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+  run(const Derivative<markov::mp_state_information> &prior,const  Model &m,
       const Step &p, std::ostream &os, MACROR &alg) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     auto Q_dto = m.get_P(p, 0);
@@ -186,7 +186,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> Q_dt,const  Model &m,
       const Step &p, std::ostream &os, const markov::MACROR &alg) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     switch (alg) {
@@ -212,7 +212,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> &Q_dt,const  Model &m,
       const Step &p, std::ostream &os, markov::MACROR &alg) const {
     alg = markov::MACRO_DMNR;
     const markov::MACROR alg2 = alg;
@@ -222,7 +222,7 @@ public:
   template <class Model, class Step, class... Aux>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      Derivative<Markov_Transition_step_double> Q_dt, Model &m, const Step &p,
+      Derivative<Markov_Transition_step_double> Q_dt,const  Model &m, const Step &p,
       std::ostream &) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     Derivative<double> e = m.noise_variance(p.nsamples());
@@ -385,7 +385,7 @@ public:
 
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
-  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+  run(const Derivative<markov::mp_state_information> &prior,const  Model &m,
       const Step &p, std::ostream &os) const {
     markov::MACROR alg;
     return run(prior, m, p, os, alg);
@@ -393,7 +393,7 @@ public:
 
   template <class Model, class Step, class MACROR>
   myOptional_t<Derivative<markov::mp_state_information>>
-  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+  run(const Derivative<markov::mp_state_information> &prior,const  Model &m,
       const Step &p, std::ostream &os, MACROR &alg) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     auto Q_dto = m.get_P(p, 0);
@@ -406,7 +406,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> &Q_dt,const  Model &m,
       const Step &p, std::ostream &os, const markov::MACROR &alg) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     switch (alg) {
@@ -432,7 +432,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> &Q_dt,const  Model &m,
       const Step &p, std::ostream &os, markov::MACROR &alg) const {
     auto y = p.y();
     if (std::isnan(y))
@@ -460,7 +460,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> &Q_dt,const  Model &m,
       const Step &p, std::ostream & /*os*/) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     auto y = p.y();
@@ -588,7 +588,7 @@ public:
 
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
-  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+  run(const Derivative<markov::mp_state_information> &prior,const  Model &m,
       const Step &p, std::ostream &os) const {
     markov::MACROR alg;
     return run(prior, m, p, os, alg);
@@ -596,7 +596,7 @@ public:
 
   template <class Model, class Step, class MACROR>
   myOptional_t<Derivative<markov::mp_state_information>>
-  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+  run(const Derivative<markov::mp_state_information> &prior,const  Model &m,
       const Step &p, std::ostream &os, MACROR &alg) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     auto Q_dto = m.get_P(p, 0);
@@ -643,7 +643,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> Q_dt,const  Model &m,
       const Step &p, std::ostream &os, const markov::MACROR &alg) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     switch (alg) {
@@ -669,7 +669,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> &Q_dt,const  Model &m,
       const Step &p, std::ostream &os, markov::MACROR &alg) const {
     auto y = p.y();
     if (std::isnan(y))
@@ -697,7 +697,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> &Q_dt,const  Model &m,
       const Step &p, std::ostream & /*os*/) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     auto y = p.y();
@@ -894,7 +894,7 @@ public:
 
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
-  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+  run(const Derivative<markov::mp_state_information> &prior,const  Model &m,
       const Step &p, std::ostream &os) const {
     markov::MACROR alg;
     return run(prior, m, p, os, alg);
@@ -902,7 +902,7 @@ public:
 
   template <class Model, class Step, class MACROR>
   myOptional_t<Derivative<markov::mp_state_information>>
-  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+  run(const Derivative<markov::mp_state_information> &prior,const  Model &m,
       const Step &p, std::ostream &os, MACROR &alg) const {
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
     auto Q_dto = m.get_P(p, 0);
@@ -915,7 +915,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> Q_dt,const  Model &m,
       const Step &p, std::ostream &os, const markov::MACROR &alg) const {
     switch (alg) {
     case markov::MACRO_DMNR:
@@ -940,7 +940,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> &Q_dt,const  Model &m,
       const Step &p, std::ostream &os, markov::MACROR &alg) const {
     auto y = p.y();
     if (std::isnan(y))
@@ -974,7 +974,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> &Q_dt,const  Model &m,
       const Step &p, std::ostream & /*os*/) const {
     auto y = p.y();
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
@@ -1111,7 +1111,7 @@ public:
 
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
-  run(const Derivative<markov::mp_state_information> &prior, Model &m,
+  run(const Derivative<markov::mp_state_information> &prior,const  Model &m,
       const Step &p, std::ostream &os) const {
     markov::MACROR alg;
     return run(prior, m, p, os, alg);
@@ -1132,7 +1132,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> Q_dt,const  Model &m,
       const Step &p, std::ostream &os, const markov::MACROR &alg) const {
     switch (alg) {
     case markov::MACRO_DMNR:
@@ -1158,7 +1158,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> &Q_dt,const  Model &m,
       const Step &p, std::ostream &os, markov::MACROR &alg) const {
     auto y = p.y();
     if (std::isnan(y))
@@ -1192,7 +1192,7 @@ public:
   template <class Model, class Step>
   myOptional_t<Derivative<markov::mp_state_information>>
   run(const Derivative<markov::mp_state_information> &prior,
-      const Derivative<Markov_Transition_step_double> &Q_dt, Model &m,
+      const Derivative<Markov_Transition_step_double> &Q_dt,const  Model &m,
       const Step &p, std::ostream & /*os*/) const {
     auto y = p.y();
     typedef myOptional_t<Derivative<markov::mp_state_information>> Op;
@@ -1654,7 +1654,7 @@ template <class F, class MacroDR, class Model,
           template <class, class> class Experiment, class Point, class Measure,
           class... Aux>
 auto logLikelihood_experiment_calculation_derivative(
-    const F &f, const MacroDR &a, Model &m, const Experiment<Point, Measure> &e,
+    const F &f, const MacroDR &a,Model &m, const Experiment<Point, Measure> &e,
     std::ostream &os, Aux &... aux) {
     auto out = f(e, aux...);
   typedef myOptional_t<std::decay_t<decltype(out)>> Op;
@@ -1713,7 +1713,7 @@ auto logLikelihood_experiment_calculation_derivative(
 template <class MacroDR, class Model, class Experiment>
 myOptional_t<
     std::tuple<double, double, double, M_Matrix<double>, M_Matrix<double>>>
-logLikelihood_derivative(const Derivative<MacroDR> &a, Model &m,
+logLikelihood_derivative(const Derivative<MacroDR> &a,Model &m,
                          const Experiment e, std::ostream &os) {
   return logLikelihood_experiment_calculation_derivative(
       Derivative<logLikelihood_function>(), a, m, e, os);
@@ -1721,7 +1721,7 @@ logLikelihood_derivative(const Derivative<MacroDR> &a, Model &m,
 
 template <class MacroDR, class Model, class Experiment>
 myOptional_t<std::vector<Derivative<Normal_Distribution<double>>>>
-partialDistribution_derivative(const Derivative<MacroDR> &a, Model &m,
+partialDistribution_derivative(const Derivative<MacroDR> &a,  Model &m,
                                const Experiment e) {
   return logLikelihood_experiment_calculation_derivative(
       Derivative<markov::partialDistribution_function>(), a, m, e);
@@ -1739,7 +1739,7 @@ auto partialDlikelihood_derivative(const DMacroDR &a, Model &m,
 
 template <class aux, class PartialDlogLikelihood, class DMacroDR, class Model,
           class Experiment>
-auto partialDlikelihood_derivative_mp(const DMacroDR &a, Model &m,
+auto partialDlikelihood_derivative_mp(const DMacroDR &a,Model &m,
                                       const Experiment &e, std::ostream &os) {
   std::vector<aux> dummy_a;
   return logLikelihood_experiment_calculation_derivative(

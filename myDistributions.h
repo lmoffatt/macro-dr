@@ -50,6 +50,12 @@ inline std::mt19937_64 init_mt(std::mt19937_64::result_type initseed,
   return std::mt19937_64(initseed);
 }
 
+
+inline double gaussian_function(double x, double mean, double variance){ return std::exp(-sqr(x-mean)/variance/2.0)/std::sqrt(2*PI*variance);}
+inline double log_gaussian_function(double x, double mean, double variance){ return -sqr(x-mean)/variance/2.0-std::log(2*PI*variance)/2.0;}
+inline double expected_log_gaussian(double variance) { return -0.5 * (1.0 + log(2 * PI * variance));}
+
+
 template <typename T> class Normal_Distribution;
 
 class Beta_Distribution;
@@ -894,7 +900,7 @@ public:
     auto covinv = inv(cov);
     auto cho_cov = chol(cov, "lower");
     if (covinv.has_value() && cho_cov.has_value())
-      return Op(Normal_Distribution(mean, cov, std::move(covinv).value(),
+      return Op(Normal_Distribution(mean, cov, std::move(covinv).value().first,
                                     std::move(cho_cov).value()));
     else
       return Op(false, "singular matrix: inverse error:" + covinv.error() +
@@ -1552,6 +1558,61 @@ public:
   virtual double nsamples() const = 0;
   virtual ~Base_Probability_map() {}
 };
+
+
+template <class E = std::vector<std::size_t>>
+std::set<std::size_t> get_low_probabilities_indexes(const std::vector<E> &ns, const M_Matrix<double> &P,
+                                                    double reduce_by_p, std::size_t i_begin=0, std::size_t i_end=std::string::npos) {
+    if (i_end==std::string::npos) i_end=ns.size();
+    assert(P.size()==(i_end-i_begin));
+    std::multimap<double, std::size_t> pmap;
+//    for (std::size_t i = i_begin; i < i_end; ++i) {
+     for (std::size_t i = 0; i < P.size(); ++i) {
+        pmap.emplace(P[i], i+i_begin);
+    }
+    std::set<std::size_t> to_be_removed;
+    double psum = 0;
+    for (auto it = pmap.begin(); it != pmap.end(); ++it) {
+        psum += it->first;
+        if (psum < reduce_by_p) {
+            to_be_removed.insert(it->second);
+        } else
+            break;
+    }
+    return to_be_removed;
+}
+
+
+template <class E = std::vector<std::size_t>>
+void remove_low_probabilities(std::vector<E> &ns, M_Matrix<double> &P,
+                                               double reduce_by_p) {
+    auto to_be_removed=get_low_probabilities_indexes(ns,P,reduce_by_p);
+    if (!to_be_removed.empty()) {
+        auto newN = ns.size()- to_be_removed.size();
+        std::vector<E> new_ns(newN);
+        M_Matrix<double> newP(1, newN);
+        std::size_t start = 0;
+        std::size_t i_destination = 0;
+        to_be_removed.insert(ns.size()); // hack to force to include the elements
+                                         // past the last removed.
+        for (auto e : to_be_removed) {
+            for (std::size_t i_origin = start; i_origin < e; ++i_origin) {
+                new_ns[i_destination] = ns[i_origin];
+                newP[i_destination] = P[i_origin];
+                ++i_destination;
+            }
+            start = e + 1;
+        }
+
+        ns = std::move(new_ns);
+        P = std::move(newP);
+    }
+}
+
+
+
+
+
 
 template <class T>
 std::map<double, T>
