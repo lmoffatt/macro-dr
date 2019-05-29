@@ -37,7 +37,11 @@ commands.cpp
 
 HEADERS += \
     error_analysis.h \
+    matrixcalculations.h \
+    matrixerror.h \
     maximum_entropy.h \
+    myError.h \
+    myLevenbergMarquardt.h \
     myTuples.h \
     mySerializer.h \
     Matrix.h \

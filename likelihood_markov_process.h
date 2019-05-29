@@ -6,7 +6,7 @@
 #include "mymath.h"
 #include "myoptimization.h"
 #include "qmodel.h"
-
+#include "matrixcalculations.h"
 #include <type_traits>
 
 namespace markov {
@@ -28,6 +28,34 @@ template<template<class> class Tr>
 class mp_information_;
 typedef mp_information_<C> mp_information;
 
+inline bool is_Binomial_Approximation_valid(double N, double p, double q,
+                                               double Np_min) {
+    return (N * p>= Np_min) && (N * q>= Np_min);
+ }
+
+
+ template<template<class, class, bool>class Error, class Norm, bool diff>
+ bool is_Binomial_Approximation_valid(double N, const Error<double,Norm,diff>& p, const Error<double,Norm,diff>&  q,
+                                             double Np_min) {
+     return (N * p.center()>= Np_min) && (N * q.center()>= Np_min);
+ }
+
+
+ inline std::pair<bool, bool>
+is_Binomial_Approximation_valid(double N, double p, double q, double Np_min,
+                                double Vp_min) {
+    return {is_Binomial_Approximation_valid(N, p, q, Np_min),
+            is_Binomial_Approximation_valid(N, p, q, Vp_min)};
+}
+
+
+ template<template<class, class, bool>class Error, class Norm, bool diff>
+std::pair<bool,bool> is_Binomial_Approximation_valid(double N, const Error<double,Norm,diff>& p, const Error<double,Norm,diff>&  q,
+                                     double Np_min,
+                                     double Vp_min) {
+    return {is_Binomial_Approximation_valid(N, p, q, Np_min),
+            is_Binomial_Approximation_valid(N, p, q, Vp_min)};
+}
 
 template<template<class> class Tr>
 class mp_information_ {
@@ -119,7 +147,7 @@ public:
     }
 
 
-    static mp_macro_information
+    static mp_macro_information_
     adjust(Tr_t<M_Matrix<double>> &&P_mean__, Tr_t<M_Matrix<double>> &&P_cov__,
            Tr_t<double> y_mean__, Tr_t<double> y_var__, Tr_t<double> plogL__, Tr_t<double> eplogL__,
            Tr_t<double> vplogL__, double min_p, double min_var) {
@@ -127,7 +155,7 @@ public:
             Probability_distribution::normalize(std::move(P_mean__), min_p),
             Probability_distribution_covariance::normalize(std::move(P_cov__),
                                                            min_p),
-            y_mean__, variance_value::adjust(y_var__, min_var), plogL__, eplogL__,
+            y_mean__, variance_value::adjust(std::move(y_var__), min_var), plogL__, eplogL__,
             vplogL__);
     }
     mp_macro_information_(Tr_t<M_Matrix<double>> &&P_mean__, Tr_t<M_Matrix<double>> &&P_cov__,
@@ -1934,7 +1962,7 @@ public:
                                      )const
     {
         typedef myOptional<Tr_t<Markov_Transition_rate_new>,reg_tag> Op;
-        auto eig = Matrix_Decompositions::EigenSystem_full_real_eigenvalue(_Qrun);
+        auto eig = calculate_eigenvalues()(_Qrun);
         if (eig) {
             //if (auto eigtest = test(eig.value(), tolerance); eigtest.has_value())
             return Op(Tr_t<Markov_Transition_rate_new>(std::move(_Qrun), _g,
@@ -1987,11 +2015,11 @@ public:
     }
 
     template <class Model,class Step>
-    auto operator()(const MacroDVR_new& macro,const Model& m,
+    auto operator()(const Tr_t<MacroDVR_new>& macro,const Model& m,
                     const mp_macro_information &/*prior*/,
                     const Step &p,
                     std::ostream &/*os*/) const {
-        typedef myOptional_t<Markov_Transition_step_variance> Op;
+        typedef myOptional_t<Tr_t<Markov_Transition_step_variance>> Op;
         if constexpr (eigenvalue)
         {
             auto Qrun=get_Qrun(macro,m,p.begin()->x());
@@ -2004,6 +2032,10 @@ public:
         }
 
     }
+
+
+
+
     template <class Model,class Step>
     auto operator()(const MacroDMR_new& macro,const Model& m,
                     const mp_macro_information &/*prior*/,
@@ -2043,11 +2075,11 @@ public:
     }
 
         template <class Model,class Step,bool recursive, int averaging, bool variance>
-    auto operator()(const Macro_Sel<recursive,averaging,variance>& macro,const Model& m,
-                    const mp_macro_information &/*prior*/,
+    auto operator()(const Macro_Sel_<Tr,recursive,averaging,variance>& macro,const Model& m,
+                    const Tr_t<mp_macro_information> &/*prior*/,
                     const Step &p,
                     std::ostream &/*os*/) const {
-        typedef myOptional_t<Markov_Transition_step_variance> Op;
+            typedef myOptional_t<Tr_t<Markov_Transition_step_variance>> Op;
         if constexpr (eigenvalue)
         {
             auto Qrun=get_Qrun(macro,m,p.begin()->x());
@@ -2101,7 +2133,7 @@ public:
 
 
     template <class Model,class Calculator, class Step>
-    myOptional_t<mp_macro_information> run(const Tr_t<mp_macro_information> &prior,
+    myOptional_t<Tr_t<mp_macro_information>> run(const Tr_t<mp_macro_information> &prior,
                                            Calculator& c,const Model &m, const Step &p,
                                            std::ostream &os)const  {
         typedef myOptional<Tr_t<mp_macro_information>,reg_tag> Op;
@@ -2119,9 +2151,9 @@ public:
         const Tr_t<Markov_Transition_step_variance> &Q_dt, Model &m, const Step &p,
         std::ostream & /*os*/) const {
         typedef myOptional_t<Tr_t<mp_macro_information>> Op;
-        auto y = p.y();
-        auto e = m.noise_variance(p.nsamples(),c.fs());
-        auto N = m.AverageNumberOfChannels();
+        Tr_t<double> y = p.y();
+        Tr_t<double> e = m.noise_variance(p.nsamples(),c.fs());
+        Tr_t<double> N = m.AverageNumberOfChannels();
         M_Matrix<double> u(prior.P_mean().size(), 1, 1.0);
 
         auto SmD = prior.P_cov() - diag(prior.P_mean());
@@ -2163,16 +2195,18 @@ public:
                  (elemMult(Q_dt.gtotal_var_ij(), Q_dt.gvar_ij()) * u))
                     .getvalue();
 
-            Tr_t<double> delta_emu = std::max(sqr(ms + e / N) - 2.0 / N * sSs, 0.0);
-            Tr_t<double> ms0 = (ms - e / N) / 2 + std::sqrt(delta_emu) / 2;
+            //typename decltype (sqr(ms + e / N))::ki k;
+            using std::max;
+            Tr_t<double> delta_emu = max(sqr(ms + e / N) - 2.0 / N * sSs, 0.0);
+            Tr_t<double> ms0 = (ms - e / N) / 2 + sqrt(delta_emu) / 2;
 
             e_mu = e + N * ms0;
             y_mean = N * (prior.P_mean() * Q_dt.gmean_i()).getvalue() -
                 N * 0.5 / e_mu * sSg;
             zeta = N / (2 * sqr(e_mu) + N * sSs);
-            y_var = std::max(e_mu + N * gSg - N * zeta * sqr(sSg), e);
+            y_var = max(e_mu + N * gSg - N * zeta * sqr(sSg), e);
         }
-        if (std::isnan(y)) {
+        if (std::isnan(center(y))) {
 
             Tr_t<double> plogL = std::numeric_limits<double>::quiet_NaN();
             Tr_t<double> eplogL = std::numeric_limits<double>::quiet_NaN();
@@ -2184,9 +2218,9 @@ public:
             // corr\n"<<P_mean<<"\nQ.P \n"<<Q_dt.P();
 //            auto test = mp_macro_information::test(P_mean, P__cov, tolerance_);
 //            if (test.has_value())
-                return Op(mp_macro_information::adjust(
+            return Op(Tr_t<mp_macro_information>::adjust(
                     std::move(P_mean), std::move(P__cov), y_mean, y_var, plogL, eplogL,
-                    vplogL, Q_dt.min_P(), e));
+                vplogL, Q_dt.min_P(), center(e)));
 //            else
 //                return Op(false, "fails at intertrace prediction!!: " + test.error());
         }
@@ -2228,13 +2262,13 @@ public:
         auto chi2 = dy * chi;
 
         Tr_t<double> plogL;
-        if (y_var > 0)
+        if (center(y_var) > 0)
             plogL = -0.5 * log(2 * PI * y_var) - 0.5 * chi2;
         else
             plogL = std::numeric_limits<double>::infinity();
 
         Tr_t<double> eplogL =
-            -0.5 * log(2 * PI * y_var) - 0.5; // e_mu+N*gSg"-N*zeta*sqr(sSg)"
+            Tr_t<double>(-0.5) * log(2 * PI * y_var) - Tr_t<double>(0.5); // e_mu+N*gSg"-N*zeta*sqr(sSg)"
         // double chilogL=(eplogL-plogL)/std::sqrt(0.5);
 
         double vplogL = 0.5;
@@ -2254,7 +2288,7 @@ public:
 //        } else
         return Op(Tr_t<mp_macro_information>::adjust(
                 std::move(P_mean), std::move(P__cov), y_mean, y_var, plogL, eplogL,
-                vplogL, Q_dt.min_P(), e));
+            vplogL, Q_dt.min_P(), center(e)));
     }
 
 
@@ -2290,6 +2324,8 @@ public:
         return run(prior, calc,m, p, os, alg);
     }
 
+
+
     template <class Model,class Calculator, class Step>
     myOptional_t<Tr_t<mp_macro_information>> run(const Tr_t<mp_macro_information> &prior,
                                            Calculator& c,const Model &m, const Step &p,
@@ -2308,22 +2344,21 @@ public:
                 if (std::isnan(y))
                     alg = MACRO_DMNR_new;
                 else {
-                    double mg = (prior.P_mean() * Q_dt.gmean_i()).getvalue();
-                    double g_max = max(Q_dt.g());
-                    double g_min = min(Q_dt.g());
-                    double g_range = g_max - g_min;
-                    double N = m.AverageNumberOfChannels();
-                    std::pair<Op_void, Op_void> test_Binomial;
+                    auto mg = (prior.P_mean() * Q_dt.gmean_i()).getvalue();
+                    auto g_max = max(Q_dt.g());
+                    auto g_min = min(Q_dt.g());
+                    auto g_range = g_max - g_min;
+                    auto N = m.AverageNumberOfChannels();
                     auto p_bi = (g_max - mg) / g_range;
                     auto q_bi = (mg - g_min) / g_range;
-                    test_Binomial = mp_state_information::is_Binomial_Approximation_valid(
+                    auto test_Binomial = is_Binomial_Approximation_valid(
                         N, p_bi, q_bi, Binomial_magic_number(), Variance_magic_number());
-                    if (!recursive || !test_Binomial.first.has_value()) {
-                        if (!variance || !test_Binomial.second.has_value())
+                    if (!recursive || !test_Binomial.first) {
+                        if (!variance || !test_Binomial.second)
                             alg = MACRO_DMNR_new;
                         else
                             alg = MACRO_DVNR_new;
-                    } else if (!variance || !test_Binomial.second.has_value())
+                    } else if (!variance || !test_Binomial.second)
                         alg = MACRO_DMR_new;
                     else
                         alg = MACRO_DVR_new;
@@ -2343,14 +2378,14 @@ public:
         std::ostream &os, const MACROR_new &alg) const {
         switch (alg) {
         case MACRO_DMNR_new:
-            return MacroDMNR_new().run(prior, calc, m, p, os);
+            return Tr_t<MacroDMNR_new>().run(prior, calc, m, p, os);
         case MACRO_DVNR_new:
-            return MacroDVNR_new().run(prior, calc, m, p, os);
+            return Tr_t<MacroDVNR_new>().run(prior, calc, m, p, os);
         case MACRO_DMR_new:
-            return MacroDMR_new().run(prior, calc, m, p, os);
+            return Tr_t<MacroDMR_new>().run(prior, calc, m, p, os);
         case MACRO_DVR_new:
         default:
-            return MacroDVR_new().run(prior, calc, m, p, os);
+            return Tr_t<MacroDVR_new>().run(prior, calc, m, p, os);
         }
     }
 
@@ -2364,11 +2399,13 @@ public:
             return Op(false, "fails to get Peq :" + P_mean.error());
         else {
             auto P_cov = diag(P_mean.value()) - quadraticForm_XTX(P_mean.value());
-            double nan = std::numeric_limits<double>::quiet_NaN();
+            Tr_t<double> nan = Tr_t<double>(std::numeric_limits<double>::quiet_NaN());
+            Tr_t<double> zero = Tr_t<double>(0.0);
 
-            return mp_macro_information::adjust(std::move(P_mean).value(),
+
+            return Op(Tr_t<mp_macro_information>::adjust(std::move(P_mean).value(),
                                                 std::move(P_cov), nan, nan, nan,
-                                                nan, 0.0, min_p, 0);
+                                                         nan, zero, min_p, 0));
         }
     }
 
@@ -3196,9 +3233,9 @@ public:
         const Microscopic_Transition_step_double& Q_dt, Model &m, const Step &p,
         std::ostream &os, const MICROR &alg) const {
         switch (alg) {
-        case RMICRO_DMR_new:
+        case MICRO_DMR:
             return RMicroDMR_new().run(prior, Q_dt, m, p, os);
-        case RMICRO_DVR_new:
+        case MICRO_DVR:
         default:
             return RMicroDVR_new().run(prior, Q_dt, m, p, os);
         }
@@ -3764,14 +3801,24 @@ private:
   double tolerance_ = 1e-5;
 };
 
-struct logLikelihood_function {
-  template <class Experiment> double operator()(const Experiment &) const {
-    return 0;
+
+template<template<class> class Tr>
+struct logLikelihood_function_;
+typedef logLikelihood_function_<C> logLikelihood_function;
+
+template<template<class> class Tr>
+struct logLikelihood_function_ {
+public:
+    template<class T> using Tr_t=typename Tr<T>::type;
+
+
+    template <class Experiment> Tr_t<double> operator()(const Experiment &) const {
+        return Tr_t<double>(0);
   }
-  template <class mp_state_information>
-  void operator()(const mp_state_information &mp, double &logLsum,
+  template <class  mp_state_information>
+  void operator()(const mp_state_information &mp, Tr_t<double> &logLsum,
                   std::size_t &i) const {
-    if (std::isfinite(mp.plogL())) {
+      if (std::isfinite(center(mp.plogL()))) {
       logLsum += mp.plogL();
       ++i;
     }
@@ -3996,10 +4043,15 @@ auto logLikelihood_experiment_calculation(const F &f, const MacroDR &a,
   }
   return Op(out);
 }
+
+
 template <class MacroDR,class Calculator, class Model, class Experiment>
-myOptional_t<double> logLikelihood_new(const MacroDR &a, Calculator& calc,const Model &m,
+auto logLikelihood_new(const MacroDR &a, Calculator& calc,const Model &m,
                                    const Experiment e, std::ostream &os) {
-    return logLikelihood_experiment_calculation_new(logLikelihood_function(), a,calc, m, e,
+
+    typename MacroDR::template Tr_t<logLikelihood_function> lik;
+
+    return logLikelihood_experiment_calculation_new(lik, a,calc, m, e,
                                                 os);
 }
 

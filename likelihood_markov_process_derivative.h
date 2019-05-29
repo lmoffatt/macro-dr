@@ -5,6 +5,7 @@
 #include "matrixderivative.h"
 #include "mydistributions_derivative.h"
 #include "qmodel_derivative.h"
+#include "matrixerror.h"
 
 template <> class Derivative<markov::mp_state_information> {
   Derivative<M_Matrix<double>> P_mean_;

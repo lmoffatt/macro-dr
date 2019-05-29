@@ -4,7 +4,7 @@
 #include "myoptional.h"
 #include <cmath>
 #include <iostream>
-
+#include <map>
 struct golden_section_search
 {
 
@@ -141,6 +141,131 @@ struct zero_secant_method
     }
 
 };
+
+
+
+class nelder_mead_method {
+
+private :
+    double alpha=1;
+    double beta=0.5;
+    double gamma=2;
+    double delta=0.5;
+
+
+
+    template<class Vector>
+    Vector centroid(std::map<double,Vector>& P)
+    {
+        assert(P.size()>1);
+         auto n=P.size()-1;
+         auto it=P.begin();
+         Vector out=it->second;
+         ++it;
+         auto end=--P.end();
+         for (; it!=end; ++it)  out+=it->second;
+         out/=n;
+         return out;
+    }
+
+    template<class Vector>
+    Vector reflect(Vector xh, Vector c)
+    {
+        return c+(c-xh)*alpha;
+    }
+    template<class Vector>
+    Vector expand(Vector xr, Vector c)
+    {
+        return c+(xr-c)*gamma;
+    }
+
+
+    template<class Vector>
+    Vector contract_outside(Vector xr, Vector c)
+    {
+        return c+(xr-c)*beta;
+    }
+
+    template<class Vector>
+    Vector contract_inside(Vector xh, Vector c)
+    {
+        return c+(xh-c)*beta;
+    }
+
+    template<class Vector>
+    void replace (std::map<double, Vector>& P, double fc, Vector&& Xc)
+    {
+        P.erase(--P.end());
+        P.emplace(fc,std::move(Xc));
+    }
+
+    template<class Function,class Vector>
+    std::map<double, Vector> shrink (const Function& f,const std::map<double, Vector>& P)
+    {
+        std::map<double, Vector> out;
+        auto it=P.begin();
+        auto xl=it->second;
+
+        out.insert(*it);
+        for (++it; it!=P.end(); ++it)
+        {
+            auto xj=xl+(it->second - xl)*delta;
+            double fj=f(xj);
+            out.insert(fj,std::move(xj));
+        }
+        return out;
+    }
+
+public :
+    template<class Function, class Vector>
+    void next(const Function& f, std::map<double, Vector>& P)
+    {
+        auto c=centroid(P);
+        auto it_h=--P.end(); auto fh=it_h->first; auto xh=it_h->second;
+        --it_h;
+        auto fs=it_h->first;
+        it_h=P.begin();
+        auto fl=it_h->first;
+
+        auto xr=reflect(xh,c);
+        auto fr=f(xr);
+
+        if (fr>=fs)
+        {
+            Vector xc;
+            if (fr>=fh)
+                xc=contract_inside(xh,c);
+            else
+                xc=contract_outside(xr,c);
+            auto fc=f(xc);
+            if (fc<fh)
+                replace(P,fc,xc);
+            else
+                P=shrink(f,P);
+
+        }
+        else if (fr>=fl)
+            replace(P,fr,xr);
+        else
+        {
+            auto xe=expand(xr,c);
+            auto fe=f(xe);
+            if (fe<fr)
+                replace(P,fe,std::move(xe));
+            else
+                replace(P,fr,std::move(xr));
+
+        }
+     }
+
+
+
+
+
+
+};
+
+
 
 
 

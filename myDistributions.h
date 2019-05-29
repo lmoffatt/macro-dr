@@ -1314,6 +1314,12 @@ struct variance_value : public invariant {
   static double adjust(double value, double min_variance) {
     return std::max(value, min_variance);
   }
+  template<template<typename,typename, bool>class Error,class Norm, bool diff>
+  static Error<double,Norm, diff> adjust(const Error<double,Norm,diff>& value, double min_variance) {
+      double v=std::max(value.center(),min_variance);
+      return Error<double,Norm,diff>(v,value.norm());
+  }
+
 };
 
 struct logLikelihood_value : public invariant {
@@ -1377,7 +1383,9 @@ struct Probability_distribution : public Probability {
   }
 
   template <class P> P static normalize(P &&p, double min_p) {
-    double sum = 0;
+      assert(min_p>=0);
+      assert(min_p<1.0);
+      double sum = 0;
     for (std::size_t i = 0; i < p.size(); ++i) {
       if (p[i] < min_p) {
         p[i] = 0;
@@ -1392,6 +1400,27 @@ struct Probability_distribution : public Probability {
       p[i] = p[i] / sum;
     return std::move(p);
   }
+
+  template <template<class, class, bool> class Error, class P, class Norm, bool diff> Error<P,Norm,diff> static normalize(Error<P,Norm,diff> &&p, double min_p) {
+      assert(min_p>=0);
+      assert(min_p<1.0);
+      double sum = 0;
+      for (std::size_t i = 0; i < p.size(); ++i) {
+          if (p.center()[i] < min_p) {
+              p.center()[i] = 0;
+
+          } else {
+              if (p.center()[i] + min_p > 1) {
+                  p.center()[i] = 1;
+              }
+              sum += p.center()[i];
+          }
+      }
+      for (std::size_t i = 0; i < p.size(); ++i)
+          p.center()[i] = p.center()[i] / sum;
+      return std::move(p);
+  }
+
 };
 
 struct Probability_transition : public Probability {
@@ -1441,6 +1470,14 @@ struct Probability_transition : public Probability {
       }
     }
     return std::move(p);
+  }
+
+  template<template<class, class,bool> class Error,class Norm, bool diff>
+  static
+      Error<M_Matrix<double>,Norm,diff>
+      normalize(Error<M_Matrix<double>,Norm,diff> &&p, double min_p) {
+      p.center()=Probability_transition::normalize(std::move(p.center()),min_p);
+      return std::move(p);
   }
 };
 
@@ -1494,6 +1531,45 @@ struct Probability_distribution_covariance : public Probability {
 
     return std::move(p);
   }
+
+
+      template <template<class, class, bool> class Error, class P, class Norm, bool diff>
+  static Error<P,Norm,diff>
+       normalize(Error<P,Norm,diff> &&p, double min_p) {
+          std::set<std::size_t> non_zero_i;
+
+          for (std::size_t i = 0; i < p.nrows(); ++i) {
+              if (p.center()(i, i) < min_p) {
+                  for (std::size_t j = 0; j < p.ncols(); ++j)
+                      p.center()(i, j) = 0;
+              } else if (p.center()(i, i) + min_p > 1.0) {
+                  for (std::size_t n = 0; n < p.size(); ++n)
+                      p.center()[n] = 0;
+                  p.center()(i, i) = 1;
+                  return std::move(p);
+              } else
+                  non_zero_i.insert(i);
+          }
+          for (auto i : non_zero_i) {
+
+              double sum = 0;
+              for (auto j : non_zero_i)
+                  if (j != i)
+                      sum += p.center()(i, j);
+
+              if (-sum != p.center()(i, i)) {
+                  auto sum_new = (sum - p.center()(i, i)) * 0.5;
+                  double f = sum_new / sum;
+                  p.center()(i, i) = -sum_new;
+                  for (auto j : non_zero_i)
+                      if (i != j)
+                          p.center()(i, j) *= f;
+              }
+          }
+
+          return std::move(p);
+      }
+
 
   template <bool output, class P>
   static Op_void test(const P &p, double tolerance) {

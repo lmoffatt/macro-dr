@@ -619,7 +619,11 @@ public:
   M_Matrix(const M_Matrix<T> &sample)
       :type_{sample.type_},_nrows{sample._nrows},_ncols{sample._ncols},_data{sample._data},zero_{sample.zero_}{}
 
-  M_Matrix(M_Matrix<T> &&sample) = default;
+  M_Matrix(M_Matrix<T> &&sample)
+      :type_{sample.type_},_nrows{sample._nrows},_ncols{sample._ncols},_data{std::move(sample._data)},zero_{std::move(sample.zero_)}{
+      sample.type_=Matrix_TYPE::ZERO;
+      sample._nrows=0; sample._ncols=0;
+  }
 
   M_Matrix(std::size_t nrows, std::size_t ncols)
       : type_(Matrix_TYPE::FULL), _nrows(nrows), _ncols(ncols),
@@ -714,7 +718,7 @@ public:
   template <typename S>
   M_Matrix(std::size_t nrows_, std::size_t ncols_, TYPE type,
            const M_Matrix<S> &data)
-      : type_(type), _nrows(nrows_), _ncols(ncols_), _data(nrows_ * ncols_)
+      : type_(type), _nrows(nrows_), _ncols(ncols_), _data(getSize(type_, nrows_, ncols_))
   //   _data(new T[_ncells])
   {
 
@@ -738,18 +742,18 @@ init_zero();
     //	delete [] _data;
   }
 
-  template <class F> M_Matrix<T> apply(const F &f) const& {
+  template <class F, typename...Ts> M_Matrix<T> apply(const F &f, const M_Matrix<Ts>&...xs) const {
     M_Matrix<T> out(nrows(), ncols(), type());
     for (std::size_t i = 0; i < size(); ++i)
-      out[i] = std::invoke(f, (*this)[i]);
+      out[i] = std::invoke(f, (*this)[i],xs[i]...);
     return out;
   }
 
-  template <class F> M_Matrix<T> apply(const F &f) && {
-      for (std::size_t i = 0; i < size(); ++i)
-          (*this)[i] = std::invoke(f, (*this)[i]);
-      return *this;
-  }
+//  template <class F, typename...Ts> M_Matrix<T> apply(const F &f, const M_Matrix<Ts>&...xs) && {
+//      for (std::size_t i = 0; i < size(); ++i)
+//          (*this)[i] = std::invoke(f, (*this)[i],xs[i]...);
+//      return *this;
+//  }
 
 
   template <class F> auto auto_apply(const F &f) const {
@@ -760,9 +764,9 @@ init_zero();
     return out;
   }
 
-  template <class F> M_Matrix &transform(const F &f) {
+  template <class F, typename...Ts> M_Matrix &transform(const F &f, const M_Matrix<Ts>...xs) {
     for (std::size_t i = 0; i < size(); ++i)
-      std::invoke(f, (*this)[i]);
+      std::invoke(f, (*this)[i], xs[i]...);
     return *this;
   }
 
@@ -801,6 +805,10 @@ init_zero();
       return {0, 0};
     }
   }
+
+  void set(std::size_t i, std::size_t j, const T& val){ (*this)(i,j)=val;}
+  void set(std::size_t i,  const T& val){ (*this)[i]=val;}
+  void add(std::size_t i, std::size_t j, const T& val){ (*this)(i,j)+=val;}
 
   T &operator()(std::size_t i, std::size_t j) {
     assert(i < nrows());
@@ -2140,7 +2148,7 @@ inline eigensystem_type sort(const eigensystem_type &e) {
   M_Matrix<double> VRs(VR.nrows(), VR.ncols(), VR.type());
   M_Matrix<double> VLs(VL.nrows(), VL.ncols(), VL.type());
   for (std::size_t i = 0; i < la.size(); ++i) {
-    auto is = la[i].second;
+      std::size_t is = la[i].second;
     Ls[i] = L[is];
     CLs[i]=CL[is];
     CVs[i]=CV[is];
@@ -2150,7 +2158,7 @@ inline eigensystem_type sort(const eigensystem_type &e) {
       VLs(i, j) = VL(is, j);
     }
   }
-  return std::tuple(VRs, Ls, VLs,CLs,CVs);
+  return eigensystem_type(VRs, Ls, VLs,CLs,CVs);
 }
 
 inline M_Matrix<double> &Right_Eigenvector_Nelson_Normalization(M_Matrix<double> &X) {
@@ -2616,10 +2624,14 @@ Parameters
     //                                                      x, std::cerr)));
     return Op(sort(std::make_tuple(
         VR_cpp, WR,
-        VL_cpp,ABNRM*RCONDE.apply([](auto x){return 1.0/x;}),ABNRM*RCONDV.apply([](auto x){return 1.0/x;})))); // in reality VL, L, VR because of transposition
+        VL_cpp,ABNRM*RCONDE.apply([](auto x){return 1.0/x;}),ABNRM*RCONDV.apply([](auto x){return 1.0/x;}))));
       }
   }
 }
+
+
+
+
 
 inline auto EigenSystem_symm_real_eigenvalue(const M_Matrix<double> &x, std::string kind="lower") {
   typedef myOptional_t<eigensystem_type> Op;

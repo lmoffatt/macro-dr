@@ -131,7 +131,9 @@ myOptional_t<double> likelihood<Experiment, Model>::run(
                               Experiment, double>
         MC(SM, e, 1, tolerance);
 
-    markov::Markov_Model_calculations_new<true> MC_new(e.frequency_of_sampling(),min_P);
+     markov::Markov_Model_calculations_new<true> MC_new(e.frequency_of_sampling(),min_P);
+     E_t<markov::Markov_Model_calculations_new<true>> MC_new_Et(e.frequency_of_sampling(),min_P);
+
 
     if (algorithm == my_trait<markov::MacroDVR>::className.str()) {
       auto out = markov::logLikelihood(
@@ -171,12 +173,13 @@ myOptional_t<double> likelihood<Experiment, Model>::run(
     }
     else if (algorithm == my_trait<markov::MacroSDMR>::className.str()) {
         auto out = markov::logLikelihood_new(
-            markov::MacroSDMR(tolerance,biNumber,Vanumber), MC_new,SM, e, std::cerr);
+      //      markov::MacroSDMR(tolerance,biNumber,Vanumber), MC_new,SM, e, std::cerr);
+            E_t<markov::MacroSDMR>(tolerance,biNumber,Vanumber), MC_new_Et,SM, e, std::cerr);
         if (out.has_value())
             std::cerr << "logLikelihodd = " << out.value() << std::endl;
         else
             std::cerr << out.error();
-        return out;
+        return myOptional_t<double>(center(out.value()));
     }
     else if (algorithm == my_trait<markov::MacroSDVR>::className.str()) {
         auto out = markov::logLikelihood_new(

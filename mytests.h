@@ -212,6 +212,8 @@ private:
   double absolute_ = std::numeric_limits<double>::epsilon();
 };
 
+
+
 template <class T, typename...Ts>
 bool are_Equal_v(const T &one, const T &other, std::ostream &os, Ts...context) {
   if (!are_Equal<true, T>(std::sqrt(std::numeric_limits<double>::epsilon()*1e10),std::sqrt(std::numeric_limits<double>::epsilon()*1e10)).test(one, other, os))
@@ -221,6 +223,10 @@ bool are_Equal_v(const T &one, const T &other, std::ostream &os, Ts...context) {
   }
   else return true;
 }
+
+
+
+
 template <class T, typename...Ts>
 auto are_Equal_v(const T &one, const T &other, double eps, double epsf,std::ostream &os, Ts...context)->std::enable_if_t<!std::is_pointer_v<T>,bool>
 {

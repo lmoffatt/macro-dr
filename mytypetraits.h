@@ -240,6 +240,7 @@ struct my_template_trait<C>
 };
 
 
+
 template <typename T, typename = void>
 struct has_value_type : public std::false_type {};
 

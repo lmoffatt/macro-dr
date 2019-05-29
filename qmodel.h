@@ -10,6 +10,7 @@
 #include "myparameters.h"
 #include "mytests.h"
 #include "mytypetraits.h"
+#include "matrixerror.h"
 
 #include <cmath>
 #include <map>
@@ -3168,13 +3169,7 @@ class Markov_Transition_rate_new_ {
     Tr_t<M_Matrix<double>> Wg_;
     Tr_t<M_Matrix<double>> WgV_;
 
-    static void clean_landa(M_Matrix<double> &la) {
-        double maxla = std::min(max(la), 0.0);
-        for (std::size_t i = 1; i < la.size(); ++i)
-            if (la[i] >= maxla) {
-                la[i] = 0;
-            }
-    }
+    static void clean_landa(Tr_t<M_Matrix<double>> &la);
 
     void init(Tr_t<Matrix_Decompositions::eigensystem_type> &&eig) {
         std::tie(V_, landa_, W_, error_landa_, error_V_) = std::move(eig);
@@ -3264,35 +3259,72 @@ public:
     const Tr_t<M_Matrix<double>> &Wg() const { return Wg_; }
     const Tr_t<M_Matrix<double>> &WgV() const { return WgV_; }
 
-    Tr_t<M_Matrix<double>> calc_Peq() const {
-        M_Matrix<double> p0(1, Qrun().nrows(), 1.0 / Qrun().nrows());
-        M_Matrix<double> laexp(landa_.size(), landa_.size(), Matrix_TYPE::DIAGONAL);
-        for (std::size_t i = 0; i < landa_.size(); ++i) {
-            if (landa_(i, i) == 0.0)
-                laexp(i, i) = 1.0;
-            else
-                laexp(i, i) = 0.0;
-        }
-        //  std::cerr<<"\n
-        //  ----calc_Peq-----\np0="<<p0<<"laexp="<<laexp<<"V()"<<V()<<"W"<<W();
-        return p0 * V() * laexp * W();
-    }
+    Tr_t<M_Matrix<double>> calc_Peq() const;
 };
+
+
+
+template<>
+inline void Markov_Transition_rate_new_<C>::clean_landa(M_Matrix<double>  &la) {
+    double maxla = std::min(max(la), 0.0);
+    for (std::size_t i = 1; i < la.size(); ++i)
+        if (la[i] >= maxla) {
+            la[i] = 0;
+        }
+}
+template<template<class> class E>
+void Markov_Transition_rate_new_<E>::clean_landa(Markov_Transition_rate_new_<E>::Tr_t<M_Matrix<double>>  &la) {
+    double maxla = std::min(max(la.center()), 0.0);
+    for (std::size_t i = 1; i < la.size(); ++i)
+        if (la.center()[i] >= maxla) {
+            la.center()[i] = 0;
+        }
+}
+
+template<>
+inline M_Matrix<double> Markov_Transition_rate_new_<C>::calc_Peq() const {
+    M_Matrix<double> p0(1, Qrun().nrows(), 1.0 / Qrun().nrows());
+    M_Matrix<double> laexp(landa_.size(), landa_.size(), Matrix_TYPE::DIAGONAL);
+    for (std::size_t i = 0; i < landa_.size(); ++i) {
+        if (landa_(i, i) == 0.0)
+            laexp(i, i) = 1.0;
+        else
+            laexp(i, i) = 0.0;
+    }
+    //  std::cerr<<"\n
+    //  ----calc_Peq-----\np0="<<p0<<"laexp="<<laexp<<"V()"<<V()<<"W"<<W();
+    return p0 * V() * laexp * W();
+}
+
+template<template<class> class E>
+typename E<M_Matrix<double>>::type  Markov_Transition_rate_new_<E>::calc_Peq() const {
+    M_Matrix<double> p0(1, Qrun().nrows(), 1.0 / Qrun().nrows());
+    M_Matrix<double> laexp(landa_.size(), landa_.size(), Matrix_TYPE::DIAGONAL);
+    for (std::size_t i = 0; i < landa_.size(); ++i) {
+        if (landa_.center()(i, i) == 0.0)
+            laexp(i, i) = 1.0;
+        else
+            laexp(i, i) = 0.0;
+    }
+    //  std::cerr<<"\n
+    //  ----calc_Peq-----\np0="<<p0<<"laexp="<<laexp<<"V()"<<V()<<"W"<<W();
+    return p0 * V() * laexp * W();
+}
 
 
 //typedef optional_tag<Markov_Transition_rate_new_<C>>::hehe typpe;
 
 class Markov_Transition_step_single;
 struct Markov_Transition_step_single_minimum {
-  M_Matrix<double> PPn;
-  M_Matrix<double> PGn;
-  M_Matrix<double> PG_n;
-  M_Matrix<double> PGG_n;
-  std::size_t n;
-  Markov_Transition_step_single_minimum(
-      const Markov_Transition_step_single &x_);
-  Markov_Transition_step_single_minimum &
-  operator*=(const Markov_Transition_step_single &x_);
+    M_Matrix<double> PPn;
+    M_Matrix<double> PGn;
+    M_Matrix<double> PG_n;
+    M_Matrix<double> PGG_n;
+    std::size_t n;
+    Markov_Transition_step_single_minimum(
+                const Markov_Transition_step_single &x_);
+    Markov_Transition_step_single_minimum &
+            operator*=(const Markov_Transition_step_single &x_);
 };
 
 template <template<class> class Tr> class Markov_Transition_step_mean_;
@@ -3945,10 +3977,11 @@ public:
   myOptional_t<Tr_t<Markov_Transition_step_variance>> calc_step_variance(const Tr_t<Markov_Transition_rate_new> &Qx,
                                                      std::size_t nsamples,double fs, double min_P)const
 {
+      using std::exp;
       typedef myOptional_t<Tr_t<Markov_Transition_step_variance>> Op;
        std::size_t N=Qx.Qrun().ncols();
-       auto ladt = Qx.landa() * nsamples/fs;
-       auto exp_ladt = ladt.apply([](double x) { return std::exp(x); });
+       auto ladt = Qx.landa() * (1.0*nsamples/fs);
+       auto exp_ladt = ladt.apply([](Tr_t<double> x) { return exp(x); });
        auto P = Probability_transition::normalize(Qx.V() * exp_ladt * Qx.W(), min_P);
        auto g = Qx.g();
 
@@ -3959,74 +3992,76 @@ public:
            assert(are_Equal_v(Qx.Qrun(), Qx.V() * Qx.landa() * Qx.W(), err, err,
                               std::cerr, "Qx.Qrun()=", Qx.Qrun(), "Qx.V()", Qx.V(),
                               "Qx.landa()=", Qx.landa(), "Qx.W()=", Qx.W()));
-           double RV = norm_1(Qx.V()) * norm_1(Qx.W());
+           double RV = Matrix_Unary_Functions::norm_1(center(Qx.V())) * Matrix_Unary_Functions::norm_1(center(Qx.W()));
 
 
            Tr_t<M_Matrix<double>> E2m(N, N, Matrix_TYPE::SYMMETRIC);
            // M_Matrix<double> E2mb(N, N, Matrix_TYPE::SYMMETRIC);
            for (std::size_t i = 0; i < N; ++i)
                for (std::size_t j = 0; j < i + 1; ++j)
-                   E2m(i, j) =
-                       Ee(ladt[i], ladt[j], exp_ladt[i], exp_ladt[j] /*, sqr(min_P())*/);
+                   E2m.set(i, j,
+                           Ee(ladt[i], ladt[j], exp_ladt[i], exp_ladt[j] /*, sqr(min_P())*/));
 
            // build E2
-           M_Matrix<double> WgV_E2(N, N);
+           Tr_t<M_Matrix<double>> WgV_E2(N, N,Matrix_TYPE::FULL);
 
            for (std::size_t i = 0; i < N; ++i)
                for (std::size_t j = 0; j < N; ++j)
-                   WgV_E2(i, j) = Qx.WgV()(i, j) * E2m(i, j);
-           M_Matrix<double> G = diag(g);
+                   WgV_E2.set(i, j,Qx.WgV()(i, j) * E2m(i, j));
+           auto G = diag(g);
            auto gtotal_ij_p = (G * P + P * G) * 0.5;
            auto gtotal_var_ij_p =
-               (G * P - P * G).apply([](double x) { return std::abs(x); }) * 0.5;
+               (G * P - P * G).apply([](auto x) { return abs(x); }) * 0.5;
            auto gmean_ij_p = elemDivSafe(gtotal_ij_p, P);
            auto gtotal_sqr_ij_p = gtotal_var_ij_p + elemMult(gtotal_ij_p, gmean_ij_p);
 
            auto gtotal_ij = (Qx.V() * WgV_E2 * Qx.W());
            auto gmean_ij = elemDivSafe(gtotal_ij, P);
+           Tr_t<double> zero(0);
 
-           M_Matrix<double> WgV_E3(N, N, 0.0);
+           Tr_t<M_Matrix<double>> WgV_E3(N, N, 0.0);
            for (std::size_t n1 = 0; n1 < N; n1++)
                for (std::size_t n3 = 0; n3 < N; n3++)
                    for (std::size_t n2 = 0; n2 < N; n2++) {
-                       double e3 = E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1],
+                       Tr_t<double> e3 = E3(ladt[n1], ladt[n2], ladt[n3], exp_ladt[n1],
                                       exp_ladt[n2], exp_ladt[n3] /*, sqr(min_P())*/);
-                       WgV_E3(n1, n3) += Qx.WgV()(n1, n2) * Qx.WgV()(n2, n3) * e3;
+                       WgV_E3.add(n1, n3, Qx.WgV()(n1, n2) * Qx.WgV()(n2, n3) * e3);
                        // optimizable
                    }
+
 
            double minP = N * N * 20 * 1e-6;
            // std::pow(R_V, 3) * C_l *std::numeric_limits<double>::epsilon();
            auto gtotal_sqr_ij = Qx.V() * WgV_E3 * Qx.W() * 2.0;
            for (std::size_t i = 0; i < gtotal_sqr_ij.size(); ++i) {
-               if (std::abs(gtotal_ij[i]) < minP)
-                   gtotal_ij[i] = 0;
-               if (std::abs(gtotal_sqr_ij[i]) < minP)
-                   gtotal_sqr_ij[i] = 0;
+               if (std::abs(center(gtotal_ij)[i]) < minP)
+                   gtotal_ij.set(i, zero);
+               if (std::abs(center(gtotal_sqr_ij)[i]) < minP)
+                   gtotal_sqr_ij.set(i, 0);
            }
            auto gtotal_var_ij = gtotal_sqr_ij - elemMult(gtotal_ij, gmean_ij);
            for (std::size_t i = 0; i < gtotal_sqr_ij.size(); ++i) {
-               if (std::abs(gtotal_sqr_ij[i]) < minP)
-                   gtotal_var_ij[i] = 0;
+               if (std::abs(center(gtotal_sqr_ij)[i]) < minP)
+                   gtotal_var_ij.set(i, 0);
            }
 
            auto gvar_ij = elemDivSafe(gtotal_var_ij, P);
            for (std::size_t i = 0; i < gvar_ij.size(); ++i)
-               if (std::abs(gvar_ij[i]) < minP)
-                   gvar_ij[i] = 0;
+               if (std::abs(center(gvar_ij)[i]) < minP)
+                   gvar_ij.set(i, 0);
 
            M_Matrix<double> u(N, 1, 1.0);
            auto gmean_i = gtotal_ij * u;
            auto gsqr_i = gtotal_sqr_ij * u;
            auto gvar_i = gtotal_var_ij * u;
-           auto r = elemDiv(gvar_ij, gmean_ij);
+           auto r = elemDivSafe(gvar_ij, gmean_ij);
            if (false) {
                //      auto out2 =
                //          Markov_Transition_step_double(4, Qx, nsamples(), fs(),
                //          1e-7);
                assert(([this, &minP, &gvar_ij]() {
                    for (std::size_t i = 0; i < gvar_ij.size(); ++i)
-                       if (gvar_ij[i] < 0)
+                       if (center(gvar_ij)[i] < 0)
                            return false;
                    return true;
                }()));
@@ -4167,46 +4202,47 @@ public:
       return (E1(y) - E1(x)) / (y - x);
   }
 
-  static double Ee(double x, double y, double exp_x, double exp_y,
+  static Tr_t<double> Ee(Tr_t<double> x, Tr_t<double> y, Tr_t<double> exp_x, Tr_t<double> exp_y,
                    double eps = std::numeric_limits<double>::epsilon()) {
-    if (sqr(x - y) < eps)
+      if (sqr(center(x) - center(y)) < eps)
       return exp_x;
     else
       return (exp_x - exp_y) / (x - y);
   }
 
-  static double EX_111(double x, double y, double z, double exp_x) {
+  static Tr_t<double> EX_111(Tr_t<double> x, Tr_t<double> y, Tr_t<double> z, Tr_t<double> exp_x) {
     return exp_x / ((x - y) * (x - z));
   }
-  static double E12_exmp1(double x, double y, double z, double exp_x,
-                          double exp_y) {
-    double dz = z - x;
-    return (dz * (exp_x - exp_y) + (y - x) * exp_x * std::expm1(dz)) /
+  static Tr_t<double> E12_exmp1(Tr_t<double> x, Tr_t<double> y, Tr_t<double> z, Tr_t<double> exp_x,
+                          Tr_t<double> exp_y) {
+      using std::expm1;
+    Tr_t<double> dz = z - x;
+    return (dz * (exp_x - exp_y) + (y - x) * exp_x * expm1(dz)) /
            ((x - y) * (y - z) * dz);
   }
-  static double E111(double x, double y, double z, double exp_x, double exp_y,
-                     double exp_z, double min2) {
-    if (sqr(x - y) < min2) // x==y
+  static Tr_t<double> E111(Tr_t<double> x, Tr_t<double> y, Tr_t<double> z, Tr_t<double> exp_x, Tr_t<double> exp_y,
+                     Tr_t<double> exp_z, double min2) {
+      if (sqr(center(x) - center(y)) < min2) // x==y
     {
-      if (sqr(y - z) < min2) // y==z
+          if (sqr(center(y) - center(z)) < min2) // y==z
         return E3(x, y, z);  // x==y==z
       else
         return E12_exmp1(z, x, y, exp_z, exp_x); // x==y!=z
-    } else if (sqr(y - z) < min2)                // x!=y==z
+      } else if (sqr(center(y) - center(z)) < min2)                // x!=y==z
     {
       return E12_exmp1(x, y, z, exp_x, exp_y);
-    } else if (sqr(x - z) < min2) // y!=z==x!=y
+      } else if (sqr(center(x) - center(z)) < min2) // y!=z==x!=y
     {
       return E12_exmp1(y, x, z, exp_y, exp_x);
     } else
       return EX_111(x, y, z, exp_x) + EX_111(y, x, z, exp_y) +
              EX_111(z, y, x, exp_z);
   }
-  static double expm2(double x) {
-    assert(std::abs(x) < 0.001);
+  static Tr_t<double> expm2(Tr_t<double> x) {
+      assert(std::abs(center(x)) < 0.001);
     std::int8_t nmax = 7;
-    double xr = 1.0 / 2.0;
-    double sum = xr;
+    Tr_t<double> xr = 1.0 / 2.0;
+    Tr_t<double> sum = xr;
     for (std::int8_t n = 3; n < nmax; ++n) {
       xr *= x / n;
       sum += xr;
@@ -4214,101 +4250,104 @@ public:
     return sum;
   }
 
-  static double E12(double x, double y, double exp_x, double exp_y,
+  static Tr_t<double> E12(Tr_t<double> x, Tr_t<double> y, Tr_t<double> exp_x, Tr_t<double> exp_y,
                     double min) {
-    if (std::abs(y - x) < min) {
+      if (std::abs(center(y) - center(x)) < min) {
       return exp_x * expm2(y - x);
     }
-    return EX_111(x, y, y, exp_x) + exp_y / (y - x) * (1.0 - 1.0 / (y - x));
+    return EX_111(x, y, y, exp_x) + exp_y / (y - x) * (Tr_t<double>(1.0) - Tr_t<double>(1.0) / (y - x));
   }
 
-  static double E3(double x, double y, double z, double exp_x, double exp_y,
-                   double exp_z, double min = 1e-3,
+  static Tr_t<double> E3(const Tr_t<double>& x, const Tr_t<double>& y, const Tr_t<double>& z, const Tr_t<double>& exp_x, const Tr_t<double>& exp_y,
+                   const Tr_t<double>& exp_z, double min = 1e-3,
                    double eps = std::numeric_limits<double>::epsilon()) {
-    if (sqr(x - y) < eps) // x==y
+      if (sqr(center(x) - center(y)) < eps) // x==y
     {
-      if (sqr(y - z) < eps) // y==z
+          if (sqr(center(y) -center( z)) < eps) // y==z
         return exp_x / 2.0; // x==y==z
       else
         return E12(z, x, exp_z, exp_x, min); // x==y!=z
-    } else if (sqr(y - z) < eps)             // x!=y==z
+      } else if (sqr(center(y) - center(z)) < eps)             // x!=y==z
     {
       return E12(x, y, exp_x, exp_y, min);
-    } else if (sqr(x - z) < eps) // y!=z==x!=y
+      } else if (sqr(center(x) - center(z)) < eps) // y!=z==x!=y
     {
       return E12(y, x, exp_y, exp_x, min);
     } else
       return E111(x, y, z, exp_x, exp_y, exp_z, min); // x!=y!=z!=x
   }
-  static double expm2(double x, double y) {
-    if (std::abs(x - y) < std::numeric_limits<double>::epsilon() * 100)
-      return 0.5 + (x + y) / 3.0;
-    else if ((std::abs(x) > 0.001) || (std::abs(y) > 0.001)) {
-      if (std::abs(x) < std::numeric_limits<double>::epsilon() * 100) {
-        if (std::abs(y) < std::numeric_limits<double>::epsilon() * 100)
+  static Tr_t<double> expm2(Tr_t<double> x, Tr_t<double> y) {
+      using std::expm1;
+      if (std::abs(center(x) -center(y)) < std::numeric_limits<double>::epsilon() * 100)
+          return Tr_t<double>(0.5) + (x + y) / 3.0;
+      else if ((std::abs(center(x)) > 0.001) || (std::abs(center(y)) > 0.001)) {
+          if (std::abs(center(x)) < std::numeric_limits<double>::epsilon() * 100) {
+              if (std::abs(center(y)) < std::numeric_limits<double>::epsilon() * 100)
           return 0.5;
         else
-          return (y - std::expm1(y)) / (y * (x - y));
-      } else if (std::abs(y) < std::numeric_limits<double>::epsilon() * 100) {
-        return (x - std::expm1(x)) / (x * (y - x));
+          return (y - expm1(y)) / (y * (x - y));
+          } else if (std::abs(center(y)) < std::numeric_limits<double>::epsilon() * 100) {
+        return (x - expm1(x)) / (x * (y - x));
       } else
-        return (y * std::expm1(x) - x * std::expm1(y)) / (x * y * (x - y));
+        return (y * expm1(x) - x * expm1(y)) / (x * y * (x - y));
     } else {
       const int8_t nmax = 10;
-      double xr = x / 2;
-      double yr = y / 2;
-      double sum = 0;
+      Tr_t<double> xr = x / 2;
+      Tr_t<double> yr = y / 2;
+      Tr_t<double> sum (0);
       for (int8_t n = 3; n < nmax; ++n) {
         xr *= x / n;
         yr *= y / n;
         sum += xr - yr;
       }
-      return 0.5 + sum / (x - y);
+      return Tr_t<double>(0.5) + sum / (x - y);
     }
   }
 
-  static double E3_expm2_order(double x, double y, double z) {
-    assert(x <= y);
-    assert(y <= z);
-    double dx = x - y;
-    double dz = z - y;
-    double out = std::exp(y) * expm2(dx, dz);
+  static Tr_t<double> E3_expm2_order(const Tr_t<double>& x, const Tr_t<double>& y, const Tr_t<double>& z) {
+      assert(center(x) <= center(y));
+      assert(center(y) <= center(z));
+    using std::exp;
+    Tr_t<double> dx = x - y;
+    Tr_t<double> dz = z - y;
+    Tr_t<double> out = exp(y) * expm2(dx, dz);
     auto out2 = E3_expm1_order(x, y, z);
     // auto out3=E3(x,y,z,std::exp(x),std::exp(y),std::exp(z));
     assert(([&out, &out2]() { return are_Equal_v(out, out2, std::cerr); }()));
     return out;
   }
 
-  static double
-  E3_expm1_order(double x, double y, double z,
+  static Tr_t<double>
+  E3_expm1_order(Tr_t<double> x, Tr_t<double> y,Tr_t<double> z,
                  double eps = std::numeric_limits<double>::epsilon()) {
-    assert(x <= y);
-    assert(y <= z);
-    double dx = x - y;
-    double dz = z - y;
-    if (dx * dx < eps) {
-      if (dz * dz < eps)
-        return std::exp(y) / 2;
+      assert(center(x) <= center(y));
+      assert(center(y) <= center(z));
+      using std::expm1;
+    Tr_t<double> dx = x - y;
+    Tr_t<double> dz = z - y;
+    if (center(dx) * center(dx) < eps) {
+        if (center(dz) * center(dz) < eps)
+        return exp(y) / 2.0;
       else
-        return std::exp(y) * (1.0 - std::expm1(dz) / dz) / (-dz);
-    } else if (dz * dz < eps)
-      return std::exp(y) * (1.0 - std::expm1(dx) / dx) / (-dx);
+          return exp(y) * (Tr_t<double>(1.0) - expm1(dz) / dz) / (-dz);
+    } else if (center(dz) * center(dz) < eps)
+      return exp(y) * (Tr_t<double>(1.0) - expm1(dx) / dx) / (-dx);
     else
-      return std::exp(y) * (dx * std::expm1(dz) - dz * std::expm1(dx)) /
+      return exp(y) * (dx * expm1(dz) - dz * expm1(dx)) /
              (dx * dz * (dz - dx));
   }
 
-  static double E3(double x, double y, double z) {
-    if (y < z) {
-      if (x < y)
+  static Tr_t<double> E3(Tr_t<double> x, Tr_t<double> y, Tr_t<double> z) {
+      if (center(y) < center(z)) {
+          if (center(x) <center( y))
         return E3_expm2_order(x, y, z);
-      else if (x < z)
+          else if (center(x) < center(z))
         return E3_expm2_order(y, x, z);
       else
         return E3_expm2_order(y, z, x);
-    } else if (x < z)
+      } else if (center(x) < center(z))
       return E3_expm2_order(x, z, y);
-    else if (x < y)
+      else if (center(x) < center(y))
       return E3_expm2_order(z, x, y);
     else
       return E3_expm2_order(z, y, x);
@@ -4695,7 +4734,7 @@ private:
     assert(are_Equal_v(Qx.Qrun(), Qx.V() * Qx.landa() * Qx.W(), err, err,
                        std::cerr, "Qx.Qrun()=", Qx.Qrun(), "Qx.V()", Qx.V(),
                        "Qx.landa()=", Qx.landa(), "Qx.W()=", Qx.W()));
-    double RV = norm_1(Qx.V()) * norm_1(Qx.W());
+    double RV = Matrix_Unary_Functions::norm_1(Qx.V()) * Matrix_Unary_Functions::norm_1(Qx.W());
 
     auto exp_ladt = ladt.apply([](double x) { return std::exp(x); });
 
@@ -6371,3 +6410,4 @@ template <bool recursive, int averaging, bool variance> class Macro_R_new;
 
 
 #endif // QMODEL_H
+
