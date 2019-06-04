@@ -36,11 +36,29 @@ template <class> struct is_Derivative : public std::false_type {};
 template <typename T>
 struct is_Derivative<Derivative<T>> : public std::true_type {};
 
+
+
 template <class D>
 constexpr static bool is_Derivative_v = is_Derivative<D>::value;
 
 
 class D{};
+
+
+
+template <class T>
+auto const& center(const Derivative<T>& x)
+{
+    return x.f();
+}
+
+template <class T>
+auto & center( Derivative<T>& x)
+{
+    return x.f();
+}
+
+
 
 
 template <class T>

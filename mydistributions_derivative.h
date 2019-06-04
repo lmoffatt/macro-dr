@@ -85,6 +85,202 @@ public:
   }
 };
 
+
+template<>
+struct Probability_distribution_new_<Der> : public Probability {
+    template<typename T>
+    using Tr_t=typename Der<T>::type;
+
+
+    template <class dP>
+    static myOptional_t<void> testDerivative(const dP &p, double tolerance) {
+        std::vector<Op_void> res(p.dfdx().size(). Op_void(true,""));
+        for (std::size_t j = 0; j < p.dfdx().size(); ++j) {
+            double sum = 0;
+            std::stringstream ss;
+            for (std::size_t i = 0; i < p.f().size(); ++i)
+                sum += p.dfdx()[j][i];
+            if (std::abs(sum) >= tolerance)
+            {
+                    res[j]= Op_void(false,
+                                   " p=\n" + ToString(p) +
+                                       " sum derivative on variable j= " + ToString(j) +
+                                       " sum=" + ToString(sum) + "\n");
+            }
+
+        }
+        return consolidate(std::move(res));
+    }
+
+    template <class P>
+    static myOptional_t<void> test(const P &p, double tolerance) {
+        auto test_f=Probability_distribution_new::test(p,tolerance);
+        auto test_der=testDerivative(p,tolerance);
+        return std::move(test_f)+std::move(test_der);
+    }
+
+    template <class dP> dP static normalize_derivative(dP &&dp) {
+        double dpos = 0;
+        double dneg = 0;
+        for (std::size_t i = 0; i < dp.size(); ++i) {
+            if (dp[i] > 0)
+                dpos += dp[i];
+            else
+                dneg -= dp[i];
+        }
+        if (dpos + dneg > 0) {
+            double fpos = 2.0*dneg / (dpos + dneg);
+            double fneg = 2.0*dpos / (dpos + dneg);
+            for (std::size_t i = 0; i < dp.size(); ++i) {
+                if (dp[i] > 0)
+                    dp[i] *= fpos;
+                else
+                    dp[i] *= fneg;
+            }
+        }
+        return std::move(dp);
+    }
+
+    template <class P>
+    P static normalize(P &&p, double min_p) {
+        double sum = 0;
+        for (std::size_t i = 0; i < p.f().size(); ++i) {
+            if (p.f()[i] < min_p) {
+                p.f()[i] = 0;
+                p.dfdx().transform([&i](auto &m) { m[i] = 0; });
+            } else {
+                if (p.f()[i] + min_p > 1) {
+                    p.f()[i] = 1;
+                    p.dfdx().transform([&i](auto &m) { m[i] = 0; });
+                }
+                sum += p.f()[i];
+            }
+        }
+        for (std::size_t i = 0; i < p.f().size(); ++i)
+            p.f()[i] = p.f()[i] / sum;
+        p.dfdx().transform([](auto &m) { m = normalize_derivative(std::move(m)); });
+        return std::move( p);
+    }
+};
+
+template <>
+class Probability_distribution_covariance_new_<Der>
+{
+public:
+    template<class T>using Der_t=typename Der<T>::type;
+
+    static M_Matrix<double>
+    normalize_derivative(const M_Matrix<double> &dp0,
+                         const std::set<std::size_t> &non_zero_i0) {
+        M_Matrix<double> dp=dp0;
+        auto non_zero_i=non_zero_i0;
+        for (auto i : non_zero_i) {
+
+            double dpos = 0;
+            double dneg = 0;
+            for (auto j : non_zero_i) {
+                if (dp(i, j) > 0)
+                    dpos += dp(i, j);
+                else
+                    dneg -= dp(i, j);
+            }
+            if ((dpos + dneg) > 0) {
+                double fpos = 2.0*dneg / (dpos + dneg);
+                double fneg = 2.0*dpos / (dpos + dneg);
+                for (auto j : non_zero_i) {
+                    if (dp(i, j) > 0)
+                        dp(i, j) *= fpos;
+                    else
+                        dp(i, j) *= fneg;
+                }
+            }
+        }
+        return dp;
+    }
+
+    static Derivative<M_Matrix<double>>
+    normalize(Derivative<M_Matrix<double>> &&p, double min_p) {
+        std::set<std::size_t> non_zero_i;
+
+        for (std::size_t i = 0; i < p.f().nrows(); ++i) {
+            if (p.f()(i, i) < min_p) {
+                for (std::size_t j = 0; j < p.f().ncols(); ++j) {
+                    p.f()(i, j) = 0;
+                    p.dfdx().transform([&i, &j](auto &m) { m(i, j) = 0; });
+                }
+            } else if (p.f()(i, i) + min_p > 1.0) {
+                for (std::size_t n = 0; n < p.f().size(); ++n) {
+                    p.f()[n] = 0;
+                    p.dfdx().transform([&n](auto &m) { m[n] = 0; });
+                }
+                p.f()(i, i) = 1;
+
+                return std::move(p);
+            } else
+                non_zero_i.insert(i);
+        }
+        for (auto i : non_zero_i) {
+
+            double sum = 0;
+            for (auto j : non_zero_i)
+                if (j != i)
+                    sum += p.f()(i, j);
+
+            if (-sum != p.f()(i, i)) {
+                auto sum_new = (sum - p.f()(i, i)) * 0.5;
+                double f = sum_new / sum;
+                p.f()(i, i) = -sum_new;
+                for (auto j : non_zero_i)
+                    if (i != j)
+                        p.f()(i, j) *= f;
+            }
+        }
+        p.dfdx().transform([&non_zero_i](auto &m) {
+            m = normalize_derivative(std::move(m), non_zero_i);
+        });
+
+        return std::move(p);
+    }
+
+    template <bool output>
+    static Op_void test_derivative(const M_Matrix<M_Matrix<double>> &dp,
+                                   double tolerance) {
+        for (std::size_t npar = 0; npar < dp.size(); ++npar) {
+            auto &p = dp[npar];
+            for (std::size_t i = 0; i < p.nrows(); ++i) {
+                double sum = 0;
+                for (std::size_t j = 0; j < p.ncols(); ++j) {
+
+                    if (i != j)
+                        sum += p(i, j);
+                }
+                if (std::abs(p(i, i) + sum) > tolerance) {
+                    if constexpr (output) {
+                        std::stringstream ss;
+                        ss << "tolerance=" << tolerance << "\n";
+                        ss << " dp[" + ToString(npar) + "]=\n"
+                           << p << "\n i=" << i << " dp(i,j)=" << p(i, i) << " sum=" << sum
+                           << "\n";
+                        return Op_void(false, ss.str());
+                    }
+                    return Op_void(false, "");
+                }
+            }
+        }
+        return Op_void(true, "");
+    }
+
+    template <bool output, class dP>
+    static Op_void test(const dP &p, double tolerance) {
+        auto test_f = Probability_distribution_covariance_new::test<output>(p.f(), tolerance);
+        auto test_df = test_derivative<output>(p.dfdx(), tolerance);
+        return std::move(test_f) + std::move(test_df);
+    }
+};
+
+
+
+
 template <>
 class Derivative<Probability_distribution_covariance>
     : public Probability_distribution_covariance {

@@ -432,24 +432,24 @@ public:
 };
 
 
-template<template<class> class Tr> class State_Model_new_;
+template<template<class...> class Tr> class State_Model_new_;
 
 typedef State_Model_new_<C> State_Model_new;
 
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class State_Model_new_ {
 public:
     template<class T> using Tr_t=typename Tr<T>::type;
 private:
     std::size_t numstates_;
     std::map<std::pair<std::size_t, std::size_t>,
-             std::unique_ptr<Base_Function<double, State_Model>>>
+             std::unique_ptr<Base_Function<double, State_Model_new>>>
         Q0s_;
     std::map<std::pair<std::size_t, std::size_t>,
-             std::unique_ptr<Base_Function<double, State_Model>>>
+             std::unique_ptr<Base_Function<double, State_Model_new>>>
         Qas_;
-    std::map<std::size_t, std::unique_ptr<Base_Function<double, State_Model>>>
+    std::map<std::size_t, std::unique_ptr<Base_Function<double, State_Model_new>>>
         gs_;
 
     std::vector<std::vector<std::size_t>> connections_to_0_;
@@ -463,9 +463,9 @@ private:
 
     static auto getConnections(
         const std::map<std::pair<std::size_t, std::size_t>,
-                       std::unique_ptr<Base_Function<double, State_Model>>> &Q0__,
+                       std::unique_ptr<Base_Function<double, State_Model_new>>> &Q0__,
         std::map<std::pair<std::size_t, std::size_t>,
-                 std::unique_ptr<Base_Function<double, State_Model>>> &Qa__,
+                 std::unique_ptr<Base_Function<double, State_Model_new>>> &Qa__,
         std::size_t k__) {
         std::vector<std::vector<std::size_t>> connections_to_0(k__);
         std::vector<std::vector<std::size_t>> connections_to_a(k__);
@@ -495,7 +495,7 @@ public:
     auto &transition_rates() const { return Q0s_; }
     std::map<std::pair<std::size_t, std::size_t>, std::string>
     transition_rates_text() const {
-        return text_map<double, State_Model>(Q0s_);
+        return text_map<double, State_Model_new>(Q0s_);
     }
 
     auto &agonist_transitions_rates() const { return Qas_; }
@@ -516,7 +516,7 @@ public:
 
     std::map<std::pair<std::size_t, std::size_t>, std::string>
     agonist_transitions_rates_text() const {
-        return text_map<double, State_Model>(Qas_);
+        return text_map<double, State_Model_new>(Qas_);
     }
     auto &conductances() const { return gs_; }
     std::map<std::size_t, std::string> conductances_text() const {
@@ -533,35 +533,19 @@ public:
             grammar::field(C<self_type>{}, "conductances",
                            &self_type::conductances_text));
     }
-    typedef State_Model self_type;
+    typedef State_Model_new self_type;
     typedef Model_Parameter_label myParameter_label;
-    constexpr static auto className = my_static_string("State_Model");
 
-    static myOptional_t<State_Model>
-    evaluate(std::size_t number_of_states,
+
+
+    constexpr static auto className = my_static_string("State_Model_new");
+
+    static myOptional_t<State_Model_new_<Tr> > evaluate(std::size_t number_of_states,
              std::map<std::pair<std::size_t, std::size_t>, std::string>
                  mytransition_rates,
              std::map<std::pair<std::size_t, std::size_t>, std::string>
                  myagonist_transitions,
-             std::map<std::size_t, std::string> myconductances) {
-        typedef myOptional_t<State_Model> Op;
-        auto transition_rates_r =
-            compile_map<double, State_Model>(mytransition_rates);
-        auto agonist_transitions_r =
-            compile_map<double, State_Model>(myagonist_transitions);
-        auto conductances_r = compile_map<double, State_Model>(myconductances);
-
-        if (transition_rates_r.has_value() && agonist_transitions_r.has_value() &&
-            conductances_r.has_value())
-            return Op(State_Model(number_of_states,
-                                  std::move(transition_rates_r).value(),
-                                  std::move(agonist_transitions_r).value(),
-                                  std::move(conductances_r).value()));
-        else
-            return Op(false,
-                      "error building state model: " + transition_rates_r.error() +
-                          agonist_transitions_r.error() + conductances_r.error());
-    }
+             std::map<std::size_t, std::string> myconductances);
 
     State_Model_new_() = default;
 
@@ -575,6 +559,18 @@ public:
           connections_from_x_{other.connections_from_x_}, errors_{other.errors_},
           isValid_(other.isValid_) {}
 
+    template<template<class...> class Tr_other>
+    State_Model_new_(const State_Model_new_<Tr_other> &other)
+        : numstates_{other.k()}, Q0s_{clone_map(other.transition_rates())},
+          Qas_{clone_map(other.agonist_transitions_rates())}, gs_{clone_map(other.conductances())},
+          connections_to_0_{other.connections_to_0()},
+          connections_to_a_{other.connections_to_a()},
+          connections_to_x_{other.connections_to_x(1.0)},
+          connections_from_0_{other.connections_from_x(0.0)},
+          connections_from_x_{other.connections_from_x(1.0)}, errors_{other.error()},
+          isValid_(other.isValid()) {}
+
+
     State_Model_new_(State_Model_new_ &&other)
         : numstates_{other.numstates_}, Q0s_{std::move(other.Q0s_)},
           Qas_{std::move(other.Qas_)}, gs_{std::move(other.gs_)},
@@ -587,7 +583,7 @@ public:
           errors_{std::move(other.errors_)}, isValid_{other.isValid_} {}
 
     State_Model_new_ &operator=(const State_Model_new_ &other) {
-        State_Model tmp(other);
+        State_Model_new tmp(other);
         *this = std::move(tmp);
         return *this;
     }
@@ -614,10 +610,10 @@ public:
                     &myagonist_transitions,
                 const std::map<std::size_t, std::string> &myconductances) {
         auto transition_rates_r =
-            compile_map<double, State_Model>(mytransition_rates);
+            compile_map<double, State_Model_new>(mytransition_rates);
         auto agonist_transitions_r =
-            compile_map<double, State_Model>(myagonist_transitions);
-        auto conductances_r = compile_map<double, State_Model>(myconductances);
+            compile_map<double, State_Model_new>(myagonist_transitions);
+        auto conductances_r = compile_map<double, State_Model_new>(myconductances);
 
         if (transition_rates_r.has_value() && agonist_transitions_r.has_value() &&
             conductances_r.has_value()) {
@@ -641,10 +637,10 @@ public:
     State_Model_new_(
         std::size_t number_of_states,
         std::map<std::pair<std::size_t, std::size_t>,
-                 Base_Function<double, State_Model> *> &&mytransition_rates,
+                 Base_Function<double, State_Model_new> *> &&mytransition_rates,
         std::map<std::pair<std::size_t, std::size_t>,
-                 Base_Function<double, State_Model> *> &&myagonist_transitions,
-        std::map<std::size_t, Base_Function<double, State_Model> *>
+                 Base_Function<double, State_Model_new> *> &&myagonist_transitions,
+        std::map<std::size_t, Base_Function<double, State_Model_new> *>
             &&myconductances)
         : numstates_{number_of_states}, Q0s_{make_unique_map(
                                             std::move(mytransition_rates))},
@@ -652,29 +648,51 @@ public:
           gs_{make_unique_map(std::move(myconductances))}, errors_{},
           isValid_(true) {}
 
-    template <class Parameters> auto Qs(const Tr_t<Parameters> &p) const {
+    template <class Parameters> auto Qs(const Parameters &p) const {
 
-        Tr_t<M_Matrix<double>> Q0(k(), k(), Matrix_TYPE::FULL, 0);
-        Tr_t<M_Matrix<double>> Qa(k(), k(), Matrix_TYPE::FULL, 0);
+        Tr_t<M_Matrix<double>> Q0(k(), k(), Matrix_TYPE::FULL, 0.0);
+        Tr_t<M_Matrix<double>> Qa(k(), k(), Matrix_TYPE::FULL, 0.0);
 
         for (auto &e : Q0s_) {
-            Q0(e.first.first, e.first.second) = (*e.second)(p);
-            Q0(e.first.first, e.first.first) -= Q0(e.first.first, e.first.second);
+            Q0.set(e.first.first, e.first.second,(*e.second)(p));
+            Q0.add(e.first.first, e.first.first,- Q0(e.first.first, e.first.second));
         }
         for (auto &e : Qas_) {
-            Qa(e.first.first, e.first.second) = (*e.second)(p);
-            Qa(e.first.first, e.first.first) -= Qa(e.first.first, e.first.second);
+            Qa.set(e.first.first, e.first.second,(*e.second)(p));
+            Qa.add(e.first.first, e.first.first,-Qa(e.first.first, e.first.second));
         }
         return std::pair(Q0, Qa);
     }
 
     template <class Parameters> auto g(const Parameters &p) const {
-        M_Matrix<double> out(k(), 1, 0.0);
+        Tr_t<M_Matrix<double>> out(k(), 1, Matrix_TYPE::FULL,0.0);
         for (auto &e : gs_)
-            out[e.first] = (*e.second)(p);
+            out.set(e.first,(*e.second)(p));
         return out;
     }
 };
+
+template<template<class...> class Tr>
+myOptional_t<State_Model_new_<Tr>> State_Model_new_<Tr>::evaluate(std::size_t number_of_states, std::map<std::pair<std::size_t, std::size_t>, std::string> mytransition_rates, std::map<std::pair<std::size_t, std::size_t>, std::string> myagonist_transitions, std::map<std::size_t, std::string> myconductances) {
+    typedef myOptional_t<State_Model_new_<Tr>> Op;
+    auto transition_rates_r =
+        compile_map<double, State_Model_new>(mytransition_rates);
+    auto agonist_transitions_r =
+        compile_map<double, State_Model_new>(myagonist_transitions);
+    auto conductances_r = compile_map<double, State_Model_new>(myconductances);
+
+    if (transition_rates_r.has_value() && agonist_transitions_r.has_value() &&
+        conductances_r.has_value())
+        return Op(State_Model_new_(number_of_states,
+                                  std::move(transition_rates_r).value(),
+                                  std::move(agonist_transitions_r).value(),
+                                  std::move(conductances_r).value()));
+    else
+        return Op(false,
+                  "error building state model: " + transition_rates_r.error() +
+                      agonist_transitions_r.error() + conductances_r.error());
+}
+
 
 
 /**
@@ -1203,6 +1221,567 @@ private:
   }
 };
 
+
+template<template<class...> class Tr> class Allosteric_Model_new_;
+
+typedef Allosteric_Model_new_<C> Allosteric_Model_new;
+
+
+/**
+ * @brief The Allosteric_Model class build a kinetic rate model starting with a
+ * set of conformational changes and their interactions.
+ *
+ *
+ */
+struct new_model_definition {
+    std::size_t number_of_units;
+    std::map<Conformational_change_label, Conformational_change>
+        conformational_changes;
+    std::vector<Conformational_change_label> unit_of_conformational_changes;
+    std::set<Conformational_interaction> conformational_interactions;
+    std::map<std::size_t, Conductance_Parameter_label> conductance_names;
+};
+struct transitions {
+    bool on;
+    bool agonist;
+    std::string conformation;
+    std::map<std::vector<std::pair<std::string, std::string>>, std::size_t>
+        coupling;
+};
+struct model_definition {
+    std::vector<std::string> conformational_changes;
+    std::map<std::pair<std::string, bool>, std::string>
+        conformational_changes_names;
+    std::set<std::size_t> agonist_changes;
+    std::set<std::size_t> conductance_changes;
+    std::map<std::size_t, std::string> conductance_names;
+    std::multimap<std::size_t, std::pair<std::set<std::size_t>,
+                                         std::pair<std::string, std::string>>>
+        conformational_inter_unit_cell;
+};
+
+template<template<class...> class Tr>
+class Allosteric_Model_new_ {
+public:
+    template<class T> using Tr_t=typename Tr<T>::type;
+
+
+    typedef Allosteric_Model_new_ self_type;
+    typedef Model_Parameter_label myParameter_label;
+
+
+    model_definition new_to_old(const new_model_definition &m) {
+        model_definition out;
+        for (auto &e : m.conductance_names)
+            out.conductance_names[e.first] = e.second;
+        auto k = m.unit_of_conformational_changes.size();
+        std::size_t n = m.number_of_units * k;
+        out.conformational_changes.resize(n);
+        for (std::size_t i = 0; i < m.number_of_units; ++i)
+            for (std::size_t j = 0; j < m.unit_of_conformational_changes.size();
+                 ++j) {
+                auto ii = i * k + j;
+                auto &cf = m.conformational_changes.at(
+                    m.unit_of_conformational_changes[j].name());
+                out.conformational_changes[ii] = cf.label();
+                if (cf.change_in_agonist() != 0)
+                    out.agonist_changes.insert(ii);
+                if (cf.change_in_conductance() != 0)
+                    out.conductance_changes.insert(ii);
+            }
+        for (auto &e : m.conformational_changes) {
+            out.conformational_changes_names[std::pair(e.second.label(), true)] =
+                e.second.par_on();
+            out.conformational_changes_names[std::pair(e.second.label(), false)] =
+                e.second.par_off();
+        }
+        for (auto &e : m.conformational_interactions) {
+            std::vector<std::size_t> cc;
+            std::size_t current_i = 0;
+            for (std::size_t j = 0; j < e.interacting_conformational_changes().size();
+                 ++j) {
+                auto j_n = m.conformational_changes.at(
+                    e.interacting_conformational_changes()[j]);
+                std::size_t i = current_i;
+                while (j_n.label().name() != out.conformational_changes[i])
+                    ++i;
+                cc.push_back(i);
+                ++current_i;
+            }
+
+            for (std::size_t i = 0; i < cc.size(); ++i) {
+                auto x = cc[i];
+                auto ix = x % k;
+                auto nx = x / k;
+                auto shift = (n - nx) * k;
+                std::set<std::size_t> s;
+                for (std::size_t j = 0; j < cc.size(); ++j)
+                    if (j != i)
+                        s.insert(cc[j]);
+                s = rotate(s, n * k, shift);
+                out.conformational_inter_unit_cell.emplace(
+                    ix, std::pair(
+                            s, std::pair(e.factor_label(), e.coefficient_labels()[i])));
+            }
+        }
+        return out;
+    }
+
+    constexpr static auto className = my_static_string("Allosteric_Model_new");
+    auto& get_conductances()const{ return conductances_;}
+    auto& get_paramNames()const {return paramNames_;}
+    auto & get_transitions()const {return transitions_;}
+    auto &get_conformers()const {return conformer_;}
+    auto & get_new_model_definition()const {return new_d_;}
+
+protected:
+    new_model_definition new_d_;
+    std::vector<std::vector<std::string>> conformer_;
+    std::vector<std::map<std::size_t, transitions>> transitions_;
+    std::set<std::string> paramNames_;
+    std::vector<std::string> conductances_;
+    model_definition d_;
+
+    std::vector<std::vector<std::size_t>> connections_to_0_;
+    std::vector<std::vector<std::size_t>> connections_to_a_;
+    std::vector<std::vector<std::size_t>> connections_to_x_;
+    std::vector<std::vector<std::size_t>> connections_from_0_;
+    std::vector<std::vector<std::size_t>> connections_from_x_;
+
+    /**
+   * @brief getParameterNamesFrom
+   * @param conformational_changes_names
+   * @param conductance_names
+   * @param conformational_inter
+   */
+    static auto getParameterNamesFrom(
+        const std::map<std::pair<std::string, bool>, std::string>
+            conformational_changes_names,
+        const std::map<std::size_t, std::string> &conductance_names,
+        const std::multimap<
+            std::size_t,
+            std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>>
+            &conformational_inter) {
+        std::set<std::string> out;
+        for (auto &e : conformational_changes_names)
+            out.insert(e.second);
+        for (auto &e : conductance_names)
+            out.insert(e.second);
+        for (auto &e : conformational_inter) {
+            out.insert(e.second.second.first);
+            out.insert(e.second.second.second);
+        }
+        return out;
+    }
+
+    static auto
+    getConformers(const std::vector<std::string> &conformational_changes,
+                  std::size_t p) {
+        std::vector<std::vector<std::string>> conformer;
+        std::map<std::vector<std::string>, std::size_t> state_to_conformer;
+        for (std::size_t i = 0; i < (1u << conformational_changes.size()); ++i) {
+            auto c = index_to_conformational_change(conformational_changes, i);
+            if (state_to_conformer.find(c) == state_to_conformer.end()) {
+                state_to_conformer[c] = conformer.size();
+                std::size_t n = 1;
+                auto permute = rotate(c, p * n);
+                while (c != permute) {
+                    state_to_conformer[permute] = conformer.size();
+                    ++n;
+                    permute = rotate(c, p * n);
+                }
+                conformer.push_back(c);
+            }
+        }
+        return std::make_tuple(conformer, state_to_conformer);
+    }
+
+    static auto getTransitions(
+        const std::vector<std::string> &conformational_changes,
+        const std::vector<std::vector<std::string>> &conformer,
+        const std::map<std::vector<std::string>, std::size_t> &state_to_conformer,
+        const std::set<std::size_t> &agonist_changes,
+        const std::map<std::pair<std::string, bool>, std::string>
+            conformational_changes_names,
+        std::multimap<std::size_t, std::pair<std::set<std::size_t>,
+                                             std::pair<std::string, std::string>>>
+            conformational_interactions) {
+        std::vector<std::map<std::size_t, transitions>> transitions_out;
+        for (std::size_t i = 0; i < conformer.size(); ++i) {
+            std::map<std::size_t, transitions> myTransition;
+            auto c = conformer[i];
+            for (std::size_t k = 0; k < c.size(); ++k) {
+                auto change = c;
+                if (c[k] == "")
+                    change[k] = conformational_changes[k];
+                else
+                    change[k] = "";
+                auto j = state_to_conformer.at(change);
+                if (myTransition.find(j) == myTransition.end()) {
+
+                    myTransition[j].agonist =
+                        agonist_changes.find(k) != agonist_changes.end();
+                    bool on = change[k] == conformational_changes[k];
+                    myTransition[j].on = on;
+                    auto name = conformational_changes_names.at(
+                        std::pair{conformational_changes[k], on});
+                    myTransition[j].conformation = name;
+                }
+                auto m = conformational_interactions.equal_range(k);
+                std::vector<std::pair<std::string, std::string>> coupling;
+                for (auto it = m.first; it != m.second; ++it) {
+                    std::set<std::size_t> s = it->second.first;
+                    bool all = true;
+                    for (auto e : s) {
+                        if (c[e].empty()) {
+                            all = false;
+                            break;
+                        }
+                    }
+                    if (all)
+                        coupling.push_back(it->second.second);
+                }
+                ++myTransition[j].coupling[coupling];
+            }
+            transitions_out.push_back(std::move(myTransition));
+        }
+        return transitions_out;
+    }
+
+    static auto getConections(
+        const std::vector<std::map<std::size_t, transitions>> &mytransitions) {
+        std::vector<std::vector<std::size_t>> connections_to_0(
+            mytransitions.size());
+        std::vector<std::vector<std::size_t>> connections_to_a(
+            mytransitions.size());
+        std::vector<std::vector<std::size_t>> connections_to_x(
+            mytransitions.size());
+        std::vector<std::vector<std::size_t>> connections_from_0(
+            mytransitions.size());
+        std::vector<std::vector<std::size_t>> connections_from_x(
+            mytransitions.size());
+        for (std::size_t i = 0; i < mytransitions.size(); ++i)
+            for (auto it = mytransitions[i].begin(); it != mytransitions[i].end();
+                 ++it) {
+                std::size_t j = it->first;
+                connections_from_x[j].push_back(i);
+                connections_to_x[i].push_back(j);
+                if ((it->second.agonist) && (it->second.on)) {
+                    connections_to_a[i].push_back(j);
+                } else {
+                    connections_to_0[i].push_back(j);
+                    connections_from_0[j].push_back(i);
+                }
+            }
+        return std::make_tuple(connections_to_0, connections_to_a, connections_to_x,
+                               connections_from_0, connections_from_x);
+    }
+
+    static
+
+        std::string
+        g_name_of_conformer(
+            const std::vector<std::string> &c,
+            const std::set<std::size_t> &conductance_changes,
+            const std::map<std::size_t, std::string> &conductance_names) {
+        std::size_t i = 0;
+        for (auto e : conductance_changes)
+            if (!c.at(e).empty())
+                ++i;
+        return conductance_names.at(i);
+    }
+
+    static std::vector<std::string>
+    get_g_names(const std::vector<std::vector<std::string>> &conformers,
+                const std::set<std::size_t> &conductance_changes,
+                const std::map<std::size_t, std::string> &conductance_names) {
+        std::vector<std::string> out(conformers.size());
+        for (std::size_t i = 0; i < conformers.size(); ++i)
+            out[i] = g_name_of_conformer(conformers[i], conductance_changes,
+                                         conductance_names);
+        return out;
+    }
+
+public:
+    static auto get_constructor_fields_old() {
+        return std::make_tuple(
+            grammar::field(C<self_type>{}, "conformational_changes",
+                           &self_type::get_conformational_changes),
+            grammar::field(C<self_type>{}, "conformational_changes_names",
+                           &self_type::get_conformational_changes_names),
+            grammar::field(C<self_type>{}, "agonist_changes",
+                           &self_type::get_agonist_changes),
+            grammar::field(C<self_type>{}, "conductance_changes",
+                           &self_type::get_conductance_changes),
+            grammar::field(C<self_type>{}, "conductance_names",
+                           &self_type::get_conductance_names),
+            grammar::field(C<self_type>{}, "conformational_inter_unit_cell",
+                           &self_type::get_conformational_inter_unit_cell));
+    }
+
+
+    auto& get_model_definition()const { return d_;}
+    const std::vector<std::string> &get_conformational_changes() const {
+        return d_.conformational_changes;
+    }
+    const std::map<std::pair<std::string, bool>, std::string> &
+    get_conformational_changes_names() const {
+        return d_.conformational_changes_names;
+    }
+    const std::set<std::size_t> &get_agonist_changes() const {
+        return d_.agonist_changes;
+    }
+    const std::set<std::size_t> &get_conductance_changes() const {
+        return d_.conductance_changes;
+    }
+    const std::map<std::size_t, std::string> &get_conductance_names() const {
+        return d_.conductance_names;
+    }
+    const std::multimap<
+        std::size_t,
+        std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>> &
+    get_conformational_inter_unit_cell() const {
+        return d_.conformational_inter_unit_cell;
+    }
+
+    std::size_t number_of_units() const { return new_d_.number_of_units; }
+    std::map<Conformational_change_label, Conformational_change> const &
+    conformational_changes() const {
+        return new_d_.conformational_changes;
+    }
+    std::vector<Conformational_change_label> const &
+    unit_of_conformational_changes() const {
+        return new_d_.unit_of_conformational_changes;
+    }
+    std::set<Conformational_interaction> const &
+    conformational_interactions() const {
+        return new_d_.conformational_interactions;
+    }
+    std::map<std::size_t, Conductance_Parameter_label> const &
+    conductance_names() const {
+        return new_d_.conductance_names;
+    }
+
+    static auto get_constructor_fields() {
+        return std::make_tuple(
+            grammar::field(C<self_type>{}, "number_of_units",
+                           &self_type::number_of_units),
+            grammar::field(C<self_type>{}, "conformational_changes",
+                           &self_type::conformational_changes),
+            grammar::field(C<self_type>{}, "unit_of_conformational_changes",
+                           &self_type::unit_of_conformational_changes),
+            grammar::field(C<self_type>{}, "conformational_interactions",
+                           &self_type::conformational_interactions),
+            grammar::field(C<self_type>{}, "conductance_names",
+                           &self_type::conductance_names));
+    }
+
+    Allosteric_Model_new_() = default;
+
+    Allosteric_Model_new_(const Allosteric_Model_new& other);
+
+
+    Allosteric_Model_new_(
+        std::size_t number_of_units,
+        std::map<Conformational_change_label, Conformational_change>
+            conformational_changes,
+        std::vector<Conformational_change_label> unit_of_conformational_changes,
+        std::set<Conformational_interaction> conformational_interactions,
+        std::map<std::size_t, Conductance_Parameter_label> conductance_names)
+        : new_d_{number_of_units, conformational_changes,
+                 unit_of_conformational_changes, conformational_interactions,
+                 conductance_names},
+          d_{new_to_old(new_d_)} {
+        init();
+    }
+
+    Allosteric_Model_new_(
+        const std::vector<std::string> &conformational_changes,
+        const std::map<std::pair<std::string, bool>, std::string>
+            conformational_changes_names,
+        const std::set<std::size_t> &agonist_changes,
+        const std::set<std::size_t> &conductance_changes,
+        const std::map<std::size_t, std::string> &conductance_names,
+        const std::multimap<
+            std::size_t,
+            std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>>
+            &conformational_inter_unit_cell)
+        : d_{conformational_changes, conformational_changes_names,
+             agonist_changes,        conductance_changes,
+             conductance_names,      conformational_inter_unit_cell} {
+        init();
+    }
+
+    template <class Parameters> auto Qs(const Parameters &p) const {
+
+        Tr_t<M_Matrix<double>> Q0(conformer_.size(), conformer_.size());
+        Tr_t<M_Matrix<double>> Qa(conformer_.size(), conformer_.size());
+        for (std::size_t i = 0; i < Q0.nrows(); ++i) {
+            Q0.set(i, i,0.0);
+            Qa.set(i, i,0.0);
+            for (auto it = transitions_[i].begin(); it != transitions_[i].end();
+                 ++it) {
+                std::size_t j = it->first;
+                if ((it->second.agonist) && (it->second.on)) {
+                    Qa.set(i, j,rate(it->second, p));
+                    Qa.add(i, i,  - Qa(i, j));
+                } else {
+                    Q0.set(i, j, rate(it->second, p));
+                    Q0.add(i, i, - Q0(i, j));
+                }
+            }
+        }
+        auto r = Q0 * ones<double>(Q0.ncols(), 1);
+        auto q = Qa * ones<double>(Q0.ncols(), 1);
+
+        return std::pair(Q0, Qa);
+    }
+
+    template <class Parameters> auto g(const Parameters &p) const {
+        Tr_t<M_Matrix<double>> out(conformer_.size(), 1);
+        for (std::size_t i = 0; i < conformer_.size(); ++i)
+            out.set(i, 0, p.at(conductances_.at(i)));
+        return out;
+    }
+
+    std::size_t k() const { return conformer_.size(); }
+
+    auto &connections_to_0() const { return connections_to_0_; }
+    auto &connections_to_a() const { return connections_to_a_; }
+    auto &connections_to_x(double x) const {
+        if (x > 0)
+            return connections_to_x_;
+        else
+            return connections_to_0_;
+    }
+    auto &connections_from_x(double x) const {
+        if (x > 0)
+            return connections_from_x_;
+        else
+            return connections_from_0_;
+    }
+    auto getParameterNames() const { return paramNames_; }
+
+private:
+    void init() {
+        paramNames_ = getParameterNamesFrom(d_.conformational_changes_names,
+                                            d_.conductance_names,
+                                            d_.conformational_inter_unit_cell);
+        std::cout << paramNames_;
+        auto p = periodicity(d_.conformational_changes);
+
+        auto conformational_interactions = fill_conformational_interactions(
+            d_.conformational_inter_unit_cell, d_.conformational_changes.size(), p);
+
+        std::map<std::vector<std::string>, std::size_t> state_to_conformer;
+
+        std::tie(conformer_, state_to_conformer) =
+            getConformers(d_.conformational_changes, p);
+
+        transitions_ = getTransitions(d_.conformational_changes, conformer_,
+                                      state_to_conformer, d_.agonist_changes,
+                                      d_.conformational_changes_names,
+                                      conformational_interactions);
+        conductances_ =
+            get_g_names(conformer_, d_.conductance_changes, d_.conductance_names);
+
+        std::tie(connections_to_0_, connections_to_a_, connections_to_x_,
+                 connections_from_0_, connections_from_x_) =
+            getConections(transitions_);
+    }
+
+    static std::vector<std::string>
+    index_to_conformational_change(const std::vector<std::string> &cc,
+                                   std::size_t index) {
+        std::vector<std::string> out(cc.size(), "");
+        for (std::size_t i = 0; i < cc.size(); ++i)
+            if (((index >> i) & 1) == 1)
+                out[i] = cc[i];
+        return out;
+    }
+
+    static std::vector<std::string> rotate(const std::vector<std::string> &x,
+                                           std::size_t n) {
+        std::vector<std::string> out(x.size());
+        for (std::size_t i = 0; i < out.size(); ++i)
+            out[(i + n) % out.size()] = x[i];
+        return out;
+    }
+
+    static std::size_t periodicity(const std::vector<std::string> &x) {
+        std::size_t p = 1;
+        auto t = rotate(x, p);
+        while (t != x && p < x.size()) {
+            ++p;
+            t = rotate(x, p);
+        }
+        return p;
+    }
+
+    static std::set<std::size_t> rotate(const std::set<std::size_t> &c,
+                                        std::size_t n, std::size_t i) {
+        std::set<std::size_t> out;
+        for (auto e : c)
+            out.insert((e + i) % n);
+        return out;
+    }
+
+    static std::multimap<
+        std::size_t,
+        std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>>
+    fill_conformational_interactions(
+        const std::multimap<
+            std::size_t,
+            std::pair<std::set<std::size_t>, std::pair<std::string, std::string>>>
+            &conformational_interactions,
+        std::size_t n, std::size_t p) {
+        std::multimap<std::size_t, std::pair<std::set<std::size_t>,
+                                             std::pair<std::string, std::string>>>
+            out;
+        for (std::size_t i = 0; i < n / p; ++i) {
+            for (auto &e : conformational_interactions) {
+                out.insert({(e.first + i * p) % n,
+                            {rotate(e.second.first, n, i * p), e.second.second}});
+            }
+        }
+        return out;
+    }
+
+    template <class P> static Tr_t<double> rate(const transitions &tr, const P &p) {
+        Tr_t<double> out(0);
+        using std::pow;
+        if (tr.on) {
+            for (auto &e : tr.coupling) {
+                Tr_t<double> b = e.second;
+                for (auto &e2 : e.first)
+                    b *= pow(p.at(e2.first), p.at(e2.second));
+                out += b;
+            }
+        } else {
+            for (auto &e : tr.coupling) {
+                Tr_t<double> b = e.second;
+                for (auto &e2 : e.first)
+                    b *= pow(p.at(e2.first), p.at(e2.second) - Tr_t<double>(1.0));
+                out += b;
+            }
+        }
+        return out * p.at(tr.conformation);
+    }
+};
+
+
+
+template<template<class...> class Tr>
+Allosteric_Model_new_<Tr>::Allosteric_Model_new_(const Allosteric_Model_new &other)
+    :new_d_{other.get_new_model_definition()},conformer_{other.get_conformers()},transitions_{other.get_transitions()},
+      paramNames_{other.get_paramNames()},conductances_{other.get_conductances()},d_{other.get_model_definition()},
+      connections_to_0_{other.connections_to_x(0.0)},connections_to_a_{other.connections_to_a()},
+      connections_to_x_{other.connections_to_x(1.0)},connections_from_0_{connections_from_x(0.0)},
+      connections_from_x_{other.connections_from_x(1.0)}
+{}
+
+
+
 inline std::vector<std::vector<std::size_t>>
 get_connections_up(const M_Matrix<double> &Q) {
   std::vector<std::vector<std::size_t>> out(Q.nrows());
@@ -1264,7 +1843,7 @@ public:
     M_Matrix<double> out(1, k);
     for (std::size_t j = 0; j < number_of_states(); ++j)
       out[j] = Pmean[j];
-    for (auto j = 0; j < P2.size(); ++j)
+    for (auto j = 0ul; j < P2.size(); ++j)
       out[number_of_states() + j] = P2[j];
     return out;
   }
@@ -1378,12 +1957,13 @@ public:
     extend(m, x, Pmean, Pcov, maxChi2);
   }
 
-  template <class Model, class X>
-  Microscopic_description
-  multinomial(const Model &/*m*/, const X &x, std::size_t numChannles,
-              const M_Matrix<double> &Pmean, double lost_p) const {
-    auto d = multinomial_distribution(numChannles, Pmean.toVector());
-  }
+//  template <class Model, class X>
+//  Microscopic_description
+//  multinomial(const Model &/*m*/, [[maybe_unused]]const X &x, std::size_t numChannles,
+//              const M_Matrix<double> &Pmean, [[maybe_unused]]double lost_p) const {
+//    auto d = multinomial_distribution(numChannles, Pmean.toVector());
+//    return d;
+//  }
 
   template <class Model, class X>
   void extend(const Model &m, const X &x, const M_Matrix<double> &Pmean,
@@ -1894,7 +2474,7 @@ public:
       }
       limit = std::move(next_layer);
     }
-    return already_connected;
+    return std::move(already_connected);
   }
 
   auto connected_set(
@@ -1961,7 +2541,7 @@ public:
   void add_states_to_fill_gaps(
       const std::set<mistate> final,
       const std::vector<std::vector<std::size_t>> &connections_to_x,
-      const std::vector<std::vector<std::size_t>> &connections_from_x) {
+      [[maybe_unused]]const std::vector<std::vector<std::size_t>> &connections_from_x) {
     //    auto [components_core, components_bulk] =
     //        connected_components(connections_to_x, connections_from_x);
     //    if (components_core.size() > 1) {
@@ -2456,8 +3036,8 @@ public:
   Microscopic_description(
       std::size_t number_of_channels, const M_Matrix<double> &Pmean,
       const M_Matrix<double> &Pcov,
-      const std::vector<std::vector<std::size_t>> &connections_to_x,
-      const std::vector<std::vector<std::size_t>> &connections_from_x,
+      [[maybe_unused]] const std::vector<std::vector<std::size_t>> &connections_to_x,
+      [[maybe_unused]]const std::vector<std::vector<std::size_t>> &connections_from_x,
       double maxChi2)
       : N_{number_of_channels}, k_{Pmean.size()}, ns_{}, map_{} {
     auto origin = to_n(Pmean);
@@ -2467,7 +3047,7 @@ public:
       push_back(e);
     // add_states_to_fill_gaps(final,connections_to_x, connections_from_x);
     if constexpr (false) {
-      assert(([this, &Pmean, &Pcov]() {
+        assert((([this, &Pmean, &Pcov]() ->bool{
         auto P = convert_to_Microscopic_maxent(Pmean, Pcov);
         if (!P) {
           std::cerr << P.error();
@@ -2483,7 +3063,7 @@ public:
 
               ;
         }
-      }()));
+        }())));
     }
   }
 
@@ -3149,11 +3729,11 @@ public:
   }
 };
 
-template<template<class>class Tr>
+template<template<class...>class Tr>
 class Markov_Transition_rate_new_;
 typedef Markov_Transition_rate_new_<C> Markov_Transition_rate_new;
 
-template<template<class>class Tr>
+template<template<class...>class Tr>
 class Markov_Transition_rate_new_ {
 
     template<class T> using Tr_t=typename Tr<T>::type;
@@ -3169,13 +3749,20 @@ class Markov_Transition_rate_new_ {
     Tr_t<M_Matrix<double>> Wg_;
     Tr_t<M_Matrix<double>> WgV_;
 
-    static void clean_landa(Tr_t<M_Matrix<double>> &la);
+    static void clean_landa(Tr_t<M_Matrix<double>> &la) {
+        double maxla = std::min(max(center(la)), 0.0);
+        for (std::size_t i = 1; i < la.size(); ++i)
+            if (center(la)[i] >= maxla) {
+                la.set(i,0.0);
+            }
+    }
 
     void init(Tr_t<Matrix_Decompositions::eigensystem_type> &&eig) {
         std::tie(V_, landa_, W_, error_landa_, error_V_) = std::move(eig);
         clean_landa(landa_);
         Wg_ = W_ * g_;
-        WgV_ = W_ * Matrix_Unary_Transformations::diag(g_) * V_;
+        using Matrix_Unary_Transformations::diag;
+        WgV_ = W_ * diag(g_) * V_;
         // assert(Frobenius_test::test(Qrun(),V()*landa()*W(),1,
         // std::sqrt(std::numeric_limits<double>::epsilon())));
     }
@@ -3259,60 +3846,26 @@ public:
     const Tr_t<M_Matrix<double>> &Wg() const { return Wg_; }
     const Tr_t<M_Matrix<double>> &WgV() const { return WgV_; }
 
-    Tr_t<M_Matrix<double>> calc_Peq() const;
+    Tr_t<M_Matrix<double>> calc_Peq() const
+    {
+        M_Matrix<double> p0(1, Qrun().nrows(), 1.0 / Qrun().nrows());
+        M_Matrix<double> laexp(landa_.size(), landa_.size(), Matrix_TYPE::DIAGONAL);
+        for (std::size_t i = 0; i < landa_.size(); ++i) {
+            if (center(landa_)(i, i) == 0.0)
+                laexp(i, i) = 1.0;
+            else
+                laexp(i, i) = 0.0;
+        }
+        //  std::cerr<<"\n
+        //  ----calc_Peq-----\np0="<<p0<<"laexp="<<laexp<<"V()"<<V()<<"W"<<W();
+        return p0 * V() * laexp * W();
+    }
 };
 
 
 
-template<>
-inline void Markov_Transition_rate_new_<C>::clean_landa(M_Matrix<double>  &la) {
-    double maxla = std::min(max(la), 0.0);
-    for (std::size_t i = 1; i < la.size(); ++i)
-        if (la[i] >= maxla) {
-            la[i] = 0;
-        }
-}
-template<template<class> class E>
-void Markov_Transition_rate_new_<E>::clean_landa(Markov_Transition_rate_new_<E>::Tr_t<M_Matrix<double>>  &la) {
-    double maxla = std::min(max(la.center()), 0.0);
-    for (std::size_t i = 1; i < la.size(); ++i)
-        if (la.center()[i] >= maxla) {
-            la.center()[i] = 0;
-        }
-}
-
-template<>
-inline M_Matrix<double> Markov_Transition_rate_new_<C>::calc_Peq() const {
-    M_Matrix<double> p0(1, Qrun().nrows(), 1.0 / Qrun().nrows());
-    M_Matrix<double> laexp(landa_.size(), landa_.size(), Matrix_TYPE::DIAGONAL);
-    for (std::size_t i = 0; i < landa_.size(); ++i) {
-        if (landa_(i, i) == 0.0)
-            laexp(i, i) = 1.0;
-        else
-            laexp(i, i) = 0.0;
-    }
-    //  std::cerr<<"\n
-    //  ----calc_Peq-----\np0="<<p0<<"laexp="<<laexp<<"V()"<<V()<<"W"<<W();
-    return p0 * V() * laexp * W();
-}
-
-template<template<class> class E>
-typename E<M_Matrix<double>>::type  Markov_Transition_rate_new_<E>::calc_Peq() const {
-    M_Matrix<double> p0(1, Qrun().nrows(), 1.0 / Qrun().nrows());
-    M_Matrix<double> laexp(landa_.size(), landa_.size(), Matrix_TYPE::DIAGONAL);
-    for (std::size_t i = 0; i < landa_.size(); ++i) {
-        if (landa_.center()(i, i) == 0.0)
-            laexp(i, i) = 1.0;
-        else
-            laexp(i, i) = 0.0;
-    }
-    //  std::cerr<<"\n
-    //  ----calc_Peq-----\np0="<<p0<<"laexp="<<laexp<<"V()"<<V()<<"W"<<W();
-    return p0 * V() * laexp * W();
-}
 
 
-//typedef optional_tag<Markov_Transition_rate_new_<C>>::hehe typpe;
 
 class Markov_Transition_step_single;
 struct Markov_Transition_step_single_minimum {
@@ -3327,11 +3880,11 @@ struct Markov_Transition_step_single_minimum {
             operator*=(const Markov_Transition_step_single &x_);
 };
 
-template <template<class> class Tr> class Markov_Transition_step_mean_;
+template <template<class...> class Tr> class Markov_Transition_step_mean_;
 
 typedef Markov_Transition_step_mean_<C> Markov_Transition_step_mean;
 
-template <template<class> class Tr>struct Markov_Transition_step_mean_minimum_ {
+template <template<class...> class Tr>struct Markov_Transition_step_mean_minimum_ {
     template<class T> using Tr_t=typename Tr<T>::type;
 
     Tr_t<M_Matrix<double>> PPn;
@@ -3347,11 +3900,11 @@ template <template<class> class Tr>struct Markov_Transition_step_mean_minimum_ {
 
 
 
-template <template<class> class Tr> class Markov_Transition_step_new_;
+template <template<class...> class Tr> class Markov_Transition_step_new_;
 
 typedef Markov_Transition_step_new_<C> Markov_Transition_step_new;
 
-template <template<class> class Tr> class Markov_Transition_step_new_ {
+template <template<class...> class Tr> class Markov_Transition_step_new_ {
 public:
      template<class T> using Tr_t=typename Tr<T>::type;
 protected:
@@ -3500,7 +4053,7 @@ inline M_Matrix<double> calc_P_taylor(const M_Matrix<double> &Qrun,
   return Matrix_Unary_Transformations::expm_taylor(x);
 }
 
-template <template<class> class Tr>
+template <template<class...> class Tr>
 class Markov_Transition_step_mean_ : public Markov_Transition_step_new_<Tr> {
 public:
     template<class T> using Tr_t=typename Tr<T>::type;
@@ -3556,7 +4109,7 @@ public:
                                       Tr_t<M_Matrix<double>> &&gmean_ij
                                       )
         : base_type(std::move(P), std::move(g), nsamples, nsamples/fs, min_p),
-          gmean_i_{std::move(gmean_i)}, gtotal_ij_{std::move(gtotal_ij)}, gmean_ij_{std::move(gmean_ij)}, gsqr_i_{std::move(gsqr_i)}, gvar_i_{std::move(gvar_i)}{}
+           gmean_i_{std::move(gmean_i)},  gsqr_i_{std::move(gsqr_i)}, gvar_i_{std::move(gvar_i)},gmean_ij_{std::move(gmean_ij)},gtotal_ij_{std::move(gtotal_ij)}{}
 
         Markov_Transition_step_mean_(base_type&& base,
                                     Tr_t<M_Matrix<double>> &&gmean_i,
@@ -3566,7 +4119,7 @@ public:
                                     Tr_t<M_Matrix<double>> &&gmean_ij
                                     )
             : base_type(std::move(base)),
-              gmean_i_{gmean_i}, gtotal_ij_{gtotal_ij}, gmean_ij_{gmean_ij}, gsqr_i_{gsqr_i}, gvar_i_{gvar_i}{}
+              gmean_i_{gmean_i},  gsqr_i_{gsqr_i}, gvar_i_{gvar_i}, gmean_ij_{gmean_ij},gtotal_ij_{gtotal_ij}{}
 
 
     Markov_Transition_step_mean_() = default;
@@ -3657,7 +4210,7 @@ inline Markov_Transition_step_single_minimum::
   PGG_n = x.gsqr_i() * (n * n);
 }
 
-template <template<class> class Tr>
+template <template<class...> class Tr>
 inline Markov_Transition_step_mean_minimum_<Tr>::
     Markov_Transition_step_mean_minimum_(const Tr_t<Markov_Transition_step_mean> &x) {
     n = x.nsamples();
@@ -3742,7 +4295,7 @@ operator*=(const Markov_Transition_step_single &x) {
   return *this;
 }
 
-template <template<class> class Tr>
+template <template<class...> class Tr>
 inline Markov_Transition_step_mean_minimum_<Tr> &
 Markov_Transition_step_mean_minimum_<Tr>::
 operator+=(const Tr_t<Markov_Transition_step_mean> &x) {
@@ -3755,15 +4308,15 @@ operator+=(const Tr_t<Markov_Transition_step_mean> &x) {
 }
 
 
-template <template<class> class Tr> class Markov_Transition_step_variance_;
+template <template<class...> class Tr> class Markov_Transition_step_variance_;
 
 typedef Markov_Transition_step_variance_<C> Markov_Transition_step_variance;
 
-template <template<class> class Tr>
+template <template<class...> class Tr>
 struct Markov_Transition_step_variance_minimum_;
 typedef Markov_Transition_step_variance_minimum_<C> Markov_Transition_step_variance_minimum;
 
-template <template<class> class Tr>
+template <template<class...> class Tr>
 struct Markov_Transition_step_variance_minimum_ {
     template<class T> using Tr_t=typename Tr<T>::type;
 
@@ -3826,10 +4379,10 @@ public:
             ostream &os = std::cerr) const;
 };
 
-template <template<class> class Tr> class Markov_Transition_step_variance_;
+template <template<class...> class Tr> class Markov_Transition_step_variance_;
 typedef Markov_Transition_step_variance_<C> Markov_Transition_step_variance;
 
-template <template<class> class Tr> class Markov_Transition_step_variance_ : public Markov_Transition_step_mean_<Tr> {
+template <template<class...> class Tr> class Markov_Transition_step_variance_ : public Markov_Transition_step_mean_<Tr> {
 public:
     template<class T> using Tr_t=typename Tr<T>::type;
     typedef Markov_Transition_step_mean_<Tr> base_type;
@@ -3942,11 +4495,11 @@ public:
 
 
 };
-template <template<class> class Tr>
+template <template<class...> class Tr>
 class Markov_Transition_step_calculations_;
 
 typedef Markov_Transition_step_calculations_<C> Markov_Transition_step_calculations;
-template <template<class> class Tr>
+template <template<class...> class Tr>
 class Markov_Transition_step_calculations_ {
 
 public:
@@ -3982,7 +4535,7 @@ public:
        std::size_t N=Qx.Qrun().ncols();
        auto ladt = Qx.landa() * (1.0*nsamples/fs);
        auto exp_ladt = ladt.apply([](Tr_t<double> x) { return exp(x); });
-       auto P = Probability_transition::normalize(Qx.V() * exp_ladt * Qx.W(), min_P);
+       auto P = Tr_t<Probability_transition_new>::normalize(Qx.V() * exp_ladt * Qx.W(), min_P);
        auto g = Qx.g();
 
            double C_V = max(Qx.error_vector());
@@ -3992,7 +4545,7 @@ public:
            assert(are_Equal_v(Qx.Qrun(), Qx.V() * Qx.landa() * Qx.W(), err, err,
                               std::cerr, "Qx.Qrun()=", Qx.Qrun(), "Qx.V()", Qx.V(),
                               "Qx.landa()=", Qx.landa(), "Qx.W()=", Qx.W()));
-           double RV = Matrix_Unary_Functions::norm_1(center(Qx.V())) * Matrix_Unary_Functions::norm_1(center(Qx.W()));
+           [[maybe_unused]] double RV = Matrix_Unary_Functions::norm_1(center(Qx.V())) * Matrix_Unary_Functions::norm_1(center(Qx.W()));
 
 
            Tr_t<M_Matrix<double>> E2m(N, N, Matrix_TYPE::SYMMETRIC);
@@ -4010,6 +4563,7 @@ public:
                    WgV_E2.set(i, j,Qx.WgV()(i, j) * E2m(i, j));
            auto G = diag(g);
            auto gtotal_ij_p = (G * P + P * G) * 0.5;
+           using std::abs;
            auto gtotal_var_ij_p =
                (G * P - P * G).apply([](auto x) { return abs(x); }) * 0.5;
            auto gmean_ij_p = elemDivSafe(gtotal_ij_p, P);
@@ -4019,7 +4573,7 @@ public:
            auto gmean_ij = elemDivSafe(gtotal_ij, P);
            Tr_t<double> zero(0);
 
-           Tr_t<M_Matrix<double>> WgV_E3(N, N, 0.0);
+           Tr_t<M_Matrix<double>> WgV_E3(N, N,Matrix_TYPE::FULL, 0.0);
            for (std::size_t n1 = 0; n1 < N; n1++)
                for (std::size_t n3 = 0; n3 < N; n3++)
                    for (std::size_t n2 = 0; n2 < N; n2++) {
@@ -4059,7 +4613,7 @@ public:
                //      auto out2 =
                //          Markov_Transition_step_double(4, Qx, nsamples(), fs(),
                //          1e-7);
-               assert(([this, &minP, &gvar_ij]() {
+               assert(([&gvar_ij]() {
                    for (std::size_t i = 0; i < gvar_ij.size(); ++i)
                        if (center(gvar_ij)[i] < 0)
                            return false;
@@ -4458,10 +5012,10 @@ public:
     init_by_step(Qx, gx, recursion_number, nsamples, fs, min_p);
   }
 
-  Markov_Transition_step_double(Microscopic_description mi,
-                                const M_Matrix<double> &Qx,
-                                const M_Matrix<double> &gx,
-                                std::size_t nsamples, double fs, double min_p) {
+  Markov_Transition_step_double(  Microscopic_description mi [[maybe_unused]],
+                                [[maybe_unused]]const M_Matrix<double> &Qx,
+                                [[maybe_unused]]const M_Matrix<double> &gx,
+                                [[maybe_unused]]std::size_t nsamples, [[maybe_unused]]double fs, [[maybe_unused]]double min_p) {
     //   init_by_step(mi, Qx, gx, nsamples, fs, min_p);
   }
 
@@ -4720,7 +5274,7 @@ private:
   }
   void normalize() {}
 
-  void init(const Markov_Transition_rate &Qx, bool check) {
+  void init(const Markov_Transition_rate &Qx, [[maybe_unused]]bool check) {
     // const double eps=std::numeric_limits<double>::epsilon();
     double dt = Markov_Transition_step::dt();
 
@@ -4734,7 +5288,7 @@ private:
     assert(are_Equal_v(Qx.Qrun(), Qx.V() * Qx.landa() * Qx.W(), err, err,
                        std::cerr, "Qx.Qrun()=", Qx.Qrun(), "Qx.V()", Qx.V(),
                        "Qx.landa()=", Qx.landa(), "Qx.W()=", Qx.W()));
-    double RV = Matrix_Unary_Functions::norm_1(Qx.V()) * Matrix_Unary_Functions::norm_1(Qx.W());
+    [[maybe_unused]]double RV = Matrix_Unary_Functions::norm_1(Qx.V()) * Matrix_Unary_Functions::norm_1(Qx.W());
 
     auto exp_ladt = ladt.apply([](double x) { return std::exp(x); });
 
@@ -4800,7 +5354,7 @@ private:
       //      auto out2 =
       //          Markov_Transition_step_double(4, Qx, nsamples(), fs(),
       //          1e-7);
-      assert(([this, &minP]() {
+      assert(([this]() {
         for (std::size_t i = 0; i < gvar_ij_.size(); ++i)
           if (gvar_ij_[i] < 0)
             return false;
@@ -4898,7 +5452,7 @@ private:
     }
     *this = step_ini;
   }
-  void init_by_step(Microscopic_description mi, const M_Matrix<double> &Qrun,
+  void init_by_step([[maybe_unused]]Microscopic_description mi, const M_Matrix<double> &Qrun,
                     const M_Matrix<double>& grun,
                     std::size_t recursion_number_extra, std::size_t n,
                     double fs, double min_p) {
@@ -5044,7 +5598,7 @@ struct class_Invariants<Markov_Transition_step_double> : public invariant {
   }
 };
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 inline Markov_Transition_step_variance_minimum_<Tr>::
     Markov_Transition_step_variance_minimum_(
         const Tr_t<Markov_Transition_step_variance> &x)
@@ -5052,7 +5606,7 @@ inline Markov_Transition_step_variance_minimum_<Tr>::
       PGG_n{x.gtotal_sqr_ij() * (x.nsamples() * x.nsamples() * 0.5)},
       min_p(x.min_P()) {}
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 inline Markov_Transition_step_variance_minimum_<Tr> &
 Markov_Transition_step_variance_minimum_<Tr>::
 operator+=(const Tr_t<Markov_Transition_step_variance> &x) {
@@ -5109,13 +5663,13 @@ public:
 };
 
 
-template<template<class> class>
+template<template<class...> class>
 class Microscopic_description_new_;
 
 typedef Microscopic_description_new_<C> Microscopic_description_new;
 
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class Microscopic_description_new_
 {
 public:
@@ -5237,7 +5791,7 @@ public:
     M_Matrix<double> out(1, k);
     for (std::size_t j = 0; j < number_of_states(); ++j)
       out[j] = Pmean[j];
-    for (auto j = 0; j < P2.size(); ++j)
+    for (auto j = 0ul; j < P2.size(); ++j)
       out[number_of_states() + j] = P2[j];
     return out;
   }
@@ -5530,16 +6084,17 @@ public:
   Microscopic_description_new const &mi1() const { return mi1_; }
 };
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class Microscopic_Transition_step_mean_;
 
 typedef Microscopic_Transition_step_mean_<C> Microscopic_Transition_step_mean;
 
 
-template <template<class> class > class Microscopic_Transition_step_mean_minimum_;
+template <template<class...> class > class Microscopic_Transition_step_mean_minimum_;
 
-template <template<class> class Tr>
-struct Microscopic_Transition_step_mean_minimum_ {
+template <template<class...> class Tr>
+class Microscopic_Transition_step_mean_minimum_ {
+public:
     template <typename T> using Tr_t=typename Tr<T>::type;
     std::size_t n;
     Tr_t<Microscopic_description_new> mi0;
@@ -5555,7 +6110,7 @@ struct Microscopic_Transition_step_mean_minimum_ {
     Microscopic_Transition_step_mean_minimum_ &
     operator+=(const Tr_t<Microscopic_Transition_step_mean> &x_);
 };
-template<template<class> class Tr>
+template<template<class...> class Tr>
     class Microscopic_Transition_step_mean_ :public Markov_Transition_step_mean_<Tr>
 {
 public:
@@ -5569,18 +6124,19 @@ public:
     Tr_t<Microscopic_description_new> const &mi1() const { return mi1_; }
 };
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class Microscopic_Transition_step_variance_;
 
 typedef Microscopic_Transition_step_variance_<C> Microscopic_Transition_step_variance;
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class Microscopic_Transition_step_variance_minimum_;
 
 typedef Microscopic_Transition_step_variance_minimum_<C> Microscopic_Transition_step_variance_minimum;
 
-template<template<class> class Tr>
-struct Microscopic_Transition_step_variance_minimum_ {
+template<template<class...> class Tr>
+class Microscopic_Transition_step_variance_minimum_ {
+public:
     template<typename T> using Tr_t=typename Tr<T>::type;
     std::size_t n;
     Tr_t<Microscopic_description_new> mi0;
@@ -5597,7 +6153,7 @@ struct Microscopic_Transition_step_variance_minimum_ {
     operator+=(const Tr_t<Microscopic_Transition_step_variance> &x_);
 };
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class Microscopic_Transition_step_variance_: public Markov_Transition_step_variance_<Tr>
 {
     template <typename T> using Tr_t=typename Tr<T>::type;
@@ -5611,12 +6167,12 @@ public:
     Tr_t<Microscopic_description_new> const &mi1() const { return mi1_; }
 };
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 struct mi_Q_;
 
 typedef mi_Q_<C> mi_Q;
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 struct mi_Q_ {
     template<typename T> using Tr_t=typename Tr<T>::type;
   std::vector<std::size_t> mi_start;
@@ -6115,6 +6671,93 @@ private:
 };
 
 
+template<template<class...> class Tr> class SingleLigandModel_new_;
+
+typedef SingleLigandModel_new_<C> SingleLigandModel_new;
+
+
+template<template<class...> class Tr>
+class SingleLigandModel_new_ {
+public:
+    template<class T> using Tr_t=typename Tr<T>::type;
+
+    SingleLigandModel_new_() {}
+    auto &Q0() const { return Q0_; }
+    auto &Qa() const { return Qa_; }
+
+    auto Q(double x) const { return Q0_ + Qa_ * x; }
+
+    auto &g(double) const { return g_; }
+    auto &myg() const { return g_; }
+
+    auto Qx(double x, double tolerance) const {
+        return Markov_Transition_rate::evaluate(Q(x), g(x), tolerance);
+    }
+
+    auto P(const Markov_Transition_rate &aQx, std::size_t n, double fs) const {
+        return Markov_Transition_step(aQx, n, fs, min_P_);
+    }
+
+    auto Pdt(const Markov_Transition_rate &x, std::size_t n, double fs) const {
+        return Markov_Transition_step_double(x, n, fs, min_P_);
+    }
+
+    std::size_t nstates() const { return Q0_.nrows(); }
+
+    Tr_t<double> noise_variance(std::size_t nsamples, double fs) const {
+        return noise_variance_ * fs / nsamples;
+    }
+
+    Tr_t<double> noise_variance_1Hz() const { return noise_variance_; }
+
+    Tr_t<double> AverageNumberOfChannels() const { return N_channels_; }
+
+    std::size_t N_channels() const { return N_channels_; }
+
+    SingleLigandModel_new_(std::pair<Tr_t<M_Matrix<double>>, Tr_t<M_Matrix<double>>> &&Qs,
+                           Tr_t<M_Matrix<double>> &&g, double Vm, Tr_t<double> N, Tr_t<double> noise,
+                      double min_P)
+        : Q0_{std::move(Qs.first)}, Qa_{std::move(Qs.second)}, g_{g * Vm},
+          N_channels_{N}, noise_variance_{noise}, min_P_{min_P} {}
+    SingleLigandModel_new_(const std::pair<Tr_t<M_Matrix<double>>, Tr_t<M_Matrix<double>>> &Qs,
+                           const Tr_t<M_Matrix<double>> &g, double Vm, Tr_t<double> N,
+                           Tr_t<double> noise, double min_P)
+        : Q0_{std::move(Qs.first)}, Qa_{std::move(Qs.second)}, g_{g * Vm},
+          N_channels_{N}, noise_variance_{noise}, min_P_{min_P} {}
+
+    SingleLigandModel_new_(const Tr_t<M_Matrix<double>> &Q0, const Tr_t<M_Matrix<double>> &Qa,
+                           const Tr_t<M_Matrix<double>> &g, Tr_t<double> N, Tr_t<double> noise,
+                      double min_P)
+        : Q0_{Q0}, Qa_{Qa}, g_{g}, N_channels_{N},
+          noise_variance_{noise}, min_P_{min_P} {}
+
+    double min_P() const { return min_P_; }
+
+    typedef SingleLigandModel_new_ self_type;
+
+    constexpr static auto className = my_static_string("SingleLigandModel_new");
+    static auto get_constructor_fields() {
+        return std::make_tuple(
+            grammar::field(C<self_type>{}, "Q0", &self_type::Q0),
+            grammar::field(C<self_type>{}, "Qa", &self_type::Qa),
+            grammar::field(C<self_type>{}, "g", &self_type::myg),
+            grammar::field(C<self_type>{}, "AverageNumberOfChannels",
+                           &self_type::AverageNumberOfChannels),
+            grammar::field(C<self_type>{}, "plogL", &self_type::noise_variance_1Hz),
+            grammar::field(C<self_type>{}, "eplogL", &self_type::min_P));
+    }
+
+private:
+    Tr_t<M_Matrix<double>> Q0_;
+    Tr_t<M_Matrix<double>> Qa_;
+    Tr_t<M_Matrix<double>> g_;
+    Tr_t<double> N_channels_;
+    Tr_t<double> noise_variance_;
+    double min_P_;
+};
+
+
+
 
 
 template <class Markov_Transition_step, class Markov_Transition_rate, class M,
@@ -6138,7 +6781,7 @@ public:
 
   myOptional_t<Markov_Transition_step> calc_P(X x, std::size_t nsamples,
                                               std::size_t num_recursion = 0) {
-    typedef myOptional_t<Markov_Transition_step> Op;
+    //typedef myOptional_t<Markov_Transition_step> Op;
     if (num_recursion == 0) {
       return Markov_Transition_step(num_recursion, Model().Q(x), Model().g(x),
                                     nsamples, fs(), Model().min_P() * 0.0001);
@@ -6410,4 +7053,6 @@ template <bool recursive, int averaging, bool variance> class Macro_R_new;
 
 
 #endif // QMODEL_H
+
+
 

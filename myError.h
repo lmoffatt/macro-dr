@@ -34,7 +34,7 @@ struct E<myClass<C,Ts...>>
 template<>
 struct my_template_trait<E>
 {
-    constexpr static auto className = my_static_string("");
+    constexpr static auto className = my_static_string("_error");
 
 };
 
@@ -42,10 +42,6 @@ struct my_template_trait<E>
 
 template <typename...Ts>
 using E_t=typename E<Ts...>::type;
-
-
-template <> struct E<double> { typedef Error<double, ::norm_1, true> type; };
-
 
 
 
@@ -143,7 +139,7 @@ template <class Norm, bool diff ,typename...Ts>
 bool are_Equal_v(const Error<double,Norm,diff> &one, const Error<double,Norm,diff> &other, std::ostream &os, Ts...context) {
     if (!(one==other))
     {
-        (os<<...<<context);
+        [[maybe_unused]] auto& t=(os<<...<<context);
         return false;
     }
     else return true;
@@ -225,16 +221,18 @@ Error<double, Norm,diff> operator/(const Error<double, Norm,diff> &one,
 
 
 template <class T,class Norm, bool diff>
-auto const& center(const Error<T,Norm,diff>& x)
+T const& center(const Error<T,Norm,diff>& x)
 {
     return x.center();
 }
 
-template <class T>
-auto const& center(const T& x)
+template <class T> T center(const T& x)
 {
     return x;
 }
+
+
+
 
 template<typename T, class Norm, bool diff>
 std::ostream& operator<<(std::ostream& os, const Error<T,Norm,diff>& x)
@@ -286,12 +284,6 @@ Error<double, Norm,diff> abs(const Error<double, Norm,diff> &one) {
 
 }
 
-template <class Norm, bool diff>
-Error<double, Norm,diff> expm1(const Error<double, Norm,diff> &one) {
-    auto c=std::expm1(one.center());
-    return Error<double, Norm,diff> (c,one.norm());
-
-}
 
 template <class Norm, bool diff>
 Error<double, Norm,diff> max(const Error<double, Norm,diff> &one,const Error<double, Norm,diff> &two) {

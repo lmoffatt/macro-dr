@@ -269,10 +269,20 @@ template <typename T>
 struct has_base_type<T, std::void_t<typename T::base_type>> : public std::true_type {
     using std::true_type::value;
 };
-
-
 template <typename T>
 inline constexpr bool has_base_type_v = has_base_type<T>();
+
+template <typename T, typename = void>
+struct has_derivative_type  : public std::false_type {};
+
+template <typename T>
+struct has_derivative_type<T, std::void_t<typename T::Derivative>> : public std::true_type {
+ };
+
+template <typename T>
+inline constexpr bool has_derivative_type_v = has_derivative_type<T>::value;
+
+
 
 template <typename...> class myOptional;
 
@@ -848,6 +858,8 @@ struct transfer<Co<T...>,D>
 
 template<class S, template<class...>class D>
 using transfer_t=typename transfer<S,D>::type;
+
+
 
 
 

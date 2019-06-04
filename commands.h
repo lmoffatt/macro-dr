@@ -254,6 +254,40 @@ template <class Experiment, class Model> struct likelihood {
   }
 };
 
+
+template <class Experiment, class Model,class ParametersDistribution> struct likelihood_der {
+
+    static constexpr auto className = my_static_string("likelihood_derivative");
+
+    static myOptional_t<Der_t<double>> run(const Experiment &e, Model &m,
+                                    const Parameters_values_new<Model> &p,
+                                    const ParametersDistribution &prior,
+                                    const std::string algorithm, double min_P,
+                                    double tolerance, double biNumber,
+                                    double Vanumber, double maxChi2, double reduce_by_p, std::size_t order_number, double min_connection_ratio);
+
+    static auto get_arguments() {
+        return std::make_tuple(
+            grammar::argument(C<const Experiment &>{},
+                              my_trait<Experiment>::className.c_str()),
+            grammar::argument(C<Model &>{}, my_trait<Model>::className.c_str()),
+            grammar::argument(C<const Parameters_values<Model> &>{},
+                              "model_parameters"),
+            grammar::argument(C<const ParametersDistribution &>{},
+                              "model_parameters_distribution"),
+            grammar::argument(C<std::string>{}, "algorithm"),
+            grammar::argument(C<double>{}, "min_probability", 1e-9),
+            grammar::argument(C<double>{}, "tolerance_error", 1e-7),
+            grammar::argument(C<double>{}, "Binomial_threshold", 5.0),
+            grammar::argument(C<double>{}, "Variance_threshold", 1.0),
+            grammar::argument(C<double>{}, "max_Chi2", 10.0),
+            grammar::argument(C<double>{}, "reduce_by_p", 1e-4),
+            grammar::argument(C<std::size_t>{}, "order_number", 5ul),
+            grammar::argument(C<double>{}, "min_connection_ratio", 1e-4));
+    }
+};
+
+
 template <class Experiment, class Model, class ParametersDistribution>
 struct likelihoodtest {
 
@@ -363,7 +397,7 @@ template <class Experiment, class Model> struct likelihood_detail {
   static auto run(const Experiment &e, Model &m,
                   const Parameters_values<Model> &p,
                   const std::string algorithm, double min_P, double tolerance,
-                  double biNumber, double Vanumber, double maxChi2, double reduce_by_p, std::size_t order_number, double min_connection_ratio) {
+                  double biNumber, double Vanumber, double maxChi2, double reduce_by_p, std::size_t order_number, [[maybe_unused]] double min_connection_ratio) {
 
 
       if (algorithm == my_trait<markov::MicroDVR>::className.str()) {

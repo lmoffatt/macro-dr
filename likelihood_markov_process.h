@@ -24,7 +24,7 @@ struct i_state {
   constexpr static auto const title = my_static_string("i_state");
 };
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class mp_information_;
 typedef mp_information_<C> mp_information;
 
@@ -57,7 +57,7 @@ std::pair<bool,bool> is_Binomial_Approximation_valid(double N, const Error<doubl
             is_Binomial_Approximation_valid(N, p, q, Vp_min)};
 }
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class mp_information_ {
 public:
     template <class T> using Tr_t=typename Tr<T>::type;
@@ -70,6 +70,7 @@ private:
     Tr_t<double> vplogL_;
 
 public:
+
     typedef mp_information_ self_type;
     constexpr static auto className = my_template_trait<Tr>::className+my_static_string("mp_state_information");
     static auto get_constructor_fields() {
@@ -86,7 +87,7 @@ public:
 
     static mp_information_
     adjust(Tr_t<double> y_mean__, Tr_t<double> y_var__, Tr_t<double> plogL__, Tr_t<double> eplogL__,
-           Tr_t<double> vplogL__, double min_p, double min_var) {
+           Tr_t<double> vplogL__, [[maybe_unused]] double min_p, double min_var) {
         return mp_information(y_mean__, variance_value::adjust(y_var__, min_var), plogL__, eplogL__,
             vplogL__);
     }
@@ -118,11 +119,11 @@ public:
 };
 
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class mp_macro_information_;
 typedef mp_macro_information_<C> mp_macro_information;
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class mp_macro_information_ : public mp_information_<Tr>
 {
 public:
@@ -152,10 +153,10 @@ public:
            Tr_t<double> y_mean__, Tr_t<double> y_var__, Tr_t<double> plogL__, Tr_t<double> eplogL__,
            Tr_t<double> vplogL__, double min_p, double min_var) {
         return mp_macro_information_(
-            Probability_distribution::normalize(std::move(P_mean__), min_p),
-            Probability_distribution_covariance::normalize(std::move(P_cov__),
+            Probability_distribution_new_<Tr>::normalize(std::move(P_mean__), min_p),
+            Probability_distribution_covariance_new_<Tr>::normalize(std::move(P_cov__),
                                                            min_p),
-            y_mean__, variance_value::adjust(std::move(y_var__), min_var), plogL__, eplogL__,
+            y_mean__, variance_value_new_<Tr>::adjust(std::move(y_var__), min_var), plogL__, eplogL__,
             vplogL__);
     }
     mp_macro_information_(Tr_t<M_Matrix<double>> &&P_mean__, Tr_t<M_Matrix<double>> &&P_cov__,
@@ -465,11 +466,11 @@ public:
   }
 };
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class mp_single_information_;
 typedef mp_single_information_<C> mp_single_information;
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class mp_single_information_ : public mp_information_<Tr>
 {
 public:
@@ -534,12 +535,12 @@ std::make_tuple(
     }
 };
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class mp_micro_information_;
 typedef mp_micro_information_<C> mp_micro_information;
 
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 class mp_micro_information_ : public mp_single_information_<Tr> {
 public:
     template <class T> using Tr_t=typename Tr<T>::type;
@@ -661,8 +662,8 @@ public:
     adjust(Microscopic_description &&mi__, M_Matrix<double> &&P__,
            double y_mean__, double y_var__, double plogL__, double eplogL__,
            double vplogL__, double min_p, double min_var, double reduce_by_p,
-           const std::vector<std::vector<std::size_t>> &connections_to_x ,
-           const std::vector<std::vector<std::size_t>> &connections_from_x ) {
+           [[maybe_unused]] const std::vector<std::vector<std::size_t>> &connections_to_x ,
+           [[maybe_unused]] const std::vector<std::vector<std::size_t>> &connections_from_x ) {
         mi__.reduce(P__, reduce_by_p);
         //P__= mi__.add_states_to_fill_gaps_P(P__,connections_to_x,connections_from_x);
         return mp_ensamble_state_information(
@@ -1898,8 +1899,8 @@ private:
 } // namespace hidden
 
 template <bool recursive, int averaging, bool variance> class Macro_R;
-template <template <class> class Tr,bool recursive, int averaging, bool variance> class Macro_R_new_;
-template <template <class> class Tr,bool recursive, int averaging, bool variance> class Macro_Sel_;
+template <template <class...> class Tr,bool recursive, int averaging, bool variance> class Macro_R_new_;
+template <template <class...> class Tr,bool recursive, int averaging, bool variance> class Macro_Sel_;
 
 
 template <bool recursive, int averaging, bool variance> using  Macro_R_new=Macro_R_new_<C,recursive,averaging,variance>;
@@ -1909,7 +1910,7 @@ template <bool recursive, int averaging, bool variance> using  Macro_Sel=Macro_S
 template <int averaging, bool variance> class Micro_R;
 
 template <int averaging, bool variance> class RMicro_R;
-template <template <class> class Tr,int averaging, bool variance> class RMicro_R_new_;
+template <template <class...> class Tr,int averaging, bool variance> class RMicro_R_new_;
 
 template <int averaging, bool variance> using  RMicro_R_new=RMicro_R_new_<C,averaging,variance>;
 
@@ -1941,13 +1942,13 @@ typedef Micro_R<2, true> MicroDVR;
 typedef RMicro_R_new<2, false> RMicroDMR_new;
 typedef RMicro_R_new<2, true> RMicroDVR_new;
 
-template<template <class> class Tr,bool eigenvalue>
+template<template <class...> class Tr,bool eigenvalue>
 class Markov_Model_calculations_new_;
 
 template<bool eigenvalue> using Markov_Model_calculations_new=Markov_Model_calculations_new_<C,eigenvalue>;
 
 
-template<template <class> class Tr,bool eigenvalue>
+template<template <class...> class Tr,bool eigenvalue>
 class Markov_Model_calculations_new_ {
 
     double fs_;
@@ -1983,7 +1984,7 @@ public:
 
 
 
-    template< template <template<class> class,auto...> class Macro_R, auto...Ts, class Model, class X>
+    template< template <template<class...> class,auto...> class Macro_R, auto...Ts, class Model, class X>
     auto get_Qrun(const Macro_R<Tr,Ts...> /*macro*/, const Model& m, const X& x)const
     {
 
@@ -1994,7 +1995,7 @@ public:
     }
 
 
-    template< template <template<class> class,auto...Ts> class Macro_R, auto...Ts, class Model, class Step>
+    template< template <template<class...> class,auto...Ts> class Macro_R, auto...Ts, class Model, class Step>
     auto get_Peq(const Macro_R<Tr,Ts...>& macro,const Model& m, const Step& s)const
     {
         if constexpr (eigenvalue)
@@ -2112,7 +2113,7 @@ public:
 
 
 
-template <template<class > class Tr,bool recursive, int averaging, bool variance> class Macro_R_new_ {
+template <template<class...> class Tr,bool recursive, int averaging, bool variance> class Macro_R_new_ {
 public:
     template <typename T> using Tr_t=typename Tr<T>::type;
     inline constexpr static auto myClass() {
@@ -2140,7 +2141,7 @@ public:
         auto Q_dto = c(*this,m,prior,p,os);
         if (!Q_dto)
             return Op(false, "fails in auto Q_dt=m.get_P(p,0) :" + Q_dto.error());
-            auto  Q_dt = std::move(Q_dto).value();
+        auto  Q_dt = std::move(Q_dto).value();
         return run(prior, c,Q_dt, m, p, os);
     }
 
@@ -2296,7 +2297,7 @@ public:
 
   };
 
-  template <template <class>class Tr,bool recursive, int averaging, bool variance> class Macro_Sel_ {
+  template <template <class...>class Tr,bool recursive, int averaging, bool variance> class Macro_Sel_ {
 public:
     template <class T> using Tr_t=typename Tr<T>::type;
     inline constexpr static auto myClass() {
@@ -2344,11 +2345,11 @@ public:
                 if (std::isnan(y))
                     alg = MACRO_DMNR_new;
                 else {
-                    auto mg = (prior.P_mean() * Q_dt.gmean_i()).getvalue();
-                    auto g_max = max(Q_dt.g());
-                    auto g_min = min(Q_dt.g());
+                    auto mg = (center(prior.P_mean()) * center(Q_dt.gmean_i())).getvalue();
+                    auto g_max = max(center(Q_dt.g()));
+                    auto g_min = min(center(Q_dt.g()));
                     auto g_range = g_max - g_min;
-                    auto N = m.AverageNumberOfChannels();
+                    auto N = center(m.AverageNumberOfChannels());
                     auto p_bi = (g_max - mg) / g_range;
                     auto q_bi = (mg - g_min) / g_range;
                     auto test_Binomial = is_Binomial_Approximation_valid(
@@ -2810,7 +2811,7 @@ public:
     M_Matrix<double> Post(1, prior.P().size(), 0);
     M_Matrix<double> logLik(prior.P().size(), prior.P().size(), 0);
     double partialLik = 0;
-    double epartialLik = 0;
+    [[maybe_unused]] double epartialLik = 0;
     double y_mean = 0;
     double y_var = e;
     double eplogL;
@@ -3187,7 +3188,7 @@ public:
 //  double min_connection_ratio_;
 //};
 
-template <template <class> class Tr,int averaging, bool variance> class RMicro_R_new_ {
+template <template <class...> class Tr,int averaging, bool variance> class RMicro_R_new_ {
 public:
     template<class T> using Tr_t=typename Tr<T>::type;
     inline constexpr static auto myClass() {
@@ -3269,7 +3270,7 @@ public:
         M_Matrix<double> Post(1, Q_dt.P().ncols(), 0);
         M_Matrix<double> logLik(Q_dt.P().nrows(), Q_dt.P().ncols(), 0);
         double partialLik = 0;
-        double epartialLik = 0;
+        [[maybe_unused]] double epartialLik = 0;
         double y_mean = 0;
         double y_var = e;
         double eplogL;
@@ -3802,19 +3803,20 @@ private:
 };
 
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 struct logLikelihood_function_;
 typedef logLikelihood_function_<C> logLikelihood_function;
 
-template<template<class> class Tr>
+template<template<class...> class Tr>
 struct logLikelihood_function_ {
 public:
     template<class T> using Tr_t=typename Tr<T>::type;
 
 
-    template <class Experiment> Tr_t<double> operator()(const Experiment &) const {
-        return Tr_t<double>(0);
-  }
+    template <class Experiment> Tr_t<double> operator()(const Experiment &) const
+    {
+        return Tr_t<double> (0.0);
+    }
   template <class  mp_state_information>
   void operator()(const mp_state_information &mp, Tr_t<double> &logLsum,
                   std::size_t &i) const {
@@ -3824,6 +3826,7 @@ public:
     }
   }
 };
+
 
 struct partialLogLikelihood_function {
   template <class Experiment>
@@ -4045,7 +4048,7 @@ auto logLikelihood_experiment_calculation(const F &f, const MacroDR &a,
 }
 
 
-template <class MacroDR,class Calculator, class Model, class Experiment>
+template <class MacroDR,class Calculator, class Model, class Experiment, std::enable_if_t<!is_Derivative<Model>::value,int> =0>
 auto logLikelihood_new(const MacroDR &a, Calculator& calc,const Model &m,
                                    const Experiment e, std::ostream &os) {
 
@@ -4054,6 +4057,17 @@ auto logLikelihood_new(const MacroDR &a, Calculator& calc,const Model &m,
     return logLikelihood_experiment_calculation_new(lik, a,calc, m, e,
                                                 os);
 }
+
+template <class MacroDR,class Calculator, class Model, class Experiment, std::enable_if_t<is_Derivative<Model>::value,int> =0>
+auto logLikelihood_new(const MacroDR &a, Calculator& calc,const Model &m,
+                       const Experiment e, std::ostream &os) {
+
+    typename MacroDR::template Tr_t<logLikelihood_function> lik(m.Qrun);
+
+    return logLikelihood_experiment_calculation_new(lik, a,calc, m, e,
+                                                    os);
+}
+
 
 
 template <class MacroDR, class Model, class Experiment>

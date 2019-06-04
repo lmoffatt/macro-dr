@@ -8,6 +8,7 @@
 #include "mymoments.h"
 #include "myoperators.h"
 #include "mytests.h"
+#include "myError.h"
 #include <algorithm>
 #include <cmath>
 #include <random>
@@ -1322,6 +1323,39 @@ struct variance_value : public invariant {
 
 };
 
+template<template<class...> class Tr>
+struct variance_value_new_;
+typedef  variance_value_new_<C> variance_value_new;
+
+template<template<class...> class Tr>
+struct variance_value_new_ : public invariant {
+    template<class T>using Tr_t=typename Tr<T>::type;
+
+    template <bool output>
+    static Op_void test(double value, double min_variance, double tolerance) {
+        if (!std::isfinite(value))
+            return Op_void(false, " not finite value: " + std::to_string(value));
+        else if (value + tolerance > min_variance)
+            return Op_void(true, "");
+        else if (value < 0)
+            return Op_void(false,
+                           "negative variance!! value=" + std::to_string(value));
+        else if (value == 0)
+            return Op_void(false, "zero variance!! value=" + std::to_string(value));
+        else
+            return Op_void(false,
+                           "variance too small!! value=" + std::to_string(value) +
+                               "min variance=" + std::to_string(min_variance) +
+                               "tolerance=" + std::to_string(tolerance));
+    }
+
+    static Tr_t<double> adjust(Tr_t<double> value, double min_variance) {
+        using std::max;
+        return max(value, min_variance);
+    }
+
+};
+
 struct logLikelihood_value : public invariant {
   template <bool output> static Op_void test(double value) {
     if (std::isfinite(value))
@@ -1423,6 +1457,83 @@ struct Probability_distribution : public Probability {
 
 };
 
+template<template<class...> class Tr>
+struct Probability_value_new_;
+typedef  Probability_value_new_<C> Probability_value_new;
+
+
+template<template<class...> class Tr>
+struct Probability_value_new_ : public Probability {
+    template < class C>
+    static Op_void test(const C &e, double tolerance) {
+        using std::isfinite;
+        if (!isfinite(e)) {
+                return Op_void(false, " not finite value=" + ToString(e) + "\n");
+        } else if (e + tolerance < 0) {
+                return Op_void(false, " negative prob=" + ToString(e) + "\n");
+           } else if (e - tolerance > 1) {
+                return Op_void(false, "  prob greater than one" + ToString(e) +
+                                   " 1- prob=" + ToString(1 - e) + "\n");
+        } else
+            return Op_void(true, "");
+    }
+};
+
+
+template<template<class...> class Tr>
+struct Probability_distribution_new_;
+typedef  Probability_distribution_new_<C> Probability_distribution_new;
+
+
+
+template<template<class...> class Tr>
+struct Probability_distribution_new_ : public Probability {
+    template<typename T>
+    using Tr_t=typename Tr<T>::type;
+    template <bool output, class P>
+    static myOptional_t<void> test(const P &p, double tolerance) {
+        Tr_t<double> sum = 0;
+        std::stringstream ss;
+        for (std::size_t i = 0; i < p.size(); ++i)
+            if (auto ch = Probability_value_new_<Tr>::test(p[i], tolerance);
+                !ch.has_value()) {
+                    return Op_void(false, "p=\n" + ToString(p) +
+                                       " value test on p[i] i=" +
+                                       std::to_string(i) + ch.error());
+               } else
+                sum += p[i];
+        using std::abs;
+        if (abs(sum - Tr_t<double>(1.0)) < tolerance)
+            return Op_void(true, "");
+        else {
+            if constexpr (output)
+                return Op_void(false, " p=\n" + ToString(p) +
+                                   " sum test sum=" + ToString(sum) + "\n");
+            return Op_void(false, "");
+        }
+    }
+
+    template <class P> P static normalize(P &&p, double min_p) {
+        assert(min_p>=0);
+        assert(min_p<1.0);
+        double sum = 0;
+        for (std::size_t i = 0; i < p.size(); ++i) {
+            if (center(p)[i] < min_p) {
+                p.set(i,0.0);
+            } else {
+                if (center(p)[i] + min_p > 1) {
+                    p.set(i,1);
+                }
+                sum += center(p)[i];
+            }
+        }
+        for (std::size_t i = 0; i < p.size(); ++i)
+            p.set(i,center(p)[i] / sum);
+        return std::move(p);
+    }
+};
+
+
 struct Probability_transition : public Probability {
 
   template <bool output>
@@ -1480,6 +1591,67 @@ struct Probability_transition : public Probability {
       return std::move(p);
   }
 };
+
+
+template<template <class...>class Tr>
+struct Probability_transition_new_;
+typedef Probability_transition_new_<C>  Probability_transition_new;
+
+template<template <class...>class Tr>
+struct Probability_transition_new_ : public Probability {
+    template <class T> using Tr_t=typename Tr<T>::type;
+
+    static bool test(Tr_t<const M_Matrix<double>> &p, double tolerance) {
+        for (std::size_t i = 0; i < p.nrows(); ++i) {
+            Tr_t<double> sum = 0;
+            for (std::size_t j = 0; j < p.ncols(); ++j)
+                if (!Probability_value_new_<Tr>::test(p(i, j), tolerance)) {
+                    std::stringstream ss;
+                        ss << " p=\n"
+                                  << p << "\n tolerance=" << tolerance << " i=" << i
+                                  << "j=" << j << " p(i,j)=" << p(i, j) << " \n";
+                        return Op_void(false,ss.str());
+
+                } else
+                    sum += p(i, j);
+            if (std::abs(center(sum) - 1.0) > tolerance) {
+                std::stringstream ss;
+                ss << " p=\n"
+                              << p << "\n i=" << i << " sum =" << sum << " 1-sum"
+                              << 1 - sum << " tolerance=" << tolerance << "\n";
+                return Op_void(false,ss.str());
+            }
+        }
+        return Op_void(true,"");
+    }
+
+
+    Tr_t<M_Matrix<double>> static normalize(Tr_t<M_Matrix<double>> &&p, double min_p) {
+        for (std::size_t i = 0; i < p.nrows(); ++i) {
+            if ( center(p)(i, i) > 1 - min_p) {
+                for (std::size_t j = 0; j < p.ncols(); ++j)
+                    p.set(i, j,0.0);
+                p.set(i, i,1.0);
+            } else {
+                double sum = 0;
+                for (std::size_t j = 0; j < p.ncols(); ++j) {
+                    if (center(p)(i, j) < min_p)
+                        p.set(i, j,0.0);
+                    else
+                        sum += center(p)(i, j);
+                }
+                if (sum != 1)
+                    for (std::size_t j = 0; j < p.ncols(); ++j)
+                        p.set(i, j, p(i, j) / sum);
+            }
+        }
+        return std::move(p);
+    }
+
+};
+
+
+
 
 struct Probability_distribution_covariance : public Probability {
 
@@ -1622,6 +1794,162 @@ struct Probability_distribution_covariance : public Probability {
     return Op_void(true, "");
   }
 };
+
+
+template<template<class...>class> struct Probability_distribution_covariance_new_;
+
+typedef Probability_distribution_covariance_new_<C> Probability_distribution_covariance_new;
+
+
+
+
+template<template <class...>class Tr>
+struct Probability_distribution_covariance_new_ : public Probability {
+
+    template<class T> using Tr_t=typename Tr<T>::type;
+
+    static Op_void test_correlation(
+        const M_Matrix<double> &p, std::size_t i, std::size_t j,
+        double eps = std::sqrt(std::numeric_limits<double>::epsilon()) * 1000) {
+        double corr = sqr(p(i, j)) / p(i, i) / p(j, j);
+        if ((corr + eps < 0) || (corr - eps > 1)) {
+            std::stringstream ss;
+            ss << "p: \n"
+               << p << "\n p(ij)" << p(i, j) << "\n p(ii)" << p(i, i) << "\n p(jj)"
+               << p(j, j) << "\n corr" << corr << " i=" << i << " j=" << j;
+            return Op_void(false, ss.str());
+        } else
+            return Op_void(true, "");
+    }
+
+    static M_Matrix<double> normalize(M_Matrix<double> &&p, double min_p) {
+        std::set<std::size_t> non_zero_i;
+
+        for (std::size_t i = 0; i < p.nrows(); ++i) {
+            if (p(i, i) < min_p) {
+                for (std::size_t j = 0; j < p.ncols(); ++j)
+                    p(i, j) = 0;
+            } else if (p(i, i) + min_p > 1.0) {
+                for (std::size_t n = 0; n < p.size(); ++n)
+                    p[n] = 0;
+                p(i, i) = 1;
+                return std::move(p);
+            } else
+                non_zero_i.insert(i);
+        }
+        for (auto i : non_zero_i) {
+
+            double sum = 0;
+            for (auto j : non_zero_i)
+                if (j != i)
+                    sum += p(i, j);
+
+            if (-sum != p(i, i)) {
+                auto sum_new = (sum - p(i, i)) * 0.5;
+                double f = sum_new / sum;
+                p(i, i) = -sum_new;
+                for (auto j : non_zero_i)
+                    if (i != j)
+                        p(i, j) *= f;
+            }
+        }
+
+        return std::move(p);
+    }
+
+
+    template <template<class, class, bool> class Error, class P, class Norm, bool diff>
+    static Error<P,Norm,diff>
+    normalize(Error<P,Norm,diff> &&p, double min_p) {
+        std::set<std::size_t> non_zero_i;
+
+        for (std::size_t i = 0; i < p.nrows(); ++i) {
+            if (p.center()(i, i) < min_p) {
+                for (std::size_t j = 0; j < p.ncols(); ++j)
+                    p.center()(i, j) = 0;
+            } else if (p.center()(i, i) + min_p > 1.0) {
+                for (std::size_t n = 0; n < p.size(); ++n)
+                    p.center()[n] = 0;
+                p.center()(i, i) = 1;
+                return std::move(p);
+            } else
+                non_zero_i.insert(i);
+        }
+        for (auto i : non_zero_i) {
+
+            double sum = 0;
+            for (auto j : non_zero_i)
+                if (j != i)
+                    sum += p.center()(i, j);
+
+            if (-sum != p.center()(i, i)) {
+                auto sum_new = (sum - p.center()(i, i)) * 0.5;
+                double f = sum_new / sum;
+                p.center()(i, i) = -sum_new;
+                for (auto j : non_zero_i)
+                    if (i != j)
+                        p.center()(i, j) *= f;
+            }
+        }
+
+        return std::move(p);
+    }
+
+
+    template <bool output, class P>
+    static Op_void test(const P &p, double tolerance) {
+
+        for (std::size_t i = 0; i < p.nrows(); ++i) {
+            if (!Probability_value::test<output>(p(i, i), tolerance)) {
+                if constexpr (output) {
+                    std::stringstream ss;
+                    ss << "\ntolerance=" << tolerance << "\n";
+                    ss << " pcov=\n"
+                       << p << "\n i=" << i << " pcov(i,i)=" << p(i, i) << "\n";
+                    return Op_void(false, ss.str());
+                }
+                return Op_void(false, "");
+            }
+            double sum = 0;
+            for (std::size_t j = 0; j < p.ncols(); ++j) {
+
+                if (i != j) {
+                    if ((p(i, i) * p(j, j) - sqr(p(i, j)) + tolerance < 0) &&
+                        (p(i, i) > tolerance * tolerance) &&
+                        (p(j, j) > tolerance * tolerance)) {
+                        if constexpr (output) {
+                            double corr = sqr(p(i, j)) / p(i, i) / p(j, j);
+                            std::stringstream ss;
+                            ss << "tolerance=" << tolerance << "\n";
+                            ss << " pcov=\n"
+                               << p << "\n i=" << i << "j=" << j << " pcov(i,j)=" << p(i, j)
+                               << " corr=" << corr << " pcov(i,i)" << p(i, i) << " pcov(j,j)"
+                               << p(j, j) << "\n";
+                            return Op_void(false, ss.str());
+                        }
+                        return Op_void(false, "");
+                    } else
+                        sum += p(i, j);
+                }
+            }
+            if (std::abs(p(i, i) + sum) > tolerance) {
+                if constexpr (output) {
+                    std::stringstream ss;
+                    ss << "tolerance=" << tolerance << "\n";
+                    ss << " p=\n"
+                       << p << "\n i=" << i << " p(i,j)=" << p(i, i) << " sum=" << sum
+                       << "\n";
+                    return Op_void(false, ss.str());
+                }
+                return Op_void(false, "");
+            }
+        }
+        return Op_void(true, "");
+    }
+};
+
+
+
 
 template <typename T> class Base_Probability_map {
 public:

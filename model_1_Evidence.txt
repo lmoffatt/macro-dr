@@ -35,6 +35,9 @@ result = write (variable = d0  filename = "Model_0_Sim.txt" )
 
 logLik = likelihood ( singleLigandExperiment = mySimulation_1  State_Model = Model_1   model_parameters = param_1_MH   algorithm = "MacroDMR" min_probability = 1e-7 tolerance_error=1e-5  Binomial_threshold = 5  Variance_threshold = 1 )
 
+logLik = likelihood_derivative ( singleLigandExperiment = mySimulation_1  State_Model = Model_1   model_parameters = param_1_MH   algorithm = "MacroSDMR" min_probability = 1e-7 tolerance_error=1e-5  Binomial_threshold = 5  Variance_threshold = 1 )
+
+
 logLik = likelihood ( singleLigandExperiment = mySimulation_1  State_Model = Model_1   model_parameters = param_1_MH   algorithm = "MacroSDMR" min_probability = 1e-7 tolerance_error=1e-5  Binomial_threshold = 5  Variance_threshold = 1 )
 
 logLik_det = likelihood_detail ( singleLigandExperiment = mySimulation_1  State_Model = Model_1   model_parameters = param_1_MH   algorithm = "MacroDMR" min_probability = 1e-6 tolerance_error=1e-3 Binomial_threshold =0 Variance_threshold =1.0)

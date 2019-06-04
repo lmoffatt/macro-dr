@@ -10,6 +10,94 @@ struct s_f {
 
 struct s_Derivative {  constexpr static auto const title = my_static_string("_der");};
 
+struct transformable_tag{};
+struct regular_tag{};
+struct derivative_tag{};
+
+template <typename...> struct Der;
+
+template <typename T, typename = void>
+struct is_transformable : public std::false_type {};
+
+template<template<template<class...>class,typename...> class myClass,template<class...>class Tr,typename...Ts>
+struct is_transformable<
+    myClass<Tr,Ts...>, std::void_t<myClass<Tr,Ts...>>>
+    : public std::true_type {};
+
+template<template<template<class...>class,auto,auto...> class myClass,template<class...>class Tr,auto x,auto...xs>
+struct is_transformable<
+    myClass<Tr,x,xs...>, std::void_t<myClass<Tr,x,xs...>>>
+    : public std::true_type {};
+
+
+template <typename T>
+inline constexpr bool is_transformable_v = is_transformable<T>::value;
+
+
+
+static_assert (!is_transformable_v<double> );
+
+
+template <typename T> struct Der<T,regular_tag> {
+
+    typedef Derivative<T> type;
+
+};
+
+template <typename K, typename T, typename ...X>
+struct Der<std::map<K,T,X...>,map_tag>
+{
+    typedef std::map<K, Derivative_t<T>> type;
+};
+
+
+template<template<template<class...>class,auto,auto...> class myClass,auto x,auto ...Ts>
+struct Der<myClass<C,x,Ts...>,transformable_tag>{
+    typedef myClass<Der,x,Ts...> type;
+};
+
+template<template<template<class...>class,typename...> class myClass,typename ...Ts>
+struct Der<myClass<C,Ts...>,transformable_tag>{
+    typedef myClass<Der,Ts...> type;
+};
+
+
+template <class X>
+struct Der<X, derivative_tag> {
+    typedef typename X::Derivative type;
+};
+
+
+template<class T>
+struct my_transform_tag
+{
+    typedef  std::conditional_t<has_derivative_type_v<T>,derivative_tag,
+        std::conditional_t<is_map<T>::value,map_tag,
+        std::conditional_t<is_transformable_v<T>,transformable_tag,
+                                                                     regular_tag>>> type;
+};
+template <typename...Ts>
+using Der_t=typename Der<Ts...>::type;
+
+template <typename T> struct Der<T> {
+    typedef Der_t<T,typename my_transform_tag<T>::type> type;
+
+};
+
+
+
+
+template<>
+struct my_template_trait<Der>
+{
+    constexpr static auto className = my_static_string("_derivative");
+
+};
+
+
+
+
+
 template <> class Derivative<double> {
   double f_;
   M_Matrix<double> const *x_;
@@ -63,6 +151,7 @@ public:
       : f_{fx}, x_{&myx}, dfdx_{myx.nrows(), myx.ncols(), myx.type(),
                                 std::isnan(fx) ? fx : 0} {}
   Derivative() = default;
+  Derivative(double f): f_{f},x_{nullptr},dfdx_{}{}
   Derivative(const M_Matrix<double> &myx)
       : f_{0}, x_{&myx}, dfdx_{myx.nrows(), myx.ncols(), myx.type(), 0.0} {}
   Derivative &operator+=(const Derivative &other) {
@@ -71,6 +160,34 @@ public:
     dfdx_ += other.dfdx();
     return *this;
   }
+
+  Derivative &operator*=(const Derivative &other) {
+      if (x_==nullptr)
+          x_=&other.x();
+      assert(x() == other.x());
+      auto df = f() * other.dfdx();
+      for (std::size_t i = 0; i < df.size(); ++i)
+          df[i] += dfdx()[i] * other.f();
+      f_ *= other.f();
+      dfdx_ =df;
+      return *this;
+  }
+
+
+  Derivative operator-()const &
+  {
+      Derivative out(*this);
+      return -std::move(out);
+  }
+  Derivative operator-()&&
+  {
+      f_=-f_;
+      dfdx_=-dfdx_;
+      return *this;
+  }
+
+
+
   Derivative &operator-=(const Derivative &other) {
     assert(x() == other.x());
     f_ -= other.f();
@@ -78,6 +195,36 @@ public:
     return *this;
   }
 };
+
+inline auto& center(const Derivative<double>& x){return x.f();}
+
+
+
+
+inline auto max(const Derivative<double> &one,double two) {
+    if (center(one)>=two)
+    {
+        return one;
+    }
+    else
+    {
+        auto out=one;
+        out.f()=two;
+        return out;
+    }
+}
+
+inline auto max(const Derivative<double> &one,const Derivative<double> & two) {
+    if (center(one)>=center(two))
+    {
+        return one;
+    }
+    else
+    {
+        return two;
+    }
+}
+
 
 template <class T>
 std::ostream &operator<<(std::ostream &os, const Derivative<T> &x) {
@@ -185,6 +332,72 @@ public:
   M_Matrix<M_Matrix<double>> const &dfdx() const { return dfdx_; }
   M_Matrix<M_Matrix<double>> &dfdx() { return dfdx_; }
 
+  auto nrows()const {return f().nrows();}
+  auto ncols()const {return f().ncols();}
+  auto size()const {return f().size();}
+  auto type()const {return f().type();}
+
+  Derivative<double> operator()(std::size_t i, std::size_t j)const {
+      M_Matrix<double> df(x().nrows(),x().ncols(), x().type());
+      for (std::size_t n=0; n<dfdx().size(); ++n)
+          df[n]=dfdx()(i,j)[n];
+      return Derivative<double>(f()(i,j),x(),std::move(df));
+  }
+
+
+  Derivative<double> operator[](std::size_t i)const {
+      M_Matrix<double> df(x().nrows(),x().ncols(), x().type());
+      for (std::size_t n=0; n<dfdx().size(); ++n)
+          df[n]=dfdx()[i][n];
+      return Derivative<double>(f()[i],x(),std::move(df));
+  }
+
+
+  void set(std::size_t i, std::size_t j, double val){
+      f()(i,j)=val;
+      if (x_!=nullptr)
+      {
+          for (std::size_t n = 0; n < dfdx().size(); ++n)
+              dfdx()[n](i, j) = 0;
+      }
+  }
+  void set(std::size_t i,  double val)
+  {
+      f()[i]=val;
+      if (x_!=nullptr)
+      {
+          for (std::size_t n = 0; n < dfdx().size(); ++n)
+              dfdx()[n][i] = 0;
+      }
+  }
+  void set(std::size_t i,  const Derivative<double>& val){
+      assert((&val.x())!=nullptr);
+      if (x_==nullptr)
+          x_=&val.x();
+      assert(&x()==&val.x());
+      f()[i]=val.f();
+      for (std::size_t n = 0; n < dfdx().size(); ++n)
+          dfdx()[n][i]=val.dfdx()[n];
+  }
+  void set(std::size_t i, std::size_t j, const Derivative<double>& val){
+      assert((&val.x())!=nullptr);
+      if (x_==nullptr)
+          x_=&val.x();
+      assert(&x()==&val.x());
+      f()(i,j)=val.f();
+      for (std::size_t n = 0; n < dfdx().size(); ++n)
+          dfdx()[n](i,j)=val.dfdx()[n];
+  }
+  void add(std::size_t i, std::size_t j, const Derivative<double>& val){
+      assert((&val.x())!=nullptr);
+      if (x_==nullptr)
+          x_=&val.x();
+      assert(&x()==&val.x());
+      f()(i,j)+=val.f();
+      for (std::size_t n = 0; n < dfdx().size(); ++n)
+          dfdx()[n][i]+=val.dfdx()[n];
+  }
+
   bool check() {
     bool out = true;
     for (std ::size_t i = 0; i < dfdx_.size(); ++i)
@@ -192,6 +405,13 @@ public:
         out = false;
     return out;
   }
+  Derivative(std::size_t nrows, std::size_t ncols, Matrix_TYPE atype=Matrix_TYPE::FULL)
+      :f_{nrows,ncols,atype},x_{nullptr},dfdx_{}{}
+
+  Derivative(std::size_t nrows, std::size_t ncols, Matrix_TYPE atype, double val)
+      :f_{nrows,ncols,atype,val},x_{nullptr},dfdx_{}{}
+
+
   Derivative(const M_Matrix<double> &fx, const M_Matrix<double> &myx,
              const M_Matrix<M_Matrix<double>> &der)
       : f_{fx}, x_{&myx}, dfdx_{der} {
@@ -253,6 +473,7 @@ public:
     return *this;
   }
 
+
   Derivative<double> getvalue() && {
     {
       assert(f().size() == 1);
@@ -263,6 +484,11 @@ public:
     }
   }
 };
+
+
+inline auto& center(const Derivative<M_Matrix<double>>& x){return x.f();}
+inline auto& center(Derivative<M_Matrix<double>>& x){return x.f();}
+
 
 template <bool output> struct are_Equal<output, Derivative<double>> {
 private:
@@ -775,7 +1001,7 @@ inline bool mean_value_test_calc(
 }
 
 template <class Object, class Method, class DerivativeObject>
-bool mean_value_test_method_calc(const std::vector<double> &eps, double tol,
+bool mean_value_test_method_calc(const std::vector<double> &eps, double tol [[maybe_unused]],
                                  const grammar::field<Object, Method> &m,
                                  const DerivativeObject &y,
                                  const std::vector<DerivativeObject> &yeps,
@@ -941,6 +1167,23 @@ inline auto exp(const Derivative<M_Matrix<double>> &x) {
   return Derivative<M_Matrix<double>>(exp(x.f()), x.x(),
                                       elemMult_a(x.dfdx(), exp(x.f())));
 }
+
+
+
+
+template <class Norm, bool diff>
+Error<double, Norm,diff> expm1(const Error<double, Norm,diff> &one) {
+    auto c=std::expm1(one.center());
+    return Error<double, Norm,diff> (c,one.norm());
+
+}
+
+inline auto expm1(const Derivative<double> &x) {
+    return Derivative<double>(std::expm1(x.f()), x.x(),
+                              exp(x.f())*x.dfdx());
+}
+
+
 
 inline auto abs(D, double x) {
   if (x >= 0)
@@ -1176,7 +1419,7 @@ namespace Matrix_Decompositions {
 inline auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>> &Dx) {
   typedef myOptional_t<
       std::tuple<Derivative<M_Matrix<double>>, Derivative<M_Matrix<double>>,
-                 Derivative<M_Matrix<double>>>>
+                   Derivative<M_Matrix<double>>, M_Matrix<double>,M_Matrix<double>>>
       Op;
   auto res = Matrix_Decompositions::EigenSystem_full_real_eigenvalue(Dx.f());
   if (!res)
@@ -1230,15 +1473,20 @@ inline auto EigenSystem_full_real_eigenvalue(const Derivative<M_Matrix<double>> 
       return Op(false, " fails to invert the left eigenvector");
 
     return Op(std::tuple(std::move(DVR), Derivative<M_Matrix<double>>(dlanda),
-                         std::move(DVL).value()));
+                         std::move(DVL).value(), std::move(CL), std::move(CV)));
   }
 }
 } // namespace Matrix_Decompositions
 
 template <> struct myDerivative<Matrix_Decompositions::eigensystem_type> {
   typedef std::tuple<Derivative<M_Matrix<double>>, Derivative<M_Matrix<double>>,
-                     Derivative<M_Matrix<double>>>
+                       Derivative<M_Matrix<double>>,M_Matrix<double>,M_Matrix<double>>
       type;
+};
+template <> struct Der<Matrix_Decompositions::eigensystem_type> {
+    typedef std::tuple<Derivative<M_Matrix<double>>, Derivative<M_Matrix<double>>,
+                       Derivative<M_Matrix<double>>,M_Matrix<double>,M_Matrix<double>>
+        type;
 };
 
 template <bool output>

@@ -13,6 +13,8 @@ public:
   virtual Base_Function *clone() const = 0;
   virtual T operator()(const Parameters_values<Model> &x) const = 0;
   virtual Derivative<T> operator()(const Derivative<Parameters_values<Model>> &x) const = 0;
+  virtual T operator()(const Parameters_values_new<Model> &x) const = 0;
+  virtual Der_t<T> operator()(const Der_t<Parameters_values_new<Model>> &x) const = 0;
 
   virtual void putme(std::ostream &os) const = 0;
 
@@ -73,7 +75,7 @@ public:
   typedef typename Parameters_values<Model>::par_label par_label;
   virtual std::string myClass() const override { return className.str(); }
 
-  virtual ParValue *clone() const override{ return new ParValue(*this); };
+  virtual ParValue<T,Model> *clone() const override{ return new ParValue(*this); };
   virtual T operator()(const Parameters_values<Model> &x) const override {
     return x.at(p_);
   }
@@ -82,6 +84,16 @@ public:
     return x.at(p_);
 
   }
+
+  virtual T operator()(const Parameters_values_new<Model> &x) const override {
+      return x.at(p_);
+  }
+  virtual Der_t<T> operator ()(const Der_t<Parameters_values_new<Model> > &x) const override
+  {
+      return x.at(p_);
+
+  }
+
   par_label getParameter() const { return p_; }
 
   virtual void putme(std::ostream &os) const override { os << getParameter(); }
@@ -113,6 +125,17 @@ public:
     return Derivative<double>(x_,p.x());
       };
 
+      virtual double operator()(const Parameters_values_new<Model> &) const override {
+          return x_;
+      }
+
+      virtual Der_t<double> operator()(const Der_t<Parameters_values_new<Model>> &p) const override
+      {
+          return Der_t<double>(x_,p.getParameterMap().begin()->second.x());
+      };
+
+
+
 
   double getValue() const { return x_; }
   ConstValue(double x) : x_{x} {}
@@ -137,6 +160,12 @@ public:
   }
   virtual Derivative<T> operator()(const Derivative<Parameters_values<Model>> &x) const override{
     return Derivative_t<BiOp>()(first()(x), second()(x));
+  }
+  virtual T operator()(const Parameters_values_new<Model> &x) const override {
+      return BiOp()(first()(x), second()(x));
+  }
+  virtual Der_t<T> operator()(const Der_t<Parameters_values_new<Model>> &x) const override{
+      return Der_t<BiOp>()(first()(x), second()(x));
   }
 
   BinaryOperator(Base_Function<T, Model> *one, Base_Function<T, Model> *two)
@@ -182,6 +211,13 @@ public:
   virtual Derivative<T> operator ()(const Derivative<Parameters_values<Model> > &x) const override
   {
     return Derivative_t<UnOp>()(first()(x));
+  }
+  virtual T operator()(const Parameters_values_new<Model> &x) const override {
+      return UnOp()(first()(x));
+  }
+  virtual Derivative<T> operator ()(const Der_t<Parameters_values_new<Model> > &x) const override
+  {
+      return Der_t<UnOp>()(first()(x));
   }
 
 
@@ -247,6 +283,16 @@ public:
   virtual Derivative<T> operator()(const Derivative<Parameters_values<Model>> &x) const override {
     return std::apply([&x](auto &... t) { return Derivative_t<F>()((*t)(x)...); }, tu_);
   }
+
+  virtual T operator()(const Parameters_values_new<Model> &x) const override {
+      return std::apply([&x](auto &... t) { return F()((*t)(x)...); }, tu_);
+  }
+
+  virtual Der_t<T> operator()(const Der_t<Parameters_values_new<Model>> &x) const override {
+      return std::apply([&x](auto &... t) { return Der_t<F>()((*t)(x)...); }, tu_);
+  }
+
+
 
   Function(Base_Function<Args, Model> *... args) : tu_{args...} {}
    ~Function() override {}

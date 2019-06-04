@@ -5,6 +5,35 @@
 
 
 
+template<typename Model>
+auto tr_to_Parameter_impl(const Parameters_distribution_new_<Der,Model>* self,const M_Matrix<double>& val)
+{
+
+    typedef myOptional_t<Der_t<Parameters_values_new<Model>>> Op;
+    Der_t<LabelMap_t<typename Model::myParameter_label>> m;
+    std::vector<Op_void> res;
+    for ( std::size_t i=0; i<val.size(); ++i)
+    {
+        res.emplace_back(self->is_in_range(i,val[i]));
+        if (res[i])
+        {
+            M_Matrix<double> d(val.nrows(),val.ncols(),val.type(),0.0);
+            d[i]=self->tr(i)->dapply_inv(val[i]);
+
+            m[self->name(i)]=Derivative<double>(self->tr(i)->apply_inv(val[i]),val,
+                                                  std::move(d));
+        }
+    }
+    auto r=consolidate(std::move(res));
+    if (r)
+
+        return Op(Der_t<Parameters_values_new<Model>>(m));
+    else {
+        return Op(false,r.error());
+    }}
+
+
+
 
 
 template<typename Model>

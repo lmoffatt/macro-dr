@@ -33,6 +33,9 @@ struct calculate_eigenvalues
         assert(x.nrows()==x.ncols());
        return Matrix_Decompositions::EigenSystem_full_real_eigenvalue(x);
     }
+    auto operator()(const Derivative<M_Matrix<double>>& x)
+    {return Matrix_Decompositions::EigenSystem_full_real_eigenvalue(x);
+    }
 
 };
 

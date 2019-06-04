@@ -218,7 +218,7 @@ template <class T, typename...Ts>
 bool are_Equal_v(const T &one, const T &other, std::ostream &os, Ts...context) {
   if (!are_Equal<true, T>(std::sqrt(std::numeric_limits<double>::epsilon()*1e10),std::sqrt(std::numeric_limits<double>::epsilon()*1e10)).test(one, other, os))
   {
-    (os<<...<<context);
+    [[maybe_unused]] auto &o=(os<<...<<context);
     return false;
   }
   else return true;
@@ -233,7 +233,7 @@ auto are_Equal_v(const T &one, const T &other, double eps, double epsf,std::ostr
   if (!are_Equal<true, T>(eps,epsf).test(one, other, os))
   {
       using namespace io;
-    (os<<...<<context);
+    [[maybe_unused]] auto&  r=(os<<...<<context);
     return false;
   }
   else return true;
@@ -243,7 +243,7 @@ template <class T, typename...Ts>
 bool are_Equal_v(const T *one, const T * other, double eps, double epsf,std::ostream &os, Ts...context) {
   if (!are_Equal<true, T>(eps,epsf).test(one, other, os))
   {
-    (os<<...<<context);
+    [[maybe_unused]] auto&  r=(os<<...<<context);
     return false;
   }
   else return true;

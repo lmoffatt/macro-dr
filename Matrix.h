@@ -1142,7 +1142,7 @@ init_zero();
 
 
 private:
-    T const & zero(std::size_t i, std::size_t j)const
+    T const & zero(std::size_t i [[maybe_unused]], std::size_t j [[maybe_unused]])const
     {
         if constexpr (is_Matrix_v<T>)
             return zero_[i*ncols()+j];

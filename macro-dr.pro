@@ -6,7 +6,7 @@ CONFIG += c++17
 #CONFIG += sanitizer sanitize_address
 QMAKE_CXXFLAGS -= -std=gnu++11
 QMAKE_CXXFLAGS +=  -std=c++17 -Werror=return-type -ftemplate-backtrace-limit=0  -Wnon-virtual-dtor -Wnull-dereference  -fdiagnostics-show-template-tree
-QMAKE_CXXFLAGS += -fstandalone-debug
+#QMAKE_CXXFLAGS += -fstandalone-debug
 QMAKE_CXXFLAGS_RELEASE += -lpthread
 QMAKE_CXXFLAGS_DEBUG += -lpthread
 
@@ -36,7 +36,6 @@ main.cpp \
 commands.cpp
 
 HEADERS += \
-    error_analysis.h \
     matrixcalculations.h \
     matrixerror.h \
     maximum_entropy.h \
@@ -66,7 +65,6 @@ HEADERS += \
     myparameters.h \
     mycontainer.h \
     likelihood_markov_process.h \
-    mydata.h \
     myevidence.h \
     qlikelihood.h \
     mytests.h \

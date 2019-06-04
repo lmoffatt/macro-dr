@@ -83,8 +83,8 @@ std::istream& operator>>(std::istream& is,  Label<T>& x)
 template <class label>
 struct LabelMap
 {
-    typedef typename label::referred_type referred_type;
-    typedef   std::map<std::string,referred_type > type;
+    //typedef typename label::referred_type referred_type;
+    typedef   std::map<std::string,double > type;
 
 };
 
@@ -94,6 +94,7 @@ using LabelMap_t=typename LabelMap<label>::type;
 
 class Parameter_label
         : public Label<double> {public: using Label::Label;  using Label::legal_chars;
+    using Label::referred_type;
 };
 
 template<typename Model, typename aParameter_label >
@@ -122,13 +123,14 @@ public:
     typedef typename Model::myParameter_label par_label;
 
   private:
-    LabelMap_t<par_label> d_;
+    //LabelMap_t<par_label> d_;
+      std::map<std::string,double> d_;
 
   public:
 
   //  constexpr static const char legal_chars[]=par_label::legal_chars;
     std::size_t size()const { return d_.size();}
-    Parameters_values(LabelMap_t<par_label> values): d_{values}{};
+    Parameters_values(std::map<std::string,double> values): d_{values}{};
     Parameters_values()=default;
     double& at(const par_label& label)
     {
@@ -163,28 +165,29 @@ public:
 
 };
 
-template<template<class> class Tr,typename Model>
+template<template<class...> class Tr,typename Model>
 class Parameters_values_new_;
 template<typename Model>
 using Parameters_values_new=Parameters_values_new_<C,Model>;
 
 
-template<template<class> class Tr,typename Model>
+template<template<class...> class Tr,typename Model>
 class Parameters_values_new_
 {
 public:
-    typedef typename Model::myParameter_label par_label;
 
     template<class T> using Tr_t=typename Tr<T>::type;
+    typedef typename Model::myParameter_label par_label;
 
 private:
-    Tr_t<LabelMap_t<par_label>> d_;
+   // Tr_t<LabelMap_t<par_label>> d_;
+    Tr_t<std::map<std::string,double>> d_;
 
 public:
 
     //  constexpr static const char legal_chars[]=par_label::legal_chars;
     std::size_t size()const { return d_.size();}
-    Parameters_values_new_(Tr_t<LabelMap_t<par_label>> values): d_{values}{}
+    Parameters_values_new_(Tr_t<std::map<std::string,double>> values): d_{values}{}
     Parameters_values_new_()=default;
     Tr_t<double>& at(const par_label& label)
     {
@@ -499,16 +502,21 @@ public:
 };
 
 
-template<template<class> class Tr,typename Model>
+template<template<class...> class Tr,typename Model>
 class Parameters_distribution_new_;
 template<typename Model>
 using Parameters_distribution_new=Parameters_distribution_new_<C,Model>;
 
+//template <class... > class Der;
+template<template<class...> class Tr,typename Model>
+myOptional_t<typename Tr<Parameters_values_new<Model>>::type>
+tr_to_Parameter_impl(const Parameters_distribution_new_<Tr,Model>* self,const M_Matrix<double>& val);
 
-template<template<class> class Tr,typename Model>
+template<template<class...> class Tr,typename Model>
 class Parameters_distribution_new_: public Base_Distribution<M_Matrix<double>>
 {
 public:
+    template<class T> using Tr_t=typename Tr<T>::type;
     typedef Base_Distribution<M_Matrix<double>> base_type;
     virtual Parameters_distribution_new_* clone()const override{ return new Parameters_distribution_new_(*this);}
     std::string myClass()const override { return className.str();}
@@ -633,25 +641,12 @@ public:
 
 
 
-    virtual myOptional_t<Parameters_values<Model>> tr_to_Parameter(const M_Matrix<double>& val)const
+    auto tr_to_Parameter(const M_Matrix<double>& val)const
     {
-        typedef myOptional_t<Parameters_values<Model>> Op;
-        assert(val.size()==tu_.size());
-        LabelMap_t<par_label> m;
-        std::vector<Op_void> res;
-        for ( std::size_t i=0; i<val.size(); ++i)
-        {
-            res.emplace_back(is_in_range(i,val[i]));
-            if (res[i])
-            {
-                m[name(i)]=tr(i)->apply_inv(val[i]);
-            }
-        }
-        auto r=consolidate(std::move(res));
-        if (r)
-            return Op(Parameters_values<Model>(m));
-        else return Op(false,r.error());
+        return tr_to_Parameter_impl(this,val);
     }
+
+
     virtual double tr_to_Parameter(double val, std::size_t ipar)const
     {
         assert(ipar<size());
@@ -661,7 +656,7 @@ public:
 
 
 
-    M_Matrix<double> Parameter_to_tr(const Parameters_values<Model> & val) const
+    M_Matrix<double> Parameter_to_tr(const Parameters_values_new<Model> & val) const
     {
         assert(val.size()==tu_.size());
         M_Matrix<double> out(1,val.size());
@@ -671,6 +666,8 @@ public:
         }
         return out;
     }
+
+
 
 
 
@@ -693,7 +690,7 @@ public:
         for (std::size_t i=0; i<size(); ++i)
             out[i]={name(i),tr(i),dist(i),range(i)};
         return out;}
-    typedef  Parameters_distribution<Model> self_type;
+    typedef  Parameters_distribution_new_ self_type;
     constexpr static auto  className=my_trait<Model>::className+my_static_string("_Parameters_Distribution");
     static auto get_constructor_fields()
     {
@@ -710,6 +707,9 @@ public:
 
     Parameters_distribution_new_()=default;
 
+    template<template<class...> class Tr_other>
+    Parameters_distribution_new_(const Parameters_distribution_new_<Tr_other,Model>& other): tu_{tucopy(other.get_data())}{};
+
     Parameters_distribution_new_(const Parameters_distribution_new_& other): tu_{tucopy(other.tu_)}{};
     Parameters_distribution_new_( Parameters_distribution_new_&&)=default;
     Parameters_distribution_new_& operator=(const Parameters_distribution_new_& other)
@@ -719,6 +719,8 @@ public:
     Parameters_distribution_new_& operator=( Parameters_distribution_new_&&)=default;
 
 
+
+    auto& get_data()const {return tu_;}
 
 protected:
 
@@ -752,6 +754,28 @@ protected:
 
 };
 
+
+
+template<template<class...> class Tr,typename Model>
+myOptional_t<typename Tr<Parameters_values_new<Model>>::type>
+tr_to_Parameter_impl(const Parameters_distribution_new_<Tr,Model>* self,const M_Matrix<double>& val)
+{
+    typedef myOptional_t<typename Tr<Parameters_values<Model>>::type> Op;
+    typename Tr<LabelMap_t<typename Model::par_label>>::type m;
+    std::vector<Op_void> res;
+    for ( std::size_t i=0; i<val.size(); ++i)
+    {
+        res.emplace_back(self->is_in_range(i,val[i]));
+        if (res[i])
+        {
+            m[self->name(i)]=self->tr(i)->apply_inv(val[i]);
+        }
+    }
+    auto r=consolidate(std::move(res));
+    if (r)
+        return Op(Parameters_values<Model>(m));
+    else return Op(false,r.error());
+}
 
 
 

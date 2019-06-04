@@ -53,6 +53,9 @@ public:
 
     Error(M_Matrix<T>&& val): center_{std::move(val)},norm_{center().apply(&Norm::pow)*Norm::pow(std::numeric_limits<T>::epsilon()*10)} {}
 
+    Error(std::size_t nrows_, std::size_t ncols_, typename M_Matrix<T>::TYPE t, T x)
+        : center_(nrows_,ncols_,t,x),norm_(nrows_,ncols_,t,Norm::pow(x*std::numeric_limits<double>::epsilon())){}
+
     Error(std::size_t nrows_, std::size_t ncols_, typename M_Matrix<T>::TYPE t)
         : center_(nrows_,ncols_,t),norm_(nrows_,ncols_,t){}
 
@@ -126,7 +129,7 @@ bool operator==(const Error<M_Matrix<T>,Norm,diff>& one, const M_Matrix<T>& othe
 
 
 template <class T, class Norm, bool diff,typename...Ts>
-auto are_Equal_v(const Error<M_Matrix<T>,Norm,diff> &one, const Error<M_Matrix<T>,Norm,diff>& other, double eps, double epsf,std::ostream &os, Ts...context)->std::enable_if_t<!std::is_pointer_v<T>,bool>
+auto are_Equal_v(const Error<M_Matrix<T>,Norm,diff> &one, const Error<M_Matrix<T>,Norm,diff>& other, double /*eps*/, [[maybe_unused]] double epsf,std::ostream &os, Ts...context)->std::enable_if_t<!std::is_pointer_v<T>,bool>
 {
     if (!(one==other))
     {
@@ -363,7 +366,7 @@ Matrix_Binary_Transformations::TranspMult(one.norm(),other_norm)+Matrix_Binary_T
 
    template <typename T, typename S, class Norm,bool diff>
    auto elemDivSafe(const Error<M_Matrix<T>,Norm,diff>   &x, const Error<M_Matrix<S>,Norm,diff>   &y,
-                    double eps = std::numeric_limits<double>::epsilon()) {
+                    [[maybe_unused]] double eps = std::numeric_limits<double>::epsilon()  ) {
        typedef decltype(std::declval<T>() * std::declval<S>()) R;
        //double norm = Matrix_Unary_Functions::norm_1(y);
        Error<M_Matrix<R>,Norm,diff> out(x.nrows(),x.ncols(),x.type());

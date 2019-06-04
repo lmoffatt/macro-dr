@@ -263,7 +263,7 @@ template <> class Derivative<Markov_Transition_rate> {
   }
 
   void init(Derivative_t<Matrix_Decompositions::eigensystem_type> &&eig) {
-    std::tie(V_, landa_, W_) = std::move(eig);
+      std::tie(V_, landa_, W_,std::ignore,std::ignore) = std::move(eig);
     clean_landa(landa_);
     Wg_ = W_ * g_;
     assert((are_Equal<true, Derivative<M_Matrix<double>>>().test_prod(
@@ -332,22 +332,22 @@ public:
       if constexpr (false){
   are_Equal<true, Derivative_t<
                           typename Matrix_Decompositions::eigensystem_type>>()
-          .test(Incremental_ratio_tuple_3(
+              .test(std::tuple_cat(Incremental_ratio_tuple_3(
                     1e-5,
                     [](auto &x) {
                       return Matrix_Decompositions::
                           EigenSystem_full_real_eigenvalue(x)
                               .value();
                     },
-                    _Qrun),
-                Incremental_ratio_tuple_3(
+                                       _Qrun),std::tuple(M_Matrix<double>(),M_Matrix<double>())),
+                    std::tuple_cat(Incremental_ratio_tuple_3(
                     1e-6,
                     [](auto &x) {
                       return Matrix_Decompositions::
                           EigenSystem_full_real_eigenvalue(x)
                               .value();
                     },
-                    _Qrun),
+                    _Qrun),std::tuple(M_Matrix<double>(),M_Matrix<double>())),
                 std::cerr);
       // std::cerr<<"\n --------1e-6-------\n";
 
@@ -356,14 +356,14 @@ public:
               true,
               Derivative_t<typename Matrix_Decompositions::eigensystem_type>>()
               .test(eig.value(),
-                    Incremental_ratio_tuple_3(
+            std::tuple_cat(Incremental_ratio_tuple_3(
                         1e-6,
                         [](auto &x) {
                           return Matrix_Decompositions::
                               EigenSystem_full_real_eigenvalue(x)
                                   .value();
                         },
-                        _Qrun),
+                        _Qrun),std::tuple(M_Matrix<double>(),M_Matrix<double>())),
                     std::cerr);
       }
       if (auto eigtest = test(eig.value(), tolerance); eigtest.has_value())

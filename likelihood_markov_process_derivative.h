@@ -1207,7 +1207,7 @@ public:
 
     assert((Derivative_correctness_mean_value_test(
         1e-2, 1e4,
-        [&u](auto P_cov, auto P_mean) { return P_cov - diag(P_mean); },
+        [](auto P_cov, auto P_mean) { return P_cov - diag(P_mean); },
         std::forward_as_tuple(prior.P_cov(), prior.P_mean()), SmD, std::cerr,
         " step=", p, "prior=", prior, "Q_dt= ", Q_dt, "  SmD=", SmD)));
 
@@ -1234,7 +1234,7 @@ public:
 
     assert((Derivative_correctness_mean_value_test(
         1e-2, 1e4,
-        [&u](auto P_mean, auto gvar_i) {
+        [](auto P_mean, auto gvar_i) {
           return (P_mean * gvar_i).getvalue();
           ;
         },
@@ -1305,7 +1305,7 @@ public:
 
       assert((Derivative_correctness_mean_value_test(
           1e-2, 1e4,
-          [&u](auto ms_, auto e_, auto N_, auto sSs_) {
+          [](auto ms_, auto e_, auto N_, auto sSs_) {
             return sqr(ms_ + e_ / N_) - sSs_ / N_ * 2.0;
           },
           std::forward_as_tuple(ms, e, N, sSs), delta_emu, std::cerr,
@@ -1422,7 +1422,7 @@ public:
 
       assert((Derivative_correctness_mean_value_test(
           1e-2, 1e4,
-          [&u](auto SmD_, auto P, auto P_mean) {
+          [](auto SmD_, auto P, auto P_mean) {
             return quadraticForm_BT_A_B(SmD_, P) + diag(P_mean);
             ;
           },
@@ -1458,7 +1458,7 @@ public:
 
     auto chi2 = dy * chi;
     assert((Derivative_correctness_mean_value_test(
-        1e-2, 1e4, [&y](auto dy_, auto chi_) { return dy_ * chi_; },
+        1e-2, 1e4, [](auto dy_, auto chi_) { return dy_ * chi_; },
         std::forward_as_tuple(dy, chi), chi2, std::cerr, " step=", p)));
 
     Derivative<double> plogL(y_mean.x());
