@@ -2152,9 +2152,9 @@ public:
         const Tr_t<Markov_Transition_step_variance> &Q_dt, Model &m, const Step &p,
         std::ostream & /*os*/) const {
         typedef myOptional_t<Tr_t<mp_macro_information>> Op;
-        Tr_t<double> y = p.y();
-        Tr_t<double> e = m.noise_variance(p.nsamples(),c.fs());
-        Tr_t<double> N = m.AverageNumberOfChannels();
+        auto y = p.y();
+        auto e = m.noise_variance(p.nsamples(),c.fs());
+        auto N = m.AverageNumberOfChannels();
         M_Matrix<double> u(prior.P_mean().size(), 1, 1.0);
 
         auto SmD = prior.P_cov() - diag(prior.P_mean());
@@ -2268,8 +2268,8 @@ public:
         else
             plogL = std::numeric_limits<double>::infinity();
 
-        Tr_t<double> eplogL =
-            Tr_t<double>(-0.5) * log(2 * PI * y_var) - Tr_t<double>(0.5); // e_mu+N*gSg"-N*zeta*sqr(sSg)"
+        auto eplogL =
+            -0.5 * log(2 * PI * y_var) - 0.5; // e_mu+N*gSg"-N*zeta*sqr(sSg)"
         // double chilogL=(eplogL-plogL)/std::sqrt(0.5);
 
         double vplogL = 0.5;

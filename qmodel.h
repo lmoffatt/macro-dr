@@ -1577,8 +1577,19 @@ public:
     }
 
     Allosteric_Model_new_() = default;
+    Allosteric_Model_new_(const Allosteric_Model_new_&) = default;
+    Allosteric_Model_new_(Allosteric_Model_new_&&) = default;
+    Allosteric_Model_new_& operator=(const Allosteric_Model_new_&) = default;
+    Allosteric_Model_new_& operator=( Allosteric_Model_new_&&) = default;
 
-    Allosteric_Model_new_(const Allosteric_Model_new& other);
+
+
+    template<template<class...> class otherTr>
+    Allosteric_Model_new_(const Allosteric_Model_new_<otherTr>& other);
+
+
+    template<template<class...> class otherTr>
+    Allosteric_Model_new_( Allosteric_Model_new_<otherTr>&& other);
 
 
     Allosteric_Model_new_(
@@ -1772,14 +1783,24 @@ private:
 
 
 template<template<class...> class Tr>
-Allosteric_Model_new_<Tr>::Allosteric_Model_new_(const Allosteric_Model_new &other)
+template<template<class...> class otherTr>
+Allosteric_Model_new_<Tr>::Allosteric_Model_new_(const Allosteric_Model_new_<otherTr> &other)
     :new_d_{other.get_new_model_definition()},conformer_{other.get_conformers()},transitions_{other.get_transitions()},
       paramNames_{other.get_paramNames()},conductances_{other.get_conductances()},d_{other.get_model_definition()},
       connections_to_0_{other.connections_to_x(0.0)},connections_to_a_{other.connections_to_a()},
-      connections_to_x_{other.connections_to_x(1.0)},connections_from_0_{connections_from_x(0.0)},
+      connections_to_x_{other.connections_to_x(1.0)},connections_from_0_{other.connections_from_x(0.0)},
       connections_from_x_{other.connections_from_x(1.0)}
 {}
 
+template<template<class...> class Tr>
+template<template<class...> class otherTr>
+Allosteric_Model_new_<Tr>::Allosteric_Model_new_( Allosteric_Model_new_<otherTr> &&other)
+    :new_d_{std::move(other.get_new_model_definition())},conformer_{std::move(other.get_conformers())},transitions_{std::move(other.get_transitions())},
+      paramNames_{std::move(other.get_paramNames())},conductances_{std::move(other.get_conductances())},d_{std::move(other.get_model_definition())},
+      connections_to_0_{std::move(other.connections_to_x(0.0))},connections_to_a_{std::move(other.connections_to_a())},
+      connections_to_x_{std::move(other.connections_to_x(1.0))},connections_from_0_{std::move(other.connections_from_x(0.0))},
+      connections_from_x_{std::move(other.connections_from_x(1.0))}
+{}
 
 
 inline std::vector<std::vector<std::size_t>>
@@ -4571,7 +4592,6 @@ public:
 
            auto gtotal_ij = (Qx.V() * WgV_E2 * Qx.W());
            auto gmean_ij = elemDivSafe(gtotal_ij, P);
-           Tr_t<double> zero(0);
 
            Tr_t<M_Matrix<double>> WgV_E3(N, N,Matrix_TYPE::FULL, 0.0);
            for (std::size_t n1 = 0; n1 < N; n1++)
@@ -4589,20 +4609,20 @@ public:
            auto gtotal_sqr_ij = Qx.V() * WgV_E3 * Qx.W() * 2.0;
            for (std::size_t i = 0; i < gtotal_sqr_ij.size(); ++i) {
                if (std::abs(center(gtotal_ij)[i]) < minP)
-                   gtotal_ij.set(i, zero);
+                   gtotal_ij.set(i, 0.0);
                if (std::abs(center(gtotal_sqr_ij)[i]) < minP)
-                   gtotal_sqr_ij.set(i, 0);
+                   gtotal_sqr_ij.set(i, 0.0);
            }
            auto gtotal_var_ij = gtotal_sqr_ij - elemMult(gtotal_ij, gmean_ij);
            for (std::size_t i = 0; i < gtotal_sqr_ij.size(); ++i) {
                if (std::abs(center(gtotal_sqr_ij)[i]) < minP)
-                   gtotal_var_ij.set(i, 0);
+                   gtotal_var_ij.set(i, 0.0);
            }
 
            auto gvar_ij = elemDivSafe(gtotal_var_ij, P);
            for (std::size_t i = 0; i < gvar_ij.size(); ++i)
                if (std::abs(center(gvar_ij)[i]) < minP)
-                   gvar_ij.set(i, 0);
+                   gvar_ij.set(i, 0.0);
 
            M_Matrix<double> u(N, 1, 1.0);
            auto gmean_i = gtotal_ij * u;
@@ -4809,7 +4829,7 @@ public:
       if (std::abs(center(y) - center(x)) < min) {
       return exp_x * expm2(y - x);
     }
-    return EX_111(x, y, y, exp_x) + exp_y / (y - x) * (Tr_t<double>(1.0) - Tr_t<double>(1.0) / (y - x));
+    return EX_111(x, y, y, exp_x) + exp_y / (y - x) * (1.0 - 1.0 / (y - x));
   }
 
   static Tr_t<double> E3(const Tr_t<double>& x, const Tr_t<double>& y, const Tr_t<double>& z, const Tr_t<double>& exp_x, const Tr_t<double>& exp_y,

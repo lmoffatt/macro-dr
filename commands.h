@@ -264,14 +264,14 @@ template <class Experiment, class Model,class ParametersDistribution> struct lik
                                     const ParametersDistribution &prior,
                                     const std::string algorithm, double min_P,
                                     double tolerance, double biNumber,
-                                    double Vanumber, double maxChi2, double reduce_by_p, std::size_t order_number, double min_connection_ratio);
+                                    double Vanumber);
 
     static auto get_arguments() {
         return std::make_tuple(
             grammar::argument(C<const Experiment &>{},
                               my_trait<Experiment>::className.c_str()),
             grammar::argument(C<Model &>{}, my_trait<Model>::className.c_str()),
-            grammar::argument(C<const Parameters_values<Model> &>{},
+            grammar::argument(C<const Parameters_values_new<Model> &>{},
                               "model_parameters"),
             grammar::argument(C<const ParametersDistribution &>{},
                               "model_parameters_distribution"),
@@ -279,11 +279,7 @@ template <class Experiment, class Model,class ParametersDistribution> struct lik
             grammar::argument(C<double>{}, "min_probability", 1e-9),
             grammar::argument(C<double>{}, "tolerance_error", 1e-7),
             grammar::argument(C<double>{}, "Binomial_threshold", 5.0),
-            grammar::argument(C<double>{}, "Variance_threshold", 1.0),
-            grammar::argument(C<double>{}, "max_Chi2", 10.0),
-            grammar::argument(C<double>{}, "reduce_by_p", 1e-4),
-            grammar::argument(C<std::size_t>{}, "order_number", 5ul),
-            grammar::argument(C<double>{}, "min_connection_ratio", 1e-4));
+            grammar::argument(C<double>{}, "Variance_threshold", 1.0));
     }
 };
 
@@ -806,6 +802,8 @@ struct Objects {
       function_log10, simulate<singleLigandExperiment, Allosteric_Model>,
       likelihood<singleLigandExperiment, Allosteric_Model>,
       //  likelihood_detail<singleLigandExperiment,Allosteric_Model>,
+      likelihood_der<singleLigandExperiment, Allosteric_Model_new,
+               Parameters_distribution_new<Allosteric_Model_new>>,
       Evidence<singleLigandExperiment, Allosteric_Model,
                Parameters_distribution<Allosteric_Model>>,
       Evidence_prob<singleLigandExperiment, Allosteric_Model,
@@ -824,6 +822,8 @@ struct Objects {
       simulate<singleLigandExperiment, State_Model>,
       likelihood<singleLigandExperiment, State_Model>,
       likelihood_detail<singleLigandExperiment, State_Model>,
+      likelihood_der<singleLigandExperiment, State_Model_new,
+               Parameters_distribution_new<State_Model_new>>,
       Evidence<singleLigandExperiment, State_Model,
                Parameters_distribution<State_Model>>,
       Evidence_prob<singleLigandExperiment, State_Model,

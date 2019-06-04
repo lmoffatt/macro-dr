@@ -158,38 +158,54 @@ template <class Norm, bool diff>
 template <class Norm, bool diff>
 Error<double, Norm,diff> operator+(const Error<double, Norm,diff> &one,
                                      double two) {
-    return Error<double, Norm,diff> (one.center()+two,one.norm());
+
+    return one+Error<double,Norm,diff>(two);
 }
 
 template <class Norm, bool diff>
 Error<double, Norm,diff> operator+(double two,const Error<double, Norm,diff> &one
                                     ) {
-    return Error<double, Norm,diff> (two+one.center(),one.norm());
+    return  Error<double, Norm,diff>(two)+one;
+}
+
+template <class Norm, bool diff>
+Error<double, Norm,diff> operator-(const Error<double, Norm,diff> &one,
+                                    double two) {
+
+    return one-Error<double,Norm,diff>(two);
+}
+
+template <class Norm, bool diff>
+Error<double, Norm,diff> operator-(double two,const Error<double, Norm,diff> &one
+                                    ) {
+    return  Error<double, Norm,diff>(two)-one;
 }
 
 template <class Norm, bool diff >
 Error<double, Norm,diff> operator*(const Error<double, Norm,diff> &one,
                                   double two) {
-    return Error<double, Norm,diff> (one.center()*two,one.norm()*Norm::pow(two));
+    return one*Error<double,Norm,diff>(two);
+
 }
 
 template <class Norm, bool diff >
 Error<double, Norm,diff> operator*(double two,const Error<double, Norm,diff> &one
                                     ) {
-    return Error<double, Norm,diff> (two*one.center(),Norm::pow(two)*one.norm());
+    return  Error<double, Norm,diff>(two)*one;
 }
 
 template <class Norm, bool diff >
 Error<double, Norm,diff> operator/(const Error<double, Norm,diff> &one,
                                     double two) {
-    return Error<double, Norm,diff> (one.center()/two,one.norm()/Norm::pow(two));
+    return one/Error<double,Norm,diff>(two);
+
 }
 
 template <class Norm, bool diff >
 Error<double, Norm,diff> operator/(double two,const Error<double, Norm,diff> &one
                                     ) {
-    return Error<double, Norm,diff> (two/one.center(),one.norm()*two/Norm::pow(one.center())/Norm::pow(one.center()));
-}
+    return Error<double,Norm,diff>(two)/one;
+ }
 
 
 
@@ -202,6 +218,9 @@ Error<double, Norm,diff> operator-(const Error<double, Norm,diff> &one,
     out -= two;
     return out;
 }
+
+
+
 template <class Norm, bool diff>
 Error<double, Norm,diff> operator*(const Error<double, Norm,diff> &one,
                                     const Error<double, Norm,diff> &two) {
@@ -225,6 +244,14 @@ T const& center(const Error<T,Norm,diff>& x)
 {
     return x.center();
 }
+
+template <class T,class Norm, bool diff>
+T  center(Error<T,Norm,diff>&& x)
+{
+    return x.center();
+}
+
+
 
 template <class T> T center(const T& x)
 {

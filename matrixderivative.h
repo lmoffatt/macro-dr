@@ -138,6 +138,7 @@ public:
   double const &f() const { return f_; }
   double &f() { return f_; }
   M_Matrix<double> const &x() const { return *x_; }
+  M_Matrix<double> const * x_ptr()const {return x_;}
   M_Matrix<double> const &dfdx() const { return dfdx_; }
   M_Matrix<double> &dfdx() { return dfdx_; }
 
@@ -155,6 +156,11 @@ public:
   Derivative(const M_Matrix<double> &myx)
       : f_{0}, x_{&myx}, dfdx_{myx.nrows(), myx.ncols(), myx.type(), 0.0} {}
   Derivative &operator+=(const Derivative &other) {
+      if (x_==nullptr)
+      {
+          x_=&other.x();
+          dfdx_=M_Matrix<double>(x().nrows(),x().ncols(),x().type(),0.0);
+      }
     assert(x() == other.x());
     f_ += other.f();
     dfdx_ += other.dfdx();
@@ -163,7 +169,10 @@ public:
 
   Derivative &operator*=(const Derivative &other) {
       if (x_==nullptr)
+      {
           x_=&other.x();
+          dfdx_=M_Matrix<double>(x().nrows(),x().ncols(),x().type(),0.0);
+      }
       assert(x() == other.x());
       auto df = f() * other.dfdx();
       for (std::size_t i = 0; i < df.size(); ++i)
@@ -189,6 +198,11 @@ public:
 
 
   Derivative &operator-=(const Derivative &other) {
+      if (x_==nullptr)
+      {
+          x_=&other.x();
+          dfdx_=M_Matrix<double>(x().nrows(),x().ncols(),x().type(),0.0);
+      }
     assert(x() == other.x());
     f_ -= other.f();
     dfdx_ -= other.dfdx();
@@ -329,6 +343,7 @@ public:
   M_Matrix<double> const &f() const { return f_; }
   M_Matrix<double> &f() { return f_; }
   M_Matrix<double> const &x() const { return *x_; }
+  M_Matrix<double> const * x_ptr()const {return x_;}
   M_Matrix<M_Matrix<double>> const &dfdx() const { return dfdx_; }
   M_Matrix<M_Matrix<double>> &dfdx() { return dfdx_; }
 
@@ -340,7 +355,7 @@ public:
   Derivative<double> operator()(std::size_t i, std::size_t j)const {
       M_Matrix<double> df(x().nrows(),x().ncols(), x().type());
       for (std::size_t n=0; n<dfdx().size(); ++n)
-          df[n]=dfdx()(i,j)[n];
+          df[n]=dfdx()[n](i,j);
       return Derivative<double>(f()(i,j),x(),std::move(df));
   }
 
@@ -348,7 +363,7 @@ public:
   Derivative<double> operator[](std::size_t i)const {
       M_Matrix<double> df(x().nrows(),x().ncols(), x().type());
       for (std::size_t n=0; n<dfdx().size(); ++n)
-          df[n]=dfdx()[i][n];
+          df[n]=dfdx()[n][i];
       return Derivative<double>(f()[i],x(),std::move(df));
   }
 
@@ -371,9 +386,15 @@ public:
       }
   }
   void set(std::size_t i,  const Derivative<double>& val){
-      assert((&val.x())!=nullptr);
       if (x_==nullptr)
+      {
           x_=&val.x();
+          dfdx_=M_Matrix<M_Matrix<double>>(
+              val.x().nrows(), val.x().ncols(), val.x().type(),
+              M_Matrix<double>(f().nrows(), f().ncols(),
+                               f().type(),0.0));
+
+      }
       assert(&x()==&val.x());
       f()[i]=val.f();
       for (std::size_t n = 0; n < dfdx().size(); ++n)
@@ -382,8 +403,15 @@ public:
   void set(std::size_t i, std::size_t j, const Derivative<double>& val){
       assert((&val.x())!=nullptr);
       if (x_==nullptr)
+      {
           x_=&val.x();
-      assert(&x()==&val.x());
+          dfdx_=M_Matrix<M_Matrix<double>>(
+              val.x().nrows(), val.x().ncols(), val.x().type(),
+              M_Matrix<double>(f().nrows(), f().ncols(),
+                               f().type(),0.0));
+      }
+      assert(dfdx().nrows()==val.dfdx().nrows());
+      assert(dfdx().ncols()==val.dfdx().ncols());
       f()(i,j)=val.f();
       for (std::size_t n = 0; n < dfdx().size(); ++n)
           dfdx()[n](i,j)=val.dfdx()[n];
@@ -391,11 +419,18 @@ public:
   void add(std::size_t i, std::size_t j, const Derivative<double>& val){
       assert((&val.x())!=nullptr);
       if (x_==nullptr)
+      {
           x_=&val.x();
-      assert(&x()==&val.x());
+          dfdx_=M_Matrix<M_Matrix<double>>(
+              val.x().nrows(), val.x().ncols(), val.x().type(),
+              M_Matrix<double>(f().nrows(), f().ncols(),
+                               f().type(),0.0));
+      }
+     assert(dfdx().nrows()==val.dfdx().nrows());
+     assert(dfdx().ncols()==val.dfdx().ncols());
       f()(i,j)+=val.f();
       for (std::size_t n = 0; n < dfdx().size(); ++n)
-          dfdx()[n][i]+=val.dfdx()[n];
+          dfdx()[n](i,j)+=val.dfdx()[n];
   }
 
   bool check() {
@@ -1122,6 +1157,26 @@ bool Derivative_correctness_mean_value_test(double eps, double tol,
   return out;
 }
 
+
+inline Derivative<double> operator+(const Derivative<double> &x,  double c) {
+    return Derivative<double>(x.f() + c, x.x(), x.dfdx());
+}
+
+inline Derivative<double> operator+(double c, const Derivative<double> &x) {
+    return Derivative<double>(c+x.f(), x.x(), x.dfdx());
+}
+
+inline Derivative<double> operator-(const Derivative<double> &x,  double c) {
+    return Derivative<double>(x.f() - c, x.x(), x.dfdx());
+}
+
+inline Derivative<double> operator-(double c, const Derivative<double> &x) {
+    return Derivative<double>(c-x.f(), x.x(), x.dfdx());
+}
+
+
+
+
 template <class T>
 Derivative<T> operator+(const Derivative<T> &x, Constant<T> &&c) {
   return Derivative<T>(x.f() + c.value, x.x(), x.dfdx());
@@ -1212,6 +1267,10 @@ inline auto operator/(const Derivative<double> &x, const Derivative<double> &y) 
   auto dx = x.dfdx() / y.f();
   auto dy = -y.dfdx() * x.f() / sqr(y.f());
   return Derivative<double>(std::move(f), x.x(), dx + dy);
+}
+
+inline auto operator/(const Derivative<double> &x, double y) {
+    return Derivative<double>(x.f() / y, x.x(), x.dfdx() / y);
 }
 
 inline auto operator/(double x, const Derivative<double> &y) {

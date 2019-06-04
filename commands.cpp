@@ -201,7 +201,7 @@ myOptional_t<Der_t<double>> likelihood_der<Experiment, Model, ParametersDistribu
     const Experiment &e, Model &m, const Parameters_values_new<Model> &p,
     const ParametersDistribution &prior,
     const std::string algorithm, double min_P, double tolerance,
-    double biNumber, double Vanumber, double maxChi2 [[maybe_unused]], double reduce_by_p [[maybe_unused]], std::size_t order_number [[maybe_unused]],double min_connection_ratio [[maybe_unused]]) {
+    double biNumber, double Vanumber) {
     std::cerr << "\nparameters\n" << p;
 
     typedef myOptional_t<Der_t<double>> Op;
