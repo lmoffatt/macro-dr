@@ -1226,12 +1226,7 @@ inline auto exp(const Derivative<M_Matrix<double>> &x) {
 
 
 
-template <class Norm, bool diff>
-Error<double, Norm,diff> expm1(const Error<double, Norm,diff> &one) {
-    auto c=std::expm1(one.center());
-    return Error<double, Norm,diff> (c,one.norm());
 
-}
 
 inline auto expm1(const Derivative<double> &x) {
     return Derivative<double>(std::expm1(x.f()), x.x(),

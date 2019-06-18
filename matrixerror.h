@@ -13,6 +13,8 @@ public:
     auto& center()const {return center_;}
     auto& center() {return center_;}
     auto& norm()const {return norm_;}
+    auto& norm() {return norm_;}
+
     auto& error()const {return Norm::pow_inv(norm_);}
 
     auto nrows()const {return center().nrows();}
@@ -392,9 +394,105 @@ Matrix_Binary_Transformations::TranspMult(one.norm(),other_norm)+Matrix_Binary_T
    template <typename T, class Norm,bool diff>
    auto TransposeSum(const Error<M_Matrix<T>,Norm,diff>   &x) {
        return Error<M_Matrix<T>,Norm,diff>(TransposeSum(x.center()), TransposeSum(x.norm()));
+
+
    }
 
 
+
+
+   template <typename T, class Norm,bool diff>
+   Error<M_Matrix<double>,Norm,diff> expm_taylor(const Error<M_Matrix<double>,Norm,diff> & x, std::size_t order=6)
+   {
+       Error<M_Matrix<double>,Norm,diff> out=x+Matrix_Generators::eye<double>(x.ncols());
+       Error<M_Matrix<double>,Norm,diff> xr=x;
+       double a=1.0;
+       for (std::size_t n=2; n<order; ++n)
+       {
+           a/=n;
+           xr=xr*x;
+           out=out+xr*a;
+       }
+       double error=expm_taylor_error(center(x),order);
+       auto error_norm=M_Matrix<double>(x.nrows(),x.ncols(),Matrix_TYPE::FULL,Norm::pow(error));
+       out.norm()+=error_norm;
+       return out;
+
+   }
+
+   template <typename T, class Norm,bool diff>
+   Error<M_Matrix<T>,Norm,diff>  calc_Commutator_Taylor_Series(const Error<M_Matrix<T>,Norm,diff> & GP, const Error<M_Matrix<T>,Norm,diff>  & Qx,std::int8_t order)
+   {
+       Error<M_Matrix<T>,Norm,diff> dGn = GP;
+       auto Gtot = dGn;
+       double a = 1.0;
+       for (std::size_t n = 2; n + 1 < order; ++n) {
+           a /= n;
+           dGn = Qx * dGn - dGn * Qx;
+           Gtot += dGn * a;
+       }
+       double error=calc_Commutator_Taylor_Series_error(center(Qx),center(GP),order);
+       auto error_norm=M_Matrix<double>(Qx.nrows(),Qx.ncols(),Matrix_TYPE::FULL,Norm::pow(error));
+       Gtot.norm()+=error_norm;
+       return Gtot;
+
+   }
+
+   template <typename T, class Norm,bool diff>
+   void next_derivative(std::vector<Error<M_Matrix<T>,Norm,diff>> &dGvar_n, Error<M_Matrix<T>,Norm,diff> &Tau_n,
+                        const Error<M_Matrix<T>,Norm,diff> &Q, const Error<M_Matrix<T>,Norm,diff> &GP) {
+       Error<M_Matrix<T>,Norm,diff> neg_2Q(Q * (-2.0));
+       for (auto &e : dGvar_n)
+           e = e * neg_2Q;
+       Tau_n = Q * Tau_n + Tau_n * Q;
+       dGvar_n.push_back(Tau_n * GP);
+   }
+
+   template <typename T, class Norm,bool diff>
+   Error<M_Matrix<T>,Norm,diff>  calc_square_Commutator_Taylor_Series(const Error<M_Matrix<T>,Norm,diff> &Qx, const Error<M_Matrix<T>,Norm,diff> &P,
+                                                    const Error<M_Matrix<T>,Norm,diff> &G, std::size_t order) {
+       auto Tau_n = G;
+       auto GP = G * P;
+       std::vector<double> coeff(1, 1.0);
+       std::vector<Error<M_Matrix<T>,Norm,diff> > dGvar_n(1, G * GP);
+       auto Gvar_tot = dGvar_n[0];
+       double a = 2.0;
+       for (std::size_t n = 3; n + 1 < order; ++n) {
+           a /= n;
+           pascal_triangle(coeff);
+           next_derivative(dGvar_n, Tau_n, Qx, GP);
+           for (std::size_t i = 0; i < coeff.size(); ++i)
+               Gvar_tot += dGvar_n[i] * (coeff[i] * a);
+       }
+       double error=calc_square_Commutator_Taylor_Series_error(center(Qx),center(G),order);
+       auto error_norm=M_Matrix<double>(Qx.nrows(),Qx.ncols(),Matrix_TYPE::FULL,Norm::pow(error));
+       Gvar_tot.norm()+=error_norm;
+       return Gvar_tot;
+   }
+
+
+
+   template <typename T, class Norm,bool diff>
+   auto mean(const Error<M_Matrix<T>,Norm,diff> &A, const Error<M_Matrix<T>,Norm,diff> &B)
+        {
+       assert(A.nrows() == B.nrows());
+       assert(B.ncols() == A.ncols());
+       auto out=(A+B)*0.5;
+       out.norm()+=(A-B).apply(&Norm::pow);
+       return out;
+
+   }
+
+   template <typename T, class Norm,bool diff>
+   auto variance(const Error<M_Matrix<T>,Norm,diff> &A, const Error<M_Matrix<T>,Norm,diff> &B)
+  {
+       assert(A.nrows() == B.nrows());
+       assert(B.ncols() == A.ncols());
+       auto out= (A-B).apply([](auto x){return sqr(x)/2.0;});
+       out.norm()+=out.center().apply(Norm::pow);
+       return out;
+
+   }
 
 
 #endif // MATRIXERROR_H

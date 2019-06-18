@@ -2027,7 +2027,7 @@ public:
             if (!Qrun)
                 return Op(false, Qrun.error());
             else
-                return calc_step_variance(Qrun.value(),p.begin()->nsamples(),fs(), min_P());
+                return minimum_to_step_variance(Qrun.value(),p.begin()->nsamples(),fs(), min_P());
 
 
         }
@@ -2049,7 +2049,7 @@ public:
             if (!Qrun)
                 return Op(false, Qrun.error());
             else
-                return calc_step_variance(Qrun.value(),p.begin()->nsamples(),fs(), min_P());
+                return calculate_step_variance<Tr>::minimum_to_step_variance(std::move(Qrun).value(),p.begin()->nsamples(),fs(), min_P());
 
 
         }
@@ -2068,7 +2068,7 @@ public:
             if (!Qrun)
                 return Op(false, Qrun.error());
             else
-                return calc_step_variance(Qrun.value(),p.begin()->nsamples(),fs(), min_P());
+                return calculate_step_variance<Tr>::minimum_to_step_variance(std::move(Qrun).value(),p.begin()->nsamples(),fs(), min_P());
 
 
         }
@@ -2087,7 +2087,7 @@ public:
             if (!Qrun)
                 return Op(false, Qrun.error());
             else
-                return calc_step_variance(Qrun.value(),p.begin()->nsamples(),fs(), min_P());
+                return calculate_step_variance<Tr>::minimum_to_step_variance(std::move(Qrun).value(),p.begin()->nsamples(),fs(), min_P());
 
 
         }

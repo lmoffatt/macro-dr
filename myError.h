@@ -310,7 +310,12 @@ Error<double, Norm,diff> abs(const Error<double, Norm,diff> &one) {
     return Error<double, Norm,diff> (c,one.norm());
 
 }
+template <class Norm, bool diff>
+Error<double, Norm,diff> expm1(const Error<double, Norm,diff> &one) {
+    auto c=std::expm1(one.center());
+    return Error<double, Norm,diff> (c,one.norm());
 
+}
 
 template <class Norm, bool diff>
 Error<double, Norm,diff> max(const Error<double, Norm,diff> &one,const Error<double, Norm,diff> &two) {

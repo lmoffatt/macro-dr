@@ -1819,6 +1819,14 @@ template <typename T, typename S>
 auto quadraticForm_B_A_BT(const M_Matrix<T> &A, const M_Matrix<S> &B)
     -> M_Matrix<decltype(std::declval<T>() * std::declval<S>())>;
 
+template <typename T, typename S>
+auto mean(const M_Matrix<T> &A, const M_Matrix<S> &B)
+    -> M_Matrix<decltype(std::declval<T>() * std::declval<S>())>;
+
+
+
+
+
 inline M_Matrix<double> Forward_Sustitution_Ly_b(const M_Matrix<double> &L,
                                                  const M_Matrix<double> &b);
 
@@ -3489,10 +3497,40 @@ template <typename T> double norm_1(const M_Matrix<T> &x) {
   }
   return n;
 }
+inline double norm_1_lapack(const M_Matrix<double>& x)
+{
+char NORM = '1';
+  int N = x.ncols();
+  auto a=x;
+  int M = N;
+
+  int INFO = 0;
+  auto WORK_lange = std::make_unique<double[]>(N);
+  int LDA = N;
+  using lapack::dlange_;
+  double ANORM = dlange_(&NORM, &M, &N, &a[0], &LDA, WORK_lange.get());
+  return ANORM;
+}
 
 /**
     Maximum Value of the Sum of the absolute values in each row
    */
+
+inline double norm_inf_lapack(const M_Matrix<double>& x)
+{
+    assert(x.type()==Matrix_TYPE::FULL);
+    char NORM = 'I';
+    int N = x.ncols();
+    M_Matrix<double> a=x;
+    int M = N;
+
+    int INFO = 0;
+    auto WORK_lange = std::make_unique<double[]>(N);
+    int LDA = N;
+    using lapack::dlange_;
+    double ANORM = dlange_(&NORM, &M, &N, &a[0], &LDA, WORK_lange.get());
+    return ANORM;
+}
 template <typename T> T norm_inf(const M_Matrix<T> &x) {
   T n(0);
   for (size_t i = 0; i < nrows(x); ++i) {
@@ -3506,6 +3544,7 @@ template <typename T> T norm_inf(const M_Matrix<T> &x) {
     n = std::max(n, sum);
   }
   return n;
+
 }
 
 template <typename T> std::size_t log2_norm(const M_Matrix<T> &x) {
@@ -6311,6 +6350,9 @@ auto quadraticForm_BT_A_B(const M_Matrix<T> &A, const M_Matrix<S> &B)
     return TranspMult(B, A * B);
 }
 
+
+
+
 template <typename T, typename S>
 auto quadraticForm_B_A_BT(const M_Matrix<T> &A, const M_Matrix<S> &B)
     -> M_Matrix<decltype(std::declval<T>() * std::declval<S>())> {
@@ -6326,6 +6368,26 @@ auto quadraticForm_B_A_BT(const M_Matrix<T> &A, const M_Matrix<S> &B)
   else
     return multTransp(B * A, B);
 }
+
+template <typename T, typename S>
+auto mean(const M_Matrix<T> &A, const M_Matrix<S> &B)
+    -> M_Matrix<decltype(std::declval<T>() + std::declval<S>())> {
+    assert(A.nrows() == B.nrows());
+    assert(B.ncols() == A.ncols());
+    return (A+B)*0.5;
+
+ }
+ template <class Norm,typename T, typename S>
+ auto variance(const M_Matrix<T> &A, const M_Matrix<S> &B)
+     -> M_Matrix<decltype(std::declval<T>() + std::declval<S>())> {
+     assert(A.nrows() == B.nrows());
+     assert(B.ncols() == A.ncols());
+     return (A-B).apply([](auto x){return sqr(x)/2.0;});
+
+ }
+
+
+
 
 /**
      Scalar Multiplication assignment.
@@ -6992,6 +7054,92 @@ struct Frobenius_test : public invariant {
       return false;
   }
 };
+
+inline
+    double expm_taylor_error(const M_Matrix<double>& x, std::size_t order)
+{
+    double r=Matrix_Unary_Functions::norm_inf(x);
+    double error=std::exp(r)*std::pow(r,order)/std::tgamma(order+1);
+    return error;
+
+}
+
+
+template <typename T>
+double calc_Commutator_Taylor_Series_error(const M_Matrix<T>  & Qx,const M_Matrix<T>  & GP, std::int8_t order)
+{
+    double r=Matrix_Unary_Functions::norm_inf(center(Qx))*2.0;
+    double g=Matrix_Unary_Functions::norm_inf(center(GP));
+    double error=std::exp(r)*std::pow(r,order)/std::tgamma(order+1)*g;
+    return error;
+
+}
+
+inline M_Matrix<double> calc_Commutator_Taylor_Series(const M_Matrix<double>& GP, const M_Matrix<double> & Qx,std::int8_t order)
+{
+    M_Matrix<double> dGn = GP;
+    auto Gtot = dGn;
+    double a = 1.0;
+    for (std::size_t n = 2; n + 1 < order; ++n) {
+        a /= n;
+        dGn = Qx * dGn - dGn * Qx;
+        Gtot += dGn * a;
+    }
+    return Gtot;
+
+}
+
+inline std::vector<double> &pascal_triangle(std::vector<double> &coeff) {
+
+    coeff.push_back(1.0);
+    double a = 1.0;
+    for (std::size_t i = 1; i < coeff.size(); ++i) {
+        std::swap(coeff[i - 1], a);
+        a = a + coeff[i];
+    }
+    return coeff;
+}
+
+template <class E>
+void next_derivative(std::vector<M_Matrix<E>> &dGvar_n, M_Matrix<E> &Tau_n,
+                     const M_Matrix<E> &Q, const M_Matrix<E> &GP) {
+    M_Matrix<E> neg_2Q(Q * (-2.0));
+    for (auto &e : dGvar_n)
+        e = e * neg_2Q;
+    Tau_n = Q * Tau_n + Tau_n * Q;
+    dGvar_n.push_back(Tau_n * GP);
+}
+
+template <typename T>
+double calc_square_Commutator_Taylor_Series_error(const M_Matrix<T>  & Qx,const M_Matrix<T>  & G, std::int8_t order)
+{
+    double q=Matrix_Unary_Functions::norm_inf(center(Qx));
+    double g=Matrix_Unary_Functions::norm_inf(center(G));
+    double r=4*q;
+    double error=std::exp(r)*std::pow(r,order)/std::tgamma(order+1)*sqr(g)/sqr(q)/2;
+    return error;
+
+}
+
+template <typename E>
+M_Matrix<E> calc_square_Commutator_Taylor_Series(const M_Matrix<E> &Qx, const M_Matrix<E> &P,
+                                               const M_Matrix<E> &G, std::size_t order) {
+    M_Matrix<E> Tau_n = G;
+    auto GP = G * P;
+    std::vector<double> coeff(1, 1.0);
+    std::vector<M_Matrix<E>> dGvar_n(1, G * GP);
+    auto Gvar_tot = dGvar_n[0];
+    double a = 2.0;
+    for (std::size_t n = 3; n + 1 < order; ++n) {
+        a /= n;
+        pascal_triangle(coeff);
+        next_derivative(dGvar_n, Tau_n, Qx, GP);
+        for (std::size_t i = 0; i < coeff.size(); ++i)
+            Gvar_tot += dGvar_n[i] * (coeff[i] * a);
+    }
+    return Gvar_tot;
+}
+
 
 template <typename T> inline T sqr(const T &x) { return x * x; }
 
