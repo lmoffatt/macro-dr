@@ -3504,7 +3504,7 @@ char NORM = '1';
   auto a=x;
   int M = N;
 
-  int INFO = 0;
+  [[maybe_unused]] int INFO = 0;
   auto WORK_lange = std::make_unique<double[]>(N);
   int LDA = N;
   using lapack::dlange_;

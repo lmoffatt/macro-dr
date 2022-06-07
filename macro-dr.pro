@@ -39,6 +39,8 @@ HEADERS += \
     matrixcalculations.h \
     matrixerror.h \
     maximum_entropy.h \
+    myCalculation.h \
+    myDistributions_units.h \
     myError.h \
     myLevenbergMarquardt.h \
     myTuples.h \
@@ -48,6 +50,8 @@ HEADERS += \
     Experiment.h \
     mydataindex.h \
     mymoments.h \
+    myquimun.h \
+    myunitsystem.h \
     qmodel.h \
     mySerializer.h \
     mygrammar.h \

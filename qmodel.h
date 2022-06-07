@@ -4468,32 +4468,58 @@ public:
   }
 };
 
+template <template <class...> class Tr, unsigned nmax>
+ typename Tr<double>::type calc_taylor_expm2(typename  Tr<double>::type_const_ref const &x)  {
+    typename Tr<double>::type xr = 1.0;
+    typename Tr<double>::type sum = xr;
+    int n = 2;
+    xr =xr * x / n;
+
+    for (; n<nmax; ++n)
+    {
+        sum += xr;
+        xr *= x / n;
+    }
+    return sum;
+}
+
+
+
 template <template <class...> class Tr> class calculate_expm2 {
 private:
   double eps_;
-  std::int8_t nmax_;
+  int nmax_;
 
 public:
   double eps() const { return eps_; }
-  std::int8_t nmax() const { return nmax_; }
+  int nmax() const { return nmax_; }
   template <class T> using Tr_t = typename Tr<T>::type;
 
-  static double error(double x, std::int8_t nsteps) {}
+//  static double error(double x, std::int8_t nsteps) {}
 
   ///
   /// \brief calculate_expm2 approximates (exp(x)-1)/x
   /// \param error
   /// \param n
   ///
-  calculate_expm2(double error, std::int8_t n) : eps_{error}, nmax_{n} {}
-  constexpr Tr_t<double> operator()(const Tr_t<double> &x) {
+  calculate_expm2(double error, int n) :
+                                                 eps_{error}, nmax_{n} {}
+  constexpr Tr_t<double> operator()(const Tr_t<double> &x) const {
     Tr_t<double> xr = 1.0;
     Tr_t<double> sum = xr;
-    std::int8_t n = 2;
-    while (xr > eps() && n < nmax_) {
-      xr *= x / n;
+    int n = 2;
+     xr =xr * x / n;
+
+     while (std::abs(
+                center(xr)
+                )
+                > eps_
+            && n < nmax_
+            ) {
+//      while (std::abs(xr) > eps() ) {
       sum += xr;
       ++n;
+      xr *= x / n;
     }
     return sum;
   }
@@ -4516,6 +4542,13 @@ public:
                                         Tr_const_ref_t<double> exp_y) {
     return exp_y * expm1(x_y) / x_y;
   }
+
+  static Tr_t<double> taylor_method(Tr_const_ref_t<double> x_y,
+                                        Tr_const_ref_t<double> exp_y) {
+      return exp_y * expm1(x_y) / x_y;
+  }
+
+
 
   static Tr_t<double> equal_method(Tr_const_ref_t<double> exp_x) {
     return exp_x;
@@ -4920,7 +4953,7 @@ public:
     operator()(const Tr_t<M_Matrix<double>> &Qrun,
                const Tr_t<M_Matrix<double>> &grun, std::size_t nsamples,
                double fs) const {
-      int recursion_number = 2 + std::log2(maxAbs(Qrun) * 1.0 / fs * nsamples) +
+      std::int8_t recursion_number = 2 + std::log2(maxAbs(Qrun) * 1.0 / fs * nsamples) +
                              recursion_number_extra;
       recursion_number = std::max(min_recursion_number, recursion_number);
       std::size_t times = std::pow(2, recursion_number);

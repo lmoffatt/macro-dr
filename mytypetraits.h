@@ -115,6 +115,20 @@ struct has_this_type<Cs<Ts...>, T> {
 template <class... Ts>
 constexpr inline bool has_this_type_v = has_this_type<Ts...>::value;
 
+template <class...> struct index_of_this_type {};
+
+template <template <typename...> class Cs, typename... Ts, typename T>
+struct index_of_this_type<Cs<T,Ts...>, T> {
+    static constexpr bool value = 0;
+};
+template <template <typename...> class Cs, typename... Ts, typename U,typename T>
+struct index_of_this_type<Cs<U,Ts...>, T> {
+    static constexpr bool value = 1+index_of_this_type<Cs<Ts...>,T>::value;
+};
+
+
+
+
 template <template <typename...> class C> class Co {};
 
 template <class C> struct Constructor { typedef C myClass; };
@@ -858,6 +872,9 @@ struct transfer<Co<T...>,D>
 
 template<class S, template<class...>class D>
 using transfer_t=typename transfer<S,D>::type;
+
+
+
 
 
 

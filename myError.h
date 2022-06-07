@@ -62,6 +62,7 @@ public:
   }
 
   double center() const { return center_; }
+  double& center()  { return center_; }
   double norm() const { return norm_; }
   double error() const {
       return Norm::pow_inv(norm_);
@@ -236,6 +237,18 @@ Error<double, Norm,diff> operator/(const Error<double, Norm,diff> &one,
     return out;
 }
 
+template <class Norm, bool diff>
+double center(const Error<double,Norm,diff>& x)
+{
+    return x.center();
+}
+
+template <class Norm, bool diff>
+double& center( Error<double,Norm,diff>& x)
+{
+    return x.center();
+}
+
 
 
 
@@ -353,6 +366,23 @@ Error<double, Norm,diff> max(const Error<double, Norm,diff> &one,double two) {
 
 
 }
+
+
+template <class Norm, bool diff, int nmax >
+Error<double, Norm,diff> calc_taylor_expm2(Error<double,Norm,diff> const &x)  {
+    Error<double,Norm,diff>  xr = 1.0;
+    Error<double,Norm,diff>  sum = xr;
+    int n = 2;
+    xr =xr * x / n;
+
+    for (; n<nmax; ++n)
+    {
+        sum += xr;
+        xr *= x / n;
+    }
+    return sum;
+}
+
 
 
 #endif // MYERROR_H

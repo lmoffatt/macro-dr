@@ -744,7 +744,7 @@ public:
   }
 
   virtual Normal_Distribution<double> *clone() const override {
-    return new Normal_Distribution<double>(*this);
+      return new Normal_Distribution<double>(*this);
   };
 
   virtual double sample(std::mt19937_64 &mt) const override {
@@ -2616,5 +2616,11 @@ public:
 private:
   param_type _M_param;
 };
+
+
+
+
+
+
 
 #endif // MYDISTRIBUTIONS_H

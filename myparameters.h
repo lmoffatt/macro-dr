@@ -20,7 +20,7 @@ public :
       typedef T referred_type;
     std::string name()const {return name_;} // unique at all levels
 
-    Label(std::string&& label): name_{label}{}
+    Label(std::string&& label): name_{std::move(label)}{}
     Label(const std::string& label): name_{label}{}
 
     Label()=default;
