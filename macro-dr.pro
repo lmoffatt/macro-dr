@@ -85,6 +85,7 @@ DISTFILES += \
     cecar/scripts/m1_EvidenceD_MacroDMR.txt \
     cecar/scripts/m1_Evidence_MacroDMR.txt \
     cecar/scripts/m1_Evidence_emcee_MacroDMR.txt \
+    cecar/scripts/m1_Evidence_emcee_MacroDVR.txt \
     cecar/scripts/m1_Evidence_prob_02_MacroDMR.txt \
     cecar/scripts/m1_Evidence_prob_0_MacroDMR.txt \
     cecar/scripts/s_m1_1 \

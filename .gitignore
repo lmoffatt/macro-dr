@@ -70,4 +70,19 @@ Thumbs.db
 # --------
 *.dll
 *.exe
+ce
+#R files
+*.Rmd
+*Rhistory
 
+# sample files
+*i_sample*.txt
+*_save.txt
+*_run.txt
+
+#clang
+.clang-format
+*.pri
+
+#autosave
+*.autosave.*

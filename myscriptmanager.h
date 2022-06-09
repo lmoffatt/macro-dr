@@ -38,8 +38,8 @@ public:
 
 
   int runDefine(const std::string& filename,
-                const std::vector<std::__cxx11::string> &/*label*/,
-                const std::vector<std::__cxx11::string> &/*valueInplace*/,
+                const std::vector<std::string> &/*label*/,
+                const std::vector<std::string> &/*valueInplace*/,
                 std::ostream &logs)
   {
     std::ifstream f(filename);
