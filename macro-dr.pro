@@ -24,15 +24,16 @@ CONFIG(debug, debug|release) {
   DEFINES += NDEBUG
 }
 SOURCES += \
-    commands_evidence.cpp \
-    commands_evidence_derivative.cpp \
-    commands_evidence_emcee.cpp \
+commands_evidence.cpp \
+   commands_evidence_derivative.cpp \
+   commands_evidence_emcee.cpp \
 commands_evidence_state.cpp \
+#main_old.cpp \
 mynewcommandmanager_insert_constructor.cpp \
 mynewcommandmanager_insert_commands.cpp \
-main.cpp \
-    mynewcommandmanager.cpp \
-commands.cpp
+mynewcommandmanager.cpp \
+commands.cpp \
+main.cpp
 
 HEADERS += \
     myTuples.h \
@@ -40,6 +41,7 @@ HEADERS += \
     Matrix.h \
     myDistributions.h \
     Experiment.h \
+    my_universal_serializer.h \
     mydataindex.h \
     mymoments.h \
     qmodel.h \

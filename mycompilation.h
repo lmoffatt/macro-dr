@@ -2,7 +2,6 @@
 #define MYCOMPILATION_H
 
 #include "mygrammar.h"
-//#include "myTuples.h"
 #include "myoptional.h"
 #include "myfields.h"
 

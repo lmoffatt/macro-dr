@@ -1,6 +1,7 @@
 #ifndef MYTYPETRAITS_H
 #define MYTYPETRAITS_H
 
+#include <optional>
 #include <type_traits>
 #include <variant>
 #include <set>
@@ -9,6 +10,7 @@
 #include <utility>
 #include <string_view>
 #include <memory>
+#include <string>
 
 template <std::size_t N> struct my_static_string {
 private:

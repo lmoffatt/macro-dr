@@ -37,6 +37,7 @@ public:
         vplogL_{vplogL__} {}
 
   Derivative() = default;
+
   auto &P_mean() const { return P_mean_; }
   auto &P_cov() const { return P_cov_; }
 
@@ -60,6 +61,21 @@ public:
         grammar::field(C<self_type>{}, "eplogL", &self_type::eplogL),
         grammar::field(C<self_type>{}, "vplogL", &self_type::vplogL));
   }
+
+  template<class DataFrame>
+  static void insert_col(DataFrame& d, const std::string& pre)
+  {
+      d.insert_column(pre+"P_mean",C<double>{});
+      d.insert_column(pre+"P_cov",C<double>{});
+      d.insert_column(pre+"y_mean",C<double>{});
+      d.insert_column(pre+"y_var",C<double>{});
+      d.insert_column(pre+"plogL",C<double>{});
+      d.insert_column(pre+"eplogL",C<double>{});
+      d.insert_column(pre+"vplogL",C<double>{});
+
+  }
+
+
 
   template <class d_Parameter> static auto get_data_index_static(d_Parameter) {
     return Concatenate_tuple_static(

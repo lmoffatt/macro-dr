@@ -238,6 +238,40 @@ template <> struct my_trait<markov::MACROR> {
   }
 };
 
+template<class T>
+struct insert_col_imp
+{
+    template <class DataFrame>
+    static void insert_col(DataFrame &d, const std::string &pre) {
+        T::insert_col(d,pre);
+    }
+};
+
+template<>
+struct insert_col_imp<markov::MACROR>
+{
+    template <class DataFrame>
+    static void insert_col(DataFrame &d, const std::string &pre) {
+        my_trait<markov::MACROR>::insert_col(d,pre);
+    }
+};
+
+
+
+template <class T, class S, class...U> struct my_trait<T,S,U...> {
+    constexpr static auto className = (my_trait<T>::className+(my_trait<S>::className+...+my_trait<U>::className));
+
+    template <class DataFrame>
+    static void insert_col(DataFrame &d, const std::string &pre) {
+        ((insert_col_imp<T>::insert_col(d,pre),
+          insert_col_imp<S>::insert_col(d,pre)),...,insert_col_imp<U>::insert_col(d,pre));
+
+    }
+
+
+
+};
+
 
 
 template<> struct myData_Index<markov::MACROR> {

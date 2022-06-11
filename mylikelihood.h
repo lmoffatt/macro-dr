@@ -2,8 +2,8 @@
 #define MYLIKELIHOOD_H
 #include "Matrix.h"
 #include "myDistributions.h"
-#include "myparameters.h"
 #include "mydataframe.h"
+#include "myparameters.h"
 #include <iomanip>
 
 namespace evidence {
@@ -144,8 +144,8 @@ M_Matrix<double> calculate_vGradient(const Distributions<T> &d0,
     M_Matrix<double> out(dp.size(), dp.size(), Matrix_TYPE::SYMMETRIC);
     for (std::size_t i = 0; i < dp.size(); ++i)
         for (std::size_t j = 0; j <= i; ++j) {
-            out(i, j) =
-                calculate_vGradient(d0, dp[i], d0, dp[j], data) / (eps[i] * eps[j]);
+            out(i, j) = calculate_vGradient(d0, dp[i], d0, dp[j], data) /
+                (eps[i] * eps[j]);
         }
     return out;
 }
@@ -262,7 +262,8 @@ auto calculate_Hessian_center(std::size_t i,
     auto npar = param.size();
     M_Matrix<double> J(npar, k);
     for (std::size_t j = 0; j < k; ++j) {
-        auto dpar = (getParameter(dp.at(j).at(i)) - getParameter(dn.at(j).at(i))) *
+        auto dpar =
+            (getParameter(dp.at(j).at(i)) - getParameter(dn.at(j).at(i))) *
             1.0 / eps[j];
         for (std::size_t jj = 0; jj < npar; ++jj)
             J(jj, j) = dpar[jj];
@@ -302,24 +303,49 @@ auto calculate_Hessian_center(const std::vector<Distributions> &d0,
     return out;
 }
 
-struct s_chilogL{    constexpr static auto const title = my_static_string("chilogL");};
-struct s_Gradient{    constexpr static auto const title = my_static_string("Gradient");};
-struct s_Hessian{    constexpr static auto const title = my_static_string("Hessian");};
-struct s_varGradient{    constexpr static auto const title = my_static_string("varGradient");};
-struct s_Scaling_Matrix{    constexpr static auto const title = my_static_string("Scaling_Matrix");};
-struct s_Gradient_chi2_value{    constexpr static auto const title = my_static_string("Gradient_chi2_value");};
-struct s_Gradient_fim_value{    constexpr static auto const title = my_static_string("Gradient_fim_value");};
-struct s_partial{    constexpr static auto const title = my_static_string("partial");};
-struct s_ParameterValue{    constexpr static auto const title = my_static_string("ParameterValue");};
-struct s_ParameterName{    constexpr static auto const title = my_static_string("ParameterName");};
-struct s_propDist{    constexpr static auto const title = my_static_string("propDist");};
+struct s_chilogL {
+    constexpr static auto const title = my_static_string("chilogL");
+};
+struct s_Gradient {
+    constexpr static auto const title = my_static_string("Gradient");
+};
+struct s_Hessian {
+    constexpr static auto const title = my_static_string("Hessian");
+};
+struct s_varGradient {
+    constexpr static auto const title = my_static_string("varGradient");
+};
+struct s_Scaling_Matrix {
+    constexpr static auto const title = my_static_string("Scaling_Matrix");
+};
+struct s_Gradient_chi2_value {
+    constexpr static auto const title = my_static_string("Gradient_chi2_value");
+};
+struct s_Gradient_fim_value {
+    constexpr static auto const title = my_static_string("Gradient_fim_value");
+};
+struct s_partial {
+    constexpr static auto const title = my_static_string("partial");
+};
+struct s_ParameterValue {
+    constexpr static auto const title = my_static_string("ParameterValue");
+};
+struct s_ParameterName {
+    constexpr static auto const title = my_static_string("ParameterName");
+};
+struct s_propDist {
+    constexpr static auto const title = my_static_string("propDist");
+};
 
-
-
-struct i_measure{    constexpr static auto const title = my_static_string("i_measure");};
-struct i_Parameter{    constexpr static auto const title = my_static_string("i_Parameter");};
-struct i_Fit_Parameter{    constexpr static auto const title = my_static_string("i_fit_Parameter");};
-
+struct i_measure {
+    constexpr static auto const title = my_static_string("i_measure");
+};
+struct i_Parameter {
+    constexpr static auto const title = my_static_string("i_Parameter");
+};
+struct i_Fit_Parameter {
+    constexpr static auto const title = my_static_string("i_fit_Parameter");
+};
 
 class logLikelihood {
 public:
@@ -348,7 +374,7 @@ public:
 
     logLikelihood(double value, double elogL, double vlogL, double evlogL)
         : logL_{value}, elogL_{elogL}, vlogL_{vlogL}, evlogL_{evlogL} {}
-    logLikelihood(const std::tuple<double, double, double, double>& logL)
+    logLikelihood(const std::tuple<double, double, double, double> &logL)
         : logL_{std::get<0>(logL)}, elogL_{std::get<1>(logL)},
           vlogL_{std::get<2>(logL)}, evlogL_{std::get<3>(logL)} {}
 
@@ -373,8 +399,7 @@ public:
         return std::tuple(logL(), elogL(), vlogL(), evlogL(), chilogL());
     }
 
-    static Data_Index_scheme data_index()
-    {
+    static Data_Index_scheme data_index() {
         Data_Index_scheme out;
         out.push_back("logL", {});
         out.push_back("elogL", {});
@@ -384,31 +409,22 @@ public:
         return out;
     }
 
-    static auto
-    get_data_index_static()
-    {
-        return std::make_tuple(
-            make_data_static(std::tuple<>(),
-                             std::make_tuple(
-                                 F_s(s_logL{},&self_type::logL),
-                                 F_s(s_elogL{},&self_type::elogL),
-                                 F_s(s_vlogL{},&self_type::vlogL),
-                                 F_s(s_evlogL{},&self_type::evlogL),
-                                 F_s(s_chilogL{},&self_type::chilogL)))
+    static auto get_data_index_static() {
+        return std::make_tuple(make_data_static(
+            std::tuple<>(),
+            std::make_tuple(F_s(s_logL{}, &self_type::logL),
+                            F_s(s_elogL{}, &self_type::elogL),
+                            F_s(s_vlogL{}, &self_type::vlogL),
+                            F_s(s_evlogL{}, &self_type::evlogL),
+                            F_s(s_chilogL{}, &self_type::chilogL)))
 
-                                    );
-
+        );
     }
 
-
-
-
-    auto
-    getIndexedData(const std::set<std::string>& ,const std::set<std::string>& )
-    {
+    auto getIndexedData(const std::set<std::string> &,
+                        const std::set<std::string> &) {
         Data_Index_point out;
     }
-
 
     std::size_t data_size() const { return 1; }
 
@@ -421,13 +437,12 @@ public:
     }
 
     logLikelihood &operator/=(std::size_t n) {
-        logL_ /=n;
-        elogL_ /=n;
-        vlogL_ /=n;
-        evlogL_ /=n;
+        logL_ /= n;
+        elogL_ /= n;
+        vlogL_ /= n;
+        evlogL_ /= n;
         return *this;
     }
-
 
 private:
     double logL_;
@@ -435,8 +450,6 @@ private:
     double vlogL_;
     double evlogL_;
 };
-
-
 
 } // namespace evidence
 template <> class moments<evidence::logLikelihood> {
@@ -470,7 +483,8 @@ public:
 
     template <class logL>
     moments(const std::vector<logL> &l)
-        : logL_{l, &logL::logL}, elogL_{l, &logL::elogL}, vlogL_{l, &logL::vlogL},
+        : logL_{l, &logL::logL}, elogL_{l, &logL::elogL}, vlogL_{l,
+                                                                 &logL::vlogL},
           evlogL_{l, &logL::evlogL}, chilogL_{l, &logL::chilogL} {}
 
     template <class logL, class Op, typename... Ts>
@@ -478,9 +492,10 @@ public:
         : logL_{l, [&u, &t...](const logL &d) { return u(d, t...).logL(); }},
           elogL_{l, [&u, &t...](const logL &d) { return u(d, t...).elogL(); }},
           vlogL_{l, [&u, &t...](const logL &d) { return u(d, t...).vlogL(); }},
-          evlogL_{l, [&u, &t...](const logL &d) { return u(d, t...).evlogL(); }},
-          chilogL_{l,
-                   [&u, &t...](const logL &d) { return u(d, t...).chilogL(); }} {}
+          evlogL_{l,
+                  [&u, &t...](const logL &d) { return u(d, t...).evlogL(); }},
+          chilogL_{
+              l, [&u, &t...](const logL &d) { return u(d, t...).chilogL(); }} {}
 
     moments(moments<double> value, moments<double> elogL, moments<double> vlogL,
             moments<double> evlogL, moments<double> chilogL)
@@ -542,7 +557,8 @@ public:
     const M_Matrix<double> &H() const { return H_; }
 
     operator bool() const {
-        return (G_.size() > 0) && (H_.size() > 0) && logLikelihood::operator bool();
+        return (G_.size() > 0) && (H_.size() > 0) &&
+            logLikelihood::operator bool();
     }
     void set_G(M_Matrix<double> &&gradient) { G_ = std::move(gradient); }
     void set_H(M_Matrix<double> &&hessian) {
@@ -558,15 +574,16 @@ public:
     }
     DlogLikelihood(std::tuple<double, double, double, double, M_Matrix<double>,
                               M_Matrix<double>> &&logL)
-        : DlogLikelihood(std::get<0>(logL), std::get<1>(logL), std::get<2>(logL),
-                         std::get<3>(logL), std::move(std::get<4>(logL)),
+        : DlogLikelihood(std::get<0>(logL), std::get<1>(logL),
+                         std::get<2>(logL), std::get<3>(logL),
+                         std::move(std::get<4>(logL)),
                          std::move(std::get<5>(logL))) {}
 
     DlogLikelihood(std::tuple<double, double, double, double> logL,
                    M_Matrix<double> &&Gradient, M_Matrix<double> &&Hessian)
-        : DlogLikelihood(std::get<0>(logL), std::get<1>(logL), std::get<2>(logL),
-                         std::get<3>(logL), std::move(Gradient),
-                         std::move(Hessian)) {}
+        : DlogLikelihood(std::get<0>(logL), std::get<1>(logL),
+                         std::get<2>(logL), std::get<3>(logL),
+                         std::move(Gradient), std::move(Hessian)) {}
     DlogLikelihood(double logL, double elogL, double vlogL, double evlog,
                    M_Matrix<double> &&Gradient, M_Matrix<double> &&Hessian)
         : logLikelihood(logL, elogL, vlogL, evlog), G_{std::move(Gradient)},
@@ -591,56 +608,57 @@ public:
         d.insert_column(pre + "Hessian", C<double>{});
     }
 
-    static Data_Index_scheme data_index()
-    {
-        Data_Index_scheme out=base_type::data_index();
+    static Data_Index_scheme data_index() {
+        Data_Index_scheme out = base_type::data_index();
         out.push_back("Gradient", {"i_Parameter"});
-        out.push_back("Hessian", {"i_Parameter","i_Parameter_T"});
+        out.push_back("Hessian", {"i_Parameter", "i_Parameter_T"});
         return out;
     }
 
-
-
-
-
-    static auto
-    get_data_index_static()
-    {
+    static auto get_data_index_static() {
         return Concatenate_tuple_static(
-            Compose_static([](const self_type& s)->base_type const &{return s;},base_type::get_data_index_static()),
+            Compose_static(
+                [](const self_type &s) -> base_type const & { return s; },
+                base_type::get_data_index_static()),
             std::make_tuple(
-                make_data_static(std::make_tuple(
-                                     I_s(i_Parameter{},[](const self_type& s){return s.G().size();},0)
-                                                                                                               ),
-                                 std::make_tuple(
-                                     F_s(s_Gradient{},[](const self_type& s, std::size_t i){return s.G()[i];})
-                                                                                                                   )),
-                make_data_static(std::make_tuple(
-                                     I_s(i_Parameter{},[](const self_type& s){return s.H().nrows();},0),
-                                     I_s(CT_s<i_Parameter,s_Transpose>{},[](const self_type& s, std::size_t){return s.H().ncols();},0)
-                                                                                                  ),
-                                 std::make_tuple(
-                                     F_s(s_Hessian{},[](const self_type& s, std::size_t i, std::size_t j){return s.H()(i,j);})
-                                                                                          ))
-                                                            ));
+                make_data_static(
+                    std::make_tuple(I_s(
+                        i_Parameter{},
+                        [](const self_type &s) { return s.G().size(); }, 0)),
+                    std::make_tuple(F_s(s_Gradient{},
+                                        [](const self_type &s, std::size_t i) {
+                                            return s.G()[i];
+                                        }))),
+                make_data_static(
+                    std::make_tuple(
+                        I_s(
+                            i_Parameter{},
+                            [](const self_type &s) { return s.H().nrows(); },
+                            0),
+                        I_s(
+                            CT_s<i_Parameter, s_Transpose>{},
+                            [](const self_type &s, std::size_t) {
+                                return s.H().ncols();
+                            },
+                            0)),
+                    std::make_tuple(
+                        F_s(s_Hessian{},
+                            [](const self_type &s, std::size_t i,
+                               std::size_t j) { return s.H()(i, j); })))));
     }
 
-
-
-
-    auto
-    getIndexedData(const std::set<std::string>& ,const std::set<std::string>& )
-    {
+    auto getIndexedData(const std::set<std::string> &,
+                        const std::set<std::string> &) {
         Data_Index_point out;
-        out.push_back("i_Parameter",H_.nrows());
-        out.push_back("i_Parameter_T",H_.ncols());
+        out.push_back("i_Parameter", H_.nrows());
+        out.push_back("i_Parameter_T", H_.ncols());
         return out;
         //   base_type& l=*this;
     }
 
-
     auto data_row(std::size_t i, std::size_t j) const {
-        return std::tuple_cat(base_type::data_row(i), std::tuple(G_[i], H_(i, j)));
+        return std::tuple_cat(base_type::data_row(i),
+                              std::tuple(G_[i], H_(i, j)));
     }
     template <class Parameters_Distribution>
     auto data_row(std::size_t k, const Parameters_Distribution &prior) const {
@@ -712,14 +730,16 @@ public:
             auto sM = cVR * sqrt_cL * sqrtinv_fL * fVL;
 
             assert((rank_diag(sqrtinv_fL) == fL.size()
-                    ? (are_Equal_v(quadraticForm_B_A_BT(-H, sM), vG, std::cerr,
-                                   "\ncL\n", cL, "\n sqrt_cL\n ", sqrt_cL,
-                                   "\n fL\n", fL, "\n sqrtinv_fL \n", sqrtinv_fL))
+                        ? (are_Equal_v(quadraticForm_B_A_BT(-H, sM), vG,
+                                       std::cerr, "\ncL\n", cL, "\n sqrt_cL\n ",
+                                       sqrt_cL, "\n fL\n", fL,
+                                       "\n sqrtinv_fL \n", sqrtinv_fL))
                         : true));
             return Op(sM);
         } else
-            return Op(false, "error calculating the scale Matrix: fim:" +
-                          fim.error() + "  cov:" + cov.error());
+            return Op(false,
+                      "error calculating the scale Matrix: fim:" + fim.error() +
+                          "  cov:" + cov.error());
     }
 
     bool has_Scale_Matrix() const { return hasScaleMatrix_; }
@@ -797,14 +817,12 @@ public:
     DVlogLikelihood() = default;
 
     DVlogLikelihood &operator+=(const DVlogLikelihood &other) {
-        if (other.evlogL()>0)
-        {
+        if (other.evlogL() > 0) {
             DlogLikelihood::operator+=(other);
             vG_ += other.vG_;
             hasScaleMatrix_ = false;
         }
         return *this;
-
     }
 
     template <class DataFrame> static void insert_col(DataFrame &d) {
@@ -821,58 +839,58 @@ public:
                                          gradient_fim_value()));
     }
 
-    static Data_Index_scheme data_index()
-    {
-        auto out=base_type::data_index();
-        out.push_back("Gradient_Variance", {"i_Parameter","i_Parameter_T"});
-        out.push_back("Scaling_Matrix", {"i_Parameter","i_Parameter_T"});
+    static Data_Index_scheme data_index() {
+        auto out = base_type::data_index();
+        out.push_back("Gradient_Variance", {"i_Parameter", "i_Parameter_T"});
+        out.push_back("Scaling_Matrix", {"i_Parameter", "i_Parameter_T"});
         out.push_back("Gradient_chi2_value", {});
         out.push_back("Gradient_fim_value", {});
 
         return out;
     }
 
-
-
-    static auto
-    get_data_index_static()
-    {
+    static auto get_data_index_static() {
         return Concatenate_tuple_static(
-            Compose_static([](const self_type& s)->base_type const &{return s;},base_type::get_data_index_static()),
+            Compose_static(
+                [](const self_type &s) -> base_type const & { return s; },
+                base_type::get_data_index_static()),
             std::make_tuple(
-            make_data_static(std::tuple<>(),
-                             std::make_tuple(
-                                 F_s(s_Gradient_chi2_value{},&self_type::gradient_chi_value),
-                                 F_s(s_Gradient_fim_value{},&self_type::gradient_fim_value)
-                                                                      )),
-            make_data_static(std::make_tuple(
-                                 I_s(i_Parameter{},[](const self_type& s){return s.vG().nrows();},0),
-                                 I_s(CT_s<i_Parameter,s_Transpose>{},[](const self_type& s, std::size_t){return s.vG().ncols();},0)
-                                     ),
-                             std::make_tuple(
-                                 F_s(s_varGradient{},[](const self_type& s, std::size_t i, std::size_t j)
-                                     {return s.vG()(i,j);}),
-                                 F_s(s_Scaling_Matrix{},[](const self_type& s, std::size_t i, std::size_t j)
-                                     {return s.scaleM()(i,j);}))
-                                 )
-                    ));
-
+                make_data_static(
+                    std::tuple<>(),
+                    std::make_tuple(F_s(s_Gradient_chi2_value{},
+                                        &self_type::gradient_chi_value),
+                                    F_s(s_Gradient_fim_value{},
+                                        &self_type::gradient_fim_value))),
+                make_data_static(
+                    std::make_tuple(
+                        I_s(
+                            i_Parameter{},
+                            [](const self_type &s) { return s.vG().nrows(); },
+                            0),
+                        I_s(
+                            CT_s<i_Parameter, s_Transpose>{},
+                            [](const self_type &s, std::size_t) {
+                                return s.vG().ncols();
+                            },
+                            0)),
+                    std::make_tuple(
+                        F_s(s_varGradient{},
+                            [](const self_type &s, std::size_t i,
+                               std::size_t j) { return s.vG()(i, j); }),
+                        F_s(s_Scaling_Matrix{},
+                            [](const self_type &s, std::size_t i,
+                               std::size_t j) { return s.scaleM()(i, j); })))));
     }
 
-
-
-
-    auto
-    getIndexedData(const std::set<std::string>& ,const std::set<std::string>& )
-    {
+    auto getIndexedData(const std::set<std::string> &,
+                        const std::set<std::string> &) {
         Data_Index_point out;
-        out.push_back("i_Parameter",vG_.nrows());
-        out.push_back("i_Parameter_T",vG_.ncols());
+        out.push_back("i_Parameter", vG_.nrows());
+        out.push_back("i_Parameter_T", vG_.ncols());
         return out;
-        //base_type& l=*this;
+        // base_type& l=*this;
         ///  auto ind=l.getIndexedData(index,names);
     }
-
 
 private:
     M_Matrix<double> vG_;
@@ -880,1854 +898,1913 @@ private:
     M_Matrix<double> sM_;
     double gradient_chi_value_;
     double gradient_fim_value_;
-    };
-
-    } // namespace evidence
-
-    template <>
-    class moments<evidence::DlogLikelihood>
-        : public moments<evidence::logLikelihood> {
-    public:
-        typedef moments<evidence::logLikelihood> base_type;
-
-        constexpr static auto const className =
-            my_static_string("moments_DlogLikelihood_") + base_type::className;
-        // std::string myClass()const  { return className.str();}
-
-        typedef moments self_type;
-        static auto get_constructor_fields() {
-
-            return std::tuple_cat(
-                base_type::get_constructor_fields(),
-                std::tuple(grammar::field(C<self_type>{}, "Gradient", &self_type::G),
-                           grammar::field(C<self_type>{}, "Hessian", &self_type::H)));
-        }
-
-        const moments<M_Matrix<double>> &G() const { return G_; }
-        const moments_matrix<double> &H() const { return H_; }
-        operator bool() const {
-            return (G().mean().size() > 0) && (H_.size() > 0) &&
-                base_type::operator bool();
-        }
-        void set_G(moments<M_Matrix<double>> &&gradient) { G_ = std::move(gradient); }
-        void set_H(moments_matrix<double> &&hessian) { H_ = std::move(hessian); }
-
-        moments(const moments<double> &logL, moments<double> const &elogL,
-                moments<double> const &vlogL, moments<double> const &evlogL,
-                moments<double> const &chilogL,
-                const moments<M_Matrix<double>> &Gradient,
-                const moments_matrix<double> &Hessian)
-            : base_type(logL, elogL, vlogL, evlogL, chilogL), G_{Gradient},
-              H_{Hessian} {}
-
-        moments(const std::vector<evidence::DlogLikelihood> &l)
-            : base_type(l), G_{l, &evidence::DlogLikelihood::G},
-              H_{l, &evidence::DlogLikelihood::H} {}
-
-        template <class DlogL>
-        moments(const std::vector<DlogL> &l)
-            : base_type(l), G_{l, &DlogL::G}, H_{l, &DlogL::H} {}
-
-        template <class logL, class Op, typename... Ts>
-        moments(const std::vector<logL> &l, const Op &u, Ts... t)
-            : base_type(l, u, t...), G_{l,
-                                        [&u, &t...](const logL &d) {
-                                            return u(d, t...).G();
-                                        }},
-              H_{l, [&u, &t...](const logL &d) { return u(d, t...).H(); }} {}
-
-        moments() = default;
-
-        auto data_row(MOMENTS m, std::size_t i, std::size_t j) const {
-            return std::tuple_cat(base_type::data_row(m), G().data_row(m, i, j),
-                                  H().data_row(m, i, j));
-        }
-
-        std::size_t data_dim(MOMENTS m) const {
-            return std::max(G().data_dim(m), H().data_dim(m));
-        }
-        std::size_t data_size() const { return G().data_size(); }
-
-    private:
-        moments<M_Matrix<double>> G_;
-        moments_matrix<double> H_;
-    };
-
-    template <>
-    class moments<evidence::DVlogLikelihood>
-        : public moments<evidence::DlogLikelihood> {
-    public:
-        typedef moments<evidence::DlogLikelihood> base_type;
-
-        constexpr static auto const className =
-            my_static_string("DVlogLikelihood_moments");
-        // std::string myClass()const  { return className.str();}
-
-        typedef moments<evidence::DVlogLikelihood> self_type;
-
-        auto &vG() const { return vG_; }
-        auto &scaleM() const { return sM_; }
-        auto &gradient_chi_value() const { return gradient_chi_value_; }
-        auto &gradient_fim_value() const { return gradient_fim_value_; }
-
-        static auto get_constructor_fields() {
-
-            return std::tuple_cat(
-                base_type::get_constructor_fields(),
-                std::tuple(
-                    grammar::field(C<self_type>{}, "varG", &self_type::vG),
-                    grammar::field(C<self_type>{}, "scalingMatrix", &self_type::scaleM),
-                    grammar::field(C<self_type>{}, "gradient_chi_value",
-                                   &self_type::gradient_chi_value),
-                    grammar::field(C<self_type>{}, "gradient_fim_value",
-                                   &self_type::gradient_fim_value))
-
-                                                                                                                        );
-        }
-
-        moments(const moments<double> &logL, const moments<double> &elogL,
-                const moments<double> &vlogL, const moments<double> &evlogL,
-                const moments<double> &chilogL,
-                const moments<M_Matrix<double>> &Gradient,
-                const moments_matrix<double> &Hessian,
-                const moments_matrix<double> &var_Gradient,
-                const moments_matrix<double> &scale_Matrix)
-            : base_type(logL, elogL, vlogL, evlogL, chilogL, Gradient, Hessian),
-              vG_{var_Gradient}, sM_{scale_Matrix} {}
-
-        moments(const std::vector<evidence::DVlogLikelihood> &l)
-            : base_type(l), vG_{l, &evidence::DVlogLikelihood::vG},
-              sM_{l, &evidence::DVlogLikelihood::scaleM},
-              gradient_chi_value_{l, &evidence::DVlogLikelihood::gradient_chi_value},
-              gradient_fim_value_{l, &evidence::DVlogLikelihood::gradient_fim_value} {
-        }
-
-        template <class DlogL>
-        moments(const std::vector<DlogL> &l)
-            : base_type(l), vG_{l, &DlogL::vG}, sM_{l, &DlogL::scaleM},
-              gradient_chi_value_{l, &DlogL::gradient_chi_value},
-              gradient_fim_value_{l, &DlogL::gradient_fim_value}
-
-        {}
-
-        template <class logL, class Op, typename... Ts>
-        moments(const std::vector<logL> &l, const Op &u, Ts... t)
-            : base_type(l, u, t...), vG_{l,
-                                         [&u, &t...](const logL &d) {
-                                             return u(d, t...).vG();
-                                         }},
-              sM_{l, [&u, &t...](const logL &d) { return u(d, t...).scaleM(); }},
-              gradient_chi_value_{l,
-                                  [&u, &t...](const logL &d) {
-                                      return u(d, t...).gradient_chi_value();
-                                  }},
-              gradient_fim_value_{l,
-                                  [&u, &t...](const logL &d) {
-                                      return u(d, t...).gradient_fim_value();
-                                  }}
-
-        {}
-
-        moments() = default;
-
-        auto data_row(MOMENTS m, std::size_t i, std::size_t j) const {
-            return std::tuple_cat(base_type::data_row(m, i, j), vG().data_row(m, i, j),
-                                  scaleM().data_row(m, i, j),
-                                  gradient_chi_value().data_row(m),
-                                  gradient_fim_value().data_row(m));
-        }
-
-    private:
-        moments_matrix<double> vG_;
-        moments_matrix<double> sM_;
-        moments<double> gradient_chi_value_;
-        moments<double> gradient_fim_value_;
-    };
-
-    namespace evidence {
-
-    template <class... Auxs> class PartialDLogLikelihood : public DVlogLikelihood {
-    public:
-        typedef DVlogLikelihood base_type;
-
-        typedef Cs<Auxs...> template_types;
-
-        constexpr static bool hasAux = sizeof...(Auxs) > 0;
-        constexpr static auto const className =
-            my_static_string("PartialDLogLikelihood")+my_trait<template_types>::className;
-        // std::string myClass()const  { return className.str();}
-
-        typedef PartialDLogLikelihood self_type;
-        static auto get_constructor_fields() {
-            double (logLikelihood::*myLogL)() const = &base_type::logL;
-            M_Matrix<double> const &(self_type::*myG)() const = &self_type::G;
-            const M_Matrix<double> &(self_type::*myH)() const = &self_type::H;
-
-            return std::make_tuple(
-                grammar::field(C<self_type>{}, "logL", myLogL),
-                grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
-                grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
-                grammar::field(C<self_type>{}, "evlogL", &self_type::evlogL),
-                grammar::field(C<self_type>{}, "Gradient", myG),
-                grammar::field(C<self_type>{}, "Hessian", myH),
-                grammar::field(C<self_type>{}, "varG", &self_type::vG),
-                grammar::field(C<self_type>{}, "scalingMatrix", &self_type::scaleM),
-                grammar::field(C<self_type>{}, "gradient_chi_value",
-                               &self_type::gradient_chi_value),
-                grammar::field(C<self_type>{}, "gradient_fim_value",
-                               &self_type::gradient_fim_value),
-                grammar::field(C<self_type>{}, "Partial_DlogL",
-                               &self_type::partial_DlogL),
-                grammar::field(C<self_type>{}, my_trait_tuple<std::tuple<Auxs...>>::className.c_str(),
-                               &self_type::getAuxiliar));
-        }
-
-        template <class DataFrame> static void insert_col(DataFrame &d) {
-
-            my_trait<Auxs...>::insert_col(d, "");
-            base_type::insert_col(d);
-            DlogLikelihood::insert_col(d, "partial_");
-        }
-        static Data_Index_scheme data_index()
-        {
-            Data_Index_scheme out=base_type::data_index();
-            auto vAux=Insert_Index(my_trait<Auxs...>::data_index(),{"i_measure"});
-            out=concatenate(std::move(out),std::move(vAux));
-            auto vDlog=Insert_Index(DlogLikelihood::data_index(),{"i_measure"});;
-            out=concatenate(std::move(out),std::move(vDlog));
-            return out;
-
-        }
-
-
-
-
-        static auto
-        get_data_index_static()
-        {
-            typedef typename std::decay_t<decltype (std::declval<self_type>().partial_DlogL())>::value_type  Dlik;
-            return Concatenate_tuple_static(
-                Compose_static([](const self_type& s)->base_type const &{return s;},base_type::get_data_index_static()),
-                Compose_static(std::make_tuple(I_s(i_measure{},[](const self_type& self){return self.partial_DlogL().size();},0)),
-                               F_s(s_partial{},[](const self_type& self, std::size_t i_meas) ->auto const & {return self.partial_DlogL()[i_meas];}),
-                               Dlik::get_data_index_static()   ),
-                Compose_static(std::make_tuple(I_s(i_measure{},[](const self_type& self){return self.partial_DlogL().size();},0)),
-                               F_s(s_partial{},[](const self_type& self, std::size_t i_meas) ->auto const & {return self.getAuxiliar()[i_meas];}),
-                               myData_Index<std::tuple<Auxs...>>::get_data_index_static(i_Parameter{})   ));
-       }
-
-
-
-
-        auto
-        getIndexedData(const std::set<std::string>& index,const std::set<std::string>& names)
-        {
-            Data_Index_point out;
-            out.push_back("i_measure",partial_.size());
-            base_type& l=*this;
-            auto ind=l.getIndexedData(index,names);
-        }
-
-
-        auto data_row(std::size_t isample, std::size_t i, std::size_t j) const {
-            return std::tuple_cat(my_trait<std::tuple_element_t<0, std::tuple<Auxs...>>>::data_row(std::get<0>(getAuxiliar()[isample])),
-                                  base_type::data_row(i, j),
-                                  partial_DlogL()[isample].data_row(i, j));
-        }
-
-        auto & getAuxiliar() const {
-            return aux_;
-        }
-
-
-
-        std::vector<DlogLikelihood> const &partial_DlogL() const { return partial_; }
-
-        PartialDLogLikelihood(DVlogLikelihood &&dlogL,
-                              std::vector<DlogLikelihood> &&dist,
-                              std::vector<std::tuple<Auxs...>> &&aux)
-            : DVlogLikelihood(std::move(dlogL)), partial_{std::move(dist)},
-              aux_{std::move(aux)} {}
-
-        PartialDLogLikelihood(double logL, double elogL, double vlogL, double evlogL,
-                              const M_Matrix<double> &Gradient,
-                              const M_Matrix<double> &Hessian,
-                              const M_Matrix<double> &var_Gradient,
-                              const M_Matrix<double> &scale_Matrix,
-                              double gradient_chi_value, double gradient_fim_value,
-                              const std::vector<DlogLikelihood> &dist,
-                              const std::vector<std::tuple<Auxs...>> &aux)
-            : DVlogLikelihood(logL, elogL, vlogL, evlogL, Gradient, Hessian,
-                              var_Gradient, scale_Matrix, gradient_chi_value,
-                              gradient_fim_value),
-              partial_{dist}, aux_{aux} {}
-        PartialDLogLikelihood(double logL, double elogL, double vlogL, double evlogL,
-                              M_Matrix<double> &&Gradient, M_Matrix<double> &&Hessian,
-                              M_Matrix<double> &&var_Gradient,
-                              M_Matrix<double> &&scale_Matrix,
-                              double gradient_chi_value, double gradient_fim_value,
-
-                              std::vector<DlogLikelihood> &&dist,
-                              std::vector<std::tuple<Auxs...>> &&aux)
-            : DVlogLikelihood(logL, elogL, vlogL, evlogL, std::move(Gradient),
-                              std::move(Hessian), std::move(var_Gradient),
-                              std::move(scale_Matrix), gradient_chi_value,
-                              gradient_fim_value),
-              partial_{std::move(dist)}, aux_{std::move(aux)} {
-            calc();
-        }
-        PartialDLogLikelihood() = default;
-        PartialDLogLikelihood(std::size_t n)
-            : DVlogLikelihood(0.0), partial_{std::vector<DlogLikelihood>(n)},
-              aux_{std::vector<std::tuple<Auxs...>>(n)} {}
-
-        PartialDLogLikelihood &add_one_i(std::size_t i, const DVlogLikelihood &other,
-                                         const Auxs&... a) {
-
-            DVlogLikelihood::operator+=(other);
-            partial_[i] = other;
-            aux_[i] = std::make_tuple(a...);
-
-            return *this;
-        }
-
-        PartialDLogLikelihood &add_one_i(std::size_t i, const DlogLikelihood &other) {
-            DlogLikelihood::operator+=(other);
-            partial_[i] = other;
-        }
-
-    private:
-        std::vector<DlogLikelihood> partial_;
-        std::vector<std::tuple<Auxs...>> aux_;
-    };
-
-
-    //PartialDLogLikelihood<> u;
-
-    } // namespace evidence
-
-    template <typename Aux>
-    class moments<evidence::PartialDLogLikelihood<Aux>>
-        : public moments<evidence::DVlogLikelihood> {
-    public:
-        typedef moments<evidence::DVlogLikelihood> base_type;
-        typedef evidence::PartialDLogLikelihood<Aux> element_type;
-
-        constexpr static auto const className =
-            my_static_string("moments_DlogLikelihood_");
-        // std::string myClass()const  { return className.str();}
-
-        typedef moments self_type;
-        static auto get_constructor_fields() {
-
-            return std::tuple_cat(
-                base_type::get_constructor_fields(),
-                std::tuple(grammar::field(C<self_type>{}, "Partial_DlogL",
-                                          &self_type::partial_DlogL),
-                           grammar::field(C<self_type>{}, "Partial_Auxiliar",
-                                          &self_type::partial_Auxiliar)));
-        }
-
-        std::vector<moments<evidence::DlogLikelihood>> const &partial_DlogL() const {
-            return partial_;
-        }
-        std::vector<moments<Aux>> const &partial_Auxiliar() const { return aux_; }
-
-        moments(const std::vector<evidence::PartialDLogLikelihood<Aux>> &data)
-            : base_type(data), partial_(calc_moments(data)),
-              aux_(calc_aux_moments(data)) {}
-
-        moments(const base_type &base, const moments<double> &/*GHG*/,
-                const std::vector<moments<evidence::DlogLikelihood>> &dlog,
-                const std::vector<moments<Aux>> &newAux)
-            : base_type(base), partial_{dlog}, aux_{newAux} {}
-        moments() = default;
-        auto data_row(MOMENTS m, std::size_t isample, std::size_t i,
-                      std::size_t j) const {
-            return std::tuple_cat(partial_Auxiliar()[isample].data_row(m),
-                                  base_type::data_row(m, i, j),
-                                  partial_DlogL()[isample].data_row(m, i, j));
-        }
-
-    private:
-        std::vector<moments<evidence::DlogLikelihood>> partial_;
-        std::vector<moments<Aux>> aux_;
-
-        std::vector<moments<evidence::DlogLikelihood>>
-        calc_moments(const std::vector<evidence::PartialDLogLikelihood<Aux>> &data) {
-            std::size_t n = 0;
-            if (data.size() > 0) {
-                n = data[0].partial_DlogL().size();
-            }
-            std::vector<moments<evidence::DlogLikelihood>> out(n);
-            for (std::size_t i = 0; i < n; ++i) {
-                out[i] = moments<evidence::DlogLikelihood>(
-                    data,
-                    [](const evidence::PartialDLogLikelihood<Aux> &p, std::size_t ii) {
-                        return p.partial_DlogL()[ii];
-                    },
-                    i);
-            }
-            return out;
-        }  std::vector<moments<Aux>> calc_aux_moments(
-            const std::vector<evidence::PartialDLogLikelihood<Aux>> &data) {
-            auto n = data[0].partial_DlogL().size();
-            std::vector<moments<Aux>> out(n);
-            for (std::size_t i = 0; i < n; ++i) {
-                out[i] = moments<Aux>(data,
-                                      [](const evidence::PartialDLogLikelihood<Aux> &p,
-                                         std::size_t ii) { return std::get<0>(p.getAuxiliar()[ii]); },
-                                      i);
-            }
-            return out;
-        }
-    };
-
-    namespace evidence {
-
-
-
-
-    template <class Distribution_Model, class Data, class Parameters>
-    myOptional_t<logLikelihood>
-    compute_likelihood(const Distribution_Model& l, const Data& d, const Parameters& p)
-    {
-        typedef myOptional_t<logLikelihood> Op;
-        auto D0 = l.compute_Distribution(d, p);
-        if (D0.has_value()) {
-            auto logL = calculate_Likelihood(D0, d);
-            std::stringstream ss;
-            if (are_finite<true, double>().test(logL, ss))
-                return Op(logLikelihood(logL));
-            else
-                return Op(false, ss.str());
-        } else
-            return Op(false, "fails to compute model data" + D0.error());
-
+};
+
+} // namespace evidence
+
+template <>
+class moments<evidence::DlogLikelihood>
+    : public moments<evidence::logLikelihood> {
+public:
+    typedef moments<evidence::logLikelihood> base_type;
+
+    constexpr static auto const className =
+        my_static_string("moments_DlogLikelihood_") + base_type::className;
+    // std::string myClass()const  { return className.str();}
+
+    typedef moments self_type;
+    static auto get_constructor_fields() {
+
+        return std::tuple_cat(
+            base_type::get_constructor_fields(),
+            std::tuple(
+                grammar::field(C<self_type>{}, "Gradient", &self_type::G),
+                grammar::field(C<self_type>{}, "Hessian", &self_type::H)));
     }
 
+    const moments<M_Matrix<double>> &G() const { return G_; }
+    const moments_matrix<double> &H() const { return H_; }
+    operator bool() const {
+        return (G().mean().size() > 0) && (H_.size() > 0) &&
+            base_type::operator bool();
+    }
+    void set_G(moments<M_Matrix<double>> &&gradient) {
+        G_ = std::move(gradient);
+    }
+    void set_H(moments_matrix<double> &&hessian) { H_ = std::move(hessian); }
 
-    template <class Distribution_Model, class Data> class Likelihood_Model {
-    public:
-        typedef M_Matrix<double> Parameters;
+    moments(const moments<double> &logL, moments<double> const &elogL,
+            moments<double> const &vlogL, moments<double> const &evlogL,
+            moments<double> const &chilogL,
+            const moments<M_Matrix<double>> &Gradient,
+            const moments_matrix<double> &Hessian)
+        : base_type(logL, elogL, vlogL, evlogL, chilogL), G_{Gradient},
+          H_{Hessian} {}
 
-        typedef Likelihood_Model self_type;
-        typedef Cs<Distribution_Model, Data> template_types;
-        constexpr static auto const className = my_static_string("Likelihood_Model") +
-            my_trait<template_types>::className;
+    moments(const std::vector<evidence::DlogLikelihood> &l)
+        : base_type(l), G_{l, &evidence::DlogLikelihood::G},
+          H_{l, &evidence::DlogLikelihood::H} {}
 
-        auto compute_Likelihood(const Parameters &p) const {
-            return compute_Likelihood(l_,d_,p);
+    template <class DlogL>
+    moments(const std::vector<DlogL> &l)
+        : base_type(l), G_{l, &DlogL::G}, H_{l, &DlogL::H} {}
+
+    template <class logL, class Op, typename... Ts>
+    moments(const std::vector<logL> &l, const Op &u, Ts... t)
+        : base_type(l, u, t...), G_{l,
+                                    [&u, &t...](const logL &d) {
+                                        return u(d, t...).G();
+                                    }},
+          H_{l, [&u, &t...](const logL &d) { return u(d, t...).H(); }} {}
+
+    moments() = default;
+
+    auto data_row(MOMENTS m, std::size_t i, std::size_t j) const {
+        return std::tuple_cat(base_type::data_row(m), G().data_row(m, i, j),
+                              H().data_row(m, i, j));
+    }
+
+    std::size_t data_dim(MOMENTS m) const {
+        return std::max(G().data_dim(m), H().data_dim(m));
+    }
+    std::size_t data_size() const { return G().data_size(); }
+
+private:
+    moments<M_Matrix<double>> G_;
+    moments_matrix<double> H_;
+};
+
+template <>
+class moments<evidence::DVlogLikelihood>
+    : public moments<evidence::DlogLikelihood> {
+public:
+    typedef moments<evidence::DlogLikelihood> base_type;
+
+    constexpr static auto const className =
+        my_static_string("DVlogLikelihood_moments");
+    // std::string myClass()const  { return className.str();}
+
+    typedef moments<evidence::DVlogLikelihood> self_type;
+
+    auto &vG() const { return vG_; }
+    auto &scaleM() const { return sM_; }
+    auto &gradient_chi_value() const { return gradient_chi_value_; }
+    auto &gradient_fim_value() const { return gradient_fim_value_; }
+
+    static auto get_constructor_fields() {
+
+        return std::tuple_cat(
+            base_type::get_constructor_fields(),
+            std::tuple(grammar::field(C<self_type>{}, "varG", &self_type::vG),
+                       grammar::field(C<self_type>{}, "scalingMatrix",
+                                      &self_type::scaleM),
+                       grammar::field(C<self_type>{}, "gradient_chi_value",
+                                      &self_type::gradient_chi_value),
+                       grammar::field(C<self_type>{}, "gradient_fim_value",
+                                      &self_type::gradient_fim_value))
+
+        );
+    }
+
+    moments(const moments<double> &logL, const moments<double> &elogL,
+            const moments<double> &vlogL, const moments<double> &evlogL,
+            const moments<double> &chilogL,
+            const moments<M_Matrix<double>> &Gradient,
+            const moments_matrix<double> &Hessian,
+            const moments_matrix<double> &var_Gradient,
+            const moments_matrix<double> &scale_Matrix)
+        : base_type(logL, elogL, vlogL, evlogL, chilogL, Gradient, Hessian),
+          vG_{var_Gradient}, sM_{scale_Matrix} {}
+
+    moments(const std::vector<evidence::DVlogLikelihood> &l)
+        : base_type(l), vG_{l, &evidence::DVlogLikelihood::vG},
+          sM_{l, &evidence::DVlogLikelihood::scaleM},
+          gradient_chi_value_{l,
+                              &evidence::DVlogLikelihood::gradient_chi_value},
+          gradient_fim_value_{l,
+                              &evidence::DVlogLikelihood::gradient_fim_value} {}
+
+    template <class DlogL>
+    moments(const std::vector<DlogL> &l)
+        : base_type(l), vG_{l, &DlogL::vG}, sM_{l, &DlogL::scaleM},
+          gradient_chi_value_{l, &DlogL::gradient_chi_value},
+          gradient_fim_value_{l, &DlogL::gradient_fim_value}
+
+    {}
+
+    template <class logL, class Op, typename... Ts>
+    moments(const std::vector<logL> &l, const Op &u, Ts... t)
+        : base_type(l, u, t...), vG_{l,
+                                     [&u, &t...](const logL &d) {
+                                         return u(d, t...).vG();
+                                     }},
+          sM_{l, [&u, &t...](const logL &d) { return u(d, t...).scaleM(); }},
+          gradient_chi_value_{l,
+                              [&u, &t...](const logL &d) {
+                                  return u(d, t...).gradient_chi_value();
+                              }},
+          gradient_fim_value_{l,
+                              [&u, &t...](const logL &d) {
+                                  return u(d, t...).gradient_fim_value();
+                              }}
+
+    {}
+
+    moments() = default;
+
+    auto data_row(MOMENTS m, std::size_t i, std::size_t j) const {
+        return std::tuple_cat(
+            base_type::data_row(m, i, j), vG().data_row(m, i, j),
+            scaleM().data_row(m, i, j), gradient_chi_value().data_row(m),
+            gradient_fim_value().data_row(m));
+    }
+
+private:
+    moments_matrix<double> vG_;
+    moments_matrix<double> sM_;
+    moments<double> gradient_chi_value_;
+    moments<double> gradient_fim_value_;
+};
+
+namespace evidence {
+
+template <class... Auxs> class PartialDLogLikelihood : public DVlogLikelihood {
+public:
+    typedef DVlogLikelihood base_type;
+
+    typedef Cs<Auxs...> template_types;
+
+    constexpr static bool hasAux = sizeof...(Auxs) > 0;
+    constexpr static auto const className =
+        my_static_string("PartialDLogLikelihood") +
+        my_trait<template_types>::className;
+    // std::string myClass()const  { return className.str();}
+
+    typedef PartialDLogLikelihood self_type;
+    static auto get_constructor_fields() {
+        double (logLikelihood::*myLogL)() const = &base_type::logL;
+        M_Matrix<double> const &(self_type::*myG)() const = &self_type::G;
+        const M_Matrix<double> &(self_type::*myH)() const = &self_type::H;
+
+        return std::make_tuple(
+            grammar::field(C<self_type>{}, "logL", myLogL),
+            grammar::field(C<self_type>{}, "elogL", &self_type::elogL),
+            grammar::field(C<self_type>{}, "vlogL", &self_type::vlogL),
+            grammar::field(C<self_type>{}, "evlogL", &self_type::evlogL),
+            grammar::field(C<self_type>{}, "Gradient", myG),
+            grammar::field(C<self_type>{}, "Hessian", myH),
+            grammar::field(C<self_type>{}, "varG", &self_type::vG),
+            grammar::field(C<self_type>{}, "scalingMatrix", &self_type::scaleM),
+            grammar::field(C<self_type>{}, "gradient_chi_value",
+                           &self_type::gradient_chi_value),
+            grammar::field(C<self_type>{}, "gradient_fim_value",
+                           &self_type::gradient_fim_value),
+            grammar::field(C<self_type>{}, "Partial_DlogL",
+                           &self_type::partial_DlogL),
+            grammar::field(
+                C<self_type>{},
+                my_trait_tuple<std::tuple<Auxs...>>::className.c_str(),
+                &self_type::getAuxiliar));
+    }
+
+    template <class DataFrame> static void insert_col(DataFrame &d) {
+
+        my_trait<Auxs...>::insert_col(d, "");
+        base_type::insert_col(d);
+        DlogLikelihood::insert_col(d, "partial_");
+    }
+    static Data_Index_scheme data_index() {
+        Data_Index_scheme out = base_type::data_index();
+        auto vAux =
+            Insert_Index(my_trait<Auxs...>::data_index(), {"i_measure"});
+        out = concatenate(std::move(out), std::move(vAux));
+        auto vDlog = Insert_Index(DlogLikelihood::data_index(), {"i_measure"});
+        ;
+        out = concatenate(std::move(out), std::move(vDlog));
+        return out;
+    }
+
+    static auto get_data_index_static() {
+        typedef typename std::decay_t<
+            decltype(std::declval<self_type>().partial_DlogL())>::value_type
+            Dlik;
+        return Concatenate_tuple_static(
+            Compose_static(
+                [](const self_type &s) -> base_type const & { return s; },
+                base_type::get_data_index_static()),
+            Compose_static(std::make_tuple(I_s(
+                               i_measure{},
+                               [](const self_type &self) {
+                                   return self.partial_DlogL().size();
+                               },
+                               0)),
+                           F_s(
+                               s_partial{},
+                               [](const self_type &self,
+                                  std::size_t i_meas) -> auto const & {
+                                   return self.partial_DlogL()[i_meas];
+                               }),
+                           Dlik::get_data_index_static()),
+            Compose_static(
+                std::make_tuple(I_s(
+                    i_measure{},
+                    [](const self_type &self) {
+                        return self.partial_DlogL().size();
+                    },
+                    0)),
+                F_s(
+                    s_partial{},
+                    [](const self_type &self, std::size_t i_meas)
+                        -> auto const & { return self.getAuxiliar()[i_meas]; }),
+                myData_Index<std::tuple<Auxs...>>::get_data_index_static(
+                    i_Parameter{})));
+    }
+
+    auto getIndexedData(const std::set<std::string> &index,
+                        const std::set<std::string> &names) {
+        Data_Index_point out;
+        out.push_back("i_measure", partial_.size());
+        base_type &l = *this;
+        auto ind = l.getIndexedData(index, names);
+    }
+
+    auto data_row(std::size_t isample, std::size_t i, std::size_t j) const {
+        return std::tuple_cat(
+            my_trait<std::tuple_element_t<0, std::tuple<Auxs...>>>::data_row(
+                std::get<0>(getAuxiliar()[isample])),
+            base_type::data_row(i, j), partial_DlogL()[isample].data_row(i, j));
+    }
+
+    auto &getAuxiliar() const { return aux_; }
+
+    std::vector<DlogLikelihood> const &partial_DlogL() const {
+        return partial_;
+    }
+
+    PartialDLogLikelihood(DVlogLikelihood &&dlogL,
+                          std::vector<DlogLikelihood> &&dist,
+                          std::vector<std::tuple<Auxs...>> &&aux)
+        : DVlogLikelihood(std::move(dlogL)), partial_{std::move(dist)},
+          aux_{std::move(aux)} {}
+
+    PartialDLogLikelihood(double logL, double elogL, double vlogL,
+                          double evlogL, const M_Matrix<double> &Gradient,
+                          const M_Matrix<double> &Hessian,
+                          const M_Matrix<double> &var_Gradient,
+                          const M_Matrix<double> &scale_Matrix,
+                          double gradient_chi_value, double gradient_fim_value,
+                          const std::vector<DlogLikelihood> &dist,
+                          const std::vector<std::tuple<Auxs...>> &aux)
+        : DVlogLikelihood(logL, elogL, vlogL, evlogL, Gradient, Hessian,
+                          var_Gradient, scale_Matrix, gradient_chi_value,
+                          gradient_fim_value),
+          partial_{dist}, aux_{aux} {}
+    PartialDLogLikelihood(double logL, double elogL, double vlogL,
+                          double evlogL, M_Matrix<double> &&Gradient,
+                          M_Matrix<double> &&Hessian,
+                          M_Matrix<double> &&var_Gradient,
+                          M_Matrix<double> &&scale_Matrix,
+                          double gradient_chi_value, double gradient_fim_value,
+
+                          std::vector<DlogLikelihood> &&dist,
+                          std::vector<std::tuple<Auxs...>> &&aux)
+        : DVlogLikelihood(logL, elogL, vlogL, evlogL, std::move(Gradient),
+                          std::move(Hessian), std::move(var_Gradient),
+                          std::move(scale_Matrix), gradient_chi_value,
+                          gradient_fim_value),
+          partial_{std::move(dist)}, aux_{std::move(aux)} {
+        calc();
+    }
+    PartialDLogLikelihood() = default;
+    PartialDLogLikelihood(std::size_t n)
+        : DVlogLikelihood(0.0), partial_{std::vector<DlogLikelihood>(n)},
+          aux_{std::vector<std::tuple<Auxs...>>(n)} {}
+
+    PartialDLogLikelihood &
+    add_one_i(std::size_t i, const DVlogLikelihood &other, const Auxs &...a) {
+
+        DVlogLikelihood::operator+=(other);
+        partial_[i] = other;
+        aux_[i] = std::make_tuple(a...);
+
+        return *this;
+    }
+
+    PartialDLogLikelihood &add_one_i(std::size_t i,
+                                     const DlogLikelihood &other) {
+        DlogLikelihood::operator+=(other);
+        partial_[i] = other;
+    }
+
+private:
+    std::vector<DlogLikelihood> partial_;
+    std::vector<std::tuple<Auxs...>> aux_;
+};
+
+// PartialDLogLikelihood<> u;
+
+} // namespace evidence
+
+template <typename... Aux>
+class moments<evidence::PartialDLogLikelihood<Aux...>>
+    : public moments<evidence::DVlogLikelihood> {
+public:
+    typedef moments<evidence::DVlogLikelihood> base_type;
+    typedef evidence::PartialDLogLikelihood<Aux...> element_type;
+
+    constexpr static auto const className =
+        my_static_string("moments_DlogLikelihood_");
+    // std::string myClass()const  { return className.str();}
+
+    typedef moments self_type;
+    static auto get_constructor_fields() {
+
+        return std::tuple_cat(
+            base_type::get_constructor_fields(),
+            std::tuple(grammar::field(C<self_type>{}, "Partial_DlogL",
+                                      &self_type::partial_DlogL),
+                       grammar::field(C<self_type>{}, "Partial_Auxiliar",
+                                      &self_type::partial_Auxiliar)));
+    }
+
+    std::vector<moments<evidence::DlogLikelihood>> const &
+    partial_DlogL() const {
+        return partial_;
+    }
+    std::vector<moments<std::tuple<Aux...>>> const &partial_Auxiliar() const {
+        return aux_;
+    }
+
+    moments(const std::vector<evidence::PartialDLogLikelihood<Aux...>> &data)
+        : base_type(data), partial_(calc_moments(data)),
+          aux_(calc_aux_moments(data)) {}
+
+    moments(const base_type &base, const moments<double> & /*GHG*/,
+            const std::vector<moments<evidence::DlogLikelihood>> &dlog,
+            const std::vector<moments<std::tuple<Aux...>>> &newAux)
+        : base_type(base), partial_{dlog}, aux_{newAux} {}
+    moments() = default;
+    auto data_row(MOMENTS m, std::size_t isample, std::size_t i,
+                  std::size_t j) const {
+        return std::tuple_cat(partial_Auxiliar()[isample].data_row(m),
+                              base_type::data_row(m, i, j),
+                              partial_DlogL()[isample].data_row(m, i, j));
+    }
+
+private:
+    std::vector<moments<evidence::DlogLikelihood>> partial_;
+    std::vector<moments<std::tuple<Aux...>>> aux_;
+
+    std::vector<moments<evidence::DlogLikelihood>> calc_moments(
+        const std::vector<evidence::PartialDLogLikelihood<Aux...>> &data) {
+        std::size_t n = 0;
+        if (data.size() > 0) {
+            n = data[0].partial_DlogL().size();
         }
-        Likelihood_Model(const Distribution_Model &l, const Data &d) : l_{l}, d_{d} {}
-
-        static auto get_constructor_fields() {
-            return std::make_tuple(
-                grammar::field(C<self_type>{}, "Distribution_Model", &self_type::model),
-                grammar::field(C<self_type>{}, "Data", &self_type::data));
+        std::vector<moments<evidence::DlogLikelihood>> out(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = moments<evidence::DlogLikelihood>(
+                data,
+                [](const evidence::PartialDLogLikelihood<Aux...> &p,
+                   std::size_t ii) { return p.partial_DlogL()[ii]; },
+                i);
         }
-
-        Likelihood_Model()=default;
-        const Distribution_Model &model() const { return l_; }
-        const Data &data() const { return d_; }
-        void set_Data(Data &&d) { d_ = std::move(d); }
-
-
-
-    protected:
-        Distribution_Model l_;
-        Data d_;
-    };
-
-    template <class Distribution_Model, class Data>
-    class FIM_Model : public Likelihood_Model<Distribution_Model, Data> {
-    public:
-        typedef FIM_Model self_type;
-        typedef Likelihood_Model<Distribution_Model, Data> base_type;
-        constexpr static auto const className =
-            my_static_string("FIM_Model") + my_trait<base_type>::className;
-        typedef M_Matrix<double> Parameters;
-        typedef typename Distribution_Model::aux_type Aux;
-
-        typedef Likelihood_Model<Distribution_Model, Data> L;
-
-        auto compute_DLikelihood_init(const Parameters &p, std::ostream &os) const {
-            return compute_DLikelihood_init(p, os, L::data());
+        return out;
+    }
+    std::vector<moments<std::tuple<Aux...>>> calc_aux_moments(
+        const std::vector<evidence::PartialDLogLikelihood<Aux...>> &data) {
+        auto n = data[0].partial_DlogL().size();
+        std::vector<moments<std::tuple<Aux...>>> out(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            out[i] = moments<std::tuple<Aux...>>(
+                data,
+                [](const evidence::PartialDLogLikelihood<Aux...> &p,
+                   std::size_t ii) { return std::get<0>(p.getAuxiliar()[ii]); },
+                i);
         }
+        return out;
+    }
+};
 
-        template <class mySample>
-        auto compute_DLikelihood(const Parameters &p, const mySample &current,
-                                 std::ostream &os) const {
-            return compute_DLikelihood(p, current, os, L::data());
-        }
+namespace evidence {
 
-        auto compute_Distributions(const Parameters &p, std::ostream &os,
-                                   const Data &data,
-                                   const std::vector<double> &eps) const {
-            std::string error;
-            auto D0res = L::model().compute_Distribution_aux(data, p, os);
-            typedef decltype(D0res.value().first) myDistr;
-            typedef decltype(D0res.value().second) myAux;
+template <class Distribution_Model, class Data, class Parameters>
+myOptional_t<logLikelihood> compute_likelihood(const Distribution_Model &l,
+                                               const Data &d,
+                                               const Parameters &p) {
+    typedef myOptional_t<logLikelihood> Op;
+    auto D0 = l.compute_Distribution(d, p);
+    if (D0.has_value()) {
+        auto logL = calculate_Likelihood(D0, d);
+        std::stringstream ss;
+        if (are_finite<true, double>().test(logL, ss))
+            return Op(logLikelihood(logL));
+        else
+            return Op(false, ss.str());
+    } else
+        return Op(false, "fails to compute model data" + D0.error());
+}
 
-            typedef myOptional_t<std::tuple<myDistr, std::vector<myDistr>, myAux>> Op;
+template <class Distribution_Model, class Data> class Likelihood_Model {
+public:
+    typedef M_Matrix<double> Parameters;
 
-            if (!D0res.has_value())
-                return Op(false, "fails to compute the model :" + D0res.error());
-            else {
+    typedef Likelihood_Model self_type;
+    typedef Cs<Distribution_Model, Data> template_types;
+    constexpr static auto const className =
+        my_static_string("Likelihood_Model") +
+        my_trait<template_types>::className;
 
-                auto [D0, aux] = std::move(D0res).value();
+    auto compute_Likelihood(const Parameters &p) const {
+        return compute_Likelihood(l_, d_, p);
+    }
+    Likelihood_Model(const Distribution_Model &l, const Data &d)
+        : l_{l}, d_{d} {}
 
-                std::vector<std::decay_t<decltype(D0)>> D(p.size());
-                for (std::size_t i = 0; i < p.size(); ++i) {
-                    Parameters x(p);
-                    x[i] = x[i] + eps[i];
-                    auto OpD = L::model().compute_Distribution_aux(data, x, os, aux);
-                    if (OpD.has_value())
-                        D[i] = std::move(OpD).value();
-                    else
-                        return Op(false, " getDLikelihood error at i=" + ToString(i) +
-                                      "th parameter  :" + OpD.error());
-                }
-                return Op(std::tuple(D0, D, aux));
+    static auto get_constructor_fields() {
+        return std::make_tuple(
+            grammar::field(C<self_type>{}, "Distribution_Model",
+                           &self_type::model),
+            grammar::field(C<self_type>{}, "Data", &self_type::data));
+    }
+
+    Likelihood_Model() = default;
+    const Distribution_Model &model() const { return l_; }
+    const Data &data() const { return d_; }
+    void set_Data(Data &&d) { d_ = std::move(d); }
+
+protected:
+    Distribution_Model l_;
+    Data d_;
+};
+
+template <class Distribution_Model, class Data>
+class FIM_Model : public Likelihood_Model<Distribution_Model, Data> {
+public:
+    typedef FIM_Model self_type;
+    typedef Likelihood_Model<Distribution_Model, Data> base_type;
+    constexpr static auto const className =
+        my_static_string("FIM_Model") + my_trait<base_type>::className;
+    typedef M_Matrix<double> Parameters;
+    typedef typename Distribution_Model::aux_type Aux;
+
+    typedef Likelihood_Model<Distribution_Model, Data> L;
+
+    auto compute_DLikelihood_init(const Parameters &p, std::ostream &os) const {
+        return compute_DLikelihood_init(p, os, L::data());
+    }
+
+    template <class mySample>
+    auto compute_DLikelihood(const Parameters &p, const mySample &current,
+                             std::ostream &os) const {
+        return compute_DLikelihood(p, current, os, L::data());
+    }
+
+    auto compute_Distributions(const Parameters &p, std::ostream &os,
+                               const Data &data,
+                               const std::vector<double> &eps) const {
+        std::string error;
+        auto D0res = L::model().compute_Distribution_aux(data, p, os);
+        typedef decltype(D0res.value().first) myDistr;
+        typedef decltype(D0res.value().second) myAux;
+
+        typedef myOptional_t<std::tuple<myDistr, std::vector<myDistr>, myAux>>
+            Op;
+
+        if (!D0res.has_value())
+            return Op(false, "fails to compute the model :" + D0res.error());
+        else {
+
+            auto [D0, aux] = std::move(D0res).value();
+
+            std::vector<std::decay_t<decltype(D0)>> D(p.size());
+            for (std::size_t i = 0; i < p.size(); ++i) {
+                Parameters x(p);
+                x[i] = x[i] + eps[i];
+                auto OpD =
+                    L::model().compute_Distribution_aux(data, x, os, aux);
+                if (OpD.has_value())
+                    D[i] = std::move(OpD).value();
+                else
+                    return Op(false,
+                              " getDLikelihood error at i=" + ToString(i) +
+                                  "th parameter  :" + OpD.error());
             }
+            return Op(std::tuple(D0, D, aux));
         }
+    }
 
+    auto compute_Distributions_mp(const Parameters &p, std::ostream &os,
+                                  const Data &data,
+                                  const std::vector<double> &eps) const {
+        std::string error;
+        auto D0res = L::model().compute_Distribution_aux_mp(data, p, os);
+        typedef decltype(D0res.value().first) myDistr;
+        typedef decltype(D0res.value().second) myAux;
 
+        typedef myOptional_t<std::tuple<myDistr, std::vector<myDistr>, myAux>>
+            Op;
 
-        auto compute_Distributions_mp(const Parameters &p, std::ostream &os,
+        if (!D0res.has_value())
+            return Op(false, "fails to compute the model :" + D0res.error());
+        else {
+
+            auto [D0, aux] = std::move(D0res).value();
+
+            std::vector<std::decay_t<decltype(D0)>> D(p.size());
+            for (std::size_t i = 0; i < p.size(); ++i) {
+                Parameters x(p);
+                x[i] = x[i] + eps[i];
+                auto OpD =
+                    L::model().compute_Distribution_aux_mp(data, x, os, aux);
+                if (OpD.has_value())
+                    D[i] = std::move(OpD).value();
+                else
+                    return Op(false,
+                              " getDLikelihood error at i=" + ToString(i) +
+                                  "th parameter  :" + OpD.error());
+            }
+            return Op(std::tuple(D0, D, aux));
+        }
+    }
+
+    auto compute_Distributions_center(const Parameters &p, std::ostream &os,
                                       const Data &data,
                                       const std::vector<double> &eps) const {
-            std::string error;
-            auto D0res = L::model().compute_Distribution_aux_mp(data, p, os);
-            typedef decltype(D0res.value().first) myDistr;
-            typedef decltype(D0res.value().second) myAux;
+        std::string error;
+        auto D0res = L::model().compute_Distribution_aux(data, p, os);
+        typedef decltype(D0res.value().first) myDistr;
+        typedef decltype(D0res.value().second) myAux;
 
-            typedef myOptional_t<std::tuple<myDistr, std::vector<myDistr>, myAux>> Op;
+        typedef myOptional_t<std::tuple<myDistr, std::vector<myDistr>,
+                                        std::vector<myDistr>, myAux>>
+            Op;
 
-            if (!D0res.has_value())
-                return Op(false, "fails to compute the model :" + D0res.error());
-            else {
+        if (!D0res.has_value())
+            return Op(false, "fails to compute the model :" + D0res.error());
+        else {
 
-                auto [D0, aux] = std::move(D0res).value();
+            auto [D0, aux] = std::move(D0res).value();
 
-                std::vector<std::decay_t<decltype(D0)>> D(p.size());
+            std::vector<std::decay_t<decltype(D0)>> Dp(p.size());
+            std::vector<std::decay_t<decltype(D0)>> Dn(p.size());
+            for (std::size_t i = 0; i < p.size(); ++i) {
+                Parameters xp(p);
+                xp[i] = xp[i] + 0.5 * eps[i];
+                auto OpDp =
+                    L::model().compute_Distribution_aux(data, xp, os, aux);
+                if (OpDp.has_value())
+                    Dp[i] = std::move(OpDp).value();
+                else
+                    return Op(false,
+                              " getDLikelihood error at i=" + ToString(i) +
+                                  "th parameter  :" + OpDp.error());
+                Parameters xn(p);
+                xn[i] = xn[i] - 0.5 * eps[i];
+                auto OpDn =
+                    L::model().compute_Distribution_aux(data, xn, os, aux);
+                if (OpDn.has_value())
+                    Dn[i] = std::move(OpDn).value();
+                else
+                    return Op(false,
+                              " getDLikelihood error at i=" + ToString(i) +
+                                  "th parameter  :" + OpDn.error());
+            }
+            return Op(std::tuple(D0, Dn, Dp, aux));
+        }
+    }
+
+    auto compute_Distributions_center_mp(const Parameters &p, std::ostream &os,
+                                         const Data &data,
+                                         const std::vector<double> &eps) const {
+        std::string error;
+        auto D0res = L::model().compute_Distribution_aux_mp(data, p, os);
+        typedef decltype(D0res.value().first) myDistr;
+        typedef decltype(D0res.value().second) myAux;
+
+        typedef myOptional_t<std::tuple<myDistr, std::vector<myDistr>,
+                                        std::vector<myDistr>, myAux>>
+            Op;
+
+        if (!D0res.has_value())
+            return Op(false, "fails to compute the model :" + D0res.error());
+        else {
+
+            auto [D0, aux] = std::move(D0res).value();
+
+            std::vector<std::decay_t<decltype(D0)>> Dp(p.size());
+            std::vector<std::decay_t<decltype(D0)>> Dn(p.size());
+            for (std::size_t i = 0; i < p.size(); ++i) {
+                Parameters xp(p);
+                xp[i] = xp[i] + 0.5 * eps[i];
+                auto OpDp =
+                    L::model().compute_Distribution_aux_mp(data, xp, os, aux);
+                if (OpDp.has_value())
+                    Dp[i] = std::move(OpDp).value();
+                else
+                    return Op(false,
+                              " getDLikelihood error at i=" + ToString(i) +
+                                  "th parameter  :" + OpDp.error());
+                Parameters xn(p);
+                xn[i] = xn[i] - 0.5 * eps[i];
+                auto OpDn =
+                    L::model().compute_Distribution_aux_mp(data, xn, os, aux);
+                if (OpDn.has_value())
+                    Dn[i] = std::move(OpDn).value();
+                else
+                    return Op(false,
+                              " getDLikelihood error at i=" + ToString(i) +
+                                  "th parameter  :" + OpDn.error());
+            }
+            return Op(std::tuple(D0, Dn, Dp, aux));
+        }
+    }
+
+    template <class mySample>
+    auto compute_eps(const Parameters &p, const mySample &current,
+                     const Data &data) const {
+        std::vector<double> eps(p.size());
+        for (std::size_t i = 0; i < p.size(); ++i)
+            eps[i] = 2.0 *
+                std::sqrt(eps_f() * data.size() *
+                          std::numeric_limits<double>::epsilon() *
+                          std::abs(current.logL() / current.H()(i, i)));
+        return eps;
+    }
+
+    template <class mySample>
+    auto compute_DLikelihood(const Parameters &p, const mySample &current,
+                             std::ostream &os, const Data &data) const
+
+    {
+        return compute_DLikelihood(p, os, data, compute_eps(p, current, data));
+    }
+
+    template <class mySample>
+    auto compute_PartialDLikelihood(const Parameters &p,
+                                    const mySample &current,
+                                    std::ostream &os) const
+
+    {
+        return compute_PartialDLikelihood(p, os, L::data(),
+                                          compute_eps(p, current, L::data()));
+    }
+
+    auto compute_DLikelihood(const Parameters &p, std::ostream &os,
+                             const Data &data,
+                             const std::vector<double> &epsG) const
+
+    {
+        typedef myOptional_t<DlogLikelihood> Op;
+
+        auto res = compute_Distributions(p, os, data, epsG);
+        if (!res)
+            return Op(false, res.error());
+        else {
+
+            auto [D0, D, aux] = std::move(res).value();
+            return compute_DLikelihood(D0, D, os, data, epsG);
+        }
+    }
+
+    auto compute_DLikelihood_center(const Parameters &p, std::ostream &os,
+                                    const Data &data,
+                                    const std::vector<double> &epsG) const
+
+    {
+        typedef myOptional_t<DlogLikelihood> Op;
+
+        auto res = compute_Distributions_center(p, os, data, epsG);
+        if (!res)
+            return Op(false, res.error());
+        else {
+
+            auto [D0, Dp, Dn, aux] = std::move(res).value();
+            return compute_DLikelihood_center(D0, Dp, Dn, os, data, epsG);
+        }
+    }
+
+    auto compute_DLikelihood_init(const Parameters &p, std::ostream &os,
+                                  const Data &data) const
+
+    {
+        std::vector<double> epsG(p.size(), eps_);
+        return compute_DLikelihood(p, os, data, epsG);
+    }
+
+    template <class Distribution>
+    auto compute_DLikelihood(const Distribution &D0,
+                             const std::vector<Distribution> &D,
+                             std::ostream &os, const Data &data,
+                             const std::vector<double> &eps) const {
+        typedef myOptional_t<DlogLikelihood> Op;
+
+        auto logL = calculate_Likelihood(D0, data);
+        std::stringstream ss;
+        if (!are_finite<true, double>().test(std::get<0>(logL), ss))
+            return Op(false,
+                      " getDLikelihood error for getLikelihood " + ss.str());
+        auto G = calculate_Gradient(D0, D, data, eps);
+        if (!are_finite<true, M_Matrix<double>>().test(G, ss))
+            return Op(false, " getDLikelihood error for gradient " + ss.str());
+
+        auto H = calculate_Hessian(D0, D, data, eps, os);
+        if (!are_finite<true, M_Matrix<double>>().test(H, ss))
+            return Op(false, " getDLikelihood error for Hessian " + ss.str());
+        return Op(DlogLikelihood(logL, std::move(G), std::move(H)));
+    }
+
+    template <class Distribution>
+    auto compute_DVLikelihood(const Distribution &D0,
+                              const std::vector<Distribution> &D,
+                              std::ostream &os, const Data &data,
+                              const std::vector<double> &eps) const {
+        typedef myOptional_t<DVlogLikelihood> Op;
+
+        auto logL = calculate_Likelihood(D0, data);
+        std::stringstream ss;
+        if (!are_finite<true, double>().test(std::get<0>(logL), ss))
+            return Op(false,
+                      " getDLikelihood error for getLikelihood " + ss.str());
+        auto G = calculate_Gradient(D0, D, data, eps);
+        if (!are_finite<true, M_Matrix<double>>().test(G, ss))
+            return Op(false, " getDLikelihood error for gradient " + ss.str());
+        auto vG = calculate_vGradient(D0, D, data, eps);
+        if (!are_finite<true, M_Matrix<double>>().test(vG, ss))
+            return Op(false,
+                      " getDLikelihood error for gradient variance" + ss.str());
+
+        auto H = calculate_Hessian(D0, D, data, eps, os);
+        if (!are_finite<true, M_Matrix<double>>().test(H, ss))
+            return Op(false, " getDLikelihood error for Hessian " + ss.str());
+        auto DV = DVlogLikelihood(true, logL, std::move(G), std::move(H),
+                                  std::move(vG));
+        DV.calc();
+        return Op(std::move(DV));
+    }
+
+    template <class Distribution>
+    auto compute_DLikelihood_center(const Distribution &D0,
+                                    const std::vector<Distribution> &Dn,
+                                    const std::vector<Distribution> &Dp,
+                                    std::ostream &os, const Data &data,
+                                    const std::vector<double> &epsG) const {
+        typedef myOptional_t<DlogLikelihood> Op;
+
+        auto logL = calculate_Likelihood(D0, data);
+        std::stringstream ss;
+        if (!are_finite<true, double>().test(std::get<0>(logL), ss))
+            return Op(false,
+                      " getDLikelihood error for getLikelihood " + ss.str());
+        auto G = calculate_Gradient_center(Dn, Dp, data, epsG);
+        if (!are_finite<true, M_Matrix<double>>().test(G, ss))
+            return Op(false, " getDLikelihood error for gradient " + ss.str());
+
+        auto H = calculate_Hessian_center(D0, Dn, Dp, data, epsG, os);
+        if (!are_finite<true, M_Matrix<double>>().test(H, ss))
+            return Op(false, " getDLikelihood error for Hessian " + ss.str());
+        return Op(DlogLikelihood(logL, std::move(G), std::move(H)));
+    }
+
+    template <class Distribution>
+    auto compute_DVLikelihood_center(const Distribution &D0,
+                                     const std::vector<Distribution> &Dn,
+                                     const std::vector<Distribution> &Dp,
+                                     std::ostream &os, const Data &data,
+                                     const std::vector<double> &epsG) const {
+        typedef myOptional_t<DVlogLikelihood> Op;
+
+        auto logL = calculate_Likelihood(D0, data);
+        std::stringstream ss;
+        if (!are_finite<true, double>().test(std::get<0>(logL), ss))
+            return Op(false,
+                      " getDLikelihood error for getLikelihood " + ss.str());
+        auto G = calculate_Gradient_center(Dn, Dp, data, epsG);
+        if (!are_finite<true, M_Matrix<double>>().test(G, ss))
+            return Op(false, " getDLikelihood error for gradient " + ss.str());
+        auto vG = calculate_vGradient_center(Dn, Dp, data, epsG);
+
+        auto H = calculate_Hessian_center(D0, Dn, Dp, data, epsG, os);
+        if (!are_finite<true, M_Matrix<double>>().test(H, ss))
+            return Op(false, " getDLikelihood error for Hessian " + ss.str());
+        return Op(DVlogLikelihood(true, logL, std::move(G), std::move(H),
+                                  std::move(vG)));
+    }
+
+    auto compute_PartialDLikelihood_init(const Parameters &p, std::ostream &os,
+                                         const Data &data) const {
+        std::vector<double> eps(p.size(), eps_);
+        return compute_PartialDLikelihood(p, os, data, eps);
+    }
+
+    auto compute_PartialDLikelihood(const Parameters &p, std::ostream &os,
+                                    const Data &data,
+                                    const std::vector<double> &epsG) const {
+        auto res = compute_Distributions_mp(p, os, data, epsG);
+        typedef std::decay_t<decltype(res.value())> resType;
+        typedef typename std::tuple_element_t<2, resType>::value_type Aux;
+
+        typedef transfer_t<Aux, PartialDLogLikelihood> PartialDLogLikelihoO;
+
+        typedef myOptional_t<PartialDLogLikelihoO> Op;
+        if (!res)
+            return Op(false, res.error());
+        else {
+            auto [D0, D, aux] = std::move(res).value();
+
+            auto Dlik = compute_DVLikelihood(D0, D, os, data, epsG);
+            if (!Dlik)
+                return Op(false, Dlik.error());
+
+            std::vector<DlogLikelihood> partials(D0.size());
+
+            for (std::size_t n = 0; n < D0.size(); ++n) {
+
+                auto logL = calculate_Likelihood(D0[n], data[n]);
+                std::stringstream ss;
+                if (!are_finite<true, double>().test(std::get<0>(logL), ss))
+                    return Op(false,
+                              " getDLikelihood error for getLikelihood " +
+                                  ss.str());
+                M_Matrix<double> G(1, p.size());
                 for (std::size_t i = 0; i < p.size(); ++i) {
-                    Parameters x(p);
-                    x[i] = x[i] + eps[i];
-                    auto OpD = L::model().compute_Distribution_aux_mp(data, x, os, aux);
-                    if (OpD.has_value())
-                        D[i] = std::move(OpD).value();
-                    else
-                        return Op(false, " getDLikelihood error at i=" + ToString(i) +
-                                      "th parameter  :" + OpD.error());
+                    G[i] = calculate_Gradient(D0[n], D[i][n], data[n], epsG[i]);
                 }
-                return Op(std::tuple(D0, D, aux));
+                if (!are_finite<true, M_Matrix<double>>().test(G, ss))
+                    return Op(false,
+                              " getDLikelihood error for gradient " + ss.str());
+
+                auto H = calculate_Hessian(n, D0, D, epsG);
+                if (!are_finite<true, M_Matrix<double>>().test(H, ss))
+                    return Op(false,
+                              " getDLikelihood error for Hessian " + ss.str());
+                partials[n] = DlogLikelihood(logL, std::move(G), std::move(H));
             }
+
+            return Op(PartialDLogLikelihoO(
+                std::move(Dlik).value(), std::move(partials), std::move(aux)));
         }
+    }
 
+    auto
+    compute_PartialDLikelihood_center(const Parameters &p, std::ostream &os,
+                                      const Data &data,
+                                      const std::vector<double> &epsG) const {
+        auto res = compute_Distributions_center_mp(p, os, data, epsG);
+        typedef std::decay_t<decltype(res.value())> resType;
+        typedef typename std::tuple_element_t<3, resType>::value_type Aux;
+        typedef transfer_t<Aux, PartialDLogLikelihood> PartialDLogLikelihoO;
 
+        typedef myOptional_t<PartialDLogLikelihoO> Op;
+        if (!res)
+            return Op(false, res.error());
+        else {
+            auto [D0, Dn, Dp, aux] = std::move(res).value();
 
+            auto Dlik = compute_DVLikelihood_center(D0, Dn, Dp, os, data, epsG);
+            if (!Dlik)
+                return Op(false, Dlik.error());
 
-        auto compute_Distributions_center(const Parameters &p, std::ostream &os,
-                                          const Data &data,
-                                          const std::vector<double> &eps) const {
-            std::string error;
-            auto D0res = L::model().compute_Distribution_aux(data, p, os);
-            typedef decltype(D0res.value().first) myDistr;
-            typedef decltype(D0res.value().second) myAux;
+            std::vector<DlogLikelihood> partials(D0.size());
 
-            typedef myOptional_t<
-                std::tuple<myDistr, std::vector<myDistr>, std::vector<myDistr>, myAux>>
-                Op;
+            for (std::size_t n = 0; n < D0.size(); ++n) {
 
-            if (!D0res.has_value())
-                return Op(false, "fails to compute the model :" + D0res.error());
-            else {
-
-                auto [D0, aux] = std::move(D0res).value();
-
-                std::vector<std::decay_t<decltype(D0)>> Dp(p.size());
-                std::vector<std::decay_t<decltype(D0)>> Dn(p.size());
+                auto logL = calculate_Likelihood(D0[n], data[n]);
+                std::stringstream ss;
+                if (!are_finite<true, double>().test(std::get<0>(logL), ss))
+                    return Op(false,
+                              " getDLikelihood error for getLikelihood " +
+                                  ss.str());
+                M_Matrix<double> G(1, p.size());
                 for (std::size_t i = 0; i < p.size(); ++i) {
-                    Parameters xp(p);
-                    xp[i] = xp[i] + 0.5*eps[i];
-                    auto OpDp = L::model().compute_Distribution_aux(data, xp, os, aux);
-                    if (OpDp.has_value())
-                        Dp[i] = std::move(OpDp).value();
-                    else
-                        return Op(false, " getDLikelihood error at i=" + ToString(i) +
-                                      "th parameter  :" + OpDp.error());
-                    Parameters xn(p);
-                    xn[i] = xn[i] - 0.5*eps[i];
-                    auto OpDn = L::model().compute_Distribution_aux(data, xn, os, aux);
-                    if (OpDn.has_value())
-                        Dn[i] = std::move(OpDn).value();
-                    else
-                        return Op(false, " getDLikelihood error at i=" + ToString(i) +
-                                      "th parameter  :" + OpDn.error());
+                    G[i] = calculate_Gradient(Dn[i][n], Dp[i][n], data[n],
+                                              epsG[i]);
                 }
-                return Op(std::tuple(D0, Dn, Dp, aux));
+                if (!are_finite<true, M_Matrix<double>>().test(G, ss))
+                    return Op(false,
+                              " getDLikelihood error for gradient " + ss.str());
+
+                auto H = calculate_Hessian_center(n, D0, Dn, Dp, epsG);
+                if (!are_finite<true, M_Matrix<double>>().test(H, ss))
+                    return Op(false,
+                              " getDLikelihood error for Hessian " + ss.str());
+                partials[n] = DlogLikelihood(logL, std::move(G), std::move(H));
             }
+
+            return Op(PartialDLogLikelihoO(
+                std::move(Dlik).value(), std::move(partials), std::move(aux)));
         }
+    }
 
+    FIM_Model(const Distribution_Model &l, const Data &d, double eps,
+              double epsf)
+        : Likelihood_Model<Distribution_Model, Data>(l, d), eps_{eps},
+          eps_f_{epsf} {}
 
-        auto compute_Distributions_center_mp(const Parameters &p, std::ostream &os,
-                                             const Data &data,
-                                             const std::vector<double> &eps) const {
-            std::string error;
-            auto D0res = L::model().compute_Distribution_aux_mp(data, p, os);
-            typedef decltype(D0res.value().first) myDistr;
-            typedef decltype(D0res.value().second) myAux;
+    static auto get_constructor_fields() {
+        return std::make_tuple(
+            grammar::field(C<self_type>{}, "Distribution_Model",
+                           &self_type::model),
+            grammar::field(C<self_type>{}, "Data", &self_type::data),
+            grammar::field(C<self_type>{}, "eps", &self_type::eps),
+            grammar::field(C<self_type>{}, "epsilon_factor",
+                           &self_type::eps_f));
+    }
 
-            typedef myOptional_t<
-                std::tuple<myDistr, std::vector<myDistr>, std::vector<myDistr>, myAux>>
-                Op;
+    void set_Data(Data &&d) { base_type::set_Data(std::move(d)); }
+    double eps() const { return eps_; }
+    double eps_f() const { return eps_f_; }
+    FIM_Model() = default;
 
-            if (!D0res.has_value())
-                return Op(false, "fails to compute the model :" + D0res.error());
-            else {
+private:
+    double eps_;
+    double eps_f_;
+};
 
-                auto [D0, aux] = std::move(D0res).value();
+template <class Parameters_Distribution, class Parameters_Values,
+          class ExperimentData, class logLikelihood>
+class Likelihood_Analisis {
 
-                std::vector<std::decay_t<decltype(D0)>> Dp(p.size());
-                std::vector<std::decay_t<decltype(D0)>> Dn(p.size());
-                for (std::size_t i = 0; i < p.size(); ++i) {
-                    Parameters xp(p);
-                    xp[i] = xp[i] + 0.5*eps[i];
-                    auto OpDp = L::model().compute_Distribution_aux_mp(data, xp, os, aux);
-                    if (OpDp.has_value())
-                        Dp[i] = std::move(OpDp).value();
-                    else
-                        return Op(false, " getDLikelihood error at i=" + ToString(i) +
-                                      "th parameter  :" + OpDp.error());
-                    Parameters xn(p);
-                    xn[i] = xn[i] - 0.5*eps[i];
-                    auto OpDn = L::model().compute_Distribution_aux_mp(data, xn, os, aux);
-                    if (OpDn.has_value())
-                        Dn[i] = std::move(OpDn).value();
-                    else
-                        return Op(false, " getDLikelihood error at i=" + ToString(i) +
-                                      "th parameter  :" + OpDn.error());
+public:
+    typedef Likelihood_Analisis self_type;
+    typedef Cs<Parameters_Distribution, Parameters_Values, ExperimentData,
+               logLikelihood>
+        template_types;
+    constexpr static auto const className =
+        my_static_string("Likelihood_Analisis") +
+        my_trait<template_types>::className;
+
+    static auto get_constructor_fields() {
+        return std::make_tuple(
+            grammar::field(C<self_type>{}, "prior",
+                           &self_type::get_Parameters_Distribution),
+            grammar::field(C<self_type>{}, "simulations",
+                           &self_type::get_Parameters),
+            grammar::field(C<self_type>{}, "simulations",
+                           &self_type::get_Simulations),
+            grammar::field(C<self_type>{}, "likelihoods",
+                           &self_type::get_Likelihoods));
+    }
+
+    auto size() const { return s_.size(); }
+
+    double mean_logL() const {
+        double out = s_[0].logL();
+        for (std::size_t i = 1; i < s_.size(); ++i)
+            out += s_[i].logL();
+        return out / s_.size();
+    }
+
+    M_Matrix<double> mean_Gradient() const {
+        M_Matrix<double> out = s_[0].G();
+        for (std::size_t i = 1; i < s_.size(); ++i)
+            out += s_[i].G();
+        return out / s_.size();
+    }
+    std::vector<M_Matrix<double>> partial_mean_Gradient() const {
+        auto ns = s_[0].partial_DlogL().size();
+        std::vector<M_Matrix<double>> out(ns);
+        for (std::size_t n = 0; n < ns; ++n) {
+            M_Matrix<double> m = s_[0].partial_DlogL()[n].G();
+            for (std::size_t i = 1; i < s_.size(); ++i)
+                m += s_[i].partial_DlogL()[n].G();
+
+            out[n] = m / s_.size();
+        }
+        return out;
+    }
+    M_Matrix<double> mean_sqr_Gradient() const {
+        M_Matrix<double> out = quadraticForm_XTX(s_[0].G());
+        for (std::size_t i = 1; i < s_.size(); ++i)
+            out += quadraticForm_XTX(s_[i].G());
+        return out / s_.size();
+    }
+    std::vector<M_Matrix<double>> partial_sqr_Gradient() const {
+        auto ns = s_[0].partial_DlogL().size();
+        std::vector<M_Matrix<double>> out(ns);
+        for (std::size_t n = 0; n < ns; ++n) {
+            M_Matrix<double> m =
+                quadraticForm_XTX(s_[0].partial_DlogL()[n].G());
+            for (std::size_t i = 1; i < s_.size(); ++i)
+                m += quadraticForm_XTX(s_[i].partial_DlogL()[n].G());
+            out[n] = m / s_.size();
+        }
+        return out;
+    }
+
+    M_Matrix<double> mean_Hessian() const {
+        M_Matrix<double> out = s_[0].H();
+        for (std::size_t i = 1; i < s_.size(); ++i)
+            out += s_[i].H();
+        return out / s_.size();
+    }
+
+    std::vector<M_Matrix<double>> partial_mean_Hessian() const {
+        auto ns = s_[0].partial_DlogL().size();
+        std::vector<M_Matrix<double>> out(ns);
+        for (std::size_t n = 0; n < ns; ++n) {
+            M_Matrix<double> m = s_[0].partial_DlogL()[n].H();
+            for (std::size_t i = 1; i < s_.size(); ++i)
+                m += s_[i].partial_DlogL()[n].H();
+
+            out[n] = m / s_.size();
+        }
+        return out;
+    }
+
+    auto &get_Parameters_Distribution() const { return prior_; }
+    auto &get_Parameters() const { return p_; }
+
+    std::vector<ExperimentData> const &get_Simulations() const { return e_; }
+
+    std::vector<logLikelihood> const &get_Likelihoods() const { return s_; }
+
+    moments<logLikelihood> get_Likelihood_Moments() const {
+        return moments<logLikelihood>(get_Likelihoods());
+    }
+
+    moments<ExperimentData> get_Experiment_Moments() const {
+        return moments<ExperimentData>(get_Simulations());
+    }
+
+    moments<Parameters_Values> get_Parameters_Moments() const {
+        return moments<Parameters_Values>(get_Parameters());
+    }
+
+    Likelihood_Analisis(Parameters_Distribution &&prior,
+                        std::vector<Parameters_Values> &&par,
+                        std::vector<ExperimentData> &&e,
+                        std::vector<logLikelihood> &&s)
+        : prior_{std::move(prior)}, p_{std::move(par)}, e_{std::move(e)},
+          s_{std::move(s)} {}
+
+    Likelihood_Analisis(const Parameters_Distribution &prior,
+                        const std::vector<Parameters_Values> &par,
+                        const std::vector<ExperimentData> &e,
+                        const std::vector<logLikelihood> &s)
+        : prior_{prior}, p_{par}, e_{e}, s_{s} {}
+
+    Likelihood_Analisis() = default;
+
+    io::myDataFrame<double, std::size_t, std::string> make_Data_Frame() const {
+        io::myDataFrame<double, std::size_t, std::string> d;
+        d.insert_column("statistic", C<std::string>());
+        d.insert_column("n_sample", C<std::size_t>());
+
+        ExperimentData::insert_col(d);
+
+        d.insert_column("ParName", C<std::string>());
+        d.insert_column("Par_trValue", C<double>());
+        d.insert_column("Par_Value", C<double>());
+        d.insert_column("ParName_T", C<std::string>());
+        d.insert_column("Par_trValue_T", C<double>());
+        d.insert_column("Par_Value_T", C<double>());
+
+        logLikelihood::insert_col(d);
+        auto nsamples = s_.size();
+        for (std::size_t i = 0; i < s_.size(); ++i) {
+            auto data_sample = std::tuple(std::string("value"), i);
+            auto &e = e_[e_.size() == nsamples ? i : 0];
+            auto &p = p_[p_.size() == nsamples ? i : 0];
+            auto &l = s_[i];
+            assert(e.steps().size() == l.partial_DlogL().size());
+            auto nsteps = e.steps().size();
+            for (std::size_t i_step = 0; i_step < nsteps; ++i_step) {
+                auto data_exp = e.data_row(i_step);
+                auto npar = p.size();
+                assert(npar == l.G().size());
+                for (std::size_t i_par = 0; i_par < npar; ++i_par) {
+                    if constexpr (false)
+                        for (std::size_t i_parT = 0; i_parT <= i_par;
+                             ++i_parT) {
+                            auto data_lik = l.data_row(i_step, i_par, i_parT);
+                            auto data_par = std::tuple(
+                                prior_.name(i_par), p[i_par],
+                                prior_.tr_to_Parameter(p[i_par], i_par),
+                                prior_.name(i_parT), p[i_parT],
+                                prior_.tr_to_Parameter(p[i_parT], i_parT));
+                            auto data_t = std::tuple_cat(data_sample, data_exp,
+                                                         data_par, data_lik);
+                            d.push_back_t(data_t);
+                        }
+                    else {
+                        auto data_lik = l.data_row(i_step, i_par, i_par);
+                        auto data_par =
+                            std::tuple(prior_.name(i_par), p[i_par],
+                                       prior_.tr_to_Parameter(p[i_par], i_par),
+                                       prior_.name(i_par), p[i_par],
+                                       prior_.tr_to_Parameter(p[i_par], i_par));
+                        auto data_t = std::tuple_cat(data_sample, data_exp,
+                                                     data_par, data_lik);
+                        d.push_back_t(data_t);
+                    }
                 }
-                return Op(std::tuple(D0, Dn, Dp, aux));
             }
         }
 
+        auto likmom = get_Likelihood_Moments();
+        auto expmom = get_Experiment_Moments();
+        auto parmom = get_Parameters_Moments();
 
-
-        template <class mySample>
-        auto compute_eps(const Parameters& p, const mySample& current,const Data& data)const
-        {
-            std::vector<double> eps(p.size());
-            for (std::size_t i = 0; i < p.size(); ++i)
-                eps[i] = 2.0 * std::sqrt(eps_f() * data.size() *
-                                         std::numeric_limits<double>::epsilon() *
-                                         std::abs(current.logL() / current.H()(i, i)));
-            return eps;
-
-        }
-
-
-        template <class mySample>
-        auto compute_DLikelihood(const Parameters &p, const mySample &current,
-                                 std::ostream &os, const Data &data) const
-
-        {
-            return compute_DLikelihood(p, os, data, compute_eps(p,current,data));
-        }
-
-        template <class mySample>
-        auto compute_PartialDLikelihood(const Parameters &p, const mySample &current,
-                                        std::ostream &os) const
-
-        {
-            return compute_PartialDLikelihood(p, os, L::data(), compute_eps(p,current,L::data()));
-        }
-
-
-        auto compute_DLikelihood(const Parameters &p, std::ostream &os,
-                                 const Data &data,
-                                 const std::vector<double> &epsG) const
-
-        {
-            typedef myOptional_t<DlogLikelihood> Op;
-
-            auto res = compute_Distributions(p, os, data, epsG);
-            if (!res)
-                return Op(false, res.error());
-            else {
-
-                auto [D0, D, aux] = std::move(res).value();
-                return compute_DLikelihood(D0, D, os, data, epsG);
+        for (auto m : MOMENTS_VALUES) {
+            auto data_sample = std::tuple(MOMENTS_string[m], 0ul);
+            assert(expmom.steps().size() == likmom.partial_DlogL().size());
+            auto nsteps = expmom.steps().size();
+            for (std::size_t i_step = 0; i_step < nsteps; ++i_step) {
+                auto data_exp = expmom.data_row(m, i_step);
+                auto npar = prior_.size();
+                assert(npar == likmom.G().mean().size());
+                for (std::size_t i_par = 0; i_par < npar; ++i_par) {
+                    for (std::size_t i_parT = 0; i_parT <= i_par; ++i_parT) {
+                        auto data_lik =
+                            likmom.data_row(m, i_step, i_par, i_parT);
+                        auto data_par = std::tuple_cat(
+                            std::tuple(prior_.name(i_par)),
+                            parmom.data_row(m, i_par, i_parT),
+                            std::tuple(prior_.tr_to_Parameter(
+                                           std::get<0>(parmom.data_row(m, i_par,
+                                                                       i_par)),
+                                           i_par),
+                                       prior_.name(i_parT)),
+                            parmom.data_row(m, i_parT, i_par),
+                            std::tuple(prior_.tr_to_Parameter(
+                                std::get<0>(parmom.data_row(m, i_parT, i_parT)),
+                                i_parT)));
+                        auto data_t = std::tuple_cat(data_sample, data_exp,
+                                                     data_par, data_lik);
+                        d.push_back_t(data_t);
+                    }
+                }
             }
         }
 
-        auto compute_DLikelihood_center(const Parameters &p, std::ostream &os,
-                                        const Data &data,
-                                        const std::vector<double> &epsG) const
+        return d;
+    }
 
-        {
-            typedef myOptional_t<DlogLikelihood> Op;
+private:
+    Parameters_Distribution prior_;
+    std::vector<Parameters_Values> p_;
+    std::vector<ExperimentData> e_;
+    std::vector<logLikelihood> s_;
+};
 
-            auto res = compute_Distributions_center(p, os, data, epsG);
-            if (!res)
-                return Op(false, res.error());
-            else {
+template <class ExperimentSimulation, class PartialDLogLikelihood>
+class Likelihood_sample {
+public:
+    constexpr static auto const className =
+        my_static_string("Likelihood_Test_sample");
 
-                auto [D0, Dp, Dn, aux] = std::move(res).value();
-                return compute_DLikelihood_center(D0, Dp, Dn, os, data, epsG);
+    typedef Likelihood_sample self_type;
+    static auto get_constructor_fields() {
+        return std::make_tuple(grammar::field(C<self_type>{}, "simulations",
+                                              &self_type::getSimulations),
+                               grammar::field(C<self_type>{}, "likelihoods",
+                                              &self_type::getLikelihoods));
+    }
+
+    auto size() const { return s_.size(); }
+    M_Matrix<double> mean_Gradient() const {
+        M_Matrix<double> out = s_[0].G();
+        for (std::size_t i = 1; i < s_.size(); ++i)
+            out += s_[i].G();
+        return out / s_.size();
+    }
+    std::vector<M_Matrix<double>> partial_mean_Gradient() const {
+        auto ns = s_[0].partial_DlogL().size();
+        std::vector<M_Matrix<double>> out(ns);
+        for (std::size_t n = 0; n < ns; ++n) {
+            M_Matrix<double> m = s_[0].partial_DlogL()[n].G();
+            for (std::size_t i = 1; i < s_.size(); ++i)
+                m += s_[i].partial_DlogL()[n].G();
+
+            out[n] = m / s_.size();
+        }
+        return out;
+    }
+    M_Matrix<double> mean_sqr_Gradient() const {
+        M_Matrix<double> out = quadraticForm_XTX(s_[0].G());
+        for (std::size_t i = 1; i < s_.size(); ++i)
+            out += quadraticForm_XTX(s_[i].G());
+        return out / s_.size();
+    }
+    std::vector<M_Matrix<double>> partial_sqr_Gradient() const {
+        auto ns = s_[0].partial_DlogL().size();
+        std::vector<M_Matrix<double>> out(ns);
+        for (std::size_t n = 0; n < ns; ++n) {
+            M_Matrix<double> m =
+                quadraticForm_XTX(s_[0].partial_DlogL()[n].G());
+            for (std::size_t i = 1; i < s_.size(); ++i)
+                m += quadraticForm_XTX(s_[i].partial_DlogL()[n].G());
+            out[n] = m / s_.size();
+        }
+        return out;
+    }
+
+    M_Matrix<double> mean_Hessian() const {
+        M_Matrix<double> out = s_[0].H();
+        for (std::size_t i = 1; i < s_.size(); ++i)
+            out += s_[i].H();
+        return out / s_.size();
+    }
+
+    std::vector<M_Matrix<double>> partial_mean_Hessian() const {
+        auto ns = s_[0].partial_DlogL().size();
+        std::vector<M_Matrix<double>> out(ns);
+        for (std::size_t n = 0; n < ns; ++n) {
+            M_Matrix<double> m = s_[0].partial_DlogL()[n].H();
+            for (std::size_t i = 1; i < s_.size(); ++i)
+                m += s_[i].partial_DlogL()[n].H();
+
+            out[n] = m / s_.size();
+        }
+        return out;
+    }
+
+    std::vector<ExperimentSimulation> const &getSimulations() const {
+        return e_;
+    }
+
+    std::vector<PartialDLogLikelihood> const &getLikelihoods() const {
+        return s_;
+    }
+
+    Likelihood_sample(std::vector<ExperimentSimulation> &&e,
+                      std::vector<PartialDLogLikelihood> &&s)
+        : e_{std::move(e)}, s_{std::move(s)} {}
+
+    Likelihood_sample(const std::vector<ExperimentSimulation> &e,
+                      const std::vector<PartialDLogLikelihood> &s)
+        : e_{e}, s_{s} {}
+
+    Likelihood_sample() = default;
+
+private:
+    std::vector<ExperimentSimulation> e_;
+    std::vector<PartialDLogLikelihood> s_;
+};
+
+class Likelihood_Test {
+public:
+    static myOptional_t<std::pair<double, std::size_t>>
+    chitest(const M_Matrix<double> &mean, const M_Matrix<double> &Cov,
+            std::size_t nsamples, std::ostream &os) {
+        typedef myOptional_t<std::pair<double, std::size_t>> Op;
+        auto Cov_inv = inv(Cov);
+        if (!Cov_inv) {
+            return Op(false, "Covariance matrix is not inversible");
+        } else {
+            double chi2 = xTSigmaX(mean, Cov_inv.value()) * nsamples;
+            os << "\nchi2 =" << chi2 << " df=" << mean.size();
+
+            return Op({chi2, nsamples * mean.size()});
+        }
+    }
+
+    static std::pair<std::vector<double>, std::size_t>
+    t_test(const M_Matrix<double> &mean, const M_Matrix<double> &Cov,
+           std::size_t nsamples, std::ostream &os) {
+
+        std::vector<double> out(mean.size());
+        for (std::size_t i = 0; i < mean.size(); ++i)
+            if (mean[i] == 0)
+                out[i] = 0;
+            else
+                out[i] = mean[i] / std::sqrt(Cov(i, i) / nsamples);
+        os << "\nt test =" << out << " df=" << nsamples;
+        return {out, nsamples};
+    }
+
+    static myOptional_t<std::pair<double, std::size_t>>
+    Cov_test_1(const M_Matrix<double> &Cov, const M_Matrix<double> &CovExp,
+               std::size_t n, std::ostream &os) {
+        typedef myOptional_t<std::pair<double, std::size_t>> Op;
+        auto p = CovExp.ncols();
+        auto Cov_inv = inv(CovExp);
+        if (!Cov_inv.has_value())
+            return Op(false, "singular target covariance");
+        auto S = Cov * Cov_inv.value();
+        auto chol_S = chol(S, "lower");
+        double logdet = logDiagProduct(chol_S.value());
+
+        double TLR = n * (p * std::log(1) - logdet + Trace(S) - p);
+        os << "\n Trace(S)=" << Trace(S) << " logdet=" << logdet;
+        os << " TLR=" << TLR;
+        TLR = (1.0 - 1.0 / (6 * n - 1) * (2 * p + 1 - 2.0 / (p + 1))) * TLR;
+        os << " TLRc=" << TLR << " df=" << (p * (p + 1)) / 2;
+        return {{TLR, (p * (p + 1)) / 2}};
+    }
+
+    static myOptional_t<std::pair<double, std::size_t>>
+    Cov_test_2(const M_Matrix<double> &Cov, const M_Matrix<double> &CovExp,
+               std::size_t, std::ostream &os) {
+        typedef myOptional_t<std::pair<double, std::size_t>> Op;
+        auto p = CovExp.ncols();
+        auto Cov_inv = inv(CovExp);
+        if (!Cov_inv.has_value())
+            return Op(false, "singular target covariance");
+        auto S = Cov * Cov_inv.value();
+        auto TJn = 1.0 / p *
+            Trace(sqr(S / (1.0 / p * Trace(S)) -
+                      Matrix_Generators::eye<double>(p)));
+        os << "\nTJn= " << TJn - 1 << " df=" << (p * (p + 1)) / 2;
+
+        return {{TJn, (p * (p + 1)) / 2 - 1}};
+    }
+
+    static auto sample_Cov(std::mt19937_64 &mt, const M_Matrix<double> &Cov,
+                           std::size_t nsamples) {
+        typedef myOptional_t<std::pair<M_Matrix<double>, M_Matrix<double>>> Op;
+        auto k = Cov.ncols();
+        M_Matrix<double> mean(1, k, 0.0);
+        auto normal = Normal_Distribution<M_Matrix<double>>::make(mean, Cov);
+        if (!normal.has_value()) {
+            return Op(false, "\nsingular Covariance!!\n");
+        } else {
+            M_Matrix<double> S(k, k, Matrix_TYPE::SYMMETRIC, 0.0);
+            M_Matrix<double> m(1, k, 0.0);
+            for (std::size_t i = 0; i < nsamples; ++i) {
+                auto x = normal.value().sample(mt);
+                S += quadraticForm_XTX(x);
+                m += x;
+            }
+            return Op(std::pair(m / nsamples, S / nsamples));
+        }
+    }
+
+    template <class Simulation_Model, class FIM_Model, class Data,
+              class ParametersDistribution, class Parameters>
+    static auto compute_Sample(std::ostream &os, const Simulation_Model &sim,
+                               const FIM_Model &fim, const Data &e,
+                               const ParametersDistribution &prior,
+                               const Parameters &p, std::vector<double> &epsG,
+                               bool centered, std::mt19937_64 &mt) {
+        auto data = sim.compute_simulation(e, p, mt);
+        typedef std::decay_t<decltype(data.value())> sim_type;
+        typedef std::decay_t<decltype(fim.compute_PartialDLikelihood(
+                                             prior.Parameter_to_tr(p), os,
+                                             data.value(), epsG)
+                                          .value())>
+            PartialDLogLikelihoO;
+
+        typedef myOptional_t<std::pair<sim_type, PartialDLogLikelihoO>> Op;
+        if (!data.has_value())
+            return Op(false, "Simulation failed " + data.error());
+        else {
+            auto Par = prior.Parameter_to_tr(p);
+            if (!centered) {
+                auto Dlik =
+                    fim.compute_PartialDLikelihood(Par, os, data.value(), epsG);
+                if (!Dlik)
+                    return Op(false, "Likelihood failed!!: " + Dlik.error());
+
+                return Op(std::pair(std::move(data).value(),
+                                    std::move(Dlik).value()));
+            } else {
+                auto Dlik = fim.compute_PartialDLikelihood_center(
+                    Par, os, data.value(), epsG);
+                if (!Dlik)
+                    return Op(false, "Likelihood failed!!: " + Dlik.error());
+
+                return Op(std::pair(std::move(data).value(),
+                                    std::move(Dlik).value()));
             }
         }
+    }
 
-        auto compute_DLikelihood_init(const Parameters &p, std::ostream &os,
-                                      const Data &data) const
+    template <class Simulation_Model, class der_Model, class Data,
+              class ParametersDistributionDerivative, class Parameters>
+    static auto
+    compute_Sample_derivative(std::ostream &os, const Simulation_Model &sim,
+                              const der_Model &dm, const Data &e,
+                              const ParametersDistributionDerivative &dprior,
+                              const Parameters &p, std::mt19937_64 &mt) {
+        auto data = sim.compute_simulation(e, p, mt);
+        typedef std::decay_t<decltype(data.value())> sim_type;
+        typedef std::invoke_result_t<
+            decltype(&ParametersDistributionDerivative::Parameter_to_tr),
+            ParametersDistributionDerivative, Parameters>
+            partype;
+        typedef typename std::invoke_result_t<
+            decltype(&der_Model::template compute_PartialDLikelihood<sim_type>),
+            der_Model, partype, std::ostream &, sim_type>::value_type lik_type;
+        typedef myOptional_t<std::pair<sim_type, lik_type>> Op;
+        if (!data.has_value())
+            return Op(false, "Simulation failed " + data.error());
+        else {
+            auto Par = dprior.Parameter_to_tr(p);
+            auto Dlik = dm.compute_PartialDLikelihood(Par, os, data.value());
+            if (!Dlik) {
+                return Op(false, "Likelihood failed!!: " + Dlik.error());
+            }
 
-        {
-            std::vector<double> epsG(p.size(), eps_);
-            return compute_DLikelihood(p, os, data, epsG);
-        }
-
-        template <class Distribution>
-        auto compute_DLikelihood(const Distribution &D0,
-                                 const std::vector<Distribution> &D, std::ostream &os,
-                                 const Data &data,
-                                 const std::vector<double> &eps) const {
-            typedef myOptional_t<DlogLikelihood> Op;
-
-            auto logL = calculate_Likelihood(D0, data);
-            std::stringstream ss;
-            if (!are_finite<true, double>().test(std::get<0>(logL), ss))
-                return Op(false, " getDLikelihood error for getLikelihood " + ss.str());
-            auto G = calculate_Gradient(D0, D, data, eps);
-            if (!are_finite<true, M_Matrix<double>>().test(G, ss))
-                return Op(false, " getDLikelihood error for gradient " + ss.str());
-
-            auto H = calculate_Hessian(D0, D, data, eps, os);
-            if (!are_finite<true, M_Matrix<double>>().test(H, ss))
-                return Op(false, " getDLikelihood error for Hessian " + ss.str());
-            return Op(DlogLikelihood(logL, std::move(G), std::move(H)));
-        }
-
-        template <class Distribution>
-        auto compute_DVLikelihood(const Distribution &D0,
-                                  const std::vector<Distribution> &D,
-                                  std::ostream &os, const Data &data,
-                                  const std::vector<double> &eps) const {
-            typedef myOptional_t<DVlogLikelihood> Op;
-
-            auto logL = calculate_Likelihood(D0, data);
-            std::stringstream ss;
-            if (!are_finite<true, double>().test(std::get<0>(logL), ss))
-                return Op(false, " getDLikelihood error for getLikelihood " + ss.str());
-            auto G = calculate_Gradient(D0, D, data, eps);
-            if (!are_finite<true, M_Matrix<double>>().test(G, ss))
-                return Op(false, " getDLikelihood error for gradient " + ss.str());
-            auto vG = calculate_vGradient(D0, D, data, eps);
-            if (!are_finite<true, M_Matrix<double>>().test(vG, ss))
-                return Op(false,
-                          " getDLikelihood error for gradient variance" + ss.str());
-
-            auto H = calculate_Hessian(D0, D, data, eps, os);
-            if (!are_finite<true, M_Matrix<double>>().test(H, ss))
-                return Op(false, " getDLikelihood error for Hessian " + ss.str());
-            auto DV =
-                DVlogLikelihood(true, logL, std::move(G), std::move(H), std::move(vG));
-            DV.calc();
-            return Op(std::move(DV));
-        }
-
-        template <class Distribution>
-        auto compute_DLikelihood_center(const Distribution &D0,
-                                        const std::vector<Distribution> &Dn,
-                                        const std::vector<Distribution> &Dp,
-                                        std::ostream &os, const Data &data,
-                                        const std::vector<double> &epsG) const {
-            typedef myOptional_t<DlogLikelihood> Op;
-
-            auto logL = calculate_Likelihood(D0, data);
-            std::stringstream ss;
-            if (!are_finite<true, double>().test(std::get<0>(logL), ss))
-                return Op(false, " getDLikelihood error for getLikelihood " + ss.str());
-            auto G = calculate_Gradient_center(Dn, Dp, data, epsG);
-            if (!are_finite<true, M_Matrix<double>>().test(G, ss))
-                return Op(false, " getDLikelihood error for gradient " + ss.str());
-
-            auto H = calculate_Hessian_center(D0, Dn, Dp, data, epsG, os);
-            if (!are_finite<true, M_Matrix<double>>().test(H, ss))
-                return Op(false, " getDLikelihood error for Hessian " + ss.str());
-            return Op(DlogLikelihood(logL, std::move(G), std::move(H)));
-        }
-
-        template <class Distribution>
-        auto compute_DVLikelihood_center(const Distribution &D0,
-                                         const std::vector<Distribution> &Dn,
-                                         const std::vector<Distribution> &Dp,
-                                         std::ostream &os, const Data &data,
-                                         const std::vector<double> &epsG) const {
-            typedef myOptional_t<DVlogLikelihood> Op;
-
-            auto logL = calculate_Likelihood(D0, data);
-            std::stringstream ss;
-            if (!are_finite<true, double>().test(std::get<0>(logL), ss))
-                return Op(false, " getDLikelihood error for getLikelihood " + ss.str());
-            auto G = calculate_Gradient_center(Dn, Dp, data, epsG);
-            if (!are_finite<true, M_Matrix<double>>().test(G, ss))
-                return Op(false, " getDLikelihood error for gradient " + ss.str());
-            auto vG = calculate_vGradient_center(Dn, Dp, data, epsG);
-
-            auto H = calculate_Hessian_center(D0, Dn, Dp, data, epsG, os);
-            if (!are_finite<true, M_Matrix<double>>().test(H, ss))
-                return Op(false, " getDLikelihood error for Hessian " + ss.str());
             return Op(
-                DVlogLikelihood(true, logL, std::move(G), std::move(H), std::move(vG)));
+                std::pair(std::move(data).value(), std::move(Dlik).value()));
         }
-
-        auto compute_PartialDLikelihood_init(const Parameters &p, std::ostream &os,
-                                             const Data &data) const {
-            std::vector<double> eps(p.size(), eps_);
-            return compute_PartialDLikelihood(p, os, data, eps);
-        }
-
-        auto compute_PartialDLikelihood(const Parameters &p, std::ostream &os,
-                                        const Data &data,
-                                        const std::vector<double> &epsG) const {
-            auto res = compute_Distributions_mp(p, os, data, epsG);
-            typedef std::decay_t<decltype(res.value())> resType;
-            typedef typename std::tuple_element_t<2, resType>::value_type Aux;
-
-            typedef transfer_t<Aux,PartialDLogLikelihood> PartialDLogLikelihoO;
-
-            typedef myOptional_t<PartialDLogLikelihoO> Op;
-            if (!res)
-                return Op(false, res.error());
-            else {
-                auto [D0, D, aux] = std::move(res).value();
-
-                auto Dlik = compute_DVLikelihood(D0, D, os, data, epsG);
-                if (!Dlik)
-                    return Op(false, Dlik.error());
-
-                std::vector<DlogLikelihood> partials(D0.size());
-
-                for (std::size_t n = 0; n < D0.size(); ++n) {
-
-                    auto logL = calculate_Likelihood(D0[n], data[n]);
-                    std::stringstream ss;
-                    if (!are_finite<true, double>().test(std::get<0>(logL), ss))
-                        return Op(false,
-                                  " getDLikelihood error for getLikelihood " + ss.str());
-                    M_Matrix<double> G(1, p.size());
-                    for (std::size_t i = 0; i < p.size(); ++i) {
-                        G[i] = calculate_Gradient(D0[n], D[i][n], data[n], epsG[i]);
-                    }
-                    if (!are_finite<true, M_Matrix<double>>().test(G, ss))
-                        return Op(false, " getDLikelihood error for gradient " + ss.str());
-
-                    auto H = calculate_Hessian(n, D0, D, epsG);
-                    if (!are_finite<true, M_Matrix<double>>().test(H, ss))
-                        return Op(false, " getDLikelihood error for Hessian " + ss.str());
-                    partials[n] = DlogLikelihood(logL, std::move(G), std::move(H));
-                }
-
-                return Op(PartialDLogLikelihoO(
-                    std::move(Dlik).value(), std::move(partials), std::move(aux)));
-            }
-        }
-
-        auto
-        compute_PartialDLikelihood_center(const Parameters &p, std::ostream &os,
-                                          const Data &data,
-                                          const std::vector<double> &epsG) const {
-            auto res = compute_Distributions_center_mp(p, os, data, epsG);
-            typedef std::decay_t<decltype(res.value())> resType;
-            typedef typename std::tuple_element_t<3, resType>::value_type Aux;
-            typedef transfer_t<Aux,PartialDLogLikelihood> PartialDLogLikelihoO;
-
-
-
-
-            typedef myOptional_t<PartialDLogLikelihoO> Op;
-            if (!res)
-                return Op(false, res.error());
-            else {
-                auto [D0, Dn, Dp, aux] = std::move(res).value();
-
-                auto Dlik = compute_DVLikelihood_center(D0, Dn, Dp, os, data, epsG);
-                if (!Dlik)
-                    return Op(false, Dlik.error());
-
-                std::vector<DlogLikelihood> partials(D0.size());
-
-                for (std::size_t n = 0; n < D0.size(); ++n) {
-
-                    auto logL = calculate_Likelihood(D0[n], data[n]);
-                    std::stringstream ss;
-                    if (!are_finite<true, double>().test(std::get<0>(logL), ss))
-                        return Op(false,
-                                  " getDLikelihood error for getLikelihood " + ss.str());
-                    M_Matrix<double> G(1, p.size());
-                    for (std::size_t i = 0; i < p.size(); ++i) {
-                        G[i] = calculate_Gradient(Dn[i][n], Dp[i][n], data[n], epsG[i]);
-                    }
-                    if (!are_finite<true, M_Matrix<double>>().test(G, ss))
-                        return Op(false, " getDLikelihood error for gradient " + ss.str());
-
-                    auto H = calculate_Hessian_center(n, D0, Dn, Dp, epsG);
-                    if (!are_finite<true, M_Matrix<double>>().test(H, ss))
-                        return Op(false, " getDLikelihood error for Hessian " + ss.str());
-                    partials[n] = DlogLikelihood(logL, std::move(G), std::move(H));
-                }
-
-                return Op(PartialDLogLikelihoO(
-                    std::move(Dlik).value(), std::move(partials), std::move(aux)));
-            }
-        }
-
-        FIM_Model(const Distribution_Model &l, const Data &d, double eps, double epsf)
-            : Likelihood_Model<Distribution_Model, Data>(l, d), eps_{eps},
-              eps_f_{epsf} {}
-
-        static auto get_constructor_fields() {
-            return std::make_tuple(
-                grammar::field(C<self_type>{}, "Distribution_Model", &self_type::model),
-                grammar::field(C<self_type>{}, "Data", &self_type::data),
-                grammar::field(C<self_type>{}, "eps", &self_type::eps),
-                grammar::field(C<self_type>{}, "epsilon_factor", &self_type::eps_f)
-                                                                                        );
-        }
-
-        void set_Data(Data &&d) { base_type::set_Data(std::move(d)); }
-        double eps()const {return  eps_;}
-        double eps_f() const { return eps_f_; }
-        FIM_Model()=default;
-    private:
-        double eps_;
-        double eps_f_;
-  };
-
-
-
-
-
-  template <class Parameters_Distribution, class Parameters_Values,
-            class ExperimentData, class logLikelihood>
-  class Likelihood_Analisis {
-
-  public:
-      typedef Likelihood_Analisis self_type;
-      typedef Cs<Parameters_Distribution, Parameters_Values, ExperimentData,
-                 logLikelihood>
-          template_types;
-      constexpr static auto const className =
-          my_static_string("Likelihood_Analisis") +
-          my_trait<template_types>::className;
-
-      static auto get_constructor_fields() {
-          return std::make_tuple(
-              grammar::field(C<self_type>{}, "prior",
-                             &self_type::get_Parameters_Distribution),
-              grammar::field(C<self_type>{}, "simulations",
-                             &self_type::get_Parameters),
-              grammar::field(C<self_type>{}, "simulations",
-                             &self_type::get_Simulations),
-              grammar::field(C<self_type>{}, "likelihoods",
-                             &self_type::get_Likelihoods));
-      }
-
-      auto size() const { return s_.size(); }
-
-      double mean_logL() const {
-          double out = s_[0].logL();
-          for (std::size_t i = 1; i < s_.size(); ++i)
-              out += s_[i].logL();
-          return out / s_.size();
-      }
-
-      M_Matrix<double> mean_Gradient() const {
-          M_Matrix<double> out = s_[0].G();
-          for (std::size_t i = 1; i < s_.size(); ++i)
-              out += s_[i].G();
-          return out / s_.size();
-      }
-      std::vector<M_Matrix<double>> partial_mean_Gradient() const {
-          auto ns = s_[0].partial_DlogL().size();
-          std::vector<M_Matrix<double>> out(ns);
-          for (std::size_t n = 0; n < ns; ++n) {
-              M_Matrix<double> m = s_[0].partial_DlogL()[n].G();
-              for (std::size_t i = 1; i < s_.size(); ++i)
-                  m += s_[i].partial_DlogL()[n].G();
-
-              out[n] = m / s_.size();
-          }
-          return out;
-      }
-      M_Matrix<double> mean_sqr_Gradient() const {
-          M_Matrix<double> out = quadraticForm_XTX(s_[0].G());
-          for (std::size_t i = 1; i < s_.size(); ++i)
-              out += quadraticForm_XTX(s_[i].G());
-          return out / s_.size();
-      }
-      std::vector<M_Matrix<double>> partial_sqr_Gradient() const {
-          auto ns = s_[0].partial_DlogL().size();
-          std::vector<M_Matrix<double>> out(ns);
-          for (std::size_t n = 0; n < ns; ++n) {
-              M_Matrix<double> m = quadraticForm_XTX(s_[0].partial_DlogL()[n].G());
-              for (std::size_t i = 1; i < s_.size(); ++i)
-                  m += quadraticForm_XTX(s_[i].partial_DlogL()[n].G());
-              out[n] = m / s_.size();
-          }
-          return out;
-      }
-
-      M_Matrix<double> mean_Hessian() const {
-          M_Matrix<double> out = s_[0].H();
-          for (std::size_t i = 1; i < s_.size(); ++i)
-              out += s_[i].H();
-          return out / s_.size();
-      }
-
-      std::vector<M_Matrix<double>> partial_mean_Hessian() const {
-          auto ns = s_[0].partial_DlogL().size();
-          std::vector<M_Matrix<double>> out(ns);
-          for (std::size_t n = 0; n < ns; ++n) {
-              M_Matrix<double> m = s_[0].partial_DlogL()[n].H();
-              for (std::size_t i = 1; i < s_.size(); ++i)
-                  m += s_[i].partial_DlogL()[n].H();
-
-              out[n] = m / s_.size();
-          }
-          return out;
-      }
-
-      auto &get_Parameters_Distribution() const { return prior_; }
-      auto &get_Parameters() const { return p_; }
-
-      std::vector<ExperimentData> const &get_Simulations() const { return e_; }
-
-      std::vector<logLikelihood> const &get_Likelihoods() const { return s_; }
-
-      moments<logLikelihood> get_Likelihood_Moments() const {
-          return moments<logLikelihood>(get_Likelihoods());
-      }
-
-      moments<ExperimentData> get_Experiment_Moments() const {
-          return moments<ExperimentData>(get_Simulations());
-      }
-
-      moments<Parameters_Values> get_Parameters_Moments() const {
-          return moments<Parameters_Values>(get_Parameters());
-      }
-
-      Likelihood_Analisis(Parameters_Distribution &&prior,
-                          std::vector<Parameters_Values> &&par,
-                          std::vector<ExperimentData> &&e,
-                          std::vector<logLikelihood> &&s)
-          : prior_{std::move(prior)}, p_{std::move(par)}, e_{std::move(e)},
-            s_{std::move(s)} {}
-
-      Likelihood_Analisis(const Parameters_Distribution &prior,
-                          const std::vector<Parameters_Values> &par,
-                          const std::vector<ExperimentData> &e,
-                          const std::vector<logLikelihood> &s)
-          : prior_{prior}, p_{par}, e_{e}, s_{s} {}
-
-      Likelihood_Analisis() = default;
-
-      io::myDataFrame<double, std::size_t, std::string> make_Data_Frame() const {
-          io::myDataFrame<double, std::size_t, std::string> d;
-          d.insert_column("statistic", C<std::string>());
-          d.insert_column("n_sample", C<std::size_t>());
-
-          ExperimentData::insert_col(d);
-
-          d.insert_column("ParName", C<std::string>());
-          d.insert_column("Par_trValue", C<double>());
-          d.insert_column("Par_Value", C<double>());
-          d.insert_column("ParName_T", C<std::string>());
-          d.insert_column("Par_trValue_T", C<double>());
-          d.insert_column("Par_Value_T", C<double>());
-
-          logLikelihood::insert_col(d);
-          auto nsamples = s_.size();
-          for (std::size_t i = 0; i < s_.size(); ++i) {
-              auto data_sample = std::tuple(std::string("value"), i);
-              auto &e = e_[e_.size() == nsamples ? i : 0];
-              auto &p = p_[p_.size() == nsamples ? i : 0];
-              auto &l = s_[i];
-              assert(e.steps().size() == l.partial_DlogL().size());
-              auto nsteps = e.steps().size();
-              for (std::size_t i_step = 0; i_step < nsteps; ++i_step) {
-                  auto data_exp = e.data_row(i_step);
-                  auto npar = p.size();
-                  assert(npar == l.G().size());
-                  for (std::size_t i_par = 0; i_par < npar; ++i_par) {
-                      if constexpr (false)
-                          for (std::size_t i_parT = 0; i_parT <= i_par; ++i_parT) {
-                              auto data_lik = l.data_row(i_step, i_par, i_parT);
-                              auto data_par = std::tuple(
-                                  prior_.name(i_par), p[i_par],
-                                  prior_.tr_to_Parameter(p[i_par], i_par), prior_.name(i_parT),
-                                  p[i_parT], prior_.tr_to_Parameter(p[i_parT], i_parT));
-                              auto data_t =
-                                  std::tuple_cat(data_sample, data_exp, data_par, data_lik);
-                              d.push_back_t(data_t);
-                          }
-                      else {
-                          auto data_lik = l.data_row(i_step, i_par, i_par);
-                          auto data_par = std::tuple(prior_.name(i_par), p[i_par],
-                                                     prior_.tr_to_Parameter(p[i_par], i_par),
-                                                     prior_.name(i_par), p[i_par],
-                                                     prior_.tr_to_Parameter(p[i_par], i_par));
-                          auto data_t =
-                              std::tuple_cat(data_sample, data_exp, data_par, data_lik);
-                          d.push_back_t(data_t);
-                      }
-                  }
-              }
-          }
-
-          auto likmom = get_Likelihood_Moments();
-          auto expmom = get_Experiment_Moments();
-          auto parmom = get_Parameters_Moments();
-
-          for (auto m : MOMENTS_VALUES) {
-              auto data_sample = std::tuple(MOMENTS_string[m], 0ul);
-              assert(expmom.steps().size() == likmom.partial_DlogL().size());
-              auto nsteps = expmom.steps().size();
-              for (std::size_t i_step = 0; i_step < nsteps; ++i_step) {
-                  auto data_exp = expmom.data_row(m, i_step);
-                  auto npar = prior_.size();
-                  assert(npar == likmom.G().mean().size());
-                  for (std::size_t i_par = 0; i_par < npar; ++i_par) {
-                      for (std::size_t i_parT = 0; i_parT <= i_par; ++i_parT) {
-                          auto data_lik = likmom.data_row(m, i_step, i_par, i_parT);
-                          auto data_par = std::tuple_cat(
-                              std::tuple(prior_.name(i_par)),
-                              parmom.data_row(m, i_par, i_parT),
-                              std::tuple(
-                                  prior_.tr_to_Parameter(
-                                      std::get<0>(parmom.data_row(m, i_par, i_par)), i_par),
-                                  prior_.name(i_parT)),
-                              parmom.data_row(m, i_parT, i_par),
-                              std::tuple(prior_.tr_to_Parameter(
-                                  std::get<0>(parmom.data_row(m, i_parT, i_parT)), i_parT)));
-                          auto data_t =
-                              std::tuple_cat(data_sample, data_exp, data_par, data_lik);
-                          d.push_back_t(data_t);
-                      }
-                  }
-              }
-          }
-
-          return d;
-      }
-
-  private:
-      Parameters_Distribution prior_;
-      std::vector<Parameters_Values> p_;
-      std::vector<ExperimentData> e_;
-      std::vector<logLikelihood> s_;
-      };
-
-      template <class ExperimentSimulation, class PartialDLogLikelihood>
-      class Likelihood_sample {
-      public:
-          constexpr static auto const className =
-              my_static_string("Likelihood_Test_sample");
-
-          typedef Likelihood_sample self_type;
-          static auto get_constructor_fields() {
-              return std::make_tuple(grammar::field(C<self_type>{}, "simulations",
-                                                    &self_type::getSimulations),
-                                     grammar::field(C<self_type>{}, "likelihoods",
-                                                    &self_type::getLikelihoods));
-          }
-
-          auto size() const { return s_.size(); }
-          M_Matrix<double> mean_Gradient() const {
-              M_Matrix<double> out = s_[0].G();
-              for (std::size_t i = 1; i < s_.size(); ++i)
-                  out += s_[i].G();
-              return out / s_.size();
-          }
-          std::vector<M_Matrix<double>> partial_mean_Gradient() const {
-              auto ns = s_[0].partial_DlogL().size();
-              std::vector<M_Matrix<double>> out(ns);
-              for (std::size_t n = 0; n < ns; ++n) {
-                  M_Matrix<double> m = s_[0].partial_DlogL()[n].G();
-                  for (std::size_t i = 1; i < s_.size(); ++i)
-                      m += s_[i].partial_DlogL()[n].G();
-
-                  out[n] = m / s_.size();
-              }
-              return out;
-          }
-          M_Matrix<double> mean_sqr_Gradient() const {
-              M_Matrix<double> out = quadraticForm_XTX(s_[0].G());
-              for (std::size_t i = 1; i < s_.size(); ++i)
-                  out += quadraticForm_XTX(s_[i].G());
-              return out / s_.size();
-          }
-          std::vector<M_Matrix<double>> partial_sqr_Gradient() const {
-              auto ns = s_[0].partial_DlogL().size();
-              std::vector<M_Matrix<double>> out(ns);
-              for (std::size_t n = 0; n < ns; ++n) {
-                  M_Matrix<double> m = quadraticForm_XTX(s_[0].partial_DlogL()[n].G());
-                  for (std::size_t i = 1; i < s_.size(); ++i)
-                      m += quadraticForm_XTX(s_[i].partial_DlogL()[n].G());
-                  out[n] = m / s_.size();
-              }
-              return out;
-          }
-
-          M_Matrix<double> mean_Hessian() const {
-              M_Matrix<double> out = s_[0].H();
-              for (std::size_t i = 1; i < s_.size(); ++i)
-                  out += s_[i].H();
-              return out / s_.size();
-          }
-
-          std::vector<M_Matrix<double>> partial_mean_Hessian() const {
-              auto ns = s_[0].partial_DlogL().size();
-              std::vector<M_Matrix<double>> out(ns);
-              for (std::size_t n = 0; n < ns; ++n) {
-                  M_Matrix<double> m = s_[0].partial_DlogL()[n].H();
-                  for (std::size_t i = 1; i < s_.size(); ++i)
-                      m += s_[i].partial_DlogL()[n].H();
-
-                  out[n] = m / s_.size();
-              }
-              return out;
-          }
-
-          std::vector<ExperimentSimulation> const &getSimulations() const { return e_; }
-
-          std::vector<PartialDLogLikelihood> const &getLikelihoods() const {
-              return s_;
-          }
-
-          Likelihood_sample(std::vector<ExperimentSimulation> &&e,
-                            std::vector<PartialDLogLikelihood> &&s)
-              : e_{std::move(e)}, s_{std::move(s)} {}
-
-          Likelihood_sample(const std::vector<ExperimentSimulation> &e,
-                            const std::vector<PartialDLogLikelihood> &s)
-              : e_{e}, s_{s} {}
-
-          Likelihood_sample() = default;
-
-      private:
-          std::vector<ExperimentSimulation> e_;
-          std::vector<PartialDLogLikelihood> s_;
-      };
-
-      class Likelihood_Test {
-      public:
-          static myOptional_t<std::pair<double, std::size_t>>
-          chitest(const M_Matrix<double> &mean, const M_Matrix<double> &Cov,
-                  std::size_t nsamples, std::ostream &os) {
-              typedef myOptional_t<std::pair<double, std::size_t>> Op;
-              auto Cov_inv = inv(Cov);
-              if (!Cov_inv) {
-                  return Op(false, "Covariance matrix is not inversible");
-              } else {
-                  double chi2 = xTSigmaX(mean, Cov_inv.value()) * nsamples;
-                  os << "\nchi2 =" << chi2 << " df=" << mean.size();
-
-                  return Op({chi2, nsamples * mean.size()});
-              }
-          }
-
-          static std::pair<std::vector<double>, std::size_t>
-          t_test(const M_Matrix<double> &mean, const M_Matrix<double> &Cov,
-                 std::size_t nsamples, std::ostream &os) {
-
-              std::vector<double> out(mean.size());
-              for (std::size_t i = 0; i < mean.size(); ++i)
-                  if (mean[i] == 0)
-                      out[i] = 0;
-                  else
-                      out[i] = mean[i] / std::sqrt(Cov(i, i) / nsamples);
-              os << "\nt test =" << out << " df=" << nsamples;
-              return {out, nsamples};
-          }
-
-          static myOptional_t<std::pair<double, std::size_t>>
-          Cov_test_1(const M_Matrix<double> &Cov, const M_Matrix<double> &CovExp,
-                     std::size_t n, std::ostream &os) {
-              typedef myOptional_t<std::pair<double, std::size_t>> Op;
-              auto p = CovExp.ncols();
-              auto Cov_inv = inv(CovExp);
-              if (!Cov_inv.has_value())
-                  return Op(false, "singular target covariance");
-              auto S = Cov * Cov_inv.value();
-              auto chol_S = chol(S, "lower");
-              double logdet = logDiagProduct(chol_S.value());
-
-              double TLR = n * (p * std::log(1) - logdet + Trace(S) - p);
-              os << "\n Trace(S)=" << Trace(S) << " logdet=" << logdet;
-              os << " TLR=" << TLR;
-              TLR = (1.0 - 1.0 / (6 * n - 1) * (2 * p + 1 - 2.0 / (p + 1))) * TLR;
-              os << " TLRc=" << TLR << " df=" << (p * (p + 1)) / 2;
-              return {{TLR, (p * (p + 1)) / 2}};
-          }
-
-          static myOptional_t<std::pair<double, std::size_t>>
-          Cov_test_2(const M_Matrix<double> &Cov, const M_Matrix<double> &CovExp,
-                     std::size_t, std::ostream &os) {
-              typedef myOptional_t<std::pair<double, std::size_t>> Op;
-              auto p = CovExp.ncols();
-              auto Cov_inv = inv(CovExp);
-              if (!Cov_inv.has_value())
-                  return Op(false, "singular target covariance");
-              auto S = Cov * Cov_inv.value();
-              auto TJn = 1.0 / p *
-                  Trace(sqr(S / (1.0 / p * Trace(S)) -
-                            Matrix_Generators::eye<double>(p)));
-              os << "\nTJn= " << TJn - 1 << " df=" << (p * (p + 1)) / 2;
-
-              return {{TJn, (p * (p + 1)) / 2 - 1}};
-          }
-
-          static auto sample_Cov(std::mt19937_64 &mt, const M_Matrix<double> &Cov,
-                                 std::size_t nsamples) {
-              typedef myOptional_t<std::pair<M_Matrix<double>, M_Matrix<double>>> Op;
-              auto k = Cov.ncols();
-              M_Matrix<double> mean(1, k, 0.0);
-              auto normal = Normal_Distribution<M_Matrix<double>>::make(mean, Cov);
-              if (!normal.has_value()) {
-                  return Op(false, "\nsingular Covariance!!\n");
-              } else {
-                  M_Matrix<double> S(k, k, Matrix_TYPE::SYMMETRIC, 0.0);
-                  M_Matrix<double> m(1, k, 0.0);
-                  for (std::size_t i = 0; i < nsamples; ++i) {
-                      auto x = normal.value().sample(mt);
-                      S += quadraticForm_XTX(x);
-                      m += x;
-                  }
-                  return Op(std::pair(m / nsamples, S / nsamples));
-              }
-          }
-
-          template <class Simulation_Model, class FIM_Model, class Data,
-                    class ParametersDistribution, class Parameters>
-          static auto compute_Sample(std::ostream &os, const Simulation_Model &sim,
-                                     const FIM_Model &fim, const Data &e,
-                                     const ParametersDistribution &prior,
-                                     const Parameters &p, std::vector<double> &epsG,
-                                     bool centered, std::mt19937_64 &mt) {
-              auto data = sim.compute_simulation(e, p, mt);
-              typedef std::decay_t<decltype(data.value())> sim_type;
-              typedef std::decay_t<decltype(
-                  fim.compute_PartialDLikelihood(prior.Parameter_to_tr(p), os, data.value(), epsG).value()
-                                                                        )> PartialDLogLikelihoO;
-
-              typedef myOptional_t<
-                  std::pair<sim_type, PartialDLogLikelihoO>>
-                  Op;
-              if (!data.has_value())
-                  return Op(false, "Simulation failed " + data.error());
-              else {
-                  auto Par = prior.Parameter_to_tr(p);
-                  if (!centered) {
-                      auto Dlik = fim.compute_PartialDLikelihood(Par, os, data.value(), epsG);
-                      if (!Dlik)
-                          return Op(false, "Likelihood failed!!: " + Dlik.error());
-
-                      return Op(std::pair(std::move(data).value(), std::move(Dlik).value()));
-                  } else {
-                      auto Dlik =
-                          fim.compute_PartialDLikelihood_center(Par, os, data.value(), epsG);
-                      if (!Dlik)
-                          return Op(false, "Likelihood failed!!: " + Dlik.error());
-
-                      return Op(std::pair(std::move(data).value(), std::move(Dlik).value()));
-                  }
-              }
-          }
-
-          template <class Simulation_Model, class der_Model, class Data,
-                    class ParametersDistributionDerivative, class Parameters>
-          static auto
-          compute_Sample_derivative(std::ostream &os, const Simulation_Model &sim,
-                                    const der_Model &dm, const Data &e,
-                                    const ParametersDistributionDerivative &dprior,
+    }
+
+    template <class Simulation_Model, class FIM_Model, class Data,
+              class ParametersDistribution, class Parameters>
+    static auto compute_Sample_init(std::ostream &os,
+                                    const Simulation_Model &sim,
+                                    const FIM_Model &fim, const Data &e,
+                                    const ParametersDistribution &prior,
                                     const Parameters &p, std::mt19937_64 &mt) {
-              auto data = sim.compute_simulation(e, p, mt);
-              typedef std::decay_t<decltype(data.value())> sim_type;
-              typedef std::invoke_result_t<
-                  decltype(&ParametersDistributionDerivative::Parameter_to_tr),
-                  ParametersDistributionDerivative, Parameters>
-                  partype;
-              typedef typename std::invoke_result_t<
-                  decltype(&der_Model::template compute_PartialDLikelihood<sim_type>),
-                  der_Model, partype, std::ostream &, sim_type>::value_type lik_type;
-              typedef myOptional_t<std::pair<sim_type, lik_type>> Op;
-              if (!data.has_value())
-                  return Op(false, "Simulation failed " + data.error());
-              else {
-                  auto Par = dprior.Parameter_to_tr(p);
-                  auto Dlik = dm.compute_PartialDLikelihood(Par, os, data.value());
-                  if (!Dlik) {
-                      return Op(false, "Likelihood failed!!: " + Dlik.error());
-                  }
+        auto data = sim.compute_simulation(e, p, mt);
+        typedef std::decay_t<decltype(data.value())> sim_type;
+        typedef myOptional_t<
+            std::pair<sim_type,
+                      std::decay_t<decltype(fim.compute_PartialDLikelihood_init(
+                                                   prior.Parameter_to_tr(p), os,
+                                                   data.value())
+                                                .value())>>>
+            Op;
+        if (!data.has_value())
+            return Op(false, "Simulation failed " + data.error());
+        else {
+            auto Par = prior.Parameter_to_tr(p);
+            auto Dlik =
+                fim.compute_PartialDLikelihood_init(Par, os, data.value());
+            if (!Dlik)
+                return Op(false, "Likelihood failed!!: " + Dlik.error());
 
-                  return Op(std::pair(std::move(data).value(), std::move(Dlik).value()));
-              }
-          }
+            return Op(std::make_pair(std::move(data).value(),
+                                     std::move(Dlik).value()));
+        }
+    }
+    static std::vector<std::mt19937_64> mts(std::mt19937_64 &mt,
+                                            std::size_t n) {
+        std::uniform_int_distribution<typename std::mt19937_64::result_type>
+            useed;
+        std::vector<std::mt19937_64> out;
+        for (std::size_t i = 0; i < n; ++i) {
+            auto s = useed(mt);
+            std::cerr << "seed " << i << " =" << s << "\n";
+            out.emplace_back(s);
+        }
+        return out;
+    }
 
-          template <class Simulation_Model, class FIM_Model, class Data,
-                    class ParametersDistribution, class Parameters>
-          static auto compute_Sample_init(std::ostream &os, const Simulation_Model &sim,
-                                          const FIM_Model &fim, const Data &e,
-                                          const ParametersDistribution &prior,
-                                          const Parameters &p, std::mt19937_64 &mt) {
-              auto data = sim.compute_simulation(e, p, mt);
-              typedef std::decay_t<decltype(data.value())> sim_type;
-              typedef myOptional_t<
-                  std::pair<sim_type,
-                            std::decay_t<decltype(
-                                fim.compute_PartialDLikelihood_init(prior.Parameter_to_tr(p), os, data.value()).value()
-                                                                                                                                )>
-                            >>
-                  Op;
-              if (!data.has_value())
-                  return Op(false, "Simulation failed " + data.error());
-              else {
-                  auto Par = prior.Parameter_to_tr(p);
-                  auto Dlik = fim.compute_PartialDLikelihood_init(Par, os, data.value());
-                  if (!Dlik)
-                      return Op(false, "Likelihood failed!!: " + Dlik.error());
+    template <class Simulation_Model, class FIM_Model, class Data,
+              class ParametersDistribution, class Parameters>
+    static auto get_sample(std::ostream &os, const Simulation_Model &sim,
+                           const FIM_Model &fim, const Data &e,
+                           const ParametersDistribution &prior,
+                           const Parameters &p, std::mt19937_64 &mt,
+                           std::size_t nsamples, bool init, bool centered) {
+        typedef std::decay_t<decltype(sim.compute_simulation(e, p, mt).value())>
+            sim_type;
 
-                  return Op(std::make_pair(std::move(data).value(), std::move(Dlik).value()));
-              }
-          }
-          static std::vector<std::mt19937_64> mts(std::mt19937_64 &mt, std::size_t n) {
-              std::uniform_int_distribution<typename std::mt19937_64::result_type> useed;
-              std::vector<std::mt19937_64> out;
-              for (std::size_t i = 0; i < n; ++i)
-              {
-                  auto s=useed(mt);
-                  std::cerr<<"seed "<<i<<" ="<<s<<"\n";
-                  out.emplace_back(s);
-              }
-              return out;
-          }
+        typedef std::decay_t<decltype(compute_Sample_init(os, sim, fim, e,
+                                                          prior, p, mt)
+                                          .value()
+                                          .second)>
+            PartialDLogLikelihoO;
 
-          template <class Simulation_Model, class FIM_Model, class Data,
-                    class ParametersDistribution, class Parameters>
-          static auto get_sample(std::ostream &os, const Simulation_Model &sim,
-                                 const FIM_Model &fim, const Data &e,
-                                 const ParametersDistribution &prior,
-                                 const Parameters &p, std::mt19937_64 &mt,
-                                 std::size_t nsamples, bool init, bool centered) {
-              typedef std::decay_t<decltype(sim.compute_simulation(e, p, mt).value())>
-                  sim_type;
+        typedef myOptional_t<Likelihood_sample<sim_type, PartialDLogLikelihoO>>
+            Op;
+        std::stringstream ss;
+        std::vector<sim_type> simuls(nsamples);
 
-              typedef std::decay_t<decltype(
-                  compute_Sample_init(os, sim, fim, e, prior, p, mt).value().second
-                                                                        )> PartialDLogLikelihoO;
+        std::vector<PartialDLogLikelihoO> s(nsamples);
 
-              typedef myOptional_t<Likelihood_sample<
-                  sim_type, PartialDLogLikelihoO>>
-                  Op;
-              std::stringstream ss;
-              std::vector<sim_type> simuls(nsamples);
+        std::vector<std::stringstream> oss(8);
+        auto mtvec = mts(mt, 8);
 
-              std::vector<PartialDLogLikelihoO> s(nsamples);
+        if (!init) {
+            auto logL = compute_Sample_init(os, sim, fim, e, prior, p, mt);
+            if (!logL.has_value())
+                return Op(false, "erron in get_sample" + logL.error());
+            else {
+                std::vector<double> eps(p.size());
+                for (std::size_t i = 0; i < 1; ++i) {
+                    double myLogL = logL.value().second.logL();
+                    auto myH = logL.value().second.H();
+                    for (std::size_t i = 0; i < p.size(); ++i)
+                        eps[i] = 2.0 *
+                            std::sqrt(fim.eps_f() * e.size() *
+                                      std::numeric_limits<double>::epsilon() *
+                                      std::abs(myLogL / myH(i, i)));
+                    os << "\n eps=" << eps;
+                    auto logL = compute_Sample(os, sim, fim, e, prior, p, eps,
+                                               centered, mt);
+                    if (!logL.has_value())
+                        return Op(false, "erron in get_sample" + logL.error());
+                }
+                std::vector<bool> succed(8, true);
+                std::vector<std::string> error(8, "");
 
-
-              std::vector<std::stringstream> oss(8);
-              auto mtvec = mts(mt, 8);
-
-              if (!init) {
-                  auto logL = compute_Sample_init(os, sim, fim, e, prior, p, mt);
-                  if (!logL.has_value())
-                      return Op(false, "erron in get_sample"+logL.error());
-                  else {
-                      std::vector<double> eps(p.size());
-                      for (std::size_t i = 0; i < 1; ++i) {
-                          double myLogL = logL.value().second.logL();
-                          auto myH = logL.value().second.H();
-                          for (std::size_t i = 0; i < p.size(); ++i)
-                              eps[i] = 2.0 * std::sqrt(fim.eps_f() * e.size() *
-                                                       std::numeric_limits<double>::epsilon() *
-                                                       std::abs(myLogL / myH(i, i)));
-                          os << "\n eps=" << eps;
-                          auto logL =
-                              compute_Sample(os, sim, fim, e, prior, p, eps, centered, mt);
-                          if (!logL.has_value())
-                              return Op(false, "erron in get_sample"+logL.error());
-                      }
-                      std::vector<bool> succed(8,true);
-                      std::vector<std::string> error(8,"");
-
-                      for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
+                for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
 #pragma omp parallel for
-                          for (std::size_t ni = 0; ni < 8; ++ni) {
-                              std::size_t i = nc * 8 + ni;
-                              auto logL = compute_Sample(oss[ni], sim, fim, e, prior, p, eps,
-                                                         centered, mtvec[ni]);
-                              if (!logL.has_value())
-                              {
-                                  succed[ni] = false; error[ni]="in i=" +ToString(ni)+"  "+logL.error()+"\n";
-                              }
-                              else {
-                                  auto pair = std::move(logL).value();
+                    for (std::size_t ni = 0; ni < 8; ++ni) {
+                        std::size_t i = nc * 8 + ni;
+                        auto logL = compute_Sample(oss[ni], sim, fim, e, prior,
+                                                   p, eps, centered, mtvec[ni]);
+                        if (!logL.has_value()) {
+                            succed[ni] = false;
+                            error[ni] = "in i=" + ToString(ni) + "  " +
+                                logL.error() + "\n";
+                        } else {
+                            auto pair = std::move(logL).value();
 
-                                  s[i] = std::move(pair.second);
-                                  simuls[i] = std::move(pair.first);
-                                  //             os<<"\n in sample\n"<<s[i];
-                              }
-                          }
-                          for (auto &ess : oss) {
-                              os << ess.str();
-                              ess.str("");
-                          }
-                          if(!all(succed))
-                              return  Op(false, consolidate(error));
-                      }
-                  }
-              } else {
+                            s[i] = std::move(pair.second);
+                            simuls[i] = std::move(pair.first);
+                            //             os<<"\n in sample\n"<<s[i];
+                        }
+                    }
+                    for (auto &ess : oss) {
+                        os << ess.str();
+                        ess.str("");
+                    }
+                    if (!all(succed))
+                        return Op(false, consolidate(error));
+                }
+            }
+        } else {
 
-                  auto mtvec = mts(mt, 8);
-                  std::vector<bool> succed(8,true);
-                  std::vector<std::string> error(8,"");
-                  for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
+            auto mtvec = mts(mt, 8);
+            std::vector<bool> succed(8, true);
+            std::vector<std::string> error(8, "");
+            for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
 #pragma omp parallel for
-                      for (std::size_t ni = 0; ni < 8; ++ni) {
-                          std::size_t i = nc * 8 + ni;
-                          auto logL =
-                              compute_Sample_init(oss[ni], sim, fim, e, prior, p, mtvec[ni]);
-                          if (!logL.has_value())
-                          {succed[ni] = false; error[ni]="in i=" +ToString(ni)+"  "+logL.error()+"\n";}
-                          else {
-                              auto pair = std::move(logL).value();
-                              s[i] = std::move(pair.second);
-                              simuls[i] = std::move(pair.first);
-                              //             os<<"\n in sample\n"<<s[i];
-                          }
-                      }
-                      for (auto &ess : oss) {
-                          os << ess.str();
-                          ess.str("");
-                      }
-                      if(!all(succed))
-                          return  Op(false, consolidate(error));
+                for (std::size_t ni = 0; ni < 8; ++ni) {
+                    std::size_t i = nc * 8 + ni;
+                    auto logL = compute_Sample_init(oss[ni], sim, fim, e, prior,
+                                                    p, mtvec[ni]);
+                    if (!logL.has_value()) {
+                        succed[ni] = false;
+                        error[ni] =
+                            "in i=" + ToString(ni) + "  " + logL.error() + "\n";
+                    } else {
+                        auto pair = std::move(logL).value();
+                        s[i] = std::move(pair.second);
+                        simuls[i] = std::move(pair.first);
+                        //             os<<"\n in sample\n"<<s[i];
+                    }
+                }
+                for (auto &ess : oss) {
+                    os << ess.str();
+                    ess.str("");
+                }
+                if (!all(succed))
+                    return Op(false, consolidate(error));
+            }
+        }
+        os << "\n successfully obtained " + ToString(nsamples) +
+                " samples for Gradient_Expectancy_Test \n";
 
-                  }
-              }
-              os << "\n successfully obtained " + ToString(nsamples) +
-                      " samples for Gradient_Expectancy_Test \n";
+        auto samples = Likelihood_sample(std::move(simuls), std::move(s));
+        return Op(samples);
+    }
 
-              auto samples = Likelihood_sample(std::move(simuls), std::move(s));
-              return Op(samples);
-          }
+    template <class Simulation_Model, class Der_Model, class Data,
+              class ParametersDistributionDerivative, class Parameters>
+    static auto get_sample_derivative(
+        std::ostream &os, const Simulation_Model &sim, const Der_Model &dm,
+        const Data &e, const ParametersDistributionDerivative &dprior,
+        const Parameters &p, std::mt19937_64 &mt, std::size_t nsamples) {
+        typedef std::decay_t<decltype(compute_Sample_derivative(os, sim, dm, e,
+                                                                dprior, p, mt))>
+            elem_type;
+        typedef typename elem_type::value_type::first_type sim_type;
+        typedef typename elem_type::value_type::second_type logL_type;
 
-          template <class Simulation_Model, class Der_Model, class Data,
-                    class ParametersDistributionDerivative, class Parameters>
-          static auto get_sample_derivative(
-              std::ostream &os, const Simulation_Model &sim, const Der_Model &dm,
-              const Data &e, const ParametersDistributionDerivative &dprior,
-              const Parameters &p, std::mt19937_64 &mt, std::size_t nsamples) {
-              typedef std::decay_t<decltype(
-                  compute_Sample_derivative(os, sim, dm, e, dprior, p, mt))>
-                  elem_type;
-              typedef typename elem_type::value_type::first_type sim_type;
-              typedef typename elem_type::value_type::second_type logL_type;
+        typedef myOptional_t<Likelihood_sample<sim_type, logL_type>> Op;
+        std::stringstream ss;
+        std::vector<sim_type> simuls(nsamples);
+        std::vector<logL_type> s(nsamples);
 
-              typedef myOptional_t<Likelihood_sample<sim_type, logL_type>> Op;
-              std::stringstream ss;
-              std::vector<sim_type> simuls(nsamples);
-              std::vector<logL_type> s(nsamples);
+        std::vector<std::stringstream> oss(8);
 
-              std::vector<std::stringstream> oss(8);
+        bool succed = true;
 
-              bool succed = true;
-
-              auto mtvec = mts(mt, 8);
-              for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
+        auto mtvec = mts(mt, 8);
+        for (std::size_t nc = 0; nc < nsamples / 8; ++nc) {
 #pragma omp parallel for
-                  for (std::size_t ni = 0; ni < 8; ++ni) {
-                      std::size_t i = nc * 8 + ni;
-                      auto logL = compute_Sample_derivative(oss[ni], sim, dm, e, dprior, p,
-                                                            mtvec[ni]);
-                      if (!logL.has_value()) {
-                          std::cerr << logL.error();
-                          assert(false);
-                          succed = false;
-                      } else {
-                          auto pair = std::move(logL).value();
-                          s[i] = std::move(pair.second);
-                          simuls[i] = std::move(pair.first);
-                          //             os<<"\n in sample\n"<<s[i];
-                      }
-                  }
-                  for (auto &ess : oss) {
-                      os << ess.str();
-                      ess.str("");
-                  }
-              }
-              if (!succed)
+            for (std::size_t ni = 0; ni < 8; ++ni) {
+                std::size_t i = nc * 8 + ni;
+                auto logL = compute_Sample_derivative(oss[ni], sim, dm, e,
+                                                      dprior, p, mtvec[ni]);
+                if (!logL.has_value()) {
+                    std::cerr << logL.error();
+                    assert(false);
+                    succed = false;
+                } else {
+                    auto pair = std::move(logL).value();
+                    s[i] = std::move(pair.second);
+                    simuls[i] = std::move(pair.first);
+                    //             os<<"\n in sample\n"<<s[i];
+                }
+            }
+            for (auto &ess : oss) {
+                os << ess.str();
+                ess.str("");
+            }
+        }
+        if (!succed)
 
-                  return Op(false, "failed in one of the samples");
-              os << "\n successfully obtained " + ToString(nsamples) +
-                      " samples for Gradient_Expectancy_Test \n";
-              auto samples = Likelihood_sample(std::move(simuls), std::move(s));
-              return Op(samples);
-          }
+            return Op(false, "failed in one of the samples");
+        os << "\n successfully obtained " + ToString(nsamples) +
+                " samples for Gradient_Expectancy_Test \n";
+        auto samples = Likelihood_sample(std::move(simuls), std::move(s));
+        return Op(samples);
+    }
 
-          static Op_void
-          Gradient_Expectancy_Test(const M_Matrix<double> &Gradient,
-                                   const M_Matrix<double> &GradientVariance,
-                                   std::size_t nsamples, double pvalue,
-                                   std::ostream &os)
+    static Op_void
+    Gradient_Expectancy_Test(const M_Matrix<double> &Gradient,
+                             const M_Matrix<double> &GradientVariance,
+                             std::size_t nsamples, double pvalue,
+                             std::ostream &os)
 
-          {
+    {
 
-              auto t_stud = t_test(Gradient, GradientVariance, nsamples, os);
-              auto chi2_FIM = chitest(Gradient, GradientVariance, nsamples, os);
-              if (!chi2_FIM)
-                  return Op_void(false,
-                                 "Gradient_Expectancy_Test could not be performed: " +
-                                     chi2_FIM.error());
-              else {
-                  auto chivalue =
-                      1.0 - chi2_cdf(chi2_FIM.value().first, chi2_FIM.value().second);
-                  if (chivalue < pvalue)
-                      return Op_void(false, "Gradient_Expectancy_Test indicates a low "
-                                            "probability of being true: chi2=" +
-                                         std::to_string(chi2_FIM.value().first) +
-                                         " : p(" + std::to_string(chivalue) + ")<" +
-                                         ToString(pvalue) + " : " + chi2_FIM.error());
-                  else
-                      return Op_void(
-                          true,
-                          "Gradient_Expectancy_Test fall within the expected values: chi2=" +
-                              std::to_string(chi2_FIM.value().first) + " p(" +
-                              std::to_string(chivalue) + ")>" + ToString(pvalue) + " : " +
-                              chi2_FIM.error());
-              }
-          }
+        auto t_stud = t_test(Gradient, GradientVariance, nsamples, os);
+        auto chi2_FIM = chitest(Gradient, GradientVariance, nsamples, os);
+        if (!chi2_FIM)
+            return Op_void(false,
+                           "Gradient_Expectancy_Test could not be performed: " +
+                               chi2_FIM.error());
+        else {
+            auto chivalue =
+                1.0 - chi2_cdf(chi2_FIM.value().first, chi2_FIM.value().second);
+            if (chivalue < pvalue)
+                return Op_void(false,
+                               "Gradient_Expectancy_Test indicates a low "
+                               "probability of being true: chi2=" +
+                                   std::to_string(chi2_FIM.value().first) +
+                                   " : p(" + std::to_string(chivalue) + ")<" +
+                                   ToString(pvalue) + " : " + chi2_FIM.error());
+            else
+                return Op_void(true,
+                               "Gradient_Expectancy_Test fall within the "
+                               "expected values: chi2=" +
+                                   std::to_string(chi2_FIM.value().first) +
+                                   " p(" + std::to_string(chivalue) + ")>" +
+                                   ToString(pvalue) + " : " + chi2_FIM.error());
+        }
+    }
 
-          static Op_void Gradient_Variance_Expectancy_Test(
-              const M_Matrix<double> &GradientVariance,
-              const M_Matrix<double> &ExpectedGradientVariance, std::size_t nsamples,
-              double pvalue, std::ostream &os) {
+    static Op_void Gradient_Variance_Expectancy_Test(
+        const M_Matrix<double> &GradientVariance,
+        const M_Matrix<double> &ExpectedGradientVariance, std::size_t nsamples,
+        double pvalue, std::ostream &os) {
 
-              auto chi2 =
-                  Cov_test_1(GradientVariance, ExpectedGradientVariance, nsamples, os);
-              auto chi22 =
-                  Cov_test_2(GradientVariance, ExpectedGradientVariance, nsamples, os);
-              if (!chi2)
-                  return Op_void(
-                      false, "Gradient_Variance_Expectancy_Test could not be performed: " +
-                          chi2.error());
-              else {
-                  auto chivalue = chi2_cdf(chi2.value().first, chi2.value().second);
-                  if (chivalue < pvalue)
-                      return Op_void(false, "Gradient_Variance_Expectancy_Test indicates a "
-                                            "low probability of being true: p(" +
-                                         std::to_string(chivalue) + ")<" +
-                                         ToString(pvalue) + " : " + chi2.error());
-                  else
-                      return Op_void(true, "Gradient_Variance_Expectancy_Test fall within "
-                                           "the expected values: p(" +
-                                         std::to_string(chivalue) + ")>" +
-                                         ToString(pvalue) + " : " + chi2.error());
-              }
-          }
+        auto chi2 = Cov_test_1(GradientVariance, ExpectedGradientVariance,
+                               nsamples, os);
+        auto chi22 = Cov_test_2(GradientVariance, ExpectedGradientVariance,
+                                nsamples, os);
+        if (!chi2)
+            return Op_void(
+                false,
+                "Gradient_Variance_Expectancy_Test could not be performed: " +
+                    chi2.error());
+        else {
+            auto chivalue = chi2_cdf(chi2.value().first, chi2.value().second);
+            if (chivalue < pvalue)
+                return Op_void(false,
+                               "Gradient_Variance_Expectancy_Test indicates a "
+                               "low probability of being true: p(" +
+                                   std::to_string(chivalue) + ")<" +
+                                   ToString(pvalue) + " : " + chi2.error());
+            else
+                return Op_void(true,
+                               "Gradient_Variance_Expectancy_Test fall within "
+                               "the expected values: p(" +
+                                   std::to_string(chivalue) + ")>" +
+                                   ToString(pvalue) + " : " + chi2.error());
+        }
+    }
 
-          template <class Simulation_Model, class FIM_Model, class Data,
-                    class ParametersDistribution, class Parameters>
-          static auto compute_test(std::ostream &os, const Simulation_Model &sim,
-                                   const FIM_Model &fim, const Data &e,
-                                   const ParametersDistribution &prior,
-                                   const Parameters &p, std::mt19937_64 &mt,
-                                   std::size_t nsamples, double pvalue, bool init,
+    template <class Simulation_Model, class FIM_Model, class Data,
+              class ParametersDistribution, class Parameters>
+    static auto compute_test(std::ostream &os, const Simulation_Model &sim,
+                             const FIM_Model &fim, const Data &e,
+                             const ParametersDistribution &prior,
+                             const Parameters &p, std::mt19937_64 &mt,
+                             std::size_t nsamples, double pvalue, bool init,
 
-                                   bool centergradient) {
+                             bool centergradient) {
 
+        auto mysamples = get_sample(os, sim, fim, e, prior, p, mt, nsamples,
+                                    init, centergradient);
 
-              auto mysamples = get_sample(os, sim, fim, e, prior, p, mt, nsamples, init,
-                                          centergradient);
+        if constexpr (false) {
+            auto Gmean = mysamples.value().mean_Gradient();
+            os << "\n Gmean \n" << Gmean;
 
+            auto partialGmean = mysamples.value().partial_mean_Gradient();
+            os << "\n partialGmean \n";
+            for (std::size_t n = 0; n < partialGmean.size(); ++n)
+                os << "\n" << partialGmean[n];
 
+            auto partialGsqr = mysamples.value().partial_sqr_Gradient();
+            auto partialH = mysamples.value().partial_mean_Hessian();
 
-              if constexpr (false) {
-                  auto Gmean = mysamples.value().mean_Gradient();
-                  os << "\n Gmean \n" << Gmean;
+            auto Gsqr = mysamples.value().mean_sqr_Gradient();
+            os << "\n Gsqr \n" << Gsqr;
 
-                  auto partialGmean = mysamples.value().partial_mean_Gradient();
-                  os << "\n partialGmean \n";
-                  for (std::size_t n = 0; n < partialGmean.size(); ++n)
-                      os << "\n" << partialGmean[n];
+            auto H = -mysamples.value().mean_Hessian();
+            os << "\n H \n" << H;
+            os << "\n elemDiv(Gsqr,H)\n" << elemDiv(Gsqr, H);
 
-                  auto partialGsqr = mysamples.value().partial_sqr_Gradient();
-                  auto partialH = mysamples.value().partial_mean_Hessian();
+            // lets simulate results...
+            auto resres = sample_Cov(mt, H, nsamples);
+            M_Matrix<double> Smean = resres.value().first;
+            M_Matrix<double> Ssqr = resres.value().second;
 
-                  auto Gsqr = mysamples.value().mean_sqr_Gradient();
-                  os << "\n Gsqr \n" << Gsqr;
+            os << "\n TEST gradient_information_test \n";
+            auto gradient_information_test_test =
+                Gradient_Expectancy_Test(Smean, H, nsamples, pvalue, os);
 
-                  auto H = -mysamples.value().mean_Hessian();
-                  os << "\n H \n" << H;
-                  os << "\n elemDiv(Gsqr,H)\n" << elemDiv(Gsqr, H);
+            os << gradient_information_test_test.error() << "\n\n";
 
-                  // lets simulate results...
-                  auto resres = sample_Cov(mt, H, nsamples);
-                  M_Matrix<double> Smean = resres.value().first;
-                  M_Matrix<double> Ssqr = resres.value().second;
+            os << "\n gradient_information_test \n";
+            auto gradient_information_test =
+                Gradient_Expectancy_Test(Gmean, H, nsamples, pvalue, os);
+            os << gradient_information_test.error() << "\n\n";
+            os << "\n partial gradient_information_test \n";
+            for (std::size_t n = 0; n < partialGmean.size(); ++n) {
+                auto partial_gradient_information_test =
+                    Gradient_Expectancy_Test(partialGmean[n], partialH[n],
+                                             nsamples, pvalue, os);
+                os << partial_gradient_information_test.error() << "\n\n";
+            }
 
-                  os << "\n TEST gradient_information_test \n";
-                  auto gradient_information_test_test =
-                      Gradient_Expectancy_Test(Smean, H, nsamples, pvalue, os);
+            os << "\n TEST gradient_variance_test \n";
+            auto gradient_variance_test_test =
+                Gradient_Expectancy_Test(Smean, Ssqr, nsamples, pvalue, os);
+            os << gradient_variance_test_test.error() << "\n\n";
 
-                  os << gradient_information_test_test.error() << "\n\n";
+            os << "\n gradient_variance_test \n";
+            auto gradient_variance_test =
+                Gradient_Expectancy_Test(Gmean, Gsqr, nsamples, pvalue, os);
+            os << gradient_variance_test.error() << "\n\n";
+            os << "\n partial gradient_variance_test \n";
+            for (std::size_t n = 0; n < partialGmean.size(); ++n) {
+                auto partial_gradient_variance_test = Gradient_Expectancy_Test(
+                    partialGmean[n], partialGsqr[n], nsamples, pvalue, os);
+                os << partial_gradient_variance_test.error() << "\n\n";
+            }
 
-                  os << "\n gradient_information_test \n";
-                  auto gradient_information_test =
-                      Gradient_Expectancy_Test(Gmean, H, nsamples, pvalue, os);
-                  os << gradient_information_test.error() << "\n\n";
-                  os << "\n partial gradient_information_test \n";
-                  for (std::size_t n = 0; n < partialGmean.size(); ++n) {
-                      auto partial_gradient_information_test = Gradient_Expectancy_Test(
-                          partialGmean[n], partialH[n], nsamples, pvalue, os);
-                      os << partial_gradient_information_test.error() << "\n\n";
-                  }
+            os << "\n TEST gradient_variance_information_test \n";
+            auto gradient_variance_information_test_test =
+                Gradient_Variance_Expectancy_Test(Ssqr, H, nsamples, pvalue,
+                                                  os);
+            os << gradient_variance_information_test_test.error() << "\n\n";
 
-                  os << "\n TEST gradient_variance_test \n";
-                  auto gradient_variance_test_test =
-                      Gradient_Expectancy_Test(Smean, Ssqr, nsamples, pvalue, os);
-                  os << gradient_variance_test_test.error() << "\n\n";
+            os << "\n gradient_variance_information_test \n";
+            auto gradient_variance_information_test =
+                Gradient_Variance_Expectancy_Test(Gsqr, H, nsamples, pvalue,
+                                                  os);
+            os << gradient_variance_information_test.error() << "\n\n";
+            ;
 
-                  os << "\n gradient_variance_test \n";
-                  auto gradient_variance_test =
-                      Gradient_Expectancy_Test(Gmean, Gsqr, nsamples, pvalue, os);
-                  os << gradient_variance_test.error() << "\n\n";
-                  os << "\n partial gradient_variance_test \n";
-                  for (std::size_t n = 0; n < partialGmean.size(); ++n) {
-                      auto partial_gradient_variance_test = Gradient_Expectancy_Test(
-                          partialGmean[n], partialGsqr[n], nsamples, pvalue, os);
-                      os << partial_gradient_variance_test.error() << "\n\n";
-                  }
+            Op_void all_tests = gradient_information_test
+                << gradient_variance_information_test << gradient_variance_test;
+        }
 
-                  os << "\n TEST gradient_variance_information_test \n";
-                  auto gradient_variance_information_test_test =
-                      Gradient_Variance_Expectancy_Test(Ssqr, H, nsamples, pvalue, os);
-                  os << gradient_variance_information_test_test.error() << "\n\n";
+        auto par = std::vector({prior.Parameter_to_tr(p)});
 
-                  os << "\n gradient_variance_information_test \n";
-                  auto gradient_variance_information_test =
-                      Gradient_Variance_Expectancy_Test(Gsqr, H, nsamples, pvalue, os);
-                  os << gradient_variance_information_test.error() << "\n\n";
-                  ;
+        auto out =
+            Likelihood_Analisis(prior, par, mysamples.value().getSimulations(),
+                                mysamples.value().getLikelihoods());
+        typedef myOptional_t<std::decay_t<decltype(out)>> Op;
+        if (!mysamples)
+            return Op(false, "Sampling failed!! \n" + mysamples.error());
+        else
+            return Op(out);
+    }
 
-                  Op_void all_tests = gradient_information_test
-                      << gradient_variance_information_test
-                      << gradient_variance_test;
-              }
+    template <class Simulation_Model, class Der_Model, class Data,
+              class ParametersDistributionDerivative, class Parameters>
+    static auto
+    compute_test_derivative(std::ostream &os, const Simulation_Model &sim,
+                            const Der_Model &dm, const Data &e,
+                            const ParametersDistributionDerivative &dprior,
+                            const Parameters &p, std::mt19937_64 &mt,
+                            std::size_t nsamples, double pvalue) {
+        auto mysamples =
+            get_sample_derivative(os, sim, dm, e, dprior, p, mt, nsamples);
+        if constexpr (false) {
+            auto Gmean = mysamples.value().mean_Gradient();
+            os << "\n Gmean \n" << Gmean;
 
-              auto par = std::vector({prior.Parameter_to_tr(p)});
+            auto partialGmean = mysamples.value().partial_mean_Gradient();
+            os << "\n partialGmean \n";
+            for (std::size_t n = 0; n < partialGmean.size(); ++n)
+                os << "\n" << partialGmean[n];
 
+            auto partialGsqr = mysamples.value().partial_sqr_Gradient();
+            auto partialH = mysamples.value().partial_mean_Hessian();
 
-              auto out=Likelihood_Analisis(prior, par, mysamples.value().getSimulations(),
-                                             mysamples.value().getLikelihoods());
-              typedef myOptional_t<std::decay_t<decltype(out)>> Op;
-              if (!mysamples)
-                  return Op(false, "Sampling failed!! \n"+mysamples.error());
-              else return Op(out);
+            auto Gsqr = mysamples.value().mean_sqr_Gradient();
+            os << "\n Gsqr \n" << Gsqr;
 
-          }
+            auto H = -mysamples.value().mean_Hessian();
+            os << "\n H \n" << H;
+            os << "\n elemDiv(Gsqr,H)\n" << elemDiv(Gsqr, H);
 
-          template <class Simulation_Model, class Der_Model, class Data,
-                    class ParametersDistributionDerivative, class Parameters>
-          static auto
-          compute_test_derivative(std::ostream &os, const Simulation_Model &sim,
-                                  const Der_Model &dm, const Data &e,
-                                  const ParametersDistributionDerivative &dprior,
-                                  const Parameters &p, std::mt19937_64 &mt,
-                                  std::size_t nsamples, double pvalue) {
-              auto mysamples =
-                  get_sample_derivative(os, sim, dm, e, dprior, p, mt, nsamples);
-              if constexpr (false) {
-                  auto Gmean = mysamples.value().mean_Gradient();
-                  os << "\n Gmean \n" << Gmean;
+            // lets simulate results...
+            auto resres = sample_Cov(mt, H, nsamples);
+            M_Matrix<double> Smean = resres.value().first;
+            M_Matrix<double> Ssqr = resres.value().second;
 
-                  auto partialGmean = mysamples.value().partial_mean_Gradient();
-                  os << "\n partialGmean \n";
-                  for (std::size_t n = 0; n < partialGmean.size(); ++n)
-                      os << "\n" << partialGmean[n];
+            os << "\n TEST gradient_information_test \n";
+            auto gradient_information_test_test =
+                Gradient_Expectancy_Test(Smean, H, nsamples, pvalue, os);
 
-                  auto partialGsqr = mysamples.value().partial_sqr_Gradient();
-                  auto partialH = mysamples.value().partial_mean_Hessian();
+            os << gradient_information_test_test.error() << "\n\n";
 
-                  auto Gsqr = mysamples.value().mean_sqr_Gradient();
-                  os << "\n Gsqr \n" << Gsqr;
+            os << "\n gradient_information_test \n";
+            auto gradient_information_test =
+                Gradient_Expectancy_Test(Gmean, H, nsamples, pvalue, os);
+            os << gradient_information_test.error() << "\n\n";
+            os << "\n partial gradient_information_test \n";
+            for (std::size_t n = 0; n < partialGmean.size(); ++n) {
+                auto partial_gradient_information_test =
+                    Gradient_Expectancy_Test(partialGmean[n], partialH[n],
+                                             nsamples, pvalue, os);
+                os << partial_gradient_information_test.error() << "\n\n";
+            }
 
-                  auto H = -mysamples.value().mean_Hessian();
-                  os << "\n H \n" << H;
-                  os << "\n elemDiv(Gsqr,H)\n" << elemDiv(Gsqr, H);
+            os << "\n TEST gradient_variance_test \n";
+            auto gradient_variance_test_test =
+                Gradient_Expectancy_Test(Smean, Ssqr, nsamples, pvalue, os);
+            os << gradient_variance_test_test.error() << "\n\n";
 
-                  // lets simulate results...
-                  auto resres = sample_Cov(mt, H, nsamples);
-                  M_Matrix<double> Smean = resres.value().first;
-                  M_Matrix<double> Ssqr = resres.value().second;
+            os << "\n gradient_variance_test \n";
+            auto gradient_variance_test =
+                Gradient_Expectancy_Test(Gmean, Gsqr, nsamples, pvalue, os);
+            os << gradient_variance_test.error() << "\n\n";
+            os << "\n partial gradient_variance_test \n";
+            for (std::size_t n = 0; n < partialGmean.size(); ++n) {
+                auto partial_gradient_variance_test = Gradient_Expectancy_Test(
+                    partialGmean[n], partialGsqr[n], nsamples, pvalue, os);
+                os << partial_gradient_variance_test.error() << "\n\n";
+            }
 
-                  os << "\n TEST gradient_information_test \n";
-                  auto gradient_information_test_test =
-                      Gradient_Expectancy_Test(Smean, H, nsamples, pvalue, os);
+            os << "\n TEST gradient_variance_information_test \n";
+            auto gradient_variance_information_test_test =
+                Gradient_Variance_Expectancy_Test(Ssqr, H, nsamples, pvalue,
+                                                  os);
+            os << gradient_variance_information_test_test.error() << "\n\n";
 
-                  os << gradient_information_test_test.error() << "\n\n";
+            os << "\n gradient_variance_information_test \n";
+            auto gradient_variance_information_test =
+                Gradient_Variance_Expectancy_Test(Gsqr, H, nsamples, pvalue,
+                                                  os);
+            os << gradient_variance_information_test.error() << "\n\n";
+            ;
 
-                  os << "\n gradient_information_test \n";
-                  auto gradient_information_test =
-                      Gradient_Expectancy_Test(Gmean, H, nsamples, pvalue, os);
-                  os << gradient_information_test.error() << "\n\n";
-                  os << "\n partial gradient_information_test \n";
-                  for (std::size_t n = 0; n < partialGmean.size(); ++n) {
-                      auto partial_gradient_information_test = Gradient_Expectancy_Test(
-                          partialGmean[n], partialH[n], nsamples, pvalue, os);
-                      os << partial_gradient_information_test.error() << "\n\n";
-                  }
+            Op_void all_tests = gradient_information_test
+                << gradient_variance_information_test << gradient_variance_test;
+        }
+        auto par = std::vector({dprior.Parameter_to_tr(p)});
+        return Likelihood_Analisis(dprior.f(), par,
+                                   mysamples.value().getSimulations(),
+                                   mysamples.value().getLikelihoods());
+    }
+};
 
-                  os << "\n TEST gradient_variance_test \n";
-                  auto gradient_variance_test_test =
-                      Gradient_Expectancy_Test(Smean, Ssqr, nsamples, pvalue, os);
-                  os << gradient_variance_test_test.error() << "\n\n";
-
-                  os << "\n gradient_variance_test \n";
-                  auto gradient_variance_test =
-                      Gradient_Expectancy_Test(Gmean, Gsqr, nsamples, pvalue, os);
-                  os << gradient_variance_test.error() << "\n\n";
-                  os << "\n partial gradient_variance_test \n";
-                  for (std::size_t n = 0; n < partialGmean.size(); ++n) {
-                      auto partial_gradient_variance_test = Gradient_Expectancy_Test(
-                          partialGmean[n], partialGsqr[n], nsamples, pvalue, os);
-                      os << partial_gradient_variance_test.error() << "\n\n";
-                  }
-
-                  os << "\n TEST gradient_variance_information_test \n";
-                  auto gradient_variance_information_test_test =
-                      Gradient_Variance_Expectancy_Test(Ssqr, H, nsamples, pvalue, os);
-                  os << gradient_variance_information_test_test.error() << "\n\n";
-
-                  os << "\n gradient_variance_information_test \n";
-                  auto gradient_variance_information_test =
-                      Gradient_Variance_Expectancy_Test(Gsqr, H, nsamples, pvalue, os);
-                  os << gradient_variance_information_test.error() << "\n\n";
-                  ;
-
-                  Op_void all_tests = gradient_information_test
-                      << gradient_variance_information_test
-                      << gradient_variance_test;
-              }
-              auto par = std::vector({dprior.Parameter_to_tr(p)});
-              return Likelihood_Analisis(dprior.f(), par,
-                                         mysamples.value().getSimulations(),
-                                         mysamples.value().getLikelihoods());
-          }
-          };
-
-          } // namespace evidence
+} // namespace evidence
 
 #endif // MYLIKELIHOOD_H

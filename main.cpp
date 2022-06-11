@@ -1,14 +1,10 @@
 #include <iostream>
-//#include "myCommandManagement.h"
-
-#include "qmodel.h"
-#include "mygrammar.h"
+//#include "my_u    niversal_serializer.h"
 #include "mycompilation.h"
 #include "mynewcommandmanager.h"
 #include "myscriptmanager.h"
-#include "Experiment.h"
 #include "commands.h"
-#include "myevidence.h"
+
 int main(int argc, char **argv)
 {
     std::cerr<<argv[0]<<"\n";
@@ -20,7 +16,7 @@ int main(int argc, char **argv)
 
     CM cm;
 
-    //typedef typename optional_tag_t<grammar::Compiled_Statement<CM>*>::test test;
+         //typedef typename optional_tag_t<grammar::Compiled_Statement<CM>*>::test test;
 
     switch (argc) {
     case 1:
@@ -31,7 +27,7 @@ int main(int argc, char **argv)
         myScript<CM> s(&cm);
         return s.run(argv[1], std::cerr);
     }
-        break;
+    break;
     case 4:
     {
         myScript<CM> s(&cm);
@@ -54,12 +50,12 @@ int main(int argc, char **argv)
 
 
     }
-        break;
+    break;
+
+    }
 
 
-
-
-        return 0;
+    return 0;
 }
 
-}
+

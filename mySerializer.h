@@ -7,7 +7,6 @@
 #include <iostream>
 #include <sstream>
 
-#include "myTuples.h"
 #include "myfields.h"
 #include "mytypetraits.h"
 

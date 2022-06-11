@@ -6,7 +6,6 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <strstream>
 
 #include <type_traits>
 #include <memory>
