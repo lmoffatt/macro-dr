@@ -63,8 +63,9 @@ public:
   }
 
   template<class DataFrame>
-  static void insert_col(DataFrame& d, const std::string& pre)
+  static void insert_col(DataFrame& d, const std::string& pr)
   {
+      auto pre=pr+"der_";
       d.insert_column(pre+"P_mean",C<double>{});
       d.insert_column(pre+"P_cov",C<double>{});
       d.insert_column(pre+"y_mean",C<double>{});
@@ -171,6 +172,12 @@ inline std::ostream &operator<<(std::ostream &os,
                          const Derivative<markov::mp_state_information> &d) {
   return io::output_operator_on_Object(os, d);
 }
+
+
+
+
+
+
 
 template <>
 class Derivative<markov::hidden::MacroDMNR> : public markov::hidden::MacroDMNR {

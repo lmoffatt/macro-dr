@@ -14,7 +14,7 @@ int main(int argc, char **argv)
     typedef grammar::CommandManager<Objects> CM;
     static_assert (!has_base_type<grammar::Compiled_Statement<CM>>::value,"" );
 
-    CM cm;
+     CM cm;
 
          //typedef typename optional_tag_t<grammar::Compiled_Statement<CM>*>::test test;
 

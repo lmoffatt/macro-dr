@@ -3,6 +3,7 @@
 #include "Matrix.h"
 #include "myDistributions.h" //for indexes
 #include "myfields.h"
+#include "myTuples.h"
 
 struct s_f {
   constexpr static auto const title = my_static_string("_f");

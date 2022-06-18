@@ -42,6 +42,23 @@ public:
         grammar::field(C<self_type>{}, "vplogL", &self_type::vplogL));
   }
 
+  auto data_row(std::size_t i, std::size_t j) const {
+      return std::tuple(P_mean()[i],P_cov()(i,j),y_mean(),y_var(),plogL(),eplogL(),vplogL());
+  }
+
+
+  template <class DataFrame>
+  static void insert_col(DataFrame &d, const std::string pre) {
+      d.insert_column(pre + "P_mean", C<double>{});
+      d.insert_column(pre + "P_cov", C<double>{});
+      d.insert_column(pre + "y_mean", C<double>{});
+      d.insert_column(pre + "y_var", C<double>{});
+      d.insert_column(pre + "plogL", C<double>{});
+      d.insert_column(pre + "eplogL", C<double>{});
+      d.insert_column(pre + "vplogL", C<double>{});
+     }
+
+
   static Op_void close_to_zero_test(const M_Matrix<double> &P_mean__,
                                     double tolerance) {
     std::stringstream ss;
@@ -223,7 +240,8 @@ template <> struct my_trait<markov::MACROR> {
   }
 
 
-  static auto data_row(markov::MACROR d) {
+  template<class...x>
+  static auto data_row(markov::MACROR d,x...) {
     switch (d) {
     case markov::MACRO_DMNR:
       return std::tuple(1.0, 0.0, 0.0, 0.0);
@@ -245,7 +263,28 @@ struct insert_col_imp
     static void insert_col(DataFrame &d, const std::string &pre) {
         T::insert_col(d,pre);
     }
+
+
 };
+
+template<class T>
+struct insert_row_imp
+{   template <typename... I>
+    static auto data_row(const T &d, I...i) {
+        return d.data_row(i...);
+    }
+};
+
+template<>
+struct insert_row_imp<markov::MACROR>
+{
+    template <typename... I>
+    static auto data_row(markov::MACROR d, I...i) {
+        return my_trait<markov::MACROR>::data_row(d,i...);
+    }
+};
+
+
 
 template<>
 struct insert_col_imp<markov::MACROR>
@@ -267,6 +306,7 @@ template <class T, class S, class...U> struct my_trait<T,S,U...> {
           insert_col_imp<S>::insert_col(d,pre)),...,insert_col_imp<U>::insert_col(d,pre));
 
     }
+
 
 
 

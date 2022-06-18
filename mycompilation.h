@@ -20,6 +20,8 @@ public:
     virtual std::string execute(Cm * cm) const=0;
     virtual bool valid_execute(Cm * cm) const=0;
 
+    virtual std::string expression_type()const=0;
+
     virtual Compiled_Statement* clone()const =0;
 
 
@@ -39,6 +41,12 @@ public:
 
     //static_assert (std::is_const_v<Cm>,"hehehe" );
     typedef T result_type;
+
+    virtual std::string expression_type()const override final
+        {
+        return my_trait<T>::className.str();
+        };
+
     typedef myOptional_t<T> oT;
     virtual oT run(Cm const* cm) const=0;
     virtual oT run(Cm* cm) const=0;
@@ -140,7 +148,7 @@ public:
         return new Compiled_Identifier(*this);
     }
 
-    Compiled_Identifier(std::string&& i):id{i}{}
+    Compiled_Identifier(std::string&& i):id{std::move(i)}{}
 
     Compiled_Identifier(const std::string& i):id{i}{}
 
@@ -154,7 +162,18 @@ public:
     {
         if (cm->has(C<T>{}, x->value()))
             return new myOptional_t<Compiled_Identifier<Cm,T>*>(new Compiled_Identifier(x->value()));
-        else return new myOptional_t<Compiled_Identifier<Cm,T>*>(false,x->value()+ " is not "+my_trait<T>::className.str());
+        else
+        {
+            auto var=cm->get_Identifier(cm,x);
+            if (var)
+                return new myOptional_t<Compiled_Identifier<Cm,T>*>(false,x->value()+ " is a"+ var->expression_type()+ " not a "+my_trait<T>::className.str());
+             else
+                return new myOptional_t<Compiled_Identifier<Cm,T>*>(false,x->value()+ " is not a variable");
+
+
+        }
+
+
     }
 
     virtual ~Compiled_Identifier(){}
@@ -824,7 +843,7 @@ public:
         if (!o->value().empty()&&c->has_value())
             return new myOptional_t<Compiled_Assignment<Cm,T>*>(new Compiled_Assignment<Cm,T>(o->value(),c->release()));
         else
-            return new myOptional_t<Compiled_Assignment*>(false,"error in Assignment for "+o->id()->value()+": "+c->error());
+            return new myOptional_t<Compiled_Assignment*>(false,"error in Assignment for "+o->id()->value()+" a "+": "+c->error());
     }
 
 

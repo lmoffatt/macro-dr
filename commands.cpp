@@ -128,9 +128,6 @@ template struct to_DataFrame<evidence::Likelihood_Analisis<
     Parameters_distribution<State_Model>, M_Matrix<double>,
     singleLigandExperiment, evidence::PartialDLogLikelihood<markov::MACROR>>>;
 
-template struct to_DataFrame<evidence::Likelihood_Analisis<
-    Parameters_distribution<State_Model>, M_Matrix<double>,
-    experiment::basic_Experiment<experiment::point<double, double>,
-                                 experiment::measure_just_y<double>>,
-    evidence::PartialDLogLikelihood<markov::MACROR,
-                                    Derivative<markov::mp_state_information>>>>;
+template struct to_DataFrame<typename likelihoodtest<
+    singleLigandExperiment, State_Model,
+    Parameters_distribution<State_Model>>::return_type>;

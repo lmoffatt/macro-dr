@@ -255,7 +255,10 @@ template <class Experiment, class Model> struct likelihood {
 template <class Experiment, class Model, class ParametersDistribution>
 struct likelihoodtest {
 
+
+
     static constexpr auto className = my_static_string("likelihoodtest");
+
     static auto run(std::size_t initseed, const Experiment &e, const Model &m,
                     const Parameters_values<Model> &p,
                     const ParametersDistribution &prior,
@@ -279,6 +282,11 @@ struct likelihoodtest {
             std::cerr, sim, lik, e, prior, p, mt, nsamples, pvalue, !eps_adjust,
             center_Gradient);
     }
+    using return_type = decltype(run(
+        0, std::declval<Experiment const &>(), std::declval<const Model &>(),
+        std::declval<const Parameters_values<Model> &>(),
+        std::declval<const ParametersDistribution &>(),
+        std::declval<const std::string &>(), 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
 
     static auto get_arguments() {
         return std::make_tuple(
@@ -686,6 +694,72 @@ struct Evidence_emcee {
     }
 };
 
+
+template <class Experiment, class Model, class ParametersDistribution>
+struct likelihoodtest_new {
+
+
+
+    static constexpr auto className = my_static_string("likelihoodtest");
+
+    static auto run(std::size_t initseed, const Experiment &e, const Model &m,
+                    const Parameters_values<Model> &p,
+                    const ParametersDistribution &prior,
+                    const std::string algorithm, double BiNumber,
+                    double VaNumber, double min_P, double tolerance,
+                    double eps_Gradient, bool eps_adjust, bool center_Gradient,
+                    std::size_t n_sub_intervals, double max_dt,
+                    std::size_t nsamples, double pvalue, double epsf) {
+        std::cerr << "\nparameters\n" << p;
+        std::cerr << "\n initseed=" << initseed << "\n";
+        std::cerr << "\n n_sub_intervals=" << n_sub_intervals << "\n";
+        std::cerr << "\n nsamples=" << nsamples << "\n";
+        std::cerr << "\n center_Gradient=" << center_Gradient << "\n";
+
+        std::mt19937_64 mt = init_mt(initseed, std::cerr);
+        Markov_Model_DLikelihood<Model, Experiment, ParametersDistribution> lik(
+            m, prior, e, algorithm, eps_Gradient, min_P, tolerance, BiNumber,
+            VaNumber, epsf);
+        Simulator<Model> sim(m, n_sub_intervals, max_dt, min_P, tolerance);
+        return evidence::Likelihood_Test::compute_test(
+            std::cerr, sim, lik, e, prior, p, mt, nsamples, pvalue, !eps_adjust,
+            center_Gradient);
+    }
+    using return_type = decltype(run(
+        0, std::declval<Experiment const &>(), std::declval<const Model &>(),
+        std::declval<const Parameters_values<Model> &>(),
+        std::declval<const ParametersDistribution &>(),
+        std::declval<const std::string &>(), 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0));
+
+    static auto get_arguments() {
+        return std::make_tuple(
+            grammar::argument(C<std::size_t>{}, "initseed"),
+            grammar::argument(C<const Experiment &>{},
+                              my_trait<Experiment>::className.c_str()),
+            grammar::argument(C<Model &>{}, my_trait<Model>::className.c_str()),
+            grammar::argument(C<const Parameters_values<Model> &>{},
+                              "model_parameters"),
+            grammar::argument(C<const ParametersDistribution &>{},
+                              "model_parameters_distribution"),
+            grammar::argument(C<std::string>{}, "algorithm"),
+            grammar::argument(C<double>{}, "Binomial_threshold", 5.0),
+            grammar::argument(C<double>{}, "Variance_threshold", 1.0),
+            grammar::argument(C<double>{}, "min_probability", 1e-9),
+            grammar::argument(C<double>{}, "tolerance_error", 1e-7),
+            grammar::argument(C<double>{}, "eps_G"),
+            grammar::argument(C<bool>{}, "eps_G_adjust"),
+            grammar::argument(C<bool>{}, "Center_gradient"),
+            grammar::argument(C<std::size_t>{}, "number_of_sub_intervals"),
+            grammar::argument(C<double>{}, "max_dt"),
+            grammar::argument(C<std::size_t>{}, "nsamples"),
+            grammar::argument(C<double>{}, "p_value"),
+            grammar::argument(C<double>{}, "eps_factor"));
+    }
+};
+
+
+
+
 struct Objects {
 
     typedef Cs<State_Model, Allosteric_Model, singleLigandExperiment> types;
@@ -741,12 +815,13 @@ struct Objects {
         to_DataFrame<evidence::Likelihood_Analisis<
             Parameters_distribution<State_Model>, M_Matrix<double>,
             singleLigandExperiment,
-            evidence::PartialDLogLikelihood<markov::MACROR>>>>
-//        ,
+            evidence::PartialDLogLikelihood<markov::MACROR>>>
+        ,
 
-//        to_DataFrame<typename likelihoodtest_derivative<
-//            singleLigandExperiment, State_Model,
-//            Parameters_distribution<State_Model>>::return_type>>
+        to_DataFrame<typename likelihoodtest<
+            singleLigandExperiment, State_Model,
+            Parameters_distribution<State_Model>>::return_type>
+        >
 
         commands;
     typedef CCs<save, write_variable> templateCommands;

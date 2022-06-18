@@ -249,9 +249,6 @@ constexpr std::pair<Init,std::size_t> map_reduce_while(F&& f, Init&& init,const 
         return std::pair(std::forward<Init>(init),ipos);
 }
 
-
-
-
 struct real_serializer
 {
     enum  class state{begin, end, error,initial_sign, integral_digit,decimal_point,decimal_digit,exponent_symbol,exponent_sign,exponent_digit};

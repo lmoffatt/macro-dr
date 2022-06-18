@@ -3,6 +3,8 @@
 
 #include "mytypetraits.h"
 #include <algorithm>
+#include <ios>
+#include <limits>
 
 template <class... Fields> struct CT_s {
   constexpr static auto const title =

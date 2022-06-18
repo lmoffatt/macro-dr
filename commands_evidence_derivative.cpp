@@ -1,5 +1,6 @@
-#include "commands.h"
+#include "qlikelihood_derivative.h"
 
+#include "commands.h"
 template <class Experiment, class Model, class ParametersDistribution>
 std::string Evidence_Derivative<Experiment, Model, ParametersDistribution>::run(
     const Experiment &e, const Model &m, const ParametersDistribution &prior,

@@ -1,6 +1,7 @@
 #ifndef MYLIKELIHOOD_H
 #define MYLIKELIHOOD_H
 #include "Matrix.h"
+#include "likelihood_markov_process.h"
 #include "myDistributions.h"
 #include "mydataframe.h"
 #include "myparameters.h"
@@ -1066,6 +1067,10 @@ private:
     moments<double> gradient_fim_value_;
 };
 
+
+
+
+
 namespace evidence {
 
 template <class... Auxs> class PartialDLogLikelihood : public DVlogLikelihood {
@@ -1109,18 +1114,16 @@ public:
 
     template <class DataFrame> static void insert_col(DataFrame &d) {
 
-        my_trait<Auxs...>::insert_col(d, "");
         base_type::insert_col(d);
         DlogLikelihood::insert_col(d, "partial_");
+        my_trait<Auxs...>::insert_col(d, "");
     }
     static Data_Index_scheme data_index() {
         Data_Index_scheme out = base_type::data_index();
         auto vAux =
             Insert_Index(my_trait<Auxs...>::data_index(), {"i_measure"});
-        out = concatenate(std::move(out), std::move(vAux));
         auto vDlog = Insert_Index(DlogLikelihood::data_index(), {"i_measure"});
-        ;
-        out = concatenate(std::move(out), std::move(vDlog));
+        out = concatenate(std::move(out), std::move(vDlog), std::move(vAux));
         return out;
     }
 
@@ -1168,12 +1171,22 @@ public:
         auto ind = l.getIndexedData(index, names);
     }
 
+
+
+
+
     auto data_row(std::size_t isample, std::size_t i, std::size_t j) const {
         return std::tuple_cat(
-            my_trait<std::tuple_element_t<0, std::tuple<Auxs...>>>::data_row(
-                std::get<0>(getAuxiliar()[isample])),
-            base_type::data_row(i, j), partial_DlogL()[isample].data_row(i, j));
+            base_type::data_row(i, j),
+            partial_DlogL()[isample].data_row(i, j),
+            std::apply([isample,i,j](const auto&... t){return std::tuple_cat(insert_row_imp<Auxs>::data_row(t,i,j)...);},getAuxiliar()[isample])
+            );
+
     }
+
+
+
+
 
     auto &getAuxiliar() const { return aux_; }
 
@@ -2042,42 +2055,6 @@ public:
             }
         }
 
-        auto likmom = get_Likelihood_Moments();
-        auto expmom = get_Experiment_Moments();
-        auto parmom = get_Parameters_Moments();
-
-        for (auto m : MOMENTS_VALUES) {
-            auto data_sample = std::tuple(MOMENTS_string[m], 0ul);
-            assert(expmom.steps().size() == likmom.partial_DlogL().size());
-            auto nsteps = expmom.steps().size();
-            for (std::size_t i_step = 0; i_step < nsteps; ++i_step) {
-                auto data_exp = expmom.data_row(m, i_step);
-                auto npar = prior_.size();
-                assert(npar == likmom.G().mean().size());
-                for (std::size_t i_par = 0; i_par < npar; ++i_par) {
-                    for (std::size_t i_parT = 0; i_parT <= i_par; ++i_parT) {
-                        auto data_lik =
-                            likmom.data_row(m, i_step, i_par, i_parT);
-                        auto data_par = std::tuple_cat(
-                            std::tuple(prior_.name(i_par)),
-                            parmom.data_row(m, i_par, i_parT),
-                            std::tuple(prior_.tr_to_Parameter(
-                                           std::get<0>(parmom.data_row(m, i_par,
-                                                                       i_par)),
-                                           i_par),
-                                       prior_.name(i_parT)),
-                            parmom.data_row(m, i_parT, i_par),
-                            std::tuple(prior_.tr_to_Parameter(
-                                std::get<0>(parmom.data_row(m, i_parT, i_parT)),
-                                i_parT)));
-                        auto data_t = std::tuple_cat(data_sample, data_exp,
-                                                     data_par, data_lik);
-                        d.push_back_t(data_t);
-                    }
-                }
-            }
-        }
-
         return d;
     }
 
@@ -2704,14 +2681,9 @@ public:
 
         auto par = std::vector({prior.Parameter_to_tr(p)});
 
-        auto out =
+        return
             Likelihood_Analisis(prior, par, mysamples.value().getSimulations(),
                                 mysamples.value().getLikelihoods());
-        typedef myOptional_t<std::decay_t<decltype(out)>> Op;
-        if (!mysamples)
-            return Op(false, "Sampling failed!! \n" + mysamples.error());
-        else
-            return Op(out);
     }
 
     template <class Simulation_Model, class Der_Model, class Data,
