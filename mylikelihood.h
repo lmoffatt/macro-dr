@@ -9,6 +9,10 @@
 
 namespace evidence {
 
+struct i_sample {
+    constexpr static auto const title = my_static_string("i_sample");
+};
+
 /*
  *
  *  supongamos en el medio que tenemos un Modelo que tira
@@ -1067,10 +1071,6 @@ private:
     moments<double> gradient_fim_value_;
 };
 
-
-
-
-
 namespace evidence {
 
 template <class... Auxs> class PartialDLogLikelihood : public DVlogLikelihood {
@@ -1116,7 +1116,8 @@ public:
 
         base_type::insert_col(d);
         DlogLikelihood::insert_col(d, "partial_");
-        my_trait<Auxs...>::insert_col(d, "");
+        my_trait<std::tuple_element_t<0, std::tuple<Auxs...>>>::insert_col(d,
+                                                                           "");
     }
     static Data_Index_scheme data_index() {
         Data_Index_scheme out = base_type::data_index();
@@ -1171,22 +1172,12 @@ public:
         auto ind = l.getIndexedData(index, names);
     }
 
-
-
-
-
     auto data_row(std::size_t isample, std::size_t i, std::size_t j) const {
         return std::tuple_cat(
-            base_type::data_row(i, j),
-            partial_DlogL()[isample].data_row(i, j),
-            std::apply([isample,i,j](const auto&... t){return std::tuple_cat(insert_row_imp<Auxs>::data_row(t,i,j)...);},getAuxiliar()[isample])
-            );
-
+            base_type::data_row(i, j), partial_DlogL()[isample].data_row(i, j),
+            my_trait<std::tuple_element_t<0, std::tuple<Auxs...>>>::data_row(
+                std::get<0>(getAuxiliar()[isample])));
     }
-
-
-
-
 
     auto &getAuxiliar() const { return aux_; }
 
@@ -1386,6 +1377,9 @@ public:
     const Data &data() const { return d_; }
     void set_Data(Data &&d) { d_ = std::move(d); }
 
+
+
+
 protected:
     Distribution_Model l_;
     Data d_;
@@ -1402,6 +1396,7 @@ public:
     typedef typename Distribution_Model::aux_type Aux;
 
     typedef Likelihood_Model<Distribution_Model, Data> L;
+
 
     auto compute_DLikelihood_init(const Parameters &p, std::ostream &os) const {
         return compute_DLikelihood_init(p, os, L::data());
@@ -2319,6 +2314,84 @@ public:
         }
     }
 
+    template <class self_type, class ModelSeries>
+    static auto generate_output_formatter()
+
+    {
+        typedef std::tuple<std::size_t,self_type const *,
+                           ModelSeries const *>
+            self_type_model;
+
+        return Concatenate_tuple_static(
+            Compose_static(
+                std::make_tuple(I_s(
+                    i_sample{}, [](const self_type_model &) { return 1; },
+                    [](const self_type_model &s, std::size_t) -> std::size_t {
+                        return std::get<0>(s);
+                    })),
+                [](const self_type_model &self, std::size_t) -> auto const & {
+                    return *std::get<1>(self);
+                },
+                self_type::get_data_index_static()),
+            std::make_tuple(make_data_static(
+                std::make_tuple(
+                    I_s(
+                        i_sample{}, [](const self_type_model &) { return 1; },
+                        [](const self_type_model &s, std::size_t)
+                            -> std::size_t { return std::get<0>(s); }),
+                    I_s(
+                        i_Parameter{},
+                        [](const self_type_model &self, std::size_t,
+                           std::size_t) {
+                            return std::get<2>(self)->model().get_ParametersDistribution().size();
+                        },
+                        [](const self_type_model &self,
+                           std::size_t, std::size_t i_par) {
+                            return std::get<2>(self)->model().get_ParametersDistribution().name(i_par);
+                        }),
+                    I_s(
+                        CT_s<i_Parameter, s_Transpose>{},
+                        [](const self_type_model &self,
+                           std::size_t, std::size_t) {
+                            return std::get<2>(self)->model().get_ParametersDistribution().size();
+                        },
+                        [](const self_type_model &self,
+                           std::size_t, std::size_t, std::size_t i_par) {
+                            return std::get<2>(self)->model().get_ParametersDistribution().name(i_par);
+                        })),
+                std::tuple<>())));
+    }
+
+    template <class Ana_Data_Index_tuple>
+    static void print_title(const Ana_Data_Index_tuple &anadata,
+                            const std::string &idname, const std::string &sep) {
+
+        //       typedef typename State_Data_Index_tuple::format state_format;
+        std::apply(
+            [&idname, &sep](auto &...d) {
+                (d.print_title(idname + "_ana_", ".txt", sep) && ...);
+            },
+            anadata);
+    }
+
+
+    template <class Ana_Data_Index_tuple, class AnaSample, class ModelSeries>
+    static void print_element(const Ana_Data_Index_tuple &anadata,
+                       const std::string &idname, std::size_t isample,
+                       const ModelSeries &M,  const AnaSample &ana, const std::string& sep) {
+            std::tuple<std::size_t, AnaSample const *, ModelSeries const *> s(
+                isample, &ana, &M);
+
+            std::apply(
+                [&s, &idname, &sep](auto &...t) {
+                    (t.print_data(s, idname + "_ana_", ".txt", sep)&&...);
+                },
+                anadata);
+        }
+
+
+
+
     template <class Simulation_Model, class FIM_Model, class Data,
               class ParametersDistribution, class Parameters>
     static auto compute_Sample_init(std::ostream &os,
@@ -2363,9 +2436,9 @@ public:
 
     template <class Simulation_Model, class FIM_Model, class Data,
               class ParametersDistribution, class Parameters>
-    static auto get_sample(std::ostream &os, const Simulation_Model &sim,
-                           const FIM_Model &fim, const Data &e,
-                           const ParametersDistribution &prior,
+    static auto get_sample(const std::string &filename, std::ostream &os,
+                           const Simulation_Model &sim, const FIM_Model &fim,
+                           const Data &e, const ParametersDistribution &prior,
                            const Parameters &p, std::mt19937_64 &mt,
                            std::size_t nsamples, bool init, bool centered) {
         typedef std::decay_t<decltype(sim.compute_simulation(e, p, mt).value())>
@@ -2386,6 +2459,11 @@ public:
 
         std::vector<std::stringstream> oss(8);
         auto mtvec = mts(mt, 8);
+
+        auto output_formatter =
+            generate_output_formatter<PartialDLogLikelihoO, FIM_Model>();
+
+        print_title(output_formatter, filename, "\t");
 
         if (!init) {
             auto logL = compute_Sample_init(os, sim, fim, e, prior, p, mt);
@@ -2468,6 +2546,14 @@ public:
         }
         os << "\n successfully obtained " + ToString(nsamples) +
                 " samples for Gradient_Expectancy_Test \n";
+
+        for (std::size_t i= 0; i < nsamples; ++i)
+
+        {
+
+            print_element(output_formatter,filename,i,fim,s[i],"\t");
+        }
+
 
         auto samples = Likelihood_sample(std::move(simuls), std::move(s));
         return Op(samples);
@@ -2593,18 +2679,18 @@ public:
 
     template <class Simulation_Model, class FIM_Model, class Data,
               class ParametersDistribution, class Parameters>
-    static auto compute_test(std::ostream &os, const Simulation_Model &sim,
-                             const FIM_Model &fim, const Data &e,
-                             const ParametersDistribution &prior,
+    static auto compute_test(std::string filename, std::ostream &os,
+                             const Simulation_Model &sim, const FIM_Model &fim,
+                             const Data &e, const ParametersDistribution &prior,
                              const Parameters &p, std::mt19937_64 &mt,
                              std::size_t nsamples, double pvalue, bool init,
 
                              bool centergradient) {
 
-        auto mysamples = get_sample(os, sim, fim, e, prior, p, mt, nsamples,
-                                    init, centergradient);
+        auto mysamples = get_sample(filename, os, sim, fim, e, prior, p, mt,
+                                    nsamples, init, centergradient);
 
-        if constexpr (false) {
+        if constexpr (true) {
             auto Gmean = mysamples.value().mean_Gradient();
             os << "\n Gmean \n" << Gmean;
 
@@ -2681,9 +2767,9 @@ public:
 
         auto par = std::vector({prior.Parameter_to_tr(p)});
 
-        return
-            Likelihood_Analisis(prior, par, mysamples.value().getSimulations(),
-                                mysamples.value().getLikelihoods());
+        return Likelihood_Analisis(prior, par,
+                                   mysamples.value().getSimulations(),
+                                   mysamples.value().getLikelihoods());
     }
 
     template <class Simulation_Model, class Der_Model, class Data,

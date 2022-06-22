@@ -351,6 +351,7 @@ public:
   constexpr static auto const className=my_static_string("Markov_Model_DLikelihood")+my_trait<template_types>::className;
 
 
+
     Markov_Model_DLikelihood(const Model& m, const Parameters_Distribution& p, const Experiment& e, const std::string& algorithm, double eps_G,double min_P, double tolerance, double BiNumber, double VaNumber, double epsf)
         :evidence::FIM_Model<Markov_Model_Likelihood<Model,Parameters_Distribution>,Experiment>(Markov_Model_Likelihood<Model,Parameters_Distribution>(m,p,algorithm,min_P,tolerance,BiNumber,VaNumber),e, eps_G, epsf){}
     Markov_Model_DLikelihood(const base_type& fim):base_type{fim}{}

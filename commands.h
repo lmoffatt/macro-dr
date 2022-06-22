@@ -259,7 +259,8 @@ struct likelihoodtest {
 
     static constexpr auto className = my_static_string("likelihoodtest");
 
-    static auto run(std::size_t initseed, const Experiment &e, const Model &m,
+    static auto run(std::string filename,
+                    std::size_t initseed, const Experiment &e, const Model &m,
                     const Parameters_values<Model> &p,
                     const ParametersDistribution &prior,
                     const std::string algorithm, double BiNumber,
@@ -267,6 +268,7 @@ struct likelihoodtest {
                     double eps_Gradient, bool eps_adjust, bool center_Gradient,
                     std::size_t n_sub_intervals, double max_dt,
                     std::size_t nsamples, double pvalue, double epsf) {
+        std::cerr << "\nfilename\n" << filename;
         std::cerr << "\nparameters\n" << p;
         std::cerr << "\n initseed=" << initseed << "\n";
         std::cerr << "\n n_sub_intervals=" << n_sub_intervals << "\n";
@@ -278,11 +280,11 @@ struct likelihoodtest {
             m, prior, e, algorithm, eps_Gradient, min_P, tolerance, BiNumber,
             VaNumber, epsf);
         Simulator<Model> sim(m, n_sub_intervals, max_dt, min_P, tolerance);
-        return evidence::Likelihood_Test::compute_test(
+        return evidence::Likelihood_Test::compute_test(filename,
             std::cerr, sim, lik, e, prior, p, mt, nsamples, pvalue, !eps_adjust,
             center_Gradient);
     }
-    using return_type = decltype(run(
+    using return_type = decltype(run("test",
         0, std::declval<Experiment const &>(), std::declval<const Model &>(),
         std::declval<const Parameters_values<Model> &>(),
         std::declval<const ParametersDistribution &>(),
@@ -290,6 +292,7 @@ struct likelihoodtest {
 
     static auto get_arguments() {
         return std::make_tuple(
+            grammar::argument(C<std::string>{}, "filename"),
             grammar::argument(C<std::size_t>{}, "initseed"),
             grammar::argument(C<const Experiment &>{},
                               my_trait<Experiment>::className.c_str()),
@@ -811,17 +814,7 @@ struct Objects {
         to_DataFrame<evidence::Likelihood_Analisis<
             Parameters_distribution<Allosteric_Model>, M_Matrix<double>,
             singleLigandExperiment,
-            evidence::PartialDLogLikelihood<markov::MACROR>>>,
-        to_DataFrame<evidence::Likelihood_Analisis<
-            Parameters_distribution<State_Model>, M_Matrix<double>,
-            singleLigandExperiment,
-            evidence::PartialDLogLikelihood<markov::MACROR>>>
-        ,
-
-        to_DataFrame<typename likelihoodtest<
-            singleLigandExperiment, State_Model,
-            Parameters_distribution<State_Model>>::return_type>
-        >
+            evidence::PartialDLogLikelihood<markov::MACROR>>>>
 
         commands;
     typedef CCs<save, write_variable> templateCommands;

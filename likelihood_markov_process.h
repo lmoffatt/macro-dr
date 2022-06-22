@@ -222,8 +222,10 @@ inline std::istream &operator>>(std::istream &is, MACROR &m) {
   is >> s;
   for (auto v : MACROR_VALUES) {
     if (s == MACROR_string[v])
+      {
       m = v;
     return is;
+    }
   }
   is.setstate(std::ios::failbit);
   return is;
